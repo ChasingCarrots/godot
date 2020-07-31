@@ -186,6 +186,7 @@ def configure_msvc(env, manual_msvc_config):
         env.Append(LINKFLAGS=["/SUBSYSTEM:WINDOWS"])
         env.Append(LINKFLAGS=["/ENTRY:mainCRTStartup"])
         env.Append(LINKFLAGS=["/OPT:REF"])
+        env.AppendUnique(CCFLAGS="/MD")
 
     elif env["target"] == "release_debug":
         if env["optimize"] == "speed":  # optimize for speed (default)
@@ -195,12 +196,14 @@ def configure_msvc(env, manual_msvc_config):
         env.AppendUnique(CPPDEFINES=["DEBUG_ENABLED"])
         env.Append(LINKFLAGS=["/SUBSYSTEM:CONSOLE"])
         env.Append(LINKFLAGS=["/OPT:REF"])
+        env.AppendUnique(CCFLAGS="/MD")
 
     elif env["target"] == "debug":
         env.AppendUnique(CCFLAGS=["/Z7", "/Od", "/EHsc"])
         env.AppendUnique(CPPDEFINES=["DEBUG_ENABLED"])
         env.Append(LINKFLAGS=["/SUBSYSTEM:CONSOLE"])
         env.Append(LINKFLAGS=["/DEBUG"])
+        env.AppendUnique(CCFLAGS="/MDd")
 
     if env["debug_symbols"] == "full" or env["debug_symbols"] == "yes":
         env.AppendUnique(CCFLAGS=["/Z7"])
@@ -208,7 +211,7 @@ def configure_msvc(env, manual_msvc_config):
 
     ## Compile/link flags
 
-    env.AppendUnique(CCFLAGS=["/MT", "/Gd", "/GR", "/nologo"])
+    env.AppendUnique(CCFLAGS=["/Gd", "/GR", "/nologo"])
     if int(env["MSVC_VERSION"].split(".")[0]) >= 14:  # vs2015 and later
         env.AppendUnique(CCFLAGS=["/utf-8"])
     env.AppendUnique(CXXFLAGS=["/TP"])  # assume all sources are C++
