@@ -1,0 +1,22 @@
+# SCsub
+
+Import('env')
+
+env_acrobotic = env.Clone()
+# We don't want godot's dependencies to be injected into our shared library.
+env_acrobotic['LIBS'] = []
+env_acrobotic.add_source_files(env.modules_sources, "*.cpp") # Add all cpp files to the build
+
+env_acrobotic.Append(CPPPATH=["../../../backend/package/include/"])
+
+env.Append(LIBPATH=["../../../backend/package/lib/"])
+
+# this is needed to fix an issue with godot, scons and thirdparty libs...
+# https://github.com/godotengine/godot/issues/23687
+lib_suffix = Environment()['LIBSUFFIX']
+liblist = ["acrobotic-backend", "BackendLib", "Bullet3Common_Debug", "BulletCollision_Debug", "BulletDynamics_Debug", "BulletInverseDynamics_Debug", "BulletSoftBody_Debug", "EASTL", "easy_profiler", "fmtd", "spdlogd"]
+if env.msvc:
+    for lib in liblist:
+        env.Append(LINKFLAGS=lib + lib_suffix)
+else:
+    env.Append(LIBS=liblist)
