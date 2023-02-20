@@ -1742,6 +1742,7 @@ void GDScriptAnalyzer::resolve_assignable(GDScriptParser::AssignableNode *p_assi
 	}
 
 	type.is_constant = is_constant;
+	type.is_read_only = false;
 	p_assignable->set_datatype(type);
 }
 
@@ -4251,18 +4252,22 @@ Variant GDScriptAnalyzer::make_subscript_reduced_value(GDScriptParser::Subscript
 Array GDScriptAnalyzer::make_array_from_element_datatype(const GDScriptParser::DataType &p_element_datatype, const GDScriptParser::Node *p_source_node) {
 	Array array;
 
-	Ref<Script> script_type = p_element_datatype.script_type;
-	if (p_element_datatype.kind == GDScriptParser::DataType::CLASS && script_type.is_null()) {
-		Error err = OK;
-		Ref<GDScript> scr = GDScriptCache::get_shallow_script(p_element_datatype.script_path, err);
-		if (err) {
-			push_error(vformat(R"(Error while getting cache for script "%s".)", p_element_datatype.script_path), p_source_node);
-			return array;
+	if (p_element_datatype.builtin_type == Variant::OBJECT) {
+		Ref<Script> script_type = p_element_datatype.script_type;
+		if (p_element_datatype.kind == GDScriptParser::DataType::CLASS && script_type.is_null()) {
+			Error err = OK;
+			Ref<GDScript> scr = GDScriptCache::get_shallow_script(p_element_datatype.script_path, err);
+			if (err) {
+				push_error(vformat(R"(Error while getting cache for script "%s".)", p_element_datatype.script_path), p_source_node);
+				return array;
+			}
+			script_type.reference_ptr(scr->find_class(p_element_datatype.class_type->fqcn));
 		}
-		script_type.reference_ptr(scr->find_class(p_element_datatype.class_type->fqcn));
-	}
 
-	array.set_typed(p_element_datatype.builtin_type, p_element_datatype.native_type, script_type);
+		array.set_typed(p_element_datatype.builtin_type, p_element_datatype.native_type, script_type);
+	} else {
+		array.set_typed(p_element_datatype.builtin_type, StringName(), Variant());
+	}
 
 	return array;
 }
@@ -4278,11 +4283,15 @@ Variant GDScriptAnalyzer::make_variable_default_value(GDScriptParser::VariableNo
 		}
 	} else {
 		GDScriptParser::DataType datatype = p_variable->get_datatype();
-		if (datatype.is_hard_type() && datatype.kind == GDScriptParser::DataType::BUILTIN && datatype.builtin_type != Variant::OBJECT) {
-			if (datatype.builtin_type == Variant::ARRAY && datatype.has_container_element_type()) {
-				result = make_array_from_element_datatype(datatype.get_container_element_type());
-			} else {
-				VariantInternal::initialize(&result, datatype.builtin_type);
+		if (datatype.is_hard_type()) {
+			if (datatype.kind == GDScriptParser::DataType::BUILTIN && datatype.builtin_type != Variant::OBJECT) {
+				if (datatype.builtin_type == Variant::ARRAY && datatype.has_container_element_type()) {
+					result = make_array_from_element_datatype(datatype.get_container_element_type());
+				} else {
+					VariantInternal::initialize(&result, datatype.builtin_type);
+				}
+			} else if (datatype.kind == GDScriptParser::DataType::ENUM) {
+				result = 0;
 			}
 		}
 	}

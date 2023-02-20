@@ -126,6 +126,12 @@
 				Destroys the given RID.
 			</description>
 		</method>
+		<method name="get_debug_enabled" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] when the NavigationServer has debug enabled.
+			</description>
+		</method>
 		<method name="get_maps" qualifiers="const">
 			<return type="RID[]" />
 			<description>
@@ -422,15 +428,6 @@
 				Sets the map up direction.
 			</description>
 		</method>
-		<method name="process">
-			<return type="void" />
-			<param index="0" name="delta_time" type="float" />
-			<description>
-				Process the collision avoidance agents.
-				The result of this process is needed by the physics server, so this must be called in the main thread.
-				[b]Note:[/b] This function is not thread safe.
-			</description>
-		</method>
 		<method name="query_path" qualifiers="const">
 			<return type="void" />
 			<param index="0" name="parameters" type="NavigationPathQueryParameters3D" />
@@ -582,6 +579,13 @@
 			<param index="0" name="active" type="bool" />
 			<description>
 				Control activation of this server.
+			</description>
+		</method>
+		<method name="set_debug_enabled">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				If [code]true[/code] enables debug mode on the NavigationServer.
 			</description>
 		</method>
 	</methods>

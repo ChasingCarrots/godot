@@ -459,6 +459,33 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 
 	r_err.error = Callable::CallError::CALL_OK;
 
+	static thread_local int call_depth = 0;
+	if (unlikely(++call_depth > MAX_CALL_DEPTH)) {
+		call_depth--;
+#ifdef DEBUG_ENABLED
+		String err_file;
+		if (p_instance && ObjectDB::get_instance(p_instance->owner_id) != nullptr && p_instance->script->is_valid() && !p_instance->script->path.is_empty()) {
+			err_file = p_instance->script->path;
+		} else if (_script) {
+			err_file = _script->path;
+		}
+		if (err_file.is_empty()) {
+			err_file = "<built-in>";
+		}
+		String err_func = name;
+		if (p_instance && ObjectDB::get_instance(p_instance->owner_id) != nullptr && p_instance->script->is_valid() && !p_instance->script->name.is_empty()) {
+			err_func = p_instance->script->name + "." + err_func;
+		}
+		int err_line = _initial_line;
+		const char *err_text = "Stack overflow. Check for infinite recursion in your script.";
+		if (!GDScriptLanguage::get_singleton()->debug_break(err_text, false)) {
+			// Debugger break did not happen.
+			_err_print_error(err_func.utf8().get_data(), err_file.utf8().get_data(), err_line, err_text, false, ERR_HANDLER_SCRIPT);
+		}
+#endif
+		return _get_default_variant_for_data_type(return_type);
+	}
+
 	Variant retvalue;
 	Variant *stack = nullptr;
 	Variant **instruction_args = nullptr;
@@ -493,10 +520,12 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				r_err.error = Callable::CallError::CALL_ERROR_TOO_MANY_ARGUMENTS;
 				r_err.argument = _argument_count;
 
+				call_depth--;
 				return _get_default_variant_for_data_type(return_type);
 			} else if (p_argcount < _argument_count - _default_arg_count) {
 				r_err.error = Callable::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS;
 				r_err.argument = _argument_count - _default_arg_count;
+				call_depth--;
 				return _get_default_variant_for_data_type(return_type);
 			} else {
 				defarg = _argument_count - p_argcount;
@@ -524,6 +553,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				r_err.error = Callable::CallError::CALL_ERROR_INVALID_ARGUMENT;
 				r_err.argument = i;
 				r_err.expected = argument_types[i].builtin_type;
+				call_depth--;
 				return _get_default_variant_for_data_type(return_type);
 			}
 			if (argument_types[i].kind == GDScriptDataType::BUILTIN) {
@@ -1244,12 +1274,20 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 							"' to a variable of type '" + nc->get_name() + "'.";
 					OPCODE_BREAK;
 				}
-				Object *src_obj = src->operator Object *();
 
-				if (src_obj && !ClassDB::is_parent_class(src_obj->get_class_name(), nc->get_name())) {
-					err_text = "Trying to assign value of type '" + src_obj->get_class_name() +
-							"' to a variable of type '" + nc->get_name() + "'.";
-					OPCODE_BREAK;
+				if (src->get_type() == Variant::OBJECT) {
+					bool was_freed = false;
+					Object *src_obj = src->get_validated_object_with_check(was_freed);
+					if (!src_obj && was_freed) {
+						err_text = "Trying to assign invalid previously freed instance.";
+						OPCODE_BREAK;
+					}
+
+					if (src_obj && !ClassDB::is_parent_class(src_obj->get_class_name(), nc->get_name())) {
+						err_text = "Trying to assign value of type '" + src_obj->get_class_name() +
+								"' to a variable of type '" + nc->get_name() + "'.";
+						OPCODE_BREAK;
+					}
 				}
 #endif // DEBUG_ENABLED
 				*dst = *src;
@@ -1274,15 +1312,22 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 					OPCODE_BREAK;
 				}
 
-				if (src->get_type() != Variant::NIL && src->operator Object *() != nullptr) {
-					ScriptInstance *scr_inst = src->operator Object *()->get_script_instance();
+				if (src->get_type() == Variant::OBJECT) {
+					bool was_freed = false;
+					Object *val_obj = src->get_validated_object_with_check(was_freed);
+					if (!val_obj && was_freed) {
+						err_text = "Trying to assign invalid previously freed instance.";
+						OPCODE_BREAK;
+					}
+
+					ScriptInstance *scr_inst = val_obj->get_script_instance();
 					if (!scr_inst) {
-						err_text = "Trying to assign value of type '" + src->operator Object *()->get_class_name() +
+						err_text = "Trying to assign value of type '" + val_obj->get_class_name() +
 								"' to a variable of type '" + base_type->get_path().get_file() + "'.";
 						OPCODE_BREAK;
 					}
 
-					Script *src_type = src->operator Object *()->get_script_instance()->get_script().ptr();
+					Script *src_type = val_obj->get_script_instance()->get_script().ptr();
 					bool valid = false;
 
 					while (src_type) {
@@ -1294,7 +1339,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 					}
 
 					if (!valid) {
-						err_text = "Trying to assign value of type '" + src->operator Object *()->get_script_instance()->get_script()->get_path().get_file() +
+						err_text = "Trying to assign value of type '" + val_obj->get_script_instance()->get_script()->get_path().get_file() +
 								"' to a variable of type '" + base_type->get_path().get_file() + "'.";
 						OPCODE_BREAK;
 					}
@@ -3581,6 +3626,8 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 	for (int i = 0; i < 3; i++) {
 		stack[i].~Variant();
 	}
+
+	call_depth--;
 
 	return retvalue;
 }

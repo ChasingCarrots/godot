@@ -50,7 +50,7 @@
 #include "servers/display_server.h"
 
 EditorFileDialog::GetIconFunc EditorFileDialog::get_icon_func = nullptr;
-EditorFileDialog::GetIconFunc EditorFileDialog::get_large_icon_func = nullptr;
+EditorFileDialog::GetIconFunc EditorFileDialog::get_thumbnail_func = nullptr;
 
 EditorFileDialog::RegisterFunc EditorFileDialog::register_func = nullptr;
 EditorFileDialog::RegisterFunc EditorFileDialog::unregister_func = nullptr;
@@ -472,6 +472,14 @@ void EditorFileDialog::_action_pressed() {
 			}
 		}
 
+		// First check we're not having an empty name.
+		String file_name = file_text.strip_edges().get_file();
+		if (file_name.is_empty()) {
+			error_dialog->set_text(TTR("Cannot save file with an empty filename."));
+			error_dialog->popup_centered(Size2(250, 80) * EDSCALE);
+			return;
+		}
+
 		// Add first extension of filter if no valid extension is found.
 		if (!valid) {
 			int idx = filter->get_selected();
@@ -480,9 +488,15 @@ void EditorFileDialog::_action_pressed() {
 			f += "." + ext;
 		}
 
+		if (file_name.begins_with(".")) { // Could still happen if typed manually.
+			error_dialog->set_text(TTR("Cannot save file with a name starting with a dot."));
+			error_dialog->popup_centered(Size2(250, 80) * EDSCALE);
+			return;
+		}
+
 		if (dir_access->file_exists(f) && !disable_overwrite_warning) {
-			confirm_save->set_text(TTR("File exists, overwrite?"));
-			confirm_save->popup_centered(Size2(200, 80));
+			confirm_save->set_text(vformat(TTR("File \"%s\" already exists.\nDo you want to overwrite it?"), f));
+			confirm_save->popup_centered(Size2(250, 80) * EDSCALE);
 		} else {
 			_save_to_recent();
 			hide();
@@ -888,7 +902,15 @@ void EditorFileDialog::update_file_list() {
 			if (get_icon_func) {
 				Ref<Texture2D> icon = get_icon_func(cdir.path_join(files.front()->get()));
 				if (display_mode == DISPLAY_THUMBNAILS) {
-					item_list->set_item_icon(-1, file_thumbnail);
+					Ref<Texture2D> thumbnail;
+					if (get_thumbnail_func) {
+						thumbnail = get_thumbnail_func(cdir.path_join(files.front()->get()));
+					}
+					if (thumbnail.is_null()) {
+						thumbnail = file_thumbnail;
+					}
+
+					item_list->set_item_icon(-1, thumbnail);
 					item_list->set_item_tag_icon(-1, icon);
 				} else {
 					item_list->set_item_icon(-1, icon);

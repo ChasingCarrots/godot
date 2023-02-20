@@ -1179,7 +1179,7 @@ int RichTextLabel::_draw_line(ItemFrame *p_frame, int p_line, const Vector2 &p_o
 				dot_ul_started = false;
 				float y_off = TS->shaped_text_get_underline_position(rid);
 				float underline_width = TS->shaped_text_get_underline_thickness(rid) * theme_cache.base_scale;
-				draw_dashed_line(dot_ul_start + Vector2(0, y_off), p_ofs + Vector2(off.x, off.y + y_off), dot_ul_color, underline_width, underline_width * 2);
+				draw_dashed_line(dot_ul_start + Vector2(0, y_off), p_ofs + Vector2(off.x, off.y + y_off), dot_ul_color, underline_width, MAX(2.0, underline_width * 2));
 			}
 			if (_find_strikethrough(it)) {
 				if (!st_started) {
@@ -1341,7 +1341,7 @@ int RichTextLabel::_draw_line(ItemFrame *p_frame, int p_line, const Vector2 &p_o
 						dot_ul_started = false;
 						float y_off = TS->shaped_text_get_underline_position(rid);
 						float underline_width = TS->shaped_text_get_underline_thickness(rid) * theme_cache.base_scale;
-						draw_dashed_line(dot_ul_start + Vector2(0, y_off), p_ofs + Vector2(off.x, off.y + y_off), dot_ul_color, underline_width, underline_width * 2);
+						draw_dashed_line(dot_ul_start + Vector2(0, y_off), p_ofs + Vector2(off.x, off.y + y_off), dot_ul_color, underline_width, MAX(2.0, underline_width * 2));
 					}
 					if (st_started) {
 						st_started = false;
@@ -1363,7 +1363,7 @@ int RichTextLabel::_draw_line(ItemFrame *p_frame, int p_line, const Vector2 &p_o
 			dot_ul_started = false;
 			float y_off = TS->shaped_text_get_underline_position(rid);
 			float underline_width = TS->shaped_text_get_underline_thickness(rid) * theme_cache.base_scale;
-			draw_dashed_line(dot_ul_start + Vector2(0, y_off), p_ofs + Vector2(off.x, off.y + y_off), dot_ul_color, underline_width, underline_width * 2);
+			draw_dashed_line(dot_ul_start + Vector2(0, y_off), p_ofs + Vector2(off.x, off.y + y_off), dot_ul_color, underline_width, MAX(2.0, underline_width * 2));
 		}
 		if (st_started) {
 			st_started = false;
@@ -5519,34 +5519,6 @@ void RichTextLabel::_bind_methods() {
 	BIND_ENUM_CONSTANT(LIST_LETTERS);
 	BIND_ENUM_CONSTANT(LIST_ROMAN);
 	BIND_ENUM_CONSTANT(LIST_DOTS);
-
-	BIND_ENUM_CONSTANT(ITEM_FRAME);
-	BIND_ENUM_CONSTANT(ITEM_TEXT);
-	BIND_ENUM_CONSTANT(ITEM_IMAGE);
-	BIND_ENUM_CONSTANT(ITEM_NEWLINE);
-	BIND_ENUM_CONSTANT(ITEM_FONT);
-	BIND_ENUM_CONSTANT(ITEM_FONT_SIZE);
-	BIND_ENUM_CONSTANT(ITEM_FONT_FEATURES);
-	BIND_ENUM_CONSTANT(ITEM_COLOR);
-	BIND_ENUM_CONSTANT(ITEM_OUTLINE_SIZE);
-	BIND_ENUM_CONSTANT(ITEM_OUTLINE_COLOR);
-	BIND_ENUM_CONSTANT(ITEM_UNDERLINE);
-	BIND_ENUM_CONSTANT(ITEM_STRIKETHROUGH);
-	BIND_ENUM_CONSTANT(ITEM_PARAGRAPH);
-	BIND_ENUM_CONSTANT(ITEM_INDENT);
-	BIND_ENUM_CONSTANT(ITEM_LIST);
-	BIND_ENUM_CONSTANT(ITEM_TABLE);
-	BIND_ENUM_CONSTANT(ITEM_FADE);
-	BIND_ENUM_CONSTANT(ITEM_SHAKE);
-	BIND_ENUM_CONSTANT(ITEM_WAVE);
-	BIND_ENUM_CONSTANT(ITEM_TORNADO);
-	BIND_ENUM_CONSTANT(ITEM_RAINBOW);
-	BIND_ENUM_CONSTANT(ITEM_BGCOLOR);
-	BIND_ENUM_CONSTANT(ITEM_FGCOLOR);
-	BIND_ENUM_CONSTANT(ITEM_META);
-	BIND_ENUM_CONSTANT(ITEM_HINT);
-	BIND_ENUM_CONSTANT(ITEM_DROPCAP);
-	BIND_ENUM_CONSTANT(ITEM_CUSTOMFX);
 
 	BIND_ENUM_CONSTANT(MENU_COPY);
 	BIND_ENUM_CONSTANT(MENU_SELECT_ALL);
