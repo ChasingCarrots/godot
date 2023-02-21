@@ -33,6 +33,7 @@
 #include "core/config/project_settings.h"
 #include "core/io/file_access.h"
 #include "core/io/resource_importer.h"
+#include "core/os/condition_variable.h"
 #include "core/os/os.h"
 #include "core/string/print_string.h"
 #include "core/string/translation.h"
@@ -233,19 +234,11 @@ void ResourceLoader::_thread_load_function(void *p_userdata) {
 	ThreadLoadTask &load_task = *(ThreadLoadTask *)p_userdata;
 	load_task.loader_id = Thread::get_caller_id();
 
-	if (load_task.thread) {
+	if (load_task.cond_var) {
 		//this is an actual thread, so wait for Ok from semaphore
 		thread_load_semaphore->wait(); //wait until its ok to start loading
 	}
-	// it is totally possible that another thread has loaded the resource
-	// in the meantime! so we check that right before loading here:
-	Ref<Resource> existing = ResourceCache::get_ref(load_task.local_path);
-	if (existing.is_valid()) {
-		load_task.resource = existing;
-	}
-	else {
-		load_task.resource = _load(load_task.remapped_path, load_task.remapped_path != load_task.local_path ? load_task.local_path : String(), load_task.type_hint, load_task.cache_mode, &load_task.error, load_task.use_sub_threads, &load_task.progress);
-	}
+	load_task.resource = _load(load_task.remapped_path, load_task.remapped_path != load_task.local_path ? load_task.local_path : String(), load_task.type_hint, load_task.cache_mode, &load_task.error, load_task.use_sub_threads, &load_task.progress);
 
 	load_task.progress = 1.0; //it was fully loaded at this point, so force progress to 1.0
 
@@ -255,7 +248,7 @@ void ResourceLoader::_thread_load_function(void *p_userdata) {
 	} else {
 		load_task.status = THREAD_LOAD_LOADED;
 	}
-	if (load_task.thread) {
+	if (load_task.cond_var) {
 		if (load_task.start_next && thread_waiting_count > 0) {
 			thread_waiting_count--;
 			//thread loading count remains constant, this ends but another one begins
@@ -263,26 +256,16 @@ void ResourceLoader::_thread_load_function(void *p_userdata) {
 		} else {
 			thread_loading_count--; //no threads waiting, just reduce loading count
 		}
-		print_lt("END: load count: " + itos(thread_loading_count) + " / wait count: " + itos(thread_waiting_count) + " / suspended count: " + itos(thread_suspended_count) + " / active: " + itos(thread_loading_count - thread_suspended_count));
-	}
-	if (load_task.semaphore) {
-		if(load_task.poll_requests > 0) {
-			// make sure that we don't slip between the thread_load_mutex->unlock()
-			// and semaphore->wait() of someone waiting for this task
-			OS::get_singleton()->delay_usec(1);
-		}
 
-		for (int i = 0; i < load_task.poll_requests; i++) {
-			load_task.semaphore->post();
-		}
-		memdelete(load_task.semaphore);
-		load_task.semaphore = nullptr;
+		print_lt("END: load count: " + itos(thread_loading_count) + " / wait count: " + itos(thread_waiting_count) + " / suspended count: " + itos(thread_suspended_count) + " / active: " + itos(thread_loading_count - thread_suspended_count));
+
+		load_task.cond_var->notify_all();
+		memdelete(load_task.cond_var);
+		load_task.cond_var = nullptr;
 	}
 
 	if (load_task.resource.is_valid()) {
-		if(!existing.is_valid()) {
-			load_task.resource->set_path(load_task.local_path);
-		}
+		load_task.resource->set_path(load_task.local_path);
 
 		if (load_task.xl_remapped) {
 			load_task.resource->set_as_translation_remapped(true);
@@ -389,7 +372,7 @@ Error ResourceLoader::load_threaded_request(const String &p_path, const String &
 
 	if (load_task.resource.is_null()) { //needs to be loaded in thread
 
-		load_task.semaphore = memnew(Semaphore);
+		load_task.cond_var = memnew(ConditionVariable);
 		if (thread_loading_count < thread_load_max) {
 			thread_loading_count++;
 			thread_load_semaphore->post(); //we have free threads, so allow one
@@ -454,9 +437,8 @@ ResourceLoader::ThreadLoadStatus ResourceLoader::load_threaded_get_status(const 
 Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_error) {
 	String local_path = _validate_local_path(p_path);
 
-	thread_load_mutex->lock();
+	MutexLock thread_load_lock(*thread_load_mutex);
 	if (!thread_load_tasks.has(local_path)) {
-		thread_load_mutex->unlock();
 		if (r_error) {
 			*r_error = ERR_INVALID_PARAMETER;
 		}
@@ -465,13 +447,21 @@ Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_e
 
 	ThreadLoadTask &load_task = thread_load_tasks[local_path];
 
-	//semaphore still exists, meaning it's still loading, request poll
-	Semaphore *semaphore = load_task.semaphore;
-	if (semaphore) {
-		load_task.poll_requests++;
+	if (!load_task.cond_var && load_task.status == THREAD_LOAD_IN_PROGRESS) {
+		// A condition variable was never created for this task.
+		// That happens when a load has been initiated with subthreads disabled,
+		// but now another load thread needs to interact with this one (either
+		// because of subthreads being used this time, or because it's simply a
+		// threaded load running on a different thread).
+		// Since we want to be notified when the load ends, we must create the
+		// condition variable now.
+		load_task.cond_var = memnew(ConditionVariable);
+	}
 
+	//cond var still exists, meaning it's still loading, request poll
+	if (load_task.cond_var) {
 		{
-			// As we got a semaphore, this means we are going to have to wait
+			// As we got a cond var, this means we are going to have to wait
 			// until the sub-resource is done loading
 			//
 			// As this thread will become 'blocked' we should "exchange" its
@@ -493,14 +483,13 @@ Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_e
 			print_lt("GET: load count: " + itos(thread_loading_count) + " / wait count: " + itos(thread_waiting_count) + " / suspended count: " + itos(thread_suspended_count) + " / active: " + itos(thread_loading_count - thread_suspended_count));
 		}
 
-		thread_load_mutex->unlock();
-		semaphore->wait();
-		thread_load_mutex->lock();
+		do {
+			load_task.cond_var->wait(thread_load_lock);
+		} while (load_task.cond_var); // In case of spurious wakeup.
 
 		thread_suspended_count--;
 
 		if (!thread_load_tasks.has(local_path)) { //may have been erased during unlock and this was always an invalid call
-			thread_load_mutex->unlock();
 			if (r_error) {
 				*r_error = ERR_INVALID_PARAMETER;
 			}
@@ -522,8 +511,6 @@ Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_e
 		}
 		thread_load_tasks.erase(local_path);
 	}
-
-	thread_load_mutex->unlock();
 
 	return resource;
 }
@@ -576,12 +563,6 @@ Ref<Resource> ResourceLoader::load(const String &p_path, const String &p_type_hi
 		load_task.type_hint = p_type_hint;
 		load_task.cache_mode = p_cache_mode; //ignore
 		load_task.loader_id = Thread::get_caller_id();
-
-		// we are loading in this thread, but in order for other
-		// threads to know that we are loading this resource (and
-		// wait for the loading to finish), we still have to
-		// create a semaphore!
-		load_task.semaphore = memnew(Semaphore);
 
 		thread_load_tasks[local_path] = load_task;
 
@@ -1089,7 +1070,7 @@ void ResourceLoader::remove_custom_loaders() {
 }
 
 void ResourceLoader::initialize() {
-	thread_load_mutex = memnew(Mutex);
+	thread_load_mutex = memnew(SafeBinaryMutex<BINARY_MUTEX_TAG>);
 	thread_load_max = OS::get_singleton()->get_processor_count();
 	thread_loading_count = 0;
 	thread_waiting_count = 0;
@@ -1112,7 +1093,9 @@ bool ResourceLoader::create_missing_resources_if_class_unavailable = false;
 bool ResourceLoader::abort_on_missing_resource = true;
 bool ResourceLoader::timestamp_on_load = false;
 
-Mutex *ResourceLoader::thread_load_mutex = nullptr;
+template <>
+thread_local uint32_t SafeBinaryMutex<ResourceLoader::BINARY_MUTEX_TAG>::count = 0;
+SafeBinaryMutex<ResourceLoader::BINARY_MUTEX_TAG> *ResourceLoader::thread_load_mutex = nullptr;
 HashMap<String, ResourceLoader::ThreadLoadTask> ResourceLoader::thread_load_tasks;
 Semaphore *ResourceLoader::thread_load_semaphore = nullptr;
 
