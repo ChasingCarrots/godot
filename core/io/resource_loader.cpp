@@ -234,7 +234,7 @@ void ResourceLoader::_thread_load_function(void *p_userdata) {
 	ThreadLoadTask &load_task = *(ThreadLoadTask *)p_userdata;
 	load_task.loader_id = Thread::get_caller_id();
 
-	if (load_task.cond_var) {
+	if (load_task.thread) {
 		//this is an actual thread, so wait for Ok from semaphore
 		thread_load_semaphore->wait(); //wait until its ok to start loading
 	}
@@ -248,7 +248,7 @@ void ResourceLoader::_thread_load_function(void *p_userdata) {
 	} else {
 		load_task.status = THREAD_LOAD_LOADED;
 	}
-	if (load_task.cond_var) {
+	if (load_task.thread) {
 		if (load_task.start_next && thread_waiting_count > 0) {
 			thread_waiting_count--;
 			//thread loading count remains constant, this ends but another one begins
@@ -258,7 +258,8 @@ void ResourceLoader::_thread_load_function(void *p_userdata) {
 		}
 
 		print_lt("END: load count: " + itos(thread_loading_count) + " / wait count: " + itos(thread_waiting_count) + " / suspended count: " + itos(thread_suspended_count) + " / active: " + itos(thread_loading_count - thread_suspended_count));
-
+	}
+	if (load_task.cond_var) {
 		load_task.cond_var->notify_all();
 		memdelete(load_task.cond_var);
 		load_task.cond_var = nullptr;
