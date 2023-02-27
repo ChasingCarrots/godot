@@ -470,10 +470,10 @@ Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_e
 
 	//cond var still exists, meaning it's still loading, request poll
 	if (load_task.cond_var) {
-		{
-			// As we got a cond var, this means we are going to have to wait
-			// until the sub-resource is done loading
-			//
+		// As we got a cond var, this means we are going to have to wait
+		// until the sub-resource is done loading
+
+		if (load_task.thread) {
 			// As this thread will become 'blocked' we should "exchange" its
 			// active status with a waiting one, to ensure load continues.
 			//
@@ -497,7 +497,9 @@ Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_e
 			load_task.cond_var->wait(thread_load_lock);
 		} while (load_task.cond_var); // In case of spurious wakeup.
 
-		thread_suspended_count--;
+		if (load_task.thread) {
+			thread_suspended_count--;
+		}
 
 		if (!thread_load_tasks.has(local_path)) { //may have been erased during unlock and this was always an invalid call
 			if (r_error) {
