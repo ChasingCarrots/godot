@@ -280,7 +280,7 @@ GameObject* GameObject::get_rootSourceGameObject() {
 		}
 		sourceIter++;
 	}
-	return nullptr;
+	return this;
 }
 
 void GameObject::set_sourceGameObject(GameObject *source) {
