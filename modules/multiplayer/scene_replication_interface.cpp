@@ -311,7 +311,7 @@ bool SceneReplicationInterface::is_rpc_visible(const ObjectID &p_oid, int p_peer
 	if (tnode.remote_peer && uint32_t(p_peer) == tnode.remote_peer) {
 		return true; // RPCs on spawned nodes are always visible to spawner.
 	} else if (spawned_nodes.has(p_oid)) {
-		// It's a spwaned node we control, this can be fast
+		// It's a spawned node we control, this can be fast.
 		if (p_peer) {
 			return peers_info.has(p_peer) && peers_info[p_peer].spawn_nodes.has(p_oid);
 		} else {
@@ -775,6 +775,7 @@ Error SceneReplicationInterface::on_sync_receive(int p_from, const uint8_t *p_bu
 		err = MultiplayerSynchronizer::set_state(props, node, vars);
 		ERR_FAIL_COND_V(err, err);
 		ofs += size;
+		sync->emit_signal(SNAME("synchronized"));
 #ifdef DEBUG_ENABLED
 		_profile_node_data("sync_in", sync->get_instance_id(), size);
 #endif

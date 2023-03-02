@@ -1543,6 +1543,7 @@ void Node3DEditorViewport::_list_select(Ref<InputEventMouseButton> b) {
 			selection_menu->set_item_tooltip(i, String(spat->get_name()) + "\nType: " + spat->get_class() + "\nPath: " + node_path);
 		}
 
+		selection_results_menu = selection_results;
 		selection_menu->set_position(get_screen_position() + b->get_position());
 		selection_menu->reset_size();
 		selection_menu->popup();
@@ -3609,15 +3610,17 @@ void Node3DEditorViewport::_toggle_cinema_preview(bool p_activate) {
 }
 
 void Node3DEditorViewport::_selection_result_pressed(int p_result) {
-	if (selection_results.size() <= p_result) {
+	if (selection_results_menu.size() <= p_result) {
 		return;
 	}
 
-	clicked = selection_results[p_result].item->get_instance_id();
+	clicked = selection_results_menu[p_result].item->get_instance_id();
 
 	if (clicked.is_valid()) {
 		_select_clicked(spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT);
 	}
+
+	selection_results_menu.clear();
 }
 
 void Node3DEditorViewport::_selection_menu_hide() {
@@ -7919,7 +7922,9 @@ void Node3DEditor::_load_default_preview_settings() {
 	environ_sky_color->set_pick_color(Color(0.385, 0.454, 0.55));
 	environ_ground_color->set_pick_color(Color(0.2, 0.169, 0.133));
 	environ_energy->set_value(1.0);
-	environ_glow_button->set_pressed(true);
+	if (OS::get_singleton()->get_current_rendering_method() != "gl_compatibility") {
+		environ_glow_button->set_pressed(true);
+	}
 	environ_tonemap_button->set_pressed(true);
 	environ_ao_button->set_pressed(false);
 	environ_gi_button->set_pressed(false);

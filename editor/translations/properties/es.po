@@ -97,8 +97,8 @@ msgstr ""
 "Project-Id-Version: Godot Engine properties\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-02-19 06:13+0000\n"
-"Last-Translator: andres gallegos <andresgg.prog@gmail.com>\n"
+"PO-Revision-Date: 2023-02-28 17:36+0000\n"
+"Last-Translator: Haoyu Qiu <timothyqiu32@gmail.com>\n"
 "Language-Team: Spanish <https://hosted.weblate.org/projects/godot-engine/"
 "godot-properties/es/>\n"
 "Language: es\n"
@@ -106,7 +106,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.16-dev\n"
+"X-Generator: Weblate 4.16-rc\n"
 
 msgid "Application"
 msgstr "Aplicación"
@@ -551,6 +551,9 @@ msgstr "Acceso"
 
 msgid "Display Mode"
 msgstr "Modo de Visualización"
+
+msgid "Filters"
+msgstr "Filtros"
 
 msgid "Show Hidden Files"
 msgstr "Mostrar Archivos Ocultos"
@@ -1290,9 +1293,6 @@ msgstr "ETC"
 msgid "ETC2"
 msgstr "ETC2"
 
-msgid "No BPTC Fallbacks"
-msgstr "No hay retroceso de BPTC"
-
 msgid "Export Path"
 msgstr "Ruta de Exportación"
 
@@ -1557,6 +1557,9 @@ msgstr "Partículas"
 msgid "Reflection Probe"
 msgstr "Sonda de Reflexión"
 
+msgid "Decal"
+msgstr "Decal"
+
 msgid "Joint Body A"
 msgstr "Unir cuerpo A"
 
@@ -1713,6 +1716,9 @@ msgstr "Ocultar Indicador de Inicio"
 msgid "Hide Status Bar"
 msgstr "Ocultar Barra de Estado"
 
+msgid "XR"
+msgstr "XR"
+
 msgid "View Configuration"
 msgstr "Configuración de la Vista"
 
@@ -1813,7 +1819,7 @@ msgid "Operation"
 msgstr "Operación"
 
 msgid "Snap"
-msgstr "Snap"
+msgstr "Ajuste"
 
 msgid "Calculate Tangents"
 msgstr "Calcular Tangentes"
@@ -4304,9 +4310,6 @@ msgstr "Sobreescritura"
 
 msgid "Root Subfolder"
 msgstr "Subcarpeta raíz"
-
-msgid "Filters"
-msgstr "Filtros"
 
 msgid "Right Disconnects"
 msgstr "Desconexión Correcta"

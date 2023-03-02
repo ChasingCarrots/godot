@@ -581,7 +581,8 @@ void GDScriptByteCodeGenerator::write_unary_operator(const Address &p_target, Va
 }
 
 void GDScriptByteCodeGenerator::write_binary_operator(const Address &p_target, Variant::Operator p_operator, const Address &p_left_operand, const Address &p_right_operand) {
-	if (HAS_BUILTIN_TYPE(p_left_operand) && HAS_BUILTIN_TYPE(p_right_operand)) {
+	// Avoid validated evaluator for modulo and division when operands are int, since there's no check for division by zero.
+	if (HAS_BUILTIN_TYPE(p_left_operand) && HAS_BUILTIN_TYPE(p_right_operand) && ((p_operator != Variant::OP_DIVIDE && p_operator != Variant::OP_MODULE) || p_left_operand.type.builtin_type != Variant::INT || p_right_operand.type.builtin_type != Variant::INT)) {
 		if (p_target.mode == Address::TEMPORARY) {
 			Variant::Type result_type = Variant::get_operator_return_type(p_operator, p_left_operand.type.builtin_type, p_right_operand.type.builtin_type);
 			Variant::Type temp_type = temporaries[p_target.address].type;
@@ -612,18 +613,44 @@ void GDScriptByteCodeGenerator::write_binary_operator(const Address &p_target, V
 	append(p_operator);
 }
 
-void GDScriptByteCodeGenerator::write_type_test(const Address &p_target, const Address &p_source, const Address &p_type) {
-	append_opcode(GDScriptFunction::OPCODE_EXTENDS_TEST);
-	append(p_source);
-	append(p_type);
-	append(p_target);
-}
-
-void GDScriptByteCodeGenerator::write_type_test_builtin(const Address &p_target, const Address &p_source, Variant::Type p_type) {
-	append_opcode(GDScriptFunction::OPCODE_IS_BUILTIN);
-	append(p_source);
-	append(p_target);
-	append(p_type);
+void GDScriptByteCodeGenerator::write_type_test(const Address &p_target, const Address &p_source, const GDScriptDataType &p_type) {
+	switch (p_type.kind) {
+		case GDScriptDataType::BUILTIN: {
+			if (p_type.builtin_type == Variant::ARRAY && p_type.has_container_element_type()) {
+				const GDScriptDataType &element_type = p_type.get_container_element_type();
+				append_opcode(GDScriptFunction::OPCODE_TYPE_TEST_ARRAY);
+				append(p_target);
+				append(p_source);
+				append(get_constant_pos(element_type.script_type) | (GDScriptFunction::ADDR_TYPE_CONSTANT << GDScriptFunction::ADDR_BITS));
+				append(element_type.builtin_type);
+				append(element_type.native_type);
+			} else {
+				append_opcode(GDScriptFunction::OPCODE_TYPE_TEST_BUILTIN);
+				append(p_target);
+				append(p_source);
+				append(p_type.builtin_type);
+			}
+		} break;
+		case GDScriptDataType::NATIVE: {
+			append_opcode(GDScriptFunction::OPCODE_TYPE_TEST_NATIVE);
+			append(p_target);
+			append(p_source);
+			append(p_type.native_type);
+		} break;
+		case GDScriptDataType::SCRIPT:
+		case GDScriptDataType::GDSCRIPT: {
+			const Variant &script = p_type.script_type;
+			append_opcode(GDScriptFunction::OPCODE_TYPE_TEST_SCRIPT);
+			append(p_target);
+			append(p_source);
+			append(get_constant_pos(script) | (GDScriptFunction::ADDR_TYPE_CONSTANT << GDScriptFunction::ADDR_BITS));
+		} break;
+		default: {
+			ERR_PRINT("Compiler bug: unresolved type in type test.");
+			append_opcode(GDScriptFunction::OPCODE_ASSIGN_FALSE);
+			append(p_target);
+		}
+	}
 }
 
 void GDScriptByteCodeGenerator::write_and_left_operand(const Address &p_left_operand) {
@@ -1031,7 +1058,7 @@ void GDScriptByteCodeGenerator::write_call_gdscript_utility(const Address &p_tar
 void GDScriptByteCodeGenerator::write_call_utility(const Address &p_target, const StringName &p_function, const Vector<Address> &p_arguments) {
 	bool is_validated = true;
 	if (Variant::is_utility_function_vararg(p_function)) {
-		is_validated = true; // Vararg works fine with any argument, since they can be any type.
+		is_validated = false; // Vararg needs runtime checks, can't use validated call.
 	} else if (p_arguments.size() == Variant::get_utility_function_argument_count(p_function)) {
 		bool all_types_exact = true;
 		for (int i = 0; i < p_arguments.size(); i++) {
@@ -1080,7 +1107,7 @@ void GDScriptByteCodeGenerator::write_call_builtin_type(const Address &p_target,
 
 	// Check if all types are correct.
 	if (Variant::is_builtin_method_vararg(p_type, p_method)) {
-		is_validated = true; // Vararg works fine with any argument, since they can be any type.
+		is_validated = false; // Vararg needs runtime checks, can't use validated call.
 	} else if (p_arguments.size() == Variant::get_builtin_method_argument_count(p_type, p_method)) {
 		bool all_types_exact = true;
 		for (int i = 0; i < p_arguments.size(); i++) {
