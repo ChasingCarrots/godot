@@ -46,6 +46,8 @@ public:
     int CountLocatorsOutsideRectangle(String poolName, float minX, float maxX, float minY, float maxY);
 
     Locator* GetRandomLocatorInPool(String poolName);
+	Array GetAllLocatorsInPool(String poolName);
+	Array GetAllGameObjectsInPool(String poolName);
 
     static void LocatorEnteredTree(Locator* locator);
     static void LocatorExitedTree(Locator* locator);

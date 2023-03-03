@@ -1,9 +1,10 @@
 #include "LocatorSystem.h"
+#include "GameObject.h"
 #include <core/math/geometry_2d.h>
-#include <map>
 #include <algorithm>
+#include <map>
 
-const float GridSize = 100.0f;
+const float GridSize = 50.0f;
 
 inline Vector2i posToCell(Vector2 pos) {
     return {
@@ -14,12 +15,7 @@ inline Vector2i posToCell(Vector2 pos) {
 
 inline Node* getGameObjectInParents(Node* node) {
     if(node == nullptr) return nullptr;
-    // there is apparently no way to find out if the GameObject
-    // script is on that node (is_class returns the Type of the object!)
-    // so we'll try finding out with one of the most iconic functions
-    // of the GameObject script.
-    String gameobjectMethodStr("getChildNodeWithMethod");
-    if(node->has_method(gameobjectMethodStr))
+    if(dynamic_cast<GameObject*>(node) != nullptr)
         return node;
     Node* parent = node->get_parent();
     if(parent == nullptr)
@@ -70,6 +66,8 @@ void LocatorSystem::_bind_methods()
     ClassDB::bind_method(D_METHOD("count_locators_in_rectangle", "poolName", "minX", "maxX", "minY", "maxY"), &LocatorSystem::CountLocatorsInRectangle);
     ClassDB::bind_method(D_METHOD("get_gameobjects_in_rectangle", "poolName", "minX", "maxX", "minY", "maxY"), &LocatorSystem::GetGameObjectsInRectangle);
     ClassDB::bind_method(D_METHOD("get_random_locator_in_pool", "poolName"), &LocatorSystem::GetRandomLocatorInPool);
+	ClassDB::bind_method(D_METHOD("get_all_locators_in_pool", "poolName"), &LocatorSystem::GetAllLocatorsInPool);
+	ClassDB::bind_method(D_METHOD("get_all_gameobjects_in_pool", "poolName"), &LocatorSystem::GetAllGameObjectsInPool);
 }
 
 void LocatorSystem::LocatorEnteredTree(Locator *locator) {
@@ -591,3 +589,45 @@ Locator* LocatorSystem::GetRandomLocatorInPool(String poolName) {
     return _tempLocators[index];
 }
 
+Array LocatorSystem::GetAllLocatorsInPool(String poolName) {
+	Array fillArray;
+
+	auto poolIter = GlobalLocatorPools.begin();
+	while(poolIter != GlobalLocatorPools.end()) {
+		if(poolIter->PoolName == poolName)
+			break;
+		++poolIter;
+	}
+	if(poolIter == GlobalLocatorPools.end())
+		return {};
+
+	_tempLocators.clear();
+	for(const auto& cell : poolIter->Cells)
+		for(auto locator : cell.second)
+			fillArray.append(locator);
+
+	return fillArray;
+}
+
+Array LocatorSystem::GetAllGameObjectsInPool(String poolName) {
+	Array fillArray;
+
+	auto poolIter = GlobalLocatorPools.begin();
+	while(poolIter != GlobalLocatorPools.end()) {
+		if(poolIter->PoolName == poolName)
+			break;
+		++poolIter;
+	}
+	if(poolIter == GlobalLocatorPools.end())
+		return {};
+
+	_tempLocators.clear();
+	for(const auto& cell : poolIter->Cells)
+		for(auto locator : cell.second) {
+			Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(locator));
+			if(gameObject != nullptr)
+				fillArray.append(gameObject);
+		}
+
+	return fillArray;
+}
