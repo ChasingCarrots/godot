@@ -30,6 +30,8 @@
 
 #include "vulkan_context.h"
 
+#include "core/profiling.h"
+
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/string/ustring.h"
@@ -1609,6 +1611,31 @@ Error VulkanContext::_initialize_queues(VkSurfaceKHR p_surface) {
 		return serr;
 	}
 
+#if USE_OPTICK
+	Optick::VulkanFunctions vf = {
+		vkGetPhysicalDeviceProperties,
+		(PFN_vkCreateQueryPool_)vkCreateQueryPool,
+		(PFN_vkCreateCommandPool_)vkCreateCommandPool,
+		(PFN_vkAllocateCommandBuffers_)vkAllocateCommandBuffers,
+		(PFN_vkCreateFence_)vkCreateFence,
+		vkCmdResetQueryPool,
+		(PFN_vkQueueSubmit_)vkQueueSubmit,
+		(PFN_vkWaitForFences_)vkWaitForFences,
+		(PFN_vkResetCommandBuffer_)vkResetCommandBuffer,
+		(PFN_vkCmdWriteTimestamp_)vkCmdWriteTimestamp,
+		(PFN_vkGetQueryPoolResults_)vkGetQueryPoolResults,
+		(PFN_vkBeginCommandBuffer_)vkBeginCommandBuffer,
+		(PFN_vkEndCommandBuffer_)vkEndCommandBuffer,
+		(PFN_vkResetFences_)vkResetFences,
+		vkDestroyCommandPool,
+		vkDestroyQueryPool,
+		vkDestroyFence,
+		vkFreeCommandBuffers,
+	};
+
+	PROFILING_GPU_INIT_VULKAN(&device, &gpu, &graphics_queue, &graphics_queue_family_index, 1, &vf);
+#endif
+
 	queues_initialized = true;
 	return OK;
 }
@@ -2243,7 +2270,7 @@ Error VulkanContext::prepare_buffers() {
 	if (!queues_initialized) {
 		return OK;
 	}
-
+	PROFILE_FUNCTION()
 	VkResult err;
 
 	// Ensure no more than FRAME_LAG renderings are outstanding.
@@ -2293,6 +2320,7 @@ Error VulkanContext::swap_buffers() {
 	if (!queues_initialized) {
 		return OK;
 	}
+	PROFILE_FUNCTION()
 
 	//	print_line("swapbuffers?");
 	VkResult err;
@@ -2485,6 +2513,7 @@ Error VulkanContext::swap_buffers() {
 		}
 	}
 #endif
+	PROFILING_GPU_FLIP(pSwapchains)
 	//	print_line("current buffer:  " + itos(current_buffer));
 	err = fpQueuePresentKHR(present_queue, &present);
 

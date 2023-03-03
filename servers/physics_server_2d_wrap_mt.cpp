@@ -30,6 +30,8 @@
 
 #include "physics_server_2d_wrap_mt.h"
 
+#include "core/profiling.h"
+
 #include "core/os/os.h"
 
 void PhysicsServer2DWrapMT::thread_exit() {
@@ -48,6 +50,7 @@ void PhysicsServer2DWrapMT::_thread_callback(void *_instance) {
 }
 
 void PhysicsServer2DWrapMT::thread_loop() {
+	PROFILING_THREAD("Physics2D Thread")
 	server_thread = Thread::get_caller_id();
 
 	physics_server_2d->init();
@@ -76,6 +79,7 @@ void PhysicsServer2DWrapMT::step(real_t p_step) {
 }
 
 void PhysicsServer2DWrapMT::sync() {
+	PROFILE_FUNCTION()
 	if (create_thread) {
 		if (first_frame) {
 			first_frame = false;

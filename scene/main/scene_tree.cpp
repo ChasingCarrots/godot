@@ -30,6 +30,8 @@
 
 #include "scene_tree.h"
 
+#include "core/profiling.h"
+
 #include "core/config/project_settings.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/input/input.h"
@@ -117,15 +119,18 @@ void SceneTreeTimer::release_connections() {
 SceneTreeTimer::SceneTreeTimer() {}
 
 void SceneTree::tree_changed() {
+	PROFILE_FUNCTION()
 	tree_version++;
 	emit_signal(tree_changed_name);
 }
 
 void SceneTree::node_added(Node *p_node) {
+	PROFILE_FUNCTION()
 	emit_signal(node_added_name, p_node);
 }
 
 void SceneTree::node_removed(Node *p_node) {
+	PROFILE_FUNCTION()
 	if (current_scene == p_node) {
 		current_scene = nullptr;
 	}
@@ -140,6 +145,7 @@ void SceneTree::node_renamed(Node *p_node) {
 }
 
 SceneTree::Group *SceneTree::add_to_group(const StringName &p_group, Node *p_node) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		E = group_map.insert(p_group, Group());
@@ -153,6 +159,7 @@ SceneTree::Group *SceneTree::add_to_group(const StringName &p_group, Node *p_nod
 }
 
 void SceneTree::remove_from_group(const StringName &p_group, Node *p_node) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	ERR_FAIL_COND(!E);
 
@@ -412,6 +419,7 @@ void SceneTree::initialize() {
 }
 
 bool SceneTree::physics_process(double p_time) {
+	PROFILE_FUNCTION()
 	root_lock++;
 
 	current_frame++;
@@ -443,6 +451,7 @@ bool SceneTree::physics_process(double p_time) {
 }
 
 bool SceneTree::process(double p_time) {
+	PROFILE_FUNCTION()
 	root_lock++;
 
 	MainLoop::process(p_time);
@@ -461,6 +470,7 @@ bool SceneTree::process(double p_time) {
 	MessageQueue::get_singleton()->flush(); //small little hack
 
 	flush_transform_notifications();
+
 
 	_notify_group_pause(SNAME("_process_internal"), Node::NOTIFICATION_INTERNAL_PROCESS);
 	_notify_group_pause(SNAME("_process"), Node::NOTIFICATION_PROCESS);
@@ -512,6 +522,7 @@ bool SceneTree::process(double p_time) {
 }
 
 void SceneTree::process_timers(double p_delta, bool p_physics_frame) {
+	PROFILE_FUNCTION()
 	List<Ref<SceneTreeTimer>>::Element *L = timers.back(); //last element
 
 	for (List<Ref<SceneTreeTimer>>::Element *E = timers.front(); E;) {
@@ -544,6 +555,7 @@ void SceneTree::process_timers(double p_delta, bool p_physics_frame) {
 }
 
 void SceneTree::process_tweens(double p_delta, bool p_physics) {
+	PROFILE_FUNCTION()
 	// This methods works similarly to how SceneTreeTimers are handled.
 	List<Ref<Tween>>::Element *L = tweens.back();
 
@@ -1023,6 +1035,7 @@ bool SceneTree::has_group(const StringName &p_identifier) const {
 }
 
 Node *SceneTree::get_first_node_in_group(const StringName &p_group) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		return nullptr; // No group.
@@ -1038,6 +1051,7 @@ Node *SceneTree::get_first_node_in_group(const StringName &p_group) {
 }
 
 void SceneTree::get_nodes_in_group(const StringName &p_group, List<Node *> *p_list) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		return;
@@ -1159,6 +1173,7 @@ void SceneTree::add_current_scene(Node *p_current) {
 }
 
 Ref<SceneTreeTimer> SceneTree::create_timer(double p_delay_sec, bool p_process_always, bool p_process_in_physics, bool p_ignore_time_scale) {
+	PROFILE_FUNCTION()
 	Ref<SceneTreeTimer> stt;
 	stt.instantiate();
 	stt->set_process_always(p_process_always);
@@ -1170,6 +1185,7 @@ Ref<SceneTreeTimer> SceneTree::create_timer(double p_delay_sec, bool p_process_a
 }
 
 Ref<Tween> SceneTree::create_tween() {
+	PROFILE_FUNCTION()
 	Ref<Tween> tween = memnew(Tween(true));
 	tweens.push_back(tween);
 	return tween;

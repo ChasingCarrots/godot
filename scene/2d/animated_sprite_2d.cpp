@@ -30,6 +30,8 @@
 
 #include "animated_sprite_2d.h"
 
+#include "core/profiling.h"
+
 #include "scene/main/viewport.h"
 #include "scene/scene_string_names.h"
 
@@ -342,6 +344,7 @@ void AnimatedSprite2D::set_frame_and_progress(int p_frame, real_t p_progress) {
 	if (frames.is_null()) {
 		return;
 	}
+	PROFILE_FUNCTION()
 
 	bool has_animation = frames->has_animation(animation);
 	int end_frame = has_animation ? MAX(0, frames->get_frame_count(animation) - 1) : 0;
@@ -441,6 +444,7 @@ String AnimatedSprite2D::get_autoplay() const {
 }
 
 void AnimatedSprite2D::play(const StringName &p_name, float p_custom_scale, bool p_from_end) {
+	PROFILE_FUNCTION()
 	StringName name = p_name;
 
 	if (name == StringName()) {
@@ -517,6 +521,7 @@ void AnimatedSprite2D::set_animation(const StringName &p_name) {
 	if (animation == p_name) {
 		return;
 	}
+	PROFILE_FUNCTION()
 
 	animation = p_name;
 

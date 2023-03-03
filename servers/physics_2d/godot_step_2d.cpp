@@ -30,6 +30,8 @@
 
 #include "godot_step_2d.h"
 
+#include "core/profiling.h"
+
 #include "core/object/worker_thread_pool.h"
 #include "core/os/os.h"
 
@@ -40,6 +42,7 @@
 #define CONSTRAINT_COUNT_RESERVE 1024
 
 void GodotStep2D::_populate_island(GodotBody2D *p_body, LocalVector<GodotBody2D *> &p_body_island, LocalVector<GodotConstraint2D *> &p_constraint_island) {
+	PROFILE_FUNCTION()
 	p_body->set_island_step(_step);
 
 	if (p_body->get_mode() > PhysicsServer2D::BODY_MODE_KINEMATIC) {
@@ -78,6 +81,7 @@ void GodotStep2D::_setup_constraint(uint32_t p_constraint_index, void *p_userdat
 }
 
 void GodotStep2D::_pre_solve_island(LocalVector<GodotConstraint2D *> &p_constraint_island) const {
+	PROFILE_FUNCTION()
 	uint32_t constraint_count = p_constraint_island.size();
 	uint32_t valid_constraint_count = 0;
 	for (uint32_t constraint_index = 0; constraint_index < constraint_count; ++constraint_index) {
@@ -91,6 +95,7 @@ void GodotStep2D::_pre_solve_island(LocalVector<GodotConstraint2D *> &p_constrai
 }
 
 void GodotStep2D::_solve_island(uint32_t p_island_index, void *p_userdata) const {
+	PROFILE_FUNCTION()
 	const LocalVector<GodotConstraint2D *> &constraint_island = constraint_islands[p_island_index];
 
 	for (int i = 0; i < iterations; i++) {
@@ -126,6 +131,7 @@ void GodotStep2D::_check_suspend(LocalVector<GodotBody2D *> &p_body_island) cons
 }
 
 void GodotStep2D::step(GodotSpace2D *p_space, real_t p_delta) {
+	PROFILE_FUNCTION()
 	p_space->lock(); // can't access space during this
 
 	p_space->setup(); //update inertias, etc

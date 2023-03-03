@@ -30,6 +30,8 @@
 
 #include "godot_physics_server_2d.h"
 
+#include "core/profiling.h"
+
 #include "godot_body_direct_state_2d.h"
 #include "godot_broad_phase_2d_bvh.h"
 #include "godot_collision_solver_2d.h"
@@ -1273,6 +1275,8 @@ void GodotPhysicsServer2D::step(real_t p_step) {
 	if (!active) {
 		return;
 	}
+
+	PROFILE_FUNCTION()
 
 	_update_shapes();
 

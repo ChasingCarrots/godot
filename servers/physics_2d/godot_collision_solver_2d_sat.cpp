@@ -30,6 +30,8 @@
 
 #include "godot_collision_solver_2d_sat.h"
 
+#include "core/profiling.h"
+
 #include "core/math/geometry_2d.h"
 
 struct _CollectorCallback2D {
@@ -83,6 +85,8 @@ _FORCE_INLINE_ static void _generate_contacts_edge_edge(const Vector2 *p_points_
 	ERR_FAIL_COND(p_point_count_B != 2); // circle is actually a 4x3 matrix
 #endif
 
+	PROFILE_FUNCTION()
+
 	Vector2 n = p_collector->normal;
 	Vector2 t = n.orthogonal();
 	real_t dA = n.dot(p_points_A[0]);
@@ -130,6 +134,8 @@ static void _generate_contacts_from_supports(const Vector2 *p_points_A, int p_po
 	ERR_FAIL_COND(p_point_count_A < 1);
 	ERR_FAIL_COND(p_point_count_B < 1);
 #endif
+
+	PROFILE_FUNCTION()
 
 	static const GenerateContactsFunc generate_contacts_func_table[2][2] = {
 		{

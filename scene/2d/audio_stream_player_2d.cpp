@@ -30,6 +30,8 @@
 
 #include "audio_stream_player_2d.h"
 
+#include "core/profiling.h"
+
 #include "core/config/project_settings.h"
 #include "scene/2d/area_2d.h"
 #include "scene/2d/audio_listener_2d.h"
@@ -110,6 +112,7 @@ void AudioStreamPlayer2D::_notification(int p_what) {
 }
 
 StringName AudioStreamPlayer2D::_get_actual_bus() {
+	PROFILE_FUNCTION()
 	Vector2 global_pos = get_global_position();
 
 	//check if any area is diverting sound into a bus
@@ -146,6 +149,7 @@ void AudioStreamPlayer2D::_update_panning() {
 	if (!active.is_set() || stream.is_null()) {
 		return;
 	}
+	PROFILE_FUNCTION()
 
 	Ref<World2D> world_2d = get_world_2d();
 	ERR_FAIL_COND(world_2d.is_null());
@@ -249,6 +253,7 @@ void AudioStreamPlayer2D::play(float p_from_pos) {
 	if (stream.is_null()) {
 		return;
 	}
+	PROFILE_FUNCTION()
 	ERR_FAIL_COND_MSG(!is_inside_tree(), "Playback can only happen when a node is inside the scene tree");
 	if (stream->is_monophonic() && is_playing()) {
 		stop();

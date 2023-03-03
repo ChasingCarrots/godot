@@ -32,6 +32,8 @@
 
 #include <stdint.h>
 
+#include "core/profiling.h"
+
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/core_constants.h"
@@ -392,6 +394,7 @@ bool GDScript::get_property_default_value(const StringName &p_property, Variant 
 }
 
 ScriptInstance *GDScript::instance_create(Object *p_this) {
+	PROFILE_FUNCTION()
 	GDScript *top = this;
 	while (top->_base) {
 		top = top->_base;
@@ -816,6 +819,7 @@ Error GDScript::reload(bool p_keep_state) {
 	if (reloading) {
 		return OK;
 	}
+	PROFILE_FUNCTION()
 	reloading = true;
 
 	bool has_instances;
@@ -943,6 +947,7 @@ const Variant GDScript::get_rpc_config() const {
 }
 
 Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+	PROFILE_DYNAMIC_FUNCTION(((String)p_method).ascii().ptr())
 	GDScript *top = this;
 	while (top) {
 		HashMap<StringName, GDScriptFunction *>::Iterator E = top->member_functions.find(p_method);
@@ -1807,6 +1812,7 @@ bool GDScriptInstance::has_method(const StringName &p_method) const {
 }
 
 Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+	PROFILE_DYNAMIC_FUNCTION(((String)p_method).ascii().ptr())
 	GDScript *sptr = script.ptr();
 	if (unlikely(p_method == SNAME("_ready"))) {
 		// Call implicit ready first, including for the super classes.

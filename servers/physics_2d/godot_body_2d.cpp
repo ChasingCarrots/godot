@@ -30,6 +30,8 @@
 
 #include "godot_body_2d.h"
 
+#include "core/profiling.h"
+
 #include "godot_area_2d.h"
 #include "godot_body_direct_state_2d.h"
 #include "godot_space_2d.h"
@@ -133,6 +135,7 @@ void GodotBody2D::set_active(bool p_active) {
 	if (active == p_active) {
 		return;
 	}
+	PROFILE_FUNCTION()
 
 	active = p_active;
 
@@ -422,6 +425,8 @@ void GodotBody2D::integrate_forces(real_t p_step) {
 		return;
 	}
 
+	PROFILE_FUNCTION()
+
 	ERR_FAIL_COND(!get_space());
 
 	int ac = areas.size();
@@ -614,6 +619,8 @@ void GodotBody2D::integrate_velocities(real_t p_step) {
 	if (mode == PhysicsServer2D::BODY_MODE_STATIC) {
 		return;
 	}
+
+	PROFILE_FUNCTION()
 
 	if (fi_callback_data || body_state_callback.get_object()) {
 		get_space()->body_add_to_state_query_list(&direct_state_query_list);

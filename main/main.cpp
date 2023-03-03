@@ -30,6 +30,7 @@
 
 #include "main.h"
 
+#include "core/profiling.h"
 #include "core/config/project_settings.h"
 #include "core/core_globals.h"
 #include "core/core_string_names.h"
@@ -3064,6 +3065,8 @@ static uint64_t navigation_process_max = 0;
 bool Main::iteration() {
 	//for now do not error on this
 	//ERR_FAIL_COND_V(iterating, false);
+
+	PROFILE_FRAME("MainThread")
 
 	iterating++;
 

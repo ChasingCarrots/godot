@@ -30,6 +30,8 @@
 
 #include "node_2d.h"
 
+#include "core/profiling.h"
+
 #include "scene/main/viewport.h"
 
 #ifdef TOOLS_ENABLED
@@ -142,6 +144,7 @@ void Node2D::reparent(Node *p_parent, bool p_keep_global_transform) {
 }
 
 void Node2D::set_position(const Point2 &p_pos) {
+	PROFILE_FUNCTION()
 	if (_xform_dirty) {
 		const_cast<Node2D *>(this)->_update_xform_values();
 	}
@@ -258,10 +261,12 @@ void Node2D::move_y(real_t p_delta, bool p_scaled) {
 }
 
 Point2 Node2D::get_global_position() const {
+	PROFILE_FUNCTION()
 	return get_global_transform().get_origin();
 }
 
 void Node2D::set_global_position(const Point2 &p_pos) {
+	PROFILE_FUNCTION()
 	CanvasItem *parent = get_parent_item();
 	if (parent) {
 		Transform2D inv = parent->get_global_transform().affine_inverse();

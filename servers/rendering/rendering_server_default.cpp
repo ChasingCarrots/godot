@@ -30,6 +30,8 @@
 
 #include "rendering_server_default.h"
 
+#include "core/profiling.h"
+
 #include "core/config/project_settings.h"
 #include "core/io/marshalls.h"
 #include "core/os/os.h"
@@ -69,6 +71,7 @@ void RenderingServerDefault::request_frame_drawn_callback(const Callable &p_call
 }
 
 void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
+	PROFILE_FUNCTION()
 	//needs to be done before changes is reset to 0, to not force the editor to redraw
 	RS::get_singleton()->emit_signal(SNAME("frame_pre_draw"));
 
@@ -361,6 +364,7 @@ void RenderingServerDefault::_thread_callback(void *_instance) {
 }
 
 void RenderingServerDefault::_thread_loop() {
+	PROFILING_THREAD("RenderingServerDefault")
 	server_thread = Thread::get_caller_id();
 
 	DisplayServer::get_singleton()->make_rendering_thread();

@@ -30,6 +30,8 @@
 
 #include "node.h"
 
+#include "core/profiling.h"
+
 #include "core/config/project_settings.h"
 #include "core/core_string_names.h"
 #include "core/io/resource_loader.h"
@@ -54,14 +56,17 @@ int Node::orphan_node_count = 0;
 void Node::_notification(int p_notification) {
 	switch (p_notification) {
 		case NOTIFICATION_PROCESS: {
+			PROFILE_FUNCTION("Node::NOTIFICATION_PROCESS")
 			GDVIRTUAL_CALL(_process, get_process_delta_time());
 		} break;
 
 		case NOTIFICATION_PHYSICS_PROCESS: {
+			PROFILE_FUNCTION("Node::NOTIFICATION_PHYSICS_PROCESS")
 			GDVIRTUAL_CALL(_physics_process, get_physics_process_delta_time());
 		} break;
 
 		case NOTIFICATION_ENTER_TREE: {
+			PROFILE_FUNCTION("Node::NOTIFICATION_ENTER_TREE")
 			ERR_FAIL_COND(!get_viewport());
 			ERR_FAIL_COND(!get_tree());
 
@@ -95,6 +100,7 @@ void Node::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_EXIT_TREE: {
+			PROFILE_FUNCTION("Node::NOTIFICATION_EXIT_TREE")
 			ERR_FAIL_COND(!get_viewport());
 			ERR_FAIL_COND(!get_tree());
 
@@ -129,6 +135,7 @@ void Node::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_READY: {
+			PROFILE_FUNCTION("Node::NOTIFICATION_READY")
 			if (GDVIRTUAL_IS_OVERRIDDEN(_input)) {
 				set_process_input(true);
 			}

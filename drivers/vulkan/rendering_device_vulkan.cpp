@@ -30,6 +30,8 @@
 
 #include "rendering_device_vulkan.h"
 
+#include "core/profiling.h"
+
 #include "core/config/project_settings.h"
 #include "core/io/compression.h"
 #include "core/io/file_access.h"
@@ -1661,6 +1663,8 @@ void RenderingDeviceVulkan::_buffer_memory_barrier(VkBuffer buffer, uint64_t p_f
 RID RenderingDeviceVulkan::texture_create(const TextureFormat &p_format, const TextureView &p_view, const Vector<Vector<uint8_t>> &p_data) {
 	_THREAD_SAFE_METHOD_
 
+	PROFILE_FUNCTION()
+
 	VkImageCreateInfo image_create_info;
 	image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	image_create_info.pNext = nullptr;
@@ -2022,6 +2026,8 @@ RID RenderingDeviceVulkan::texture_create(const TextureFormat &p_format, const T
 RID RenderingDeviceVulkan::texture_create_shared(const TextureView &p_view, RID p_with_texture) {
 	_THREAD_SAFE_METHOD_
 
+	PROFILE_FUNCTION()
+
 	Texture *src_texture = texture_owner.get_or_null(p_with_texture);
 	ERR_FAIL_COND_V(!src_texture, RID());
 
@@ -2154,6 +2160,9 @@ RID RenderingDeviceVulkan::texture_create_shared(const TextureView &p_view, RID 
 
 RID RenderingDeviceVulkan::texture_create_from_extension(TextureType p_type, DataFormat p_format, TextureSamples p_samples, uint64_t p_flags, uint64_t p_image, uint64_t p_width, uint64_t p_height, uint64_t p_depth, uint64_t p_layers) {
 	_THREAD_SAFE_METHOD_
+
+	PROFILE_FUNCTION()
+
 	// This method creates a texture object using a VkImage created by an extension, module or other external source (OpenXR uses this).
 	VkImage image = (VkImage)p_image;
 
@@ -2296,6 +2305,8 @@ RID RenderingDeviceVulkan::texture_create_from_extension(TextureType p_type, Dat
 
 RID RenderingDeviceVulkan::texture_create_shared_from_slice(const TextureView &p_view, RID p_with_texture, uint32_t p_layer, uint32_t p_mipmap, uint32_t p_mipmaps, TextureSliceType p_slice_type, uint32_t p_layers) {
 	_THREAD_SAFE_METHOD_
+
+	PROFILE_FUNCTION()
 
 	Texture *src_texture = texture_owner.get_or_null(p_with_texture);
 	ERR_FAIL_COND_V(!src_texture, RID());
@@ -2449,6 +2460,8 @@ static _ALWAYS_INLINE_ void _copy_region(uint8_t const *__restrict p_src, uint8_
 
 Error RenderingDeviceVulkan::_texture_update(RID p_texture, uint32_t p_layer, const Vector<uint8_t> &p_data, BitField<BarrierMask> p_post_barrier, bool p_use_setup_queue) {
 	_THREAD_SAFE_METHOD_
+
+	PROFILE_FUNCTION()
 
 	ERR_FAIL_COND_V_MSG((draw_list || compute_list) && !p_use_setup_queue, ERR_INVALID_PARAMETER,
 			"Updating textures is forbidden during creation of a draw or compute list");
@@ -2885,6 +2898,8 @@ Size2i RenderingDeviceVulkan::texture_size(RID p_texture) {
 Error RenderingDeviceVulkan::texture_copy(RID p_from_texture, RID p_to_texture, const Vector3 &p_from, const Vector3 &p_to, const Vector3 &p_size, uint32_t p_src_mipmap, uint32_t p_dst_mipmap, uint32_t p_src_layer, uint32_t p_dst_layer, BitField<BarrierMask> p_post_barrier) {
 	_THREAD_SAFE_METHOD_
 
+	PROFILE_FUNCTION()
+
 	Texture *src_tex = texture_owner.get_or_null(p_from_texture);
 	ERR_FAIL_COND_V(!src_tex, ERR_INVALID_PARAMETER);
 
@@ -3250,6 +3265,8 @@ Error RenderingDeviceVulkan::texture_resolve_multisample(RID p_from_texture, RID
 
 Error RenderingDeviceVulkan::texture_clear(RID p_texture, const Color &p_color, uint32_t p_base_mipmap, uint32_t p_mipmaps, uint32_t p_base_layer, uint32_t p_layers, BitField<BarrierMask> p_post_barrier) {
 	_THREAD_SAFE_METHOD_
+
+	PROFILE_FUNCTION()
 
 	Texture *src_tex = texture_owner.get_or_null(p_texture);
 	ERR_FAIL_COND_V(!src_tex, ERR_INVALID_PARAMETER);
@@ -7313,6 +7330,8 @@ void RenderingDeviceVulkan::draw_list_set_push_constant(DrawListID p_list, const
 }
 
 void RenderingDeviceVulkan::draw_list_draw(DrawListID p_list, bool p_use_indices, uint32_t p_instances, uint32_t p_procedural_vertices) {
+	PROFILE_FUNCTION()
+
 	DrawList *dl = _get_draw_list_ptr(p_list);
 	ERR_FAIL_COND(!dl);
 #ifdef DEBUG_ENABLED
@@ -8512,6 +8531,7 @@ void RenderingDeviceVulkan::_finalize_command_bufers() {
 }
 
 void RenderingDeviceVulkan::_begin_frame() {
+	PROFILE_FUNCTION()
 	// Erase pending resources.
 	_free_pending_resources(frame);
 
@@ -8578,6 +8598,7 @@ VkSampleCountFlagBits RenderingDeviceVulkan::_ensure_supported_sample_count(Text
 }
 
 void RenderingDeviceVulkan::swap_buffers() {
+	PROFILE_FUNCTION()
 	ERR_FAIL_COND_MSG(local_device.is_valid(), "Local devices can't swap buffers.");
 	_THREAD_SAFE_METHOD_
 
@@ -8593,6 +8614,7 @@ void RenderingDeviceVulkan::swap_buffers() {
 }
 
 void RenderingDeviceVulkan::submit() {
+	PROFILE_FUNCTION()
 	ERR_FAIL_COND_MSG(local_device.is_null(), "Only local devices can submit and sync.");
 	ERR_FAIL_COND_MSG(local_device_processing, "device already submitted, call sync to wait until done.");
 
@@ -8604,6 +8626,7 @@ void RenderingDeviceVulkan::submit() {
 }
 
 void RenderingDeviceVulkan::sync() {
+	PROFILE_FUNCTION()
 	ERR_FAIL_COND_MSG(local_device.is_null(), "Only local devices can submit and sync.");
 	ERR_FAIL_COND_MSG(!local_device_processing, "sync can only be called after a submit");
 

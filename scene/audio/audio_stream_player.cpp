@@ -30,6 +30,8 @@
 
 #include "audio_stream_player.h"
 
+#include "core/profiling.h"
+
 #include "core/config/engine.h"
 #include "core/math/audio_frame.h"
 #include "servers/audio_server.h"
@@ -137,6 +139,7 @@ void AudioStreamPlayer::play(float p_from_pos) {
 	if (stream.is_null()) {
 		return;
 	}
+	PROFILE_FUNCTION()
 	ERR_FAIL_COND_MSG(!is_inside_tree(), "Playback can only happen when a node is inside the scene tree");
 	if (stream->is_monophonic() && is_playing()) {
 		stop();
