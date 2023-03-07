@@ -1,5 +1,6 @@
 #include "LocatorSystem.h"
 #include "GameObject.h"
+#include <core/profiling.h>
 #include <core/math/geometry_2d.h>
 #include <algorithm>
 #include <map>
@@ -71,6 +72,7 @@ void LocatorSystem::_bind_methods()
 }
 
 void LocatorSystem::LocatorEnteredTree(Locator *locator) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == locator->GetLocatorPoolName())
@@ -96,6 +98,7 @@ void LocatorSystem::LocatorEnteredTree(Locator *locator) {
 }
 
 void LocatorSystem::LocatorExitedTree(Locator *locator) {
+	PROFILE_FUNCTION()
     for(auto& pool : GlobalLocatorPools) {
         if(pool.PoolName != locator->GetLocatorPoolName())
             continue; // not the right pool
@@ -114,6 +117,7 @@ void LocatorSystem::LocatorExitedTree(Locator *locator) {
 }
 
 void LocatorSystem::Update() {
+	PROFILE_FUNCTION()
     for(auto& pool : GlobalLocatorPools) {
         _tempLocators.clear();
         auto cellIter = pool.Cells.begin();
@@ -148,6 +152,7 @@ void LocatorSystem::Update() {
 }
 
 Array LocatorSystem::GetLocatorsInCircle(String poolName, Vector2 center, float radius) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -184,6 +189,7 @@ Array LocatorSystem::GetLocatorsInCircle(String poolName, Vector2 center, float 
 }
 
 int LocatorSystem::CountLocatorsInCircle(String poolName, Vector2 center, float radius) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -220,6 +226,7 @@ int LocatorSystem::CountLocatorsInCircle(String poolName, Vector2 center, float 
 }
 
 Array LocatorSystem::GetGameObjectsInCircle(String poolName, Vector2 center, float radius) {
+	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsInCircle(poolName, center, radius);
     for(int i=tempArray.size()-1; i >= 0; --i) {
         Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
@@ -232,6 +239,7 @@ Array LocatorSystem::GetGameObjectsInCircle(String poolName, Vector2 center, flo
 }
 
 Array LocatorSystem::GetLocatorsOutsideCircle(String poolName, Vector2 center, float radius) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -265,6 +273,7 @@ Array LocatorSystem::GetLocatorsOutsideCircle(String poolName, Vector2 center, f
 }
 
 int LocatorSystem::CountLocatorsOutsideCircle(String poolName, Vector2 center, float radius) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -298,6 +307,7 @@ int LocatorSystem::CountLocatorsOutsideCircle(String poolName, Vector2 center, f
 }
 
 Array LocatorSystem::GetGameObjectsOutsideCircle(String poolName, Vector2 center, float radius) {
+	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsOutsideCircle(poolName, center, radius);
     for(int i=tempArray.size()-1; i >= 0; --i) {
         Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
@@ -311,6 +321,7 @@ Array LocatorSystem::GetGameObjectsOutsideCircle(String poolName, Vector2 center
 
 Array LocatorSystem::GetLocatorsInCircleMotion(String poolName, Vector2 center, float radius,
                                               Vector2 motion) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -355,6 +366,7 @@ Array LocatorSystem::GetLocatorsInCircleMotion(String poolName, Vector2 center, 
 
 int LocatorSystem::CountLocatorsInCircleMotion(String poolName, Vector2 center, float radius,
                                                       Vector2 motion) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -399,6 +411,7 @@ int LocatorSystem::CountLocatorsInCircleMotion(String poolName, Vector2 center, 
 
 Array LocatorSystem::GetGameObjectsInCircleMotion(String poolName, Vector2 center, float radius,
                                                  Vector2 motion) {
+	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsInCircleMotion(poolName, center, radius, motion);
     for(int i=tempArray.size()-1; i >= 0; --i) {
         Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
@@ -411,6 +424,7 @@ Array LocatorSystem::GetGameObjectsInCircleMotion(String poolName, Vector2 cente
 }
 
 Array LocatorSystem::GetLocatorsOutsideRectangle(String poolName, float minX, float maxX, float minY, float maxY) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -443,6 +457,7 @@ Array LocatorSystem::GetLocatorsOutsideRectangle(String poolName, float minX, fl
 }
 
 int LocatorSystem::CountLocatorsOutsideRectangle(String poolName, float minX, float maxX, float minY, float maxY) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -475,6 +490,7 @@ int LocatorSystem::CountLocatorsOutsideRectangle(String poolName, float minX, fl
 }
 
 Array LocatorSystem::GetGameObjectsOutsideRectangle(String poolName, float minX, float maxX, float minY, float maxY) {
+	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsOutsideRectangle(poolName, minX, maxX, minY, maxY);
     for(int i=tempArray.size()-1; i >= 0; --i) {
         Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
@@ -487,6 +503,7 @@ Array LocatorSystem::GetGameObjectsOutsideRectangle(String poolName, float minX,
 }
 
 Array LocatorSystem::GetLocatorsInRectangle(String poolName, float minX, float maxX, float minY, float maxY) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -522,6 +539,7 @@ Array LocatorSystem::GetLocatorsInRectangle(String poolName, float minX, float m
 }
 
 int LocatorSystem::CountLocatorsInRectangle(String poolName, float minX, float maxX, float minY, float maxY) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -557,6 +575,7 @@ int LocatorSystem::CountLocatorsInRectangle(String poolName, float minX, float m
 }
 
 Array LocatorSystem::GetGameObjectsInRectangle(String poolName, float minX, float maxX, float minY, float maxY) {
+	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsInRectangle(poolName, minX, maxX, minY, maxY);
     for(int i=tempArray.size()-1; i >= 0; --i) {
         Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
@@ -569,6 +588,7 @@ Array LocatorSystem::GetGameObjectsInRectangle(String poolName, float minX, floa
 }
 
 Locator* LocatorSystem::GetRandomLocatorInPool(String poolName) {
+	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == poolName)
@@ -590,6 +610,7 @@ Locator* LocatorSystem::GetRandomLocatorInPool(String poolName) {
 }
 
 Array LocatorSystem::GetAllLocatorsInPool(String poolName) {
+	PROFILE_FUNCTION()
 	Array fillArray;
 
 	auto poolIter = GlobalLocatorPools.begin();
@@ -610,6 +631,7 @@ Array LocatorSystem::GetAllLocatorsInPool(String poolName) {
 }
 
 Array LocatorSystem::GetAllGameObjectsInPool(String poolName) {
+	PROFILE_FUNCTION()
 	Array fillArray;
 
 	auto poolIter = GlobalLocatorPools.begin();

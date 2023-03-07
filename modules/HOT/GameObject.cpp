@@ -1,5 +1,6 @@
 #include "GameObject.h"
 
+#include <core/profiling.h>
 #include <scene/main/window.h>
 
 void GameObject::_bind_methods() {
@@ -52,6 +53,7 @@ void GameObject::_exit_tree() {
 }
 
 void GameObject::_child_entered_tree(Node* childNode) {
+	PROFILE_FUNCTION()
 	// we check all the signal connections, so that we can connect signals
 	// even when the child that has the signal was added after the one that
 	// wants to connect to it!
@@ -84,6 +86,7 @@ void GameObject::populateTempNodesWithAllChildren() {
 }
 
 void GameObject::connectToSignal(StringName signalName, Callable callable) {
+	PROFILE_FUNCTION()
 	_connectedSignals.push_back({
 			signalName,
 			callable
@@ -96,6 +99,7 @@ void GameObject::connectToSignal(StringName signalName, Callable callable) {
 }
 
 void GameObject::disconnectFromSignal(StringName signalName, Callable callable) {
+	PROFILE_FUNCTION()
 	auto connectedSignalsIter = _connectedSignals.begin();
 	while (connectedSignalsIter != _connectedSignals.end()) {
 		if(connectedSignalsIter->SignalName == signalName && connectedSignalsIter->CallableConnection == callable)
@@ -111,6 +115,7 @@ void GameObject::disconnectFromSignal(StringName signalName, Callable callable) 
 }
 
 bool GameObject::hasSignal(StringName signalName) {
+	PROFILE_FUNCTION()
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
 		if(child->has_signal(signalName))
@@ -120,6 +125,7 @@ bool GameObject::hasSignal(StringName signalName) {
 }
 
 void GameObject::injectEmitSignal(StringName signalName, Array parameters) {
+	PROFILE_FUNCTION()
 	for(auto signalConnection : _connectedSignals) {
 		if(signalConnection.SignalName == signalName && signalConnection.CallableConnection.is_valid())
 			signalConnection.CallableConnection.callv(parameters);
@@ -127,6 +133,7 @@ void GameObject::injectEmitSignal(StringName signalName, Array parameters) {
 }
 
 Node* GameObject::getChildNodeWithMethod(StringName methodName) {
+	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	int currentIndex = 0;
@@ -145,6 +152,7 @@ Node* GameObject::getChildNodeWithMethod(StringName methodName) {
 }
 
 Node* GameObject::getChildNodeWithSignal(StringName signalName) {
+	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	int currentIndex = 0;
@@ -163,6 +171,7 @@ Node* GameObject::getChildNodeWithSignal(StringName signalName) {
 }
 
 void GameObject::getChildNodesWithMethod(StringName methodName, Array fillArray) {
+	PROFILE_FUNCTION()
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
 		if(child->has_method(methodName))
@@ -171,6 +180,7 @@ void GameObject::getChildNodesWithMethod(StringName methodName, Array fillArray)
 }
 
 Node* GameObject::getChildNodeInGroup(StringName groupName) {
+	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	int currentIndex = 0;
@@ -189,6 +199,7 @@ Node* GameObject::getChildNodeInGroup(StringName groupName) {
 }
 
 void GameObject::setInheritModifierFrom(GameObject *otherGameObject) {
+	PROFILE_FUNCTION()
 	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
 		_inheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 	_inheritModifierFrom = otherGameObject;
@@ -202,10 +213,12 @@ GameObject *GameObject::getInheritModifierFrom() {
 }
 
 void GameObject::triggerModifierUpdated(StringName modifierType) {
+	PROFILE_FUNCTION()
 	emit_signal("ModifierUpdated", modifierType);
 }
 
 Variant GameObject::calculateModifiedValue(StringName modifierType, Variant baseValue, TypedArray<String> categories) {
+	PROFILE_FUNCTION()
 	int baseValueInt = baseValue;
 	float baseValueFloat = baseValue;
 	float multiplier = 1;
@@ -238,6 +251,7 @@ Variant GameObject::calculateModifiedValue(StringName modifierType, Variant base
 }
 
 Node* GameObject::add_effect(Node *effectScene, GameObject *externalSource) {
+	PROFILE_FUNCTION()
 	String effectID = effectScene->call("get_effectID");
 	Node* GlobalQuestPool =
 			get_tree()->get_root()->get_node(NodePath("Global/QuestPool"));
@@ -260,6 +274,7 @@ Node* GameObject::add_effect(Node *effectScene, GameObject *externalSource) {
 }
 
 Node* GameObject::find_effect(String effectID) {
+	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	for(auto child : _tempNodeArray) {
@@ -272,6 +287,7 @@ Node* GameObject::find_effect(String effectID) {
 }
 
 GameObject* GameObject::get_rootSourceGameObject() {
+	PROFILE_FUNCTION()
 	auto sourceIter = _sourceTree.rbegin();
 	while(sourceIter != _sourceTree.rend()) {
 		auto sourceObj = sourceIter->get_validated_object();
