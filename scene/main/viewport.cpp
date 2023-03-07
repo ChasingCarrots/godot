@@ -388,10 +388,14 @@ void Viewport::_notification(int p_what) {
 			RenderingServer::get_singleton()->viewport_attach_canvas(viewport, current_canvas);
 			RenderingServer::get_singleton()->viewport_set_canvas_transform(viewport, current_canvas, canvas_transform);
 			RenderingServer::get_singleton()->viewport_set_canvas_cull_mask(viewport, canvas_cull_mask);
-			_update_audio_listener_2d();
+			if (is_audio_listener_2d()) {
+				_update_audio_listener_2d();
+			}
 #ifndef _3D_DISABLED
 			RenderingServer::get_singleton()->viewport_set_scenario(viewport, find_world_3d()->get_scenario());
-			_update_audio_listener_3d();
+			if (is_audio_listener_3d()) {
+				_update_audio_listener_3d();
+			}
 #endif // _3D_DISABLED
 
 			add_to_group("_viewports");
