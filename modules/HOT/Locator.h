@@ -15,6 +15,7 @@ protected:
     float _radius = 10;
     String _locatorPoolName;
     Vector2i _currentCell;
+	bool _currentlyActive = false;
 
 public:
     void _enter_tree();
@@ -42,6 +43,8 @@ public:
     inline Vector2i GetCurrentCell() {
         return _currentCell;
     }
+
+	void SetLocatorActive(bool active);
 
 };
 

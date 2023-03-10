@@ -16,11 +16,17 @@ void Locator::_notification(int p_notification) {
 }
 
 void Locator::_enter_tree() {
-    LocatorSystem::LocatorEnteredTree(this);
+	if(!_currentlyActive) {
+		LocatorSystem::LocatorEnteredTree(this);
+		_currentlyActive = true;
+	}
 }
 
 void Locator::_exit_tree() {
-    LocatorSystem::LocatorExitedTree(this);
+	if(_currentlyActive) {
+		LocatorSystem::LocatorExitedTree(this);
+		_currentlyActive = false;
+	}
 }
 
 void Locator::_draw() {
@@ -31,6 +37,8 @@ void Locator::_draw() {
 
 void Locator::_bind_methods() {
     ClassDB::bind_static_method("Locator", D_METHOD("is_tool"), &Locator::is_tool);
+
+	ClassDB::bind_method(D_METHOD("SetLocatorActive", "active"), &Locator::SetLocatorActive);
 
     ClassDB::bind_method(D_METHOD("SetRadius", "radius"), &Locator::SetRadius);
     ClassDB::bind_method(D_METHOD("GetRadius"), &Locator::GetRadius);
@@ -50,3 +58,13 @@ void Locator::_bind_methods() {
             PROPERTY_USAGE_NO_EDITOR), "SetCurrentCell", "GetCurrentCell");
 }
 
+void Locator::SetLocatorActive(bool active) {
+	if(active == _currentlyActive)
+		return;
+
+	if(active)
+		LocatorSystem::LocatorEnteredTree(this);
+	else
+		LocatorSystem::LocatorExitedTree(this);
+	_currentlyActive = active;
+}
