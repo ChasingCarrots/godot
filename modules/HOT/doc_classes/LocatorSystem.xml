@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="LocatorSystem" inherits="RefCounted" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="count_locators_in_circle">
+			<return type="int" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="count_locators_in_circle_motion">
+			<return type="int" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="motion" type="Vector2" />
+			<description>
+			</description>
+		</method>
+		<method name="count_locators_in_rectangle">
+			<return type="int" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="minX" type="float" />
+			<param index="2" name="maxX" type="float" />
+			<param index="3" name="minY" type="float" />
+			<param index="4" name="maxY" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="count_locators_outside_circle">
+			<return type="int" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="count_locators_outside_rectangle">
+			<return type="int" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="minX" type="float" />
+			<param index="2" name="maxX" type="float" />
+			<param index="3" name="minY" type="float" />
+			<param index="4" name="maxY" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_all_gameobjects_in_pool">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_all_locators_in_pool">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_gameobjects_in_circle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_gameobjects_in_circle_motion">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="motion" type="Vector2" />
+			<description>
+			</description>
+		</method>
+		<method name="get_gameobjects_in_rectangle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="minX" type="float" />
+			<param index="2" name="maxX" type="float" />
+			<param index="3" name="minY" type="float" />
+			<param index="4" name="maxY" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_gameobjects_outside_circle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_gameobjects_outside_rectangle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="minX" type="float" />
+			<param index="2" name="maxX" type="float" />
+			<param index="3" name="minY" type="float" />
+			<param index="4" name="maxY" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_locators_in_circle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_locators_in_circle_motion">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="motion" type="Vector2" />
+			<description>
+			</description>
+		</method>
+		<method name="get_locators_in_rectangle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="minX" type="float" />
+			<param index="2" name="maxX" type="float" />
+			<param index="3" name="minY" type="float" />
+			<param index="4" name="maxY" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_locators_outside_circle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="center" type="Vector2" />
+			<param index="2" name="radius" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_locators_outside_rectangle">
+			<return type="Array" />
+			<param index="0" name="poolName" type="String" />
+			<param index="1" name="minX" type="float" />
+			<param index="2" name="maxX" type="float" />
+			<param index="3" name="minY" type="float" />
+			<param index="4" name="maxY" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="get_random_locator_in_pool">
+			<return type="Locator" />
+			<param index="0" name="poolName" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="update">
+			<return type="void" />
+			<description>
+			</description>
+		</method>
+	</methods>
+</class>

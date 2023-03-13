@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GameObject" inherits="Node2D" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Parent Node that allows convenient access to its children
+	</brief_description>
+	<description>
+		Offers methods to access functions and signals of its children. Also handles Modifier and Effects.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="add_effect">
+			<return type="Node" />
+			<param index="0" name="effectScene" type="Node" />
+			<param index="1" name="externalSource" type="GameObject" />
+			<description>
+				[param effectScene] has to inherit from EffectBase. [method add_effect] will then either duplicate [param effectScene] or add to an already existing effect of that type.
+			</description>
+		</method>
+		<method name="calculateModifiedValue">
+			<return type="Variant" />
+			<param index="0" name="modifierType" type="StringName" />
+			<param index="1" name="baseValue" type="Variant" />
+			<param index="2" name="categories" type="String[]" />
+			<description>
+				Should mostly not be used directly. [ModifiedIntValue] and [ModifiedFloatValue] will do that for you.
+			</description>
+		</method>
+		<method name="connectToSignal">
+			<return type="void" />
+			<param index="0" name="signalName" type="StringName" />
+			<param index="1" name="callable" type="Callable" />
+			<description>
+				[method connectToSignal] will go through all children, search for that Signal and connect the callable to all existing Signals with that name. It will also save that connection and establish it when a child with that Signal is attached to the [GameObject] later on.
+				There is also no need to use [method hasSignal] beforehand. When there is no such signal, there simply won't be a connection (but there will be, as soon as a Node with that signal is attached!)
+			</description>
+		</method>
+		<method name="disconnectFromSignal">
+			<return type="void" />
+			<param index="0" name="signalName" type="StringName" />
+			<param index="1" name="callable" type="Callable" />
+			<description>
+				Basically reverses [method connectToSignal]. Disconnects all the connections and removes the saved connection.
+			</description>
+		</method>
+		<method name="find_effect">
+			<return type="Node" />
+			<param index="0" name="effectID" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="getChildNodeInGroup">
+			<return type="Node" />
+			<param index="0" name="groupName" type="StringName" />
+			<description>
+				Returns the first child [Node] that is in this Group.
+			</description>
+		</method>
+		<method name="getChildNodeWithMethod">
+			<return type="Node" />
+			<param index="0" name="method" type="StringName" />
+			<description>
+				Returns the first [Node] where [method Node.has_method] returns true. Can also return [code]null[/code] when no [Node] with that method has been found.
+			</description>
+		</method>
+		<method name="getChildNodeWithSignal">
+			<return type="Node" />
+			<param index="0" name="signalName" type="StringName" />
+			<description>
+				Returns the first [Node] where [method Node.has_signal] returns true. Can also return [code]null[/code] when no [Node] with that signal has been found.
+			</description>
+		</method>
+		<method name="getChildNodesWithMethod">
+			<return type="void" />
+			<param index="0" name="method" type="StringName" />
+			<param index="1" name="fillArray" type="Array" />
+			<description>
+				Will [method Array.append] every [Node] that has the method [param method] to [param fillArray].
+			</description>
+		</method>
+		<method name="getInheritModifierFrom">
+			<return type="GameObject" />
+			<description>
+			</description>
+		</method>
+		<method name="get_rootSourceGameObject">
+			<return type="GameObject" />
+			<description>
+				Will return the last valid [GameObject] in the chain of root objects. Even when an object in the middle of the chain is destroyed, the absolute root will still be returned.
+			</description>
+		</method>
+		<method name="get_spawn_origin">
+			<return type="Node" />
+			<description>
+			</description>
+		</method>
+		<method name="hasSignal">
+			<return type="bool" />
+			<param index="0" name="signalName" type="StringName" />
+			<description>
+				Checks all children for this signal.
+			</description>
+		</method>
+		<method name="injectEmitSignal">
+			<return type="void" />
+			<param index="0" name="signalName" type="StringName" />
+			<param index="1" name="parameters" type="Array" />
+			<description>
+				With [method injectEmitSignal] you can trigger a signal in this [GameObject] from the outside. Even if there is no child that has this signal. As long as some object has connected to the signal via [method connectToSignal], that callable will be called by this method.
+				The [param parameters] Array should contain all the necessary parameters for that signal. Example: [code]mySource.injectEmitSignal("DamageApplied", [DamageCategories, damage, damageReturn, gameObject])[/code]
+			</description>
+		</method>
+		<method name="setInheritModifierFrom">
+			<return type="void" />
+			<param index="0" name="parentGameObject" type="GameObject" />
+			<description>
+				All the current and future modifiers active on [param parentGameObject] will also be applied on this GameObject.
+			</description>
+		</method>
+		<method name="set_sourceGameObject">
+			<return type="void" />
+			<param index="0" name="source" type="GameObject" />
+			<description>
+			</description>
+		</method>
+		<method name="set_spawn_origin">
+			<return type="void" />
+			<param index="0" name="spawn_origin_node" type="Node" />
+			<description>
+			</description>
+		</method>
+		<method name="triggerModifierUpdated">
+			<return type="void" />
+			<param index="0" name="modifierType" type="StringName" />
+			<description>
+				Should be called by modifiers when they are attached to a GameObject or when the modifier itself changes.
+			</description>
+		</method>
+	</methods>
+	<signals>
+		<signal name="ModifierUpdated">
+			<param index="0" name="type" type="StringName" />
+			<description>
+				Normally you shouldn't connect to this signal directly. Use [ModifiedIntValue] or [ModifiedFloatValue] and connect to the [code]ValueUpdated[/code] signal there.
+			</description>
+		</signal>
+		<signal name="Removed">
+			<param index="0" name="type" type="Node" />
+			<description>
+			</description>
+		</signal>
+	</signals>
+</class>

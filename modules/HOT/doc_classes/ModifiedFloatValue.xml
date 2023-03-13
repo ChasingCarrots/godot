@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="ModifiedFloatValue" inherits="RefCounted" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Keeps a float value up to date with modifiers on a [GameObject]
+	</brief_description>
+	<description>
+		Can be conveniently created with [method GameObjectComponent.createModifiedFloatValue]. Which modifier take effect on this value is determined by the [code]modifierName[/code]. It can be additionally filtered with the [method setModifierCategories].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="BaseValue">
+			<return type="float" />
+			<description>
+				Simply returns the base value with which this ModifiedValue was created.
+			</description>
+		</method>
+		<method name="ModifiedBy">
+			<return type="String" />
+			<description>
+				Simply returns the Modifier Name with which this ModifiedValue was created.
+			</description>
+		</method>
+		<method name="Value">
+			<return type="float" />
+			<description>
+				Returns the current Value. No update is needed, since this Value is kept up to date internally.
+			</description>
+		</method>
+		<method name="init">
+			<return type="void" />
+			<param index="0" name="baseVal" type="float" />
+			<param index="1" name="modifierName" type="String" />
+			<param index="2" name="gameObject" type="GameObject" />
+			<param index="3" name="rankModifier" type="Callable" />
+			<description>
+				Has to be called for this ModifiedValue to do anything. [method GameObjectComponent.createModifiedFloatValue] calls this automatically.
+			</description>
+		</method>
+		<method name="setModifierCategories">
+			<return type="void" />
+			<param index="0" name="categories" type="String[]" />
+			<description>
+				When filtering categories are needed, call this function after initialization. Will automatically update the current Value.
+			</description>
+		</method>
+		<method name="updateManually">
+			<return type="void" />
+			<description>
+				Uses the [GameObject] and the base Value to update the current Value. It is normally not necessary to call this function.
+			</description>
+		</method>
+		<method name="updateModifier">
+			<return type="void" />
+			<param index="0" name="mod" type="String" />
+			<description>
+				Don't call this manually. It is called automatically whenever modifier on the [GameObject] change.
+			</description>
+		</method>
+	</methods>
+	<signals>
+		<signal name="ValueUpdated">
+			<param index="0" name="oldValue" type="float" />
+			<param index="1" name="newValue" type="float" />
+			<description>
+				This Signal is triggered whenever the current Value changes.
+			</description>
+		</signal>
+	</signals>
+</class>
