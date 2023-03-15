@@ -200,11 +200,15 @@ Node* GameObject::getChildNodeInGroup(StringName groupName) {
 
 void GameObject::setInheritModifierFrom(GameObject *otherGameObject) {
 	PROFILE_FUNCTION()
-	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
-		_inheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
+	// removed the ModifierUpdated connection for now. has a pretty hefty performance impact
+	// for all bullets that are currently on their way!
+//	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
+//		_inheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
+
 	_inheritModifierFrom = otherGameObject;
-	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
-		_inheritModifierFrom->connect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
+
+	//	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
+//		_inheritModifierFrom->connect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 	triggerModifierUpdated("ALL");
 }
 

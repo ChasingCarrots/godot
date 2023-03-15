@@ -1,5 +1,6 @@
 #include "ModifiedValues.h"
 
+#include "core/profiling.h"
 
 void ModifiedIntValue::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("init", "baseVal", "modifierName", "gameObject", "rankModifier"), &ModifiedIntValue::_init);
@@ -33,6 +34,7 @@ void ModifiedIntValue::updateManually() {
 
 void ModifiedIntValue::updateModifier(String mod) {
 	if(mod == _modifiedBy || mod == "ALL") {
+		PROFILE_FUNCTION()
 		int oldValue = _currentModifiedValue;
 		_currentModifiedValue = Math::ceil((float)_gameObject->calculateModifiedValue(_modifiedBy, _baseValue, _modifierCategories) - 0.001f);
 		emit_signal("ValueUpdated", oldValue, _currentModifiedValue);
@@ -79,6 +81,7 @@ void ModifiedFloatValue::updateManually() {
 
 void ModifiedFloatValue::updateModifier(String mod) {
 	if(mod == _modifiedBy || mod == "ALL") {
+		PROFILE_FUNCTION()
 		int oldValue = _currentModifiedValue;
 		_currentModifiedValue = _gameObject->calculateModifiedValue(_modifiedBy, _baseValue, _modifierCategories);
 		emit_signal("ValueUpdated", oldValue, _currentModifiedValue);
