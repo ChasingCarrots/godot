@@ -208,24 +208,28 @@ void SceneTree::_flush_ugc() {
 }
 
 void SceneTree::_update_group_order(Group &g, bool p_use_priority) {
-	if (!g.changed) {
-		return;
-	}
-	if (g.nodes.is_empty()) {
-		return;
-	}
+	// this is a massive performance hog in our game. and i am absolutely not sure
+	// why groups even need to be sorted?? so we skip this for now.
 
-	Node **gr_nodes = g.nodes.ptrw();
-	int gr_node_count = g.nodes.size();
-
-	if (p_use_priority) {
-		SortArray<Node *, Node::ComparatorWithPriority> node_sort;
-		node_sort.sort(gr_nodes, gr_node_count);
-	} else {
-		SortArray<Node *, Node::Comparator> node_sort;
-		node_sort.sort(gr_nodes, gr_node_count);
-	}
-	g.changed = false;
+//	if (!g.changed) {
+//		return;
+//	}
+//	if (g.nodes.is_empty()) {
+//		return;
+//	}
+//	PROFILE_FUNCTION()
+//
+//	Node **gr_nodes = g.nodes.ptrw();
+//	int gr_node_count = g.nodes.size();
+//
+//	if (p_use_priority) {
+//		SortArray<Node *, Node::ComparatorWithPriority> node_sort;
+//		node_sort.sort(gr_nodes, gr_node_count);
+//	} else {
+//		SortArray<Node *, Node::Comparator> node_sort;
+//		node_sort.sort(gr_nodes, gr_node_count);
+//	}
+//	g.changed = false;
 }
 
 void SceneTree::call_group_flagsp(uint32_t p_call_flags, const StringName &p_group, const StringName &p_function, const Variant **p_args, int p_argcount) {
