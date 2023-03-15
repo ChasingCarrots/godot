@@ -32,6 +32,8 @@
 
 #include "audio_driver_wasapi.h"
 
+#include "core/profiling.h"
+
 #include "core/config/project_settings.h"
 #include "core/os/os.h"
 
@@ -702,11 +704,14 @@ void AudioDriverWASAPI::write_sample(WORD format_tag, int bits_per_sample, BYTE 
 }
 
 void AudioDriverWASAPI::thread_func(void *p_udata) {
+	PROFILING_THREAD("AudioDriverWASAPI")
+
 	AudioDriverWASAPI *ad = static_cast<AudioDriverWASAPI *>(p_udata);
 	uint32_t avail_frames = 0;
 	uint32_t write_ofs = 0;
 
 	while (!ad->exit_thread.is_set()) {
+		PROFILE_FUNCTION("Audio Thread Tick")
 		uint32_t read_frames = 0;
 		uint32_t written_frames = 0;
 

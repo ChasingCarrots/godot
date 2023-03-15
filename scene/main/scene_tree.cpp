@@ -233,6 +233,7 @@ void SceneTree::_update_group_order(Group &g, bool p_use_priority) {
 }
 
 void SceneTree::call_group_flagsp(uint32_t p_call_flags, const StringName &p_group, const StringName &p_function, const Variant **p_args, int p_argcount) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		return;
@@ -306,6 +307,7 @@ void SceneTree::call_group_flagsp(uint32_t p_call_flags, const StringName &p_gro
 }
 
 void SceneTree::notify_group_flags(uint32_t p_call_flags, const StringName &p_group, int p_notification) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		return;
@@ -357,6 +359,7 @@ void SceneTree::notify_group_flags(uint32_t p_call_flags, const StringName &p_gr
 }
 
 void SceneTree::set_group_flags(uint32_t p_call_flags, const StringName &p_group, const String &p_name, const Variant &p_value) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		return;
@@ -854,6 +857,7 @@ bool SceneTree::is_paused() const {
 }
 
 void SceneTree::_notify_group_pause(const StringName &p_group, int p_notification) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		return;
@@ -898,6 +902,7 @@ void SceneTree::_notify_group_pause(const StringName &p_group, int p_notificatio
 }
 
 void SceneTree::_call_input_pause(const StringName &p_group, CallInputType p_call_type, const Ref<InputEvent> &p_input, Viewport *p_viewport) {
+	PROFILE_FUNCTION()
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {
 		return;
@@ -1012,6 +1017,7 @@ int64_t SceneTree::get_frame() const {
 }
 
 TypedArray<Node> SceneTree::_get_nodes_in_group(const StringName &p_group) {
+	PROFILE_FUNCTION()
 	TypedArray<Node> ret;
 	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
 	if (!E) {

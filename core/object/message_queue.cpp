@@ -30,6 +30,8 @@
 
 #include "message_queue.h"
 
+#include "core/profiling.h"
+
 #include "core/config/project_settings.h"
 #include "core/core_string_names.h"
 #include "core/object/class_db.h"
@@ -233,6 +235,7 @@ void MessageQueue::_call_function(const Callable &p_callable, const Variant *p_a
 }
 
 void MessageQueue::flush() {
+	PROFILE_FUNCTION()
 	if (buffer_end > buffer_max_used) {
 		buffer_max_used = buffer_end;
 	}
