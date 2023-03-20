@@ -5,6 +5,8 @@
 
 #include <vector>
 
+#include "Modifier.h"
+
 struct SignalCallable {
 	String SignalName;
 	Callable CallableConnection;
@@ -17,6 +19,7 @@ class GameObject : public Node2D {
 	GameObject* _inheritModifierFrom = nullptr;
 	std::vector<SignalCallable> _connectedSignals;
 	std::vector<Variant> _sourceTree;
+	std::vector<Modifier*> _modifier;
 
 	std::vector<Node*> _tempNodeArray;
 	void populateTempNodesWithAllChildren();
@@ -41,6 +44,7 @@ public:
     // collective child nodes system
     Node* getChildNodeWithMethod(StringName methodName);
     Node* getChildNodeWithSignal(StringName signalName);
+	Node* getChildNodeWithProperty(StringName propertyName);
     void getChildNodesWithMethod(StringName methodName, Array fillArray);
 	Node* getChildNodeInGroup(StringName groupName);
 
@@ -49,6 +53,9 @@ public:
 	void triggerModifierUpdated(StringName modifierType);
 	Variant calculateModifiedValue(StringName modifierType, Variant baseValue, TypedArray<String> categories);
 	GameObject* getInheritModifierFrom();
+	void registerModifier(Modifier* modifier);
+	void unregisterModifier(Modifier* modifier);
+	Array getModifiers(String modifierType, TypedArray<String> categories);
 
 	// effect system
 	Node* add_effect(Node* effectScene, GameObject* externalSource);

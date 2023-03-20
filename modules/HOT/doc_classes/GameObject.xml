@@ -63,6 +63,12 @@
 				Returns the first [Node] where [method Node.has_method] returns true. Can also return [code]null[/code] when no [Node] with that method has been found.
 			</description>
 		</method>
+		<method name="getChildNodeWithProperty">
+			<return type="Node" />
+			<param index="0" name="propertyName" type="StringName" />
+			<description>
+			</description>
+		</method>
 		<method name="getChildNodeWithSignal">
 			<return type="Node" />
 			<param index="0" name="signalName" type="StringName" />
@@ -80,6 +86,13 @@
 		</method>
 		<method name="getInheritModifierFrom">
 			<return type="GameObject" />
+			<description>
+			</description>
+		</method>
+		<method name="getModifiers">
+			<return type="Array" />
+			<param index="0" name="modifierType" type="String" />
+			<param index="1" name="categories" type="String[]" />
 			<description>
 			</description>
 		</method>

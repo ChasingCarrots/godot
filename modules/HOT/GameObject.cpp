@@ -2,6 +2,7 @@
 
 #include <core/profiling.h>
 #include <scene/main/window.h>
+#include "Modifier.h"
 
 void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("connectToSignal", "signalName", "callable"), &GameObject::connectToSignal);
@@ -11,6 +12,7 @@ void GameObject::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("getChildNodeWithMethod", "method"), &GameObject::getChildNodeWithMethod);
 	ClassDB::bind_method(D_METHOD("getChildNodeWithSignal", "signalName"), &GameObject::getChildNodeWithSignal);
+	ClassDB::bind_method(D_METHOD("getChildNodeWithProperty", "propertyName"), &GameObject::getChildNodeWithProperty);
 	ClassDB::bind_method(D_METHOD("getChildNodesWithMethod", "method", "fillArray"), &GameObject::getChildNodesWithMethod);
 	ClassDB::bind_method(D_METHOD("getChildNodeInGroup", "groupName"), &GameObject::getChildNodeInGroup);
 
@@ -18,6 +20,7 @@ void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("getInheritModifierFrom"), &GameObject::getInheritModifierFrom);
 	ClassDB::bind_method(D_METHOD("triggerModifierUpdated", "modifierType"), &GameObject::triggerModifierUpdated);
 	ClassDB::bind_method(D_METHOD("calculateModifiedValue", "modifierType", "baseValue", "categories"), &GameObject::calculateModifiedValue);
+	ClassDB::bind_method(D_METHOD("getModifiers", "modifierType", "categories"), &GameObject::getModifiers);
 
 	ClassDB::bind_method(D_METHOD("add_effect", "effectScene", "externalSource"), &GameObject::add_effect);
 	ClassDB::bind_method(D_METHOD("find_effect", "effectID"), &GameObject::find_effect);
@@ -140,7 +143,7 @@ Node* GameObject::getChildNodeWithMethod(StringName methodName) {
 	while(currentIndex < _tempNodeArray.size()) {
 		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
 		{
-			_tempNodeArray.erase(_tempNodeArray.begin() + currentIndex);
+			currentIndex += 1;
 			continue;
 		}
 		if(_tempNodeArray[currentIndex]->has_method(methodName))
@@ -159,11 +162,35 @@ Node* GameObject::getChildNodeWithSignal(StringName signalName) {
 	while(currentIndex < _tempNodeArray.size()) {
 		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
 		{
-			_tempNodeArray.erase(_tempNodeArray.begin() + currentIndex);
+			currentIndex +=1;
 			continue;
 		}
 		if(_tempNodeArray[currentIndex]->has_signal(signalName))
 			return _tempNodeArray[currentIndex];
+		fillArrayWithChildrenOfNode(_tempNodeArray[currentIndex], _tempNodeArray);
+		currentIndex += 1;
+	}
+	return nullptr;
+}
+
+Node* GameObject::getChildNodeWithProperty(StringName propertyName) {
+	PROFILE_FUNCTION()
+	List<PropertyInfo> _tempPropertyList;
+	_tempNodeArray.clear();
+	fillArrayWithChildrenOfNode(this, _tempNodeArray);
+	int currentIndex = 0;
+	while(currentIndex < _tempNodeArray.size()) {
+		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
+		{
+			currentIndex += 1;
+			continue;
+		}
+		_tempPropertyList.clear();
+		_tempNodeArray[currentIndex]->get_property_list(&_tempPropertyList);
+		for (int i = 0; i < _tempPropertyList.size(); ++i) {
+			if(_tempPropertyList[i].name == propertyName)
+				return _tempNodeArray[currentIndex];
+		}
 		fillArrayWithChildrenOfNode(_tempNodeArray[currentIndex], _tempNodeArray);
 		currentIndex += 1;
 	}
@@ -187,7 +214,7 @@ Node* GameObject::getChildNodeInGroup(StringName groupName) {
 	while(currentIndex < _tempNodeArray.size()) {
 		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
 		{
-			_tempNodeArray.erase(_tempNodeArray.begin() + currentIndex);
+			currentIndex += 1;
 			continue;
 		}
 		if(_tempNodeArray[currentIndex]->is_in_group(groupName))
@@ -226,24 +253,23 @@ Variant GameObject::calculateModifiedValue(StringName modifierType, Variant base
 	int baseValueInt = baseValue;
 	float baseValueFloat = baseValue;
 	float multiplier = 1;
-	String addModFunc("mod_"); addModFunc += modifierType; addModFunc += "_additive";
-	String mulModFunc("mod_"); mulModFunc += modifierType; mulModFunc += "_percentage";
-	_tempNodeArray.clear();
-	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
-		fillArrayWithChildrenOfNode(_inheritModifierFrom, _tempNodeArray);
-	for(auto childNode : _tempNodeArray) {
-		if(childNode->is_queued_for_deletion())
+
+	for(auto modifier : _modifier) {
+		if(!modifier->isRelevant(modifierType, categories))
 			continue ;
-		if(childNode->has_method("mod_allow_categories") && !(bool)childNode->call("mod_allow_categories", categories))
-			continue ;
-		if(childNode->has_method(addModFunc)){
-			Variant addModRes = childNode->call(addModFunc);
-			baseValueInt += (int)addModRes;
-			baseValueFloat += (float)addModRes;
+		baseValueInt += (int)modifier->getAdditiveModifier();
+		baseValueFloat += modifier->getAdditiveModifier();
+		multiplier += modifier->getMultiplierModifier();
+	}
+
+	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion()) {
+		for(auto modifier : _inheritModifierFrom->_modifier) {
+			if(!modifier->isRelevant(modifierType, categories))
+				continue ;
+			baseValueInt += (int)modifier->getAdditiveModifier();
+			baseValueFloat += modifier->getAdditiveModifier();
+			multiplier += modifier->getMultiplierModifier();
 		}
-		if(childNode->has_method(mulModFunc))
-			multiplier += (float)childNode->call(mulModFunc);
 	}
 
 	if(baseValue.get_type() == Variant::FLOAT) {
@@ -252,6 +278,35 @@ Variant GameObject::calculateModifiedValue(StringName modifierType, Variant base
 	}
 	if(multiplier < 0) return 0;
 	return (int)(baseValueInt * multiplier);
+}
+
+void GameObject::registerModifier(Modifier *modifier) {
+	if(std::find(_modifier.begin(), _modifier.end(), modifier) != _modifier.end())
+		return;
+	_modifier.push_back(modifier);
+}
+
+void GameObject::unregisterModifier(Modifier *modifier) {
+	auto modIter = std::find(_modifier.begin(), _modifier.end(), modifier);
+	if(modIter != _modifier.end()) {
+		_modifier.erase(modIter);
+		if(!is_queued_for_deletion()) {
+			// the modified values have changed after this and we
+			// would have to trigger the update via script anyways,
+			// so let's just do it here...
+			triggerModifierUpdated(modifier->_modifiedType);
+		}
+	}
+}
+
+Array GameObject::getModifiers(String modifierType, TypedArray<String> categories) {
+	Array returnArray;
+
+	for(auto modifier : _modifier)
+		if(modifier->isRelevant(modifierType, categories))
+			returnArray.append(modifier);
+
+	return returnArray;
 }
 
 Node* GameObject::add_effect(Node *effectScene, GameObject *externalSource) {

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Modifier" inherits="RefCounted" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Simple Object that works with [GameObject]s to change [ModifiedIntValue] and [ModifiedFloatValue]
+	</brief_description>
+	<description>
+		The best way to create and initialize a [Modifier] is to use the static [method create] method.
+		[Modifier] is RefCounted and will automatically clean itself up when no reference is being hold anymore (so when the Object that has the only instance goes out of scope or the variable is set to null)
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="allowCategories">
+			<return type="void" />
+			<param index="0" name="categories" type="String[]" />
+			<description>
+				This modifier will only apply the modification when at least one of the categories matches with the categories in the [ModifiedIntValue] or [ModifiedFloatValue].
+			</description>
+		</method>
+		<method name="create" qualifiers="static">
+			<return type="Modifier" />
+			<param index="0" name="modifierName" type="String" />
+			<param index="1" name="gameObject" type="GameObject" />
+			<description>
+				Creates a Modifier and initializes it, registering itself with the [param gameObject]
+			</description>
+		</method>
+		<method name="getAdditiveMod">
+			<return type="float" />
+			<description>
+				Simply returns the value that was set with [method setAdditiveMod]
+			</description>
+		</method>
+		<method name="getMultiplierMod">
+			<return type="float" />
+			<description>
+				Simply returns the value that was set with [method setMultiplierMod]
+			</description>
+		</method>
+		<method name="getName">
+			<return type="String" />
+			<description>
+				[method getName] is used by the statistics module to show human readable names.
+			</description>
+		</method>
+		<method name="init">
+			<return type="void" />
+			<param index="0" name="modifiedType" type="String" />
+			<param index="1" name="gameObject" type="GameObject" />
+			<description>
+				Only use when the [Modifier] wasn't created with the [method create] method (prefer to use create!).
+			</description>
+		</method>
+		<method name="setAdditiveMod">
+			<return type="void" />
+			<param index="0" name="additiveMod" type="float" />
+			<description>
+				When the [param additiveMod] is not 0, it will be added to the base value before multiplication.
+			</description>
+		</method>
+		<method name="setMultiplierMod">
+			<return type="void" />
+			<param index="0" name="multiplierMod" type="float" />
+			<description>
+				When the [param multiplierMod] is not 0, all the multiplier for this modifier type will be added together and then multiplied with the base value plus all the additive modifier.
+			</description>
+		</method>
+		<method name="setName">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<description>
+				This should be called when this modifier type is shown in any GUI.
+			</description>
+		</method>
+	</methods>
+</class>
