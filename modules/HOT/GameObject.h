@@ -49,7 +49,7 @@ public:
 	Node* getChildNodeInGroup(StringName groupName);
 
 	// modifier system
-	void setInheritModifierFrom(GameObject* otherGameObject);
+	void setInheritModifierFrom(GameObject* otherGameObject, bool automaticallyKeepUpdated = false);
 	void triggerModifierUpdated(StringName modifierType);
 	Variant calculateModifiedValue(StringName modifierType, Variant baseValue, TypedArray<String> categories);
 	GameObject* getInheritModifierFrom();

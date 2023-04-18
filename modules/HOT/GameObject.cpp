@@ -4,6 +4,8 @@
 #include <scene/main/window.h>
 #include "Modifier.h"
 
+#include <algorithm>
+
 void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("connectToSignal", "signalName", "callable"), &GameObject::connectToSignal);
 	ClassDB::bind_method(D_METHOD("disconnectFromSignal", "signalName", "callable"), &GameObject::disconnectFromSignal);
@@ -16,7 +18,7 @@ void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("getChildNodesWithMethod", "method", "fillArray"), &GameObject::getChildNodesWithMethod);
 	ClassDB::bind_method(D_METHOD("getChildNodeInGroup", "groupName"), &GameObject::getChildNodeInGroup);
 
-	ClassDB::bind_method(D_METHOD("setInheritModifierFrom", "parentGameObject"), &GameObject::setInheritModifierFrom);
+	ClassDB::bind_method(D_METHOD("setInheritModifierFrom", "parentGameObject", "automaticallyKeepUpdated"), &GameObject::setInheritModifierFrom, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("getInheritModifierFrom"), &GameObject::getInheritModifierFrom);
 	ClassDB::bind_method(D_METHOD("triggerModifierUpdated", "modifierType"), &GameObject::triggerModifierUpdated);
 	ClassDB::bind_method(D_METHOD("calculateModifiedValue", "modifierType", "baseValue", "categories"), &GameObject::calculateModifiedValue);
@@ -225,17 +227,15 @@ Node* GameObject::getChildNodeInGroup(StringName groupName) {
 	return nullptr;
 }
 
-void GameObject::setInheritModifierFrom(GameObject *otherGameObject) {
+void GameObject::setInheritModifierFrom(GameObject *otherGameObject, bool automaticallyKeepUpdated) {
 	PROFILE_FUNCTION()
-	// removed the ModifierUpdated connection for now. has a pretty hefty performance impact
-	// for all bullets that are currently on their way!
-//	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
-//		_inheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
+	if(automaticallyKeepUpdated && _inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
+		_inheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 
 	_inheritModifierFrom = otherGameObject;
 
-	//	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
-//		_inheritModifierFrom->connect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
+	if(automaticallyKeepUpdated && _inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
+		_inheritModifierFrom->connect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 	triggerModifierUpdated("ALL");
 }
 
