@@ -37,6 +37,15 @@
 				Has to be called for this ModifiedValue to do anything. [method GameObjectComponent.createModifiedIntValue] calls this automatically.
 			</description>
 		</method>
+		<method name="initAsAdditiveOnly">
+			<return type="void" />
+			<param index="0" name="modifierName" type="String" />
+			<param index="1" name="gameObject" type="GameObject" />
+			<param index="2" name="rankModifier" type="Callable" />
+			<description>
+				Use this initializer when this ModifiedValue should only count the additive part of the Modifiers!
+			</description>
+		</method>
 		<method name="setModifierCategories">
 			<return type="void" />
 			<param index="0" name="categories" type="String[]" />

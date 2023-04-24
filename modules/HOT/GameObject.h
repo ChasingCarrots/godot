@@ -52,6 +52,8 @@ public:
 	void setInheritModifierFrom(GameObject* otherGameObject, bool automaticallyKeepUpdated = false);
 	void triggerModifierUpdated(StringName modifierType);
 	Variant calculateModifiedValue(StringName modifierType, Variant baseValue, TypedArray<String> categories);
+	float getAdditiveModifier(StringName modifierType, TypedArray<String> categories);
+	float getMultiplicativeModifier(StringName modifierType, TypedArray<String> categories);
 	GameObject* getInheritModifierFrom();
 	void registerModifier(Modifier* modifier);
 	void unregisterModifier(Modifier* modifier);

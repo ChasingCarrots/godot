@@ -280,6 +280,47 @@ Variant GameObject::calculateModifiedValue(StringName modifierType, Variant base
 	return (int)(baseValueInt * multiplier);
 }
 
+float GameObject::getAdditiveModifier(StringName modifierType, TypedArray<String> categories) {
+	PROFILE_FUNCTION()
+	float additiveModifierSum = 0;
+	for(auto modifier : _modifier) {
+		if(!modifier->isRelevant(modifierType, categories))
+			continue ;
+		additiveModifierSum += modifier->getAdditiveModifier();
+	}
+
+	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion()) {
+		for(auto modifier : _inheritModifierFrom->_modifier) {
+			if(!modifier->isRelevant(modifierType, categories))
+				continue ;
+			additiveModifierSum += modifier->getAdditiveModifier();
+		}
+	}
+
+	return additiveModifierSum;
+}
+
+float GameObject::getMultiplicativeModifier(StringName modifierType, TypedArray<String> categories) {
+	PROFILE_FUNCTION()
+	float multiplierSum = 1;
+
+	for(auto modifier : _modifier) {
+		if(!modifier->isRelevant(modifierType, categories))
+			continue ;
+		multiplierSum += modifier->getMultiplierModifier();
+	}
+
+	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion()) {
+		for(auto modifier : _inheritModifierFrom->_modifier) {
+			if(!modifier->isRelevant(modifierType, categories))
+				continue ;
+			multiplierSum += modifier->getMultiplierModifier();
+		}
+	}
+
+	return multiplierSum;
+}
+
 void GameObject::registerModifier(Modifier *modifier) {
 	if(std::find(_modifier.begin(), _modifier.end(), modifier) != _modifier.end())
 		return;

@@ -26,6 +26,22 @@
 				Should mostly not be used directly. [ModifiedIntValue] and [ModifiedFloatValue] will do that for you.
 			</description>
 		</method>
+		<method name="getAdditiveModifier">
+			<return type="float" />
+			<param index="0" name="modifierType" type="StringName" />
+			<param index="1" name="categories" type="String[]" />
+			<description>
+				Should mostly not be used directly. There is an Option in [ModifiedIntValue] and [ModifiedFloatValue] to only count the additive part.
+			</description>
+		</method>
+		<method name="getMultiplicativeModifier">
+			<return type="float" />
+			<param index="0" name="modifierType" type="StringName" />
+			<param index="1" name="categories" type="String[]" />
+			<description>
+				Should mostly not be used directly. There is an Option in [ModifiedIntValue] and [ModifiedFloatValue] to only count the multiplicative part.
+			</description>
+		</method>
 		<method name="connectToSignal">
 			<return type="void" />
 			<param index="0" name="signalName" type="StringName" />

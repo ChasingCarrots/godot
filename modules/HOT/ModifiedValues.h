@@ -4,9 +4,16 @@
 #include "GameObject.h"
 #include <core/object/ref_counted.h>
 
+enum class ModifiedValueType {
+	NormalCalculation,
+	AdditiveOnly,
+	MultiplicativeOnly
+};
+
 class ModifiedIntValue : public RefCounted {
 	GDCLASS(ModifiedIntValue, RefCounted)
 
+	ModifiedValueType _type = ModifiedValueType::NormalCalculation;
 	int _baseValue;
 	int _currentModifiedValue;
 	String _modifiedBy;
@@ -20,6 +27,7 @@ protected:
 
 public:
 	void _init(int baseVal, String modifierName, GameObject* gameObject, Callable rankModifier);
+	void _initAsAdditiveOnly(String modifierName, GameObject* gameObject, Callable rankModifier);
 	void setModifierCategories(TypedArray<String> categories);
 	void updateManually();
 	void updateModifier(String mod);
@@ -31,7 +39,7 @@ public:
 class ModifiedFloatValue : public RefCounted {
 	GDCLASS(ModifiedFloatValue, RefCounted)
 
-protected:
+	ModifiedValueType _type = ModifiedValueType::NormalCalculation;
 	float _baseValue;
 	float _currentModifiedValue;
 	String _modifiedBy;
@@ -45,6 +53,8 @@ protected:
 
 public:
 	void _init(float baseVal, String modifierName, GameObject* gameObject, Callable rankModifier);
+	void _initAsAdditiveOnly(String modifierName, GameObject* gameObject, Callable rankModifier);
+	void _initAsMultiplicativeOnly(String modifierName, GameObject* gameObject, Callable rankModifier);
 	void setModifierCategories(TypedArray<String> categories);
 	void updateManually();
 	void updateModifier(String mod);

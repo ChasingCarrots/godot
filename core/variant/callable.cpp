@@ -30,6 +30,8 @@
 
 #include "callable.h"
 
+#include "core/profiling.h"
+
 #include "callable_bind.h"
 #include "core/object/message_queue.h"
 #include "core/object/object.h"
@@ -41,6 +43,11 @@ void Callable::call_deferredp(const Variant **p_arguments, int p_argcount) const
 }
 
 void Callable::callp(const Variant **p_arguments, int p_argcount, Variant &r_return_value, CallError &r_call_error) const {
+#ifdef PROFILING_ENABLED
+	auto name = (operator String()).ascii().ptr();
+	if(name == NULL) name = "Unnamed Callable";
+	PROFILE_DYNAMIC_FUNCTION(name)
+#endif
 	if (is_null()) {
 		r_call_error.error = CallError::CALL_ERROR_INSTANCE_IS_NULL;
 		r_call_error.argument = 0;
@@ -64,6 +71,11 @@ void Callable::callp(const Variant **p_arguments, int p_argcount, Variant &r_ret
 }
 
 Variant Callable::callv(const Array &p_arguments) const {
+#ifdef PROFILING_ENABLED
+	auto name = (operator String()).ascii().ptr();
+	if(name == NULL) name = "Unnamed Callable";
+	PROFILE_DYNAMIC_FUNCTION(name)
+#endif
 	int argcount = p_arguments.size();
 	const Variant **argptrs = nullptr;
 	if (argcount) {
