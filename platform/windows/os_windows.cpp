@@ -37,6 +37,7 @@
 #include "drivers/unix/net_socket_posix.h"
 #include "drivers/windows/dir_access_windows.h"
 #include "drivers/windows/file_access_windows.h"
+#include "drivers/windows/thread_windows.h"
 #include "joypad_windows.h"
 #include "lang_table.h"
 #include "main/main.h"
@@ -1679,6 +1680,8 @@ Error OS_Windows::move_to_trash(const String &p_path) {
 
 OS_Windows::OS_Windows(HINSTANCE _hInstance) {
 	hInstance = _hInstance;
+
+	init_thread_windows();
 
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
