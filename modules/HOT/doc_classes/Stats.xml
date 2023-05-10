@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Stats" inherits="Object" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Collection of static functions to collect statistics.
+	</brief_description>
+	<description>
+		Has to be initialized every run with Stats.ResetStats(playerObject). For every damage event call the [method AddDamageEvent] function. In Order for the DPS values to work the [method UpdateStats] function has to be called every frame with the deltatime.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="ResetStats" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="playerGameObject" type="GameObject" />
+			<description>
+				Call this function first thing every run to initialize the statistics correctly.
+			</description>
+		</method>
+		<method name="UpdateStats" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="delta" type="float" />
+			<description>
+				Call this function every frame, to update the DPS values correctly.
+			</description>
+		</method>
+		<method name="AddDamageEvent" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="sourceGameObject" type="GameObject" />
+			<param index="1" name="targetGameObject" type="GameObject" />
+			<param index="2" name="damageAmount" type="int" />
+			<param index="3" name="weaponIndex" type="int" />
+			<description>
+				Call this function for every damage event that occurs. It will be filtered by Player internally.
+			</description>
+		</method>
+		<method name="AddHealEvent" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="targetGameObject" type="GameObject" />
+			<param index="1" name="healAmount" type="int" />
+			<param index="2" name="weaponIndex" type="int" />
+			<description>
+				Call this function for every healing event that occurs. It will be filtered by Player internally.
+			</description>
+		</method>
+		<method name="GetDPS" qualifiers="static">
+			<return type="float" />
+			<description>
+				Gets the current damage per second the player puts out. Can be called regularly, just returns the precalculated value.
+			</description>
+		</method>
+		<method name="GetDamagingWeaponIndices" qualifiers="static">
+			<return type="Array" />
+			<description>
+				Returns an Array with all the weapon indices that had any damage event recorded in this run.
+			</description>
+		</method>
+		<method name="GetTotalDamageOfWeapon" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="weaponIndex" type="int" />
+			<description>
+				Gets the total damage incurred by that weapon in this run.
+			</description>
+		</method>
+		<method name="GetMaxDPSOfWeapon" qualifiers="static">
+			<return type="float" />
+			<param index="0" name="weaponIndex" type="int" />
+			<description>
+				Gets the maximum damage per second incurred by that weapon in this run. (Over a period of 30 seconds, but already reduced to "per second")
+			</description>
+		</method>
+		<method name="GetHealingWeaponIndices" qualifiers="static">
+			<return type="Array" />
+			<description>
+				Returns an Array with all the weapon indices that had any heal event recorded in this run.
+			</description>
+		</method>
+		<method name="GetTotalHealingWeapon" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="weaponIndex" type="int" />
+			<description>
+				Gets the total healing done by that weapon in this run.
+			</description>
+		</method>
+	</methods>
+</class>

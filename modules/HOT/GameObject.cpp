@@ -90,7 +90,7 @@ void GameObject::populateTempNodesWithAllChildren() {
 	}
 }
 
-void GameObject::connectToSignal(StringName signalName, Callable callable) {
+void GameObject::connectToSignal(String signalName, Callable callable) {
 	PROFILE_FUNCTION()
 	_connectedSignals.push_back({
 			signalName,
@@ -103,7 +103,7 @@ void GameObject::connectToSignal(StringName signalName, Callable callable) {
 	}
 }
 
-void GameObject::disconnectFromSignal(StringName signalName, Callable callable) {
+void GameObject::disconnectFromSignal(String signalName, Callable callable) {
 	PROFILE_FUNCTION()
 	auto connectedSignalsIter = _connectedSignals.begin();
 	while (connectedSignalsIter != _connectedSignals.end()) {
@@ -119,7 +119,7 @@ void GameObject::disconnectFromSignal(StringName signalName, Callable callable) 
 	}
 }
 
-bool GameObject::hasSignal(StringName signalName) {
+bool GameObject::hasSignal(String signalName) {
 	PROFILE_FUNCTION()
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
@@ -129,7 +129,7 @@ bool GameObject::hasSignal(StringName signalName) {
 	return false;
 }
 
-void GameObject::injectEmitSignal(StringName signalName, Array parameters) {
+void GameObject::injectEmitSignal(String signalName, Array parameters) {
 	PROFILE_FUNCTION()
 	for(auto signalConnection : _connectedSignals) {
 		if(signalConnection.SignalName == signalName && signalConnection.CallableConnection.is_valid())
@@ -137,7 +137,7 @@ void GameObject::injectEmitSignal(StringName signalName, Array parameters) {
 	}
 }
 
-Node* GameObject::getChildNodeWithMethod(StringName methodName) {
+Node* GameObject::getChildNodeWithMethod(String methodName) {
 	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
@@ -156,7 +156,7 @@ Node* GameObject::getChildNodeWithMethod(StringName methodName) {
 	return nullptr;
 }
 
-Node* GameObject::getChildNodeWithSignal(StringName signalName) {
+Node* GameObject::getChildNodeWithSignal(String signalName) {
 	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
@@ -175,7 +175,7 @@ Node* GameObject::getChildNodeWithSignal(StringName signalName) {
 	return nullptr;
 }
 
-Node* GameObject::getChildNodeWithProperty(StringName propertyName) {
+Node* GameObject::getChildNodeWithProperty(String propertyName) {
 	PROFILE_FUNCTION()
 	List<PropertyInfo> _tempPropertyList;
 	_tempNodeArray.clear();
@@ -199,7 +199,7 @@ Node* GameObject::getChildNodeWithProperty(StringName propertyName) {
 	return nullptr;
 }
 
-void GameObject::getChildNodesWithMethod(StringName methodName, Array fillArray) {
+void GameObject::getChildNodesWithMethod(String methodName, Array fillArray) {
 	PROFILE_FUNCTION()
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
@@ -208,7 +208,7 @@ void GameObject::getChildNodesWithMethod(StringName methodName, Array fillArray)
 	}
 }
 
-Node* GameObject::getChildNodeInGroup(StringName groupName) {
+Node* GameObject::getChildNodeInGroup(String groupName) {
 	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
@@ -243,12 +243,12 @@ GameObject *GameObject::getInheritModifierFrom() {
 	return _inheritModifierFrom;
 }
 
-void GameObject::triggerModifierUpdated(StringName modifierType) {
+void GameObject::triggerModifierUpdated(String modifierType) {
 	PROFILE_FUNCTION()
 	emit_signal("ModifierUpdated", modifierType);
 }
 
-Variant GameObject::calculateModifiedValue(StringName modifierType, Variant baseValue, TypedArray<String> categories) {
+Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValue, TypedArray<String> categories) {
 	PROFILE_FUNCTION()
 	int baseValueInt = baseValue;
 	float baseValueFloat = baseValue;
@@ -280,7 +280,7 @@ Variant GameObject::calculateModifiedValue(StringName modifierType, Variant base
 	return (int)(baseValueInt * multiplier);
 }
 
-float GameObject::getAdditiveModifier(StringName modifierType, TypedArray<String> categories) {
+float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> categories) {
 	PROFILE_FUNCTION()
 	float additiveModifierSum = 0;
 	for(auto modifier : _modifier) {
@@ -300,7 +300,7 @@ float GameObject::getAdditiveModifier(StringName modifierType, TypedArray<String
 	return additiveModifierSum;
 }
 
-float GameObject::getMultiplicativeModifier(StringName modifierType, TypedArray<String> categories) {
+float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<String> categories) {
 	PROFILE_FUNCTION()
 	float multiplierSum = 1;
 

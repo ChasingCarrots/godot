@@ -15,5 +15,6 @@ def get_doc_classes():
         "ModifiedIntValue",
         "ModifiedFloatValue",
         "LocatorSystem",
-        "Modifier"
+        "Modifier",
+        "Stats"
     ]

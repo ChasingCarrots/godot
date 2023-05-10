@@ -19,7 +19,9 @@ void ModifiedIntValue::_init(int baseVal, String modifierName, GameObject *gameO
 	_currentModifiedValue = baseVal;
 	_modifiedBy = modifierName;
 	_gameObject = gameObject;
-	_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedIntValue::updateModifier));
+	// should be possible to call init multiple times, to change values...
+	if(!_gameObject->is_connected("ModifierUpdated", callable_mp(this, &ModifiedIntValue::updateModifier)))
+		_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedIntValue::updateModifier));
 	_rankModifier = rankModifier;
 	updateModifier(modifierName);
 }
@@ -53,7 +55,8 @@ void ModifiedIntValue::updateModifier(String mod) {
 				_currentModifiedValue = _gameObject->getMultiplicativeModifier(_modifiedBy, _modifierCategories);
 				break;
 		}
-		emit_signal("ValueUpdated", oldValue, _currentModifiedValue);
+		if(oldValue != _currentModifiedValue)
+			emit_signal("ValueUpdated", oldValue, _currentModifiedValue);
 	}
 }
 
@@ -83,7 +86,9 @@ void ModifiedFloatValue::_init(float baseVal, String modifierName, GameObject *g
 	_currentModifiedValue = baseVal;
 	_modifiedBy = modifierName;
 	_gameObject = gameObject;
-	_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedFloatValue::updateModifier));
+	// should be possible to call init multiple times, to change values...
+	if(!_gameObject->is_connected("ModifierUpdated", callable_mp(this, &ModifiedFloatValue::updateModifier)))
+		_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedFloatValue::updateModifier));
 	_rankModifier = rankModifier;
 	updateModifier(modifierName);
 }
@@ -110,7 +115,7 @@ void ModifiedFloatValue::updateManually() {
 void ModifiedFloatValue::updateModifier(String mod) {
 	if(mod == _modifiedBy || mod == "ALL") {
 		PROFILE_FUNCTION()
-		int oldValue = _currentModifiedValue;
+		float oldValue = _currentModifiedValue;
 		switch (_type) {
 			case ModifiedValueType::NormalCalculation:
 				_currentModifiedValue = _gameObject->calculateModifiedValue(_modifiedBy, _baseValue, _modifierCategories);
@@ -122,7 +127,8 @@ void ModifiedFloatValue::updateModifier(String mod) {
 				_currentModifiedValue = _gameObject->getMultiplicativeModifier(_modifiedBy, _modifierCategories);
 				break;
 		}
-		emit_signal("ValueUpdated", oldValue, _currentModifiedValue);
+		if(oldValue != _currentModifiedValue)
+			emit_signal("ValueUpdated", oldValue, _currentModifiedValue);
 	}
 }
 

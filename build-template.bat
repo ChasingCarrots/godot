@@ -1,0 +1,1 @@
+scons target=template_release debug_symbols=yes tools=no

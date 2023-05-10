@@ -36,24 +36,24 @@ public:
     void _child_entered_tree(Node* childNode);
 
     // collective signal system
-    void connectToSignal(StringName signalName, Callable callable);
-    void disconnectFromSignal(StringName signalName, Callable callable);
-    bool hasSignal(StringName signalName);
-    void injectEmitSignal(StringName signalName, Array parameters);
+    void connectToSignal(String signalName, Callable callable);
+    void disconnectFromSignal(String signalName, Callable callable);
+    bool hasSignal(String signalName);
+    void injectEmitSignal(String signalName, Array parameters);
 
     // collective child nodes system
-    Node* getChildNodeWithMethod(StringName methodName);
-    Node* getChildNodeWithSignal(StringName signalName);
-	Node* getChildNodeWithProperty(StringName propertyName);
-    void getChildNodesWithMethod(StringName methodName, Array fillArray);
-	Node* getChildNodeInGroup(StringName groupName);
+    Node* getChildNodeWithMethod(String methodName);
+    Node* getChildNodeWithSignal(String signalName);
+	Node* getChildNodeWithProperty(String propertyName);
+    void getChildNodesWithMethod(String methodName, Array fillArray);
+	Node* getChildNodeInGroup(String groupName);
 
 	// modifier system
 	void setInheritModifierFrom(GameObject* otherGameObject, bool automaticallyKeepUpdated = false);
-	void triggerModifierUpdated(StringName modifierType);
-	Variant calculateModifiedValue(StringName modifierType, Variant baseValue, TypedArray<String> categories);
-	float getAdditiveModifier(StringName modifierType, TypedArray<String> categories);
-	float getMultiplicativeModifier(StringName modifierType, TypedArray<String> categories);
+	void triggerModifierUpdated(String modifierType);
+	Variant calculateModifiedValue(String modifierType, Variant baseValue, TypedArray<String> categories);
+	float getAdditiveModifier(String modifierType, TypedArray<String> categories);
+	float getMultiplicativeModifier(String modifierType, TypedArray<String> categories);
 	GameObject* getInheritModifierFrom();
 	void registerModifier(Modifier* modifier);
 	void unregisterModifier(Modifier* modifier);
