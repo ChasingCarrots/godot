@@ -56,6 +56,16 @@ def get_opts():
     ]
 
 
+def get_doc_classes():
+    return [
+        "EditorExportPlatformLinuxBSD",
+    ]
+
+
+def get_doc_path():
+    return "doc_classes"
+
+
 def get_flags():
     return [
         ("arch", detect_arch()),
@@ -70,7 +80,7 @@ def configure(env: "Environment"):
             'Unsupported CPU architecture "%s" for Linux / *BSD. Supported architectures are: %s.'
             % (env["arch"], ", ".join(supported_arches))
         )
-        sys.exit()
+        sys.exit(255)
 
     ## Build type
 
@@ -208,7 +218,7 @@ def configure(env: "Environment"):
             "freetype, libpng, zlib, graphite, harfbuzz.\n"
             "Please specify `builtin_<name>=no` for all of them, or none."
         )
-        sys.exit()
+        sys.exit(255)
 
     if not env["builtin_freetype"]:
         env.ParseConfig("pkg-config freetype2 --cflags --libs")
@@ -277,11 +287,10 @@ def configure(env: "Environment"):
         env.Prepend(CPPPATH=["/usr/include/recastnavigation"])
         env.Append(LIBS=["Recast"])
 
-    if not env["builtin_embree"]:
+    if not env["builtin_embree"] and env["arch"] in ["x86_64", "arm64"]:
         # No pkgconfig file so far, hardcode expected lib name.
         env.Append(LIBS=["embree3"])
 
-    ## Flags
     if env["fontconfig"]:
         if not env["use_sowrap"]:
             if os.system("pkg-config --exists fontconfig") == 0:  # 0 means found
@@ -308,11 +317,12 @@ def configure(env: "Environment"):
         if not env["use_sowrap"]:
             if os.system("pkg-config --exists libpulse") == 0:  # 0 means found
                 env.ParseConfig("pkg-config libpulse --cflags --libs")
-                env.Append(CPPDEFINES=["PULSEAUDIO_ENABLED", "_REENTRANT"])
+                env.Append(CPPDEFINES=["PULSEAUDIO_ENABLED"])
             else:
                 print("Warning: PulseAudio development libraries not found. Disabling the PulseAudio audio driver.")
                 env["pulseaudio"] = False
-        env.Append(CPPDEFINES=["PULSEAUDIO_ENABLED", "_REENTRANT"])
+        else:
+            env.Append(CPPDEFINES=["PULSEAUDIO_ENABLED", "_REENTRANT"])
 
     if env["dbus"]:
         if not env["use_sowrap"]:
@@ -452,6 +462,9 @@ def configure(env: "Environment"):
                 env.Append(LINKFLAGS=["-T", "platform/linuxbsd/pck_embed.ld"])
             else:
                 env.Append(LINKFLAGS=["-T", "platform/linuxbsd/pck_embed.legacy.ld"])
+
+    if platform.system() == "FreeBSD":
+        env.Append(LINKFLAGS=["-lkvm"])
 
     ## Cross-compilation
     # TODO: Support cross-compilation on architectures other than x86.

@@ -170,7 +170,9 @@ void WorkerThreadPool::_post_task(Task *p_task, bool p_high_priority) {
 	if (!p_high_priority && use_native_low_priority_threads) {
 		task_mutex.unlock();
 		p_task->low_priority_thread = native_thread_allocator.alloc();
-		p_task->low_priority_thread->start(_native_low_priority_thread_function, p_task); // Pask task directly to thread.
+		Thread::Settings settings = {};
+		settings.priority = Thread::PRIORITY_LOW;
+		p_task->low_priority_thread->start(_native_low_priority_thread_function, p_task, settings); // Pask task directly to thread.
 
 	} else if (p_high_priority || low_priority_threads_used.get() < max_low_priority_threads) {
 		task_queue.add_last(&p_task->task_elem);

@@ -1256,7 +1256,9 @@ void EditorFileSystem::_notification(int p_what) {
 					if (scanning_changes_done) {
 						set_process(false);
 
-						thread_sources.wait_to_finish();
+						if (thread_sources.is_started()) {
+							thread_sources.wait_to_finish();
+						}
 						bool changed = _update_scan_actions();
 						_update_pending_script_classes();
 						if (changed) {
@@ -2568,8 +2570,7 @@ void EditorFileSystem::remove_import_format_support_query(Ref<EditorFileSystemIm
 
 EditorFileSystem::EditorFileSystem() {
 	ResourceLoader::import = _resource_import;
-	reimport_on_missing_imported_files = GLOBAL_DEF("editor/import/reimport_missing_imported_files", true);
-	GLOBAL_DEF("editor/import/use_multiple_threads", true);
+	reimport_on_missing_imported_files = GLOBAL_GET("editor/import/reimport_missing_imported_files");
 	singleton = this;
 	filesystem = memnew(EditorFileSystemDirectory); //like, empty
 	filesystem->parent = nullptr;

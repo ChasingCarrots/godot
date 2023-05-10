@@ -125,10 +125,13 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["ao"] = "AO";
 	capitalize_string_remaps["api"] = "API";
 	capitalize_string_remaps["apk"] = "APK";
+	capitalize_string_remaps["arm32"] = "arm32";
+	capitalize_string_remaps["arm64"] = "arm64";
 	capitalize_string_remaps["arm64-v8a"] = "arm64-v8a";
 	capitalize_string_remaps["armeabi-v7a"] = "armeabi-v7a";
 	capitalize_string_remaps["arvr"] = "ARVR";
 	capitalize_string_remaps["astc"] = "ASTC";
+	capitalize_string_remaps["bbcode"] = "BBCode";
 	capitalize_string_remaps["bg"] = "BG";
 	capitalize_string_remaps["bidi"] = "BiDi";
 	capitalize_string_remaps["bp"] = "BP";
@@ -220,6 +223,8 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["pck"] = "PCK";
 	capitalize_string_remaps["png"] = "PNG";
 	capitalize_string_remaps["po2"] = "(Power of 2)"; // Unit.
+	capitalize_string_remaps["ppc32"] = "ppc32";
+	capitalize_string_remaps["ppc64"] = "ppc64";
 	capitalize_string_remaps["pvrtc"] = "PVRTC";
 	capitalize_string_remaps["pvs"] = "PVS";
 	capitalize_string_remaps["rcedit"] = "rcedit";
@@ -228,6 +233,7 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["rid"] = "RID";
 	capitalize_string_remaps["rmb"] = "RMB";
 	capitalize_string_remaps["rpc"] = "RPC";
+	capitalize_string_remaps["rv64"] = "rv64";
 	capitalize_string_remaps["s3tc"] = "S3TC";
 	capitalize_string_remaps["scp"] = "SCP";
 	capitalize_string_remaps["sdf"] = "SDF";
@@ -273,6 +279,8 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["wine"] = "wine";
 	capitalize_string_remaps["wifi"] = "Wi-Fi";
 	capitalize_string_remaps["x86"] = "x86";
+	capitalize_string_remaps["x86_32"] = "x86_32";
+	capitalize_string_remaps["x86_64"] = "x86_64";
 	capitalize_string_remaps["xr"] = "XR";
 	capitalize_string_remaps["xray"] = "X-Ray";
 	capitalize_string_remaps["xy"] = "XY";

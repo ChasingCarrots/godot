@@ -79,6 +79,7 @@ private:
 	bool checkable = false;
 	bool checked = false;
 	bool draw_warning = false;
+	bool draw_prop_warning = false;
 	bool keying = false;
 	bool deletable = false;
 
@@ -464,6 +465,7 @@ class EditorInspector : public ScrollContainer {
 	bool hide_metadata = true;
 	bool use_doc_hints = false;
 	EditorPropertyNameProcessor::Style property_name_style = EditorPropertyNameProcessor::STYLE_CAPITALIZED;
+	bool use_settings_name_style = true;
 	bool use_filter = false;
 	bool autoclear = false;
 	bool use_folding = false;
@@ -521,6 +523,8 @@ class EditorInspector : public ScrollContainer {
 	void _changed_callback();
 	void _edit_request_change(Object *p_object, const String &p_prop);
 
+	void _keying_changed();
+
 	void _filter_changed(const String &p_text);
 	void _parse_added_editors(VBoxContainer *current_vbox, EditorInspectorSection *p_section, Ref<EditorInspectorPlugin> ped);
 
@@ -566,6 +570,9 @@ public:
 
 	EditorPropertyNameProcessor::Style get_property_name_style() const;
 	void set_property_name_style(EditorPropertyNameProcessor::Style p_style);
+
+	// If true, the inspector will update its property name style according to the current editor settings.
+	void set_use_settings_name_style(bool p_enable);
 
 	void set_autoclear(bool p_enable);
 

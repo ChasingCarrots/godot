@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="BaseMaterial3D" inherits="Material" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="BaseMaterial3D" inherits="Material" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Default 3D rendering material.
 	</brief_description>
@@ -356,13 +356,13 @@
 			[b]Note:[/b] [member specular_mode] only applies to the specular blob. It does not affect specular reflections from the sky, screen-space reflections, [VoxelGI], SDFGI or [ReflectionProbe]s. To disable reflections from these sources as well, set [member metallic_specular] to [code]0.0[/code] instead.
 		</member>
 		<member name="subsurf_scatter_enabled" type="bool" setter="set_feature" getter="get_feature" default="false">
-			If [code]true[/code], subsurface scattering is enabled. Emulates light that penetrates an object's surface, is scattered, and then emerges.
+			If [code]true[/code], subsurface scattering is enabled. Emulates light that penetrates an object's surface, is scattered, and then emerges. Subsurface scattering quality is controlled by [member ProjectSettings.rendering/environment/subsurface_scattering/subsurface_scattering_quality].
 		</member>
 		<member name="subsurf_scatter_skin_mode" type="bool" setter="set_flag" getter="get_flag" default="false">
 			If [code]true[/code], subsurface scattering will use a special mode optimized for the color and density of human skin, such as boosting the intensity of the red channel in subsurface scattering.
 		</member>
 		<member name="subsurf_scatter_strength" type="float" setter="set_subsurface_scattering_strength" getter="get_subsurface_scattering_strength" default="0.0">
-			The strength of the subsurface scattering effect.
+			The strength of the subsurface scattering effect. The depth of the effect is also controlled by [member ProjectSettings.rendering/environment/subsurface_scattering/subsurface_scattering_scale], which is set globally.
 		</member>
 		<member name="subsurf_scatter_texture" type="Texture2D" setter="set_texture" getter="get_texture">
 			Texture used to control the subsurface scattering strength. Stored in the red texture channel. Multiplied by [member subsurf_scatter_strength].
@@ -390,7 +390,7 @@
 			Repeat flags for the texture. See [enum TextureFilter] for options.
 		</member>
 		<member name="transparency" type="int" setter="set_transparency" getter="get_transparency" enum="BaseMaterial3D.Transparency" default="0">
-			If [code]true[/code], transparency is enabled on the body. Some transparency modes will disable shadow casting. Any transparency mode other than Disabled has a greater performance impact compared to opaque rendering. See also [member blend_mode].
+			The material's transparency mode. Some transparency modes will disable shadow casting. Any transparency mode other than [constant TRANSPARENCY_DISABLED] has a greater performance impact compared to opaque rendering. See also [member blend_mode].
 		</member>
 		<member name="use_particle_trails" type="bool" setter="set_flag" getter="get_flag" default="false">
 			If [code]true[/code], enables parts of the shader required for [GPUParticles3D] trails to function. This also requires using a mesh with appropriate skinning, such as [RibbonTrailMesh] or [TubeTrailMesh]. Enabling this feature outside of materials used in [GPUParticles3D] meshes will break material rendering.

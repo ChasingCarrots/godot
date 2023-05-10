@@ -271,7 +271,12 @@ RID RenderForwardMobile::RenderBufferDataForwardMobile::get_color_fbs(Framebuffe
 			// - add blit to 2D pass
 			RID render_target = render_buffers->get_render_target();
 			ERR_FAIL_COND_V(render_target.is_null(), RID());
-			RID target_buffer = texture_storage->render_target_get_rd_texture(render_target);
+			RID target_buffer;
+			if (texture_storage->render_target_get_msaa(render_target) == RS::VIEWPORT_MSAA_DISABLED) {
+				target_buffer = texture_storage->render_target_get_rd_texture(render_target);
+			} else {
+				target_buffer = texture_storage->render_target_get_rd_texture_msaa(render_target);
+			}
 			ERR_FAIL_COND_V(target_buffer.is_null(), RID());
 
 			int target_buffer_id = textures.size();
@@ -742,14 +747,15 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 		}
 
 		// We do this last because our get_color_fbs creates and caches the framebuffer if we need it.
-		if (using_subpass_post_process && rb_data->get_color_fbs(RenderBufferDataForwardMobile::FB_CONFIG_FOUR_SUBPASSES).is_null()) {
+		RID four_subpasses = rb_data->get_color_fbs(RenderBufferDataForwardMobile::FB_CONFIG_FOUR_SUBPASSES);
+		if (using_subpass_post_process && four_subpasses.is_null()) {
 			// can't do blit subpass because we don't have all subpasses
 			using_subpass_post_process = false;
 		}
 
 		if (using_subpass_post_process) {
 			// all as subpasses
-			framebuffer = rb_data->get_color_fbs(RenderBufferDataForwardMobile::FB_CONFIG_FOUR_SUBPASSES);
+			framebuffer = four_subpasses;
 		} else if (using_subpass_transparent) {
 			// our tonemap pass is separate
 			framebuffer = rb_data->get_color_fbs(RenderBufferDataForwardMobile::FB_CONFIG_THREE_SUBPASSES);
@@ -2054,17 +2060,17 @@ void RenderForwardMobile::_render_list_template(RenderingDevice::DrawListID p_dr
 
 		if (inst->store_transform_cache) {
 			RendererRD::MaterialStorage::store_transform(inst->transform, push_constant.transform);
+
+#ifdef REAL_T_IS_DOUBLE
+			// Split the origin into two components, the float approximation and the missing precision
+			// In the shader we will combine these back together to restore the lost precision.
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.x, &push_constant.transform[12], &push_constant.transform[3]);
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.y, &push_constant.transform[13], &push_constant.transform[7]);
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.z, &push_constant.transform[14], &push_constant.transform[11]);
+#endif
 		} else {
 			RendererRD::MaterialStorage::store_transform(Transform3D(), push_constant.transform);
 		}
-
-#ifdef REAL_T_IS_DOUBLE
-		// Split the origin into two components, the float approximation and the missing precision
-		// In the shader we will combine these back together to restore the lost precision.
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.x, &push_constant.transform[12], &push_constant.transform[3]);
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.y, &push_constant.transform[13], &push_constant.transform[7]);
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.z, &push_constant.transform[14], &push_constant.transform[11]);
-#endif
 
 		push_constant.flags = inst->flags_cache;
 		push_constant.gi_offset = inst->gi_offset_cache;

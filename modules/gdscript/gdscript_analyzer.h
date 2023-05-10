@@ -43,6 +43,7 @@ class GDScriptAnalyzer {
 
 	const GDScriptParser::EnumNode *current_enum = nullptr;
 	List<GDScriptParser::LambdaNode *> lambda_stack;
+	bool static_context = false;
 
 	// Tests for detecting invalid overloading of script members
 	static _FORCE_INLINE_ bool has_member_name_conflict_in_script_class(const StringName &p_name, const GDScriptParser::ClassNode *p_current_class_node, const GDScriptParser::Node *p_member);
@@ -131,7 +132,7 @@ class GDScriptAnalyzer {
 	Ref<GDScriptParserRef> get_parser_for(const String &p_path);
 	void reduce_identifier_from_base_set_class(GDScriptParser::IdentifierNode *p_identifier, GDScriptParser::DataType p_identifier_datatype);
 #ifdef DEBUG_ENABLED
-	bool is_shadowing(GDScriptParser::IdentifierNode *p_local, const String &p_context);
+	void is_shadowing(GDScriptParser::IdentifierNode *p_local, const String &p_context);
 #endif
 
 public:

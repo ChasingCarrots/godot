@@ -197,7 +197,10 @@ internal class GodotGestureHandler : SimpleOnGestureListener(), OnScaleGestureLi
 		if (event.actionMasked == MotionEvent.ACTION_UP) {
 			nextDownIsDoubleTap = false
 			GodotInputHandler.handleMotionEvent(event)
+		} else if (event.actionMasked == MotionEvent.ACTION_MOVE && panningAndScalingEnabled == false) {
+			GodotInputHandler.handleMotionEvent(event)
 		}
+
 		return true
 	}
 
@@ -239,8 +242,8 @@ internal class GodotGestureHandler : SimpleOnGestureListener(), OnScaleGestureLi
 		return true
 	}
 
-	override fun onScale(detector: ScaleGestureDetector?): Boolean {
-		if (detector == null || !panningAndScalingEnabled || pointerCaptureInProgress) {
+	override fun onScale(detector: ScaleGestureDetector): Boolean {
+		if (!panningAndScalingEnabled || pointerCaptureInProgress) {
 			return false
 		}
 		GodotLib.magnify(
@@ -251,15 +254,15 @@ internal class GodotGestureHandler : SimpleOnGestureListener(), OnScaleGestureLi
 		return true
 	}
 
-	override fun onScaleBegin(detector: ScaleGestureDetector?): Boolean {
-		if (detector == null || !panningAndScalingEnabled || pointerCaptureInProgress) {
+	override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+		if (!panningAndScalingEnabled || pointerCaptureInProgress) {
 			return false
 		}
 		scaleInProgress = true
 		return true
 	}
 
-	override fun onScaleEnd(detector: ScaleGestureDetector?) {
+	override fun onScaleEnd(detector: ScaleGestureDetector) {
 		scaleInProgress = false
 	}
 }

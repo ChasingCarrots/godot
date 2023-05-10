@@ -128,6 +128,7 @@ bool DisplayServerX11::has_feature(Feature p_feature) const {
 #endif
 		case FEATURE_CLIPBOARD_PRIMARY:
 		case FEATURE_TEXT_TO_SPEECH:
+		case FEATURE_SCREEN_CAPTURE:
 			return true;
 		default: {
 		}
@@ -604,7 +605,7 @@ String DisplayServerX11::_clipboard_get_impl(Atom p_source, Window x11_window, A
 							success = true;
 						}
 					} else {
-						printf("Failed to get selection data chunk.\n");
+						print_verbose("Failed to get selection data chunk.");
 						done = true;
 					}
 
@@ -631,7 +632,7 @@ String DisplayServerX11::_clipboard_get_impl(Atom p_source, Window x11_window, A
 			if (result == Success) {
 				ret.parse_utf8((const char *)data);
 			} else {
-				printf("Failed to get selection data.\n");
+				print_verbose("Failed to get selection data.");
 			}
 
 			if (data) {
@@ -752,23 +753,56 @@ int DisplayServerX11::get_screen_count() const {
 }
 
 int DisplayServerX11::get_primary_screen() const {
-	return XDefaultScreen(x11_display);
+	int event_base, error_base;
+	if (XineramaQueryExtension(x11_display, &event_base, &error_base)) {
+		return 0;
+	} else {
+		return XDefaultScreen(x11_display);
+	}
+}
+
+int DisplayServerX11::get_keyboard_focus_screen() const {
+	int count = get_screen_count();
+	if (count < 2) {
+		// Early exit with single monitor.
+		return 0;
+	}
+
+	Window focus = 0;
+	int revert_to = 0;
+
+	XGetInputFocus(x11_display, &focus, &revert_to);
+	if (focus) {
+		Window focus_child = 0;
+		int x = 0, y = 0;
+		XTranslateCoordinates(x11_display, focus, DefaultRootWindow(x11_display), 0, 0, &x, &y, &focus_child);
+
+		XWindowAttributes xwa;
+		XGetWindowAttributes(x11_display, focus, &xwa);
+		Rect2i window_rect = Rect2i(x, y, xwa.width, xwa.height);
+
+		// Find which monitor has the largest overlap with the given window.
+		int screen_index = 0;
+		int max_area = 0;
+		for (int i = 0; i < count; i++) {
+			Rect2i screen_rect = _screen_get_rect(i);
+			Rect2i intersection = screen_rect.intersection(window_rect);
+			int area = intersection.get_area();
+			if (area > max_area) {
+				max_area = area;
+				screen_index = i;
+			}
+		}
+		return screen_index;
+	}
+
+	return get_primary_screen();
 }
 
 Rect2i DisplayServerX11::_screen_get_rect(int p_screen) const {
 	Rect2i rect(0, 0, 0, 0);
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
+	p_screen = _get_screen_index(p_screen);
 	ERR_FAIL_COND_V(p_screen < 0, rect);
 
 	// Using Xinerama Extension.
@@ -833,17 +867,7 @@ int bad_window_error_handler(Display *display, XErrorEvent *error) {
 Rect2i DisplayServerX11::screen_get_usable_rect(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
+	p_screen = _get_screen_index(p_screen);
 	int screen_count = get_screen_count();
 
 	// Check if screen is valid.
@@ -1120,18 +1144,7 @@ Rect2i DisplayServerX11::screen_get_usable_rect(int p_screen) const {
 int DisplayServerX11::screen_get_dpi(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
-	//invalid screen?
+	p_screen = _get_screen_index(p_screen);
 	ERR_FAIL_INDEX_V(p_screen, get_screen_count(), 0);
 
 	//Get physical monitor Dimensions through XRandR and calculate dpi
@@ -1169,21 +1182,33 @@ int DisplayServerX11::screen_get_dpi(int p_screen) const {
 	return 96;
 }
 
+Color DisplayServerX11::screen_get_pixel(const Point2i &p_position) const {
+	Point2i pos = p_position;
+
+	int number_of_screens = XScreenCount(x11_display);
+	for (int i = 0; i < number_of_screens; i++) {
+		Window root = XRootWindow(x11_display, i);
+		XWindowAttributes root_attrs;
+		XGetWindowAttributes(x11_display, root, &root_attrs);
+		if ((pos.x >= root_attrs.x) && (pos.x <= root_attrs.x + root_attrs.width) && (pos.y >= root_attrs.y) && (pos.y <= root_attrs.y + root_attrs.height)) {
+			XImage *image = XGetImage(x11_display, root, pos.x, pos.y, 1, 1, AllPlanes, XYPixmap);
+			if (image) {
+				XColor c;
+				c.pixel = XGetPixel(image, 0, 0);
+				XFree(image);
+				XQueryColor(x11_display, XDefaultColormap(x11_display, i), &c);
+				return Color(float(c.red) / 65535.0, float(c.green) / 65535.0, float(c.blue) / 65535.0, 1.0);
+			}
+		}
+	}
+
+	return Color();
+}
+
 float DisplayServerX11::screen_get_refresh_rate(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
-	//invalid screen?
+	p_screen = _get_screen_index(p_screen);
 	ERR_FAIL_INDEX_V(p_screen, get_screen_count(), SCREEN_REFRESH_RATE_FALLBACK);
 
 	//Use xrandr to get screen refresh rate.
@@ -1330,7 +1355,7 @@ void DisplayServerX11::delete_sub_window(WindowID p_id) {
 	}
 	XDestroyWindow(x11_display, wd.x11_xim_window);
 #ifdef XKB_ENABLED
-	if (xkb_loaded) {
+	if (xkb_loaded_v05p) {
 		if (wd.xkb_state) {
 			xkb_compose_state_unref(wd.xkb_state);
 			wd.xkb_state = nullptr;
@@ -1546,18 +1571,7 @@ void DisplayServerX11::window_set_current_screen(int p_screen, WindowID p_window
 	ERR_FAIL_COND(!windows.has(p_window));
 	WindowData &wd = windows[p_window];
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
-	// Check if screen is valid
+	p_screen = _get_screen_index(p_screen);
 	ERR_FAIL_INDEX(p_screen, get_screen_count());
 
 	if (window_get_current_screen(p_window) == p_screen) {
@@ -2630,16 +2644,12 @@ void DisplayServerX11::cursor_set_custom_image(const Ref<Resource> &p_cursor, Cu
 		}
 
 		Ref<Texture2D> texture = p_cursor;
+		ERR_FAIL_COND(!texture.is_valid());
 		Ref<AtlasTexture> atlas_texture = p_cursor;
-		Ref<Image> image;
 		Size2i texture_size;
 		Rect2i atlas_rect;
 
-		if (texture.is_valid()) {
-			image = texture->get_image();
-		}
-
-		if (!image.is_valid() && atlas_texture.is_valid()) {
+		if (atlas_texture.is_valid()) {
 			texture = atlas_texture->get_atlas();
 
 			atlas_rect.size.width = texture->get_width();
@@ -2649,19 +2659,23 @@ void DisplayServerX11::cursor_set_custom_image(const Ref<Resource> &p_cursor, Cu
 
 			texture_size.width = atlas_texture->get_region().size.x;
 			texture_size.height = atlas_texture->get_region().size.y;
-		} else if (image.is_valid()) {
+		} else {
 			texture_size.width = texture->get_width();
 			texture_size.height = texture->get_height();
 		}
 
-		ERR_FAIL_COND(!texture.is_valid());
 		ERR_FAIL_COND(p_hotspot.x < 0 || p_hotspot.y < 0);
 		ERR_FAIL_COND(texture_size.width > 256 || texture_size.height > 256);
 		ERR_FAIL_COND(p_hotspot.x > texture_size.width || p_hotspot.y > texture_size.height);
 
-		image = texture->get_image();
+		Ref<Image> image = texture->get_image();
 
 		ERR_FAIL_COND(!image.is_valid());
+		if (image->is_compressed()) {
+			image = image->duplicate(true);
+			Error err = image->decompress();
+			ERR_FAIL_COND_MSG(err != OK, "Couldn't decompress VRAM-compressed custom mouse cursor image. Switch to a lossless compression mode in the Import dock.");
+		}
 
 		// Create the cursor structure
 		XcursorImage *cursor_image = XcursorImageCreate(texture_size.width, texture_size.height);
@@ -2824,7 +2838,7 @@ Key DisplayServerX11::keyboard_get_keycode_from_physical(Key p_keycode) const {
 	Key modifiers = p_keycode & KeyModifierMask::MODIFIER_MASK;
 	Key keycode_no_mod = p_keycode & KeyModifierMask::CODE_MASK;
 	unsigned int xkeycode = KeyMappingX11::get_xlibcode(keycode_no_mod);
-	KeySym xkeysym = XkbKeycodeToKeysym(x11_display, xkeycode, 0, 0);
+	KeySym xkeysym = XkbKeycodeToKeysym(x11_display, xkeycode, keyboard_get_current_layout(), 0);
 	if (is_ascii_lower_case(xkeysym)) {
 		xkeysym -= ('a' - 'A');
 	}
@@ -2917,7 +2931,7 @@ BitField<MouseButtonMask> DisplayServerX11::_get_mouse_button_state(MouseButton 
 }
 
 void DisplayServerX11::_handle_key_event(WindowID p_window, XKeyEvent *p_event, LocalVector<XEvent> &p_events, uint32_t &p_event_index, bool p_echo) {
-	WindowData wd = windows[p_window];
+	WindowData &wd = windows[p_window];
 	// X11 functions don't know what const is
 	XKeyEvent *xkeyevent = p_event;
 
@@ -2963,7 +2977,7 @@ void DisplayServerX11::_handle_key_event(WindowID p_window, XKeyEvent *p_event, 
 
 	String keysym;
 #ifdef XKB_ENABLED
-	if (xkb_loaded) {
+	if (xkb_loaded_v08p) {
 		KeySym keysym_unicode_nm = 0; // keysym used to find unicode
 		XLookupString(&xkeyevent_no_mod, nullptr, 0, &keysym_unicode_nm, nullptr);
 		keysym = String::chr(xkb_keysym_to_utf32(xkb_keysym_to_upper(keysym_unicode_nm)));
@@ -3058,7 +3072,7 @@ void DisplayServerX11::_handle_key_event(WindowID p_window, XKeyEvent *p_event, 
 		} while (status == XBufferOverflow);
 #endif
 #ifdef XKB_ENABLED
-	} else if (xkeyevent->type == KeyPress && wd.xkb_state && xkb_loaded) {
+	} else if (xkeyevent->type == KeyPress && wd.xkb_state && xkb_loaded_v05p) {
 		xkb_compose_feed_result res = xkb_compose_state_feed(wd.xkb_state, keysym_unicode);
 		if (res == XKB_COMPOSE_FEED_ACCEPTED) {
 			if (xkb_compose_state_get_status(wd.xkb_state) == XKB_COMPOSE_COMPOSED) {
@@ -3319,7 +3333,7 @@ Atom DisplayServerX11::_process_selection_request_target(Atom p_target, Window p
 		return p_property;
 	} else {
 		char *target_name = XGetAtomName(x11_display, p_target);
-		printf("Target '%s' not supported.\n", target_name);
+		print_verbose(vformat("Target '%s' not supported.", target_name));
 		if (target_name) {
 			XFree(target_name);
 		}
@@ -3483,8 +3497,17 @@ void DisplayServerX11::_window_changed(XEvent *event) {
 
 	// Query display server about a possible new window state.
 	wd.fullscreen = _window_fullscreen_check(window_id);
-	wd.minimized = _window_minimize_check(window_id);
-	wd.maximized = _window_maximize_check(window_id, "_NET_WM_STATE");
+	wd.maximized = _window_maximize_check(window_id, "_NET_WM_STATE") && !wd.fullscreen;
+	wd.minimized = _window_minimize_check(window_id) && !wd.fullscreen && !wd.maximized;
+
+	// Readjusting the window position if the window is being reparented by the window manager for decoration
+	Window root, parent, *children;
+	unsigned int nchildren;
+	if (XQueryTree(x11_display, wd.x11_window, &root, &parent, &children, &nchildren) && wd.parent != parent) {
+		wd.parent = parent;
+		window_set_position(wd.position, window_id);
+	}
+	XFree(children);
 
 	{
 		//the position in xconfigure is not useful here, obtain it manually
@@ -4850,7 +4873,7 @@ DisplayServer *DisplayServerX11::create_func(const String &p_rendering_driver, W
 					vformat("Your video card drivers seem not to support the required Vulkan version.\n\n"
 							"If possible, consider updating your video card drivers or using the OpenGL 3 driver.\n\n"
 							"You can enable the OpenGL 3 driver by starting the engine from the\n"
-							"command line with the command:\n'%s --rendering-driver opengl3'\n\n"
+							"command line with the command:\n\n    \"%s\" --rendering-driver opengl3\n\n"
 							"If you recently updated your video card drivers, try rebooting.",
 							executable_name),
 					"Unable to initialize Vulkan video driver");
@@ -4873,7 +4896,9 @@ DisplayServerX11::WindowID DisplayServerX11::_create_window(WindowMode p_mode, V
 
 #ifdef GLES3_ENABLED
 	if (gl_manager) {
-		visualInfo = gl_manager->get_vi(x11_display);
+		Error err;
+		visualInfo = gl_manager->get_vi(x11_display, err);
+		ERR_FAIL_COND_V_MSG(err != OK, INVALID_WINDOW_ID, "Can't acquire visual info from display.");
 		vi_selected = true;
 	}
 #endif
@@ -4968,12 +4993,13 @@ DisplayServerX11::WindowID DisplayServerX11::_create_window(WindowMode p_mode, V
 	{
 		wd.x11_window = XCreateWindow(x11_display, RootWindow(x11_display, visualInfo.screen), win_rect.position.x, win_rect.position.y, win_rect.size.width > 0 ? win_rect.size.width : 1, win_rect.size.height > 0 ? win_rect.size.height : 1, 0, visualInfo.depth, InputOutput, visualInfo.visual, valuemask, &windowAttributes);
 
+		wd.parent = RootWindow(x11_display, visualInfo.screen);
 		XSetWindowAttributes window_attributes_ime = {};
 		window_attributes_ime.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask | ExposureMask;
 
 		wd.x11_xim_window = XCreateWindow(x11_display, wd.x11_window, 0, 0, 1, 1, 0, CopyFromParent, InputOnly, CopyFromParent, CWEventMask, &window_attributes_ime);
 #ifdef XKB_ENABLED
-		if (dead_tbl && xkb_loaded) {
+		if (dead_tbl && xkb_loaded_v05p) {
 			wd.xkb_state = xkb_compose_state_new(dead_tbl, XKB_COMPOSE_STATE_NO_FLAGS);
 		}
 #endif
@@ -5257,7 +5283,17 @@ DisplayServerX11::DisplayServerX11(const String &p_rendering_driver, WindowMode 
 		ERR_FAIL_MSG("Can't load XCursor dynamically.");
 	}
 #ifdef XKB_ENABLED
-	xkb_loaded = (initialize_xkbcommon(dylibloader_verbose) == 0);
+	bool xkb_loaded = (initialize_xkbcommon(dylibloader_verbose) == 0);
+	xkb_loaded_v05p = xkb_loaded;
+	if (!xkb_context_new || !xkb_compose_table_new_from_locale || !xkb_compose_table_unref || !xkb_context_unref || !xkb_compose_state_feed || !xkb_compose_state_unref || !xkb_compose_state_new || !xkb_compose_state_get_status || !xkb_compose_state_get_utf8) {
+		xkb_loaded_v05p = false;
+		print_verbose("Detected XKBcommon library version older than 0.5, dead key composition and Unicode key labels disabled.");
+	}
+	xkb_loaded_v08p = xkb_loaded;
+	if (!xkb_keysym_to_utf32 || !xkb_keysym_to_upper) {
+		xkb_loaded_v08p = false;
+		print_verbose("Detected XKBcommon library version older than 0.8, Unicode key labels disabled.");
+	}
 #endif
 	if (initialize_xext(dylibloader_verbose) != 0) {
 		r_error = ERR_UNAVAILABLE;
@@ -5312,6 +5348,15 @@ DisplayServerX11::DisplayServerX11(const String &p_rendering_driver, WindowMode 
 
 	r_error = OK;
 
+	{
+		if (!XcursorImageCreate || !XcursorImageLoadCursor || !XcursorImageDestroy || !XcursorGetDefaultSize || !XcursorGetTheme || !XcursorLibraryLoadImage) {
+			// There's no API to check version, check if functions are available instead.
+			ERR_PRINT("Unsupported Xcursor library version.");
+			r_error = ERR_UNAVAILABLE;
+			return;
+		}
+	}
+
 	for (int i = 0; i < CURSOR_MAX; i++) {
 		cursors[i] = None;
 		img[i] = nullptr;
@@ -5326,6 +5371,71 @@ DisplayServerX11::DisplayServerX11(const String &p_rendering_driver, WindowMode 
 		ERR_PRINT("X11 Display is not available");
 		r_error = ERR_UNAVAILABLE;
 		return;
+	}
+
+	{
+		int version_major = 0;
+		int version_minor = 0;
+		int rc = XShapeQueryVersion(x11_display, &version_major, &version_minor);
+		print_verbose(vformat("Xshape %d.%d detected.", version_major, version_minor));
+		if (rc != 1 || version_major < 1) {
+			ERR_PRINT("Unsupported Xshape library version.");
+			r_error = ERR_UNAVAILABLE;
+			XCloseDisplay(x11_display);
+			return;
+		}
+	}
+
+	{
+		int version_major = 0;
+		int version_minor = 0;
+		int rc = XineramaQueryVersion(x11_display, &version_major, &version_minor);
+		print_verbose(vformat("Xinerama %d.%d detected.", version_major, version_minor));
+		if (rc != 1 || version_major < 1) {
+			ERR_PRINT("Unsupported Xinerama library version.");
+			r_error = ERR_UNAVAILABLE;
+			XCloseDisplay(x11_display);
+			return;
+		}
+	}
+
+	{
+		int version_major = 0;
+		int version_minor = 0;
+		int rc = XRRQueryVersion(x11_display, &version_major, &version_minor);
+		print_verbose(vformat("Xrandr %d.%d detected.", version_major, version_minor));
+		if (rc != 1 || (version_major == 1 && version_minor < 3) || (version_major < 1)) {
+			ERR_PRINT("Unsupported Xrandr library version.");
+			r_error = ERR_UNAVAILABLE;
+			XCloseDisplay(x11_display);
+			return;
+		}
+	}
+
+	{
+		int version_major = 0;
+		int version_minor = 0;
+		int rc = XRenderQueryVersion(x11_display, &version_major, &version_minor);
+		print_verbose(vformat("Xrender %d.%d detected.", version_major, version_minor));
+		if (rc != 1 || (version_major == 0 && version_minor < 11)) {
+			ERR_PRINT("Unsupported Xrender library version.");
+			r_error = ERR_UNAVAILABLE;
+			XCloseDisplay(x11_display);
+			return;
+		}
+	}
+
+	{
+		int version_major = 2; // Report 2.2 as supported by engine, but should work with 2.1 or 2.0 library as well.
+		int version_minor = 2;
+		int rc = XIQueryVersion(x11_display, &version_major, &version_minor);
+		print_verbose(vformat("Xinput %d.%d detected.", version_major, version_minor));
+		if (rc != Success || (version_major < 2)) {
+			ERR_PRINT("Unsupported Xinput2 library version.");
+			r_error = ERR_UNAVAILABLE;
+			XCloseDisplay(x11_display);
+			return;
+		}
 	}
 
 	char *modifiers = nullptr;
@@ -5750,7 +5860,7 @@ DisplayServerX11::~DisplayServerX11() {
 		}
 		XDestroyWindow(x11_display, wd.x11_xim_window);
 #ifdef XKB_ENABLED
-		if (xkb_loaded) {
+		if (xkb_loaded_v05p) {
 			if (wd.xkb_state) {
 				xkb_compose_state_unref(wd.xkb_state);
 				wd.xkb_state = nullptr;
@@ -5762,7 +5872,7 @@ DisplayServerX11::~DisplayServerX11() {
 	}
 
 #ifdef XKB_ENABLED
-	if (xkb_loaded) {
+	if (xkb_loaded_v05p) {
 		if (dead_tbl) {
 			xkb_compose_table_unref(dead_tbl);
 		}

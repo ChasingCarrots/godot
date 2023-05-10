@@ -40,6 +40,8 @@
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/plugins/node_3d_editor_plugin.h"
 #include "scene/3d/camera_3d.h"
+#include "scene/gui/dialogs.h"
+#include "scene/gui/label.h"
 #include "scene/gui/menu_button.h"
 #include "scene/gui/separator.h"
 #include "scene/main/window.h"
@@ -608,13 +610,13 @@ EditorPlugin::AfterGUIInput GridMapEditor::forward_spatial_input_event(Camera3D 
 	Ref<InputEventMouseButton> mb = p_event;
 
 	if (mb.is_valid()) {
-		if (mb->get_button_index() == MouseButton::WHEEL_UP && (mb->is_command_or_control_pressed() || mb->is_shift_pressed())) {
+		if (mb->get_button_index() == MouseButton::WHEEL_UP && (mb->is_command_or_control_pressed())) {
 			if (mb->is_pressed()) {
 				floor->set_value(floor->get_value() + mb->get_factor());
 			}
 
 			return EditorPlugin::AFTER_GUI_INPUT_STOP; // Eaten.
-		} else if (mb->get_button_index() == MouseButton::WHEEL_DOWN && (mb->is_command_or_control_pressed() || mb->is_shift_pressed())) {
+		} else if (mb->get_button_index() == MouseButton::WHEEL_DOWN && (mb->is_command_or_control_pressed())) {
 			if (mb->is_pressed()) {
 				floor->set_value(floor->get_value() - mb->get_factor());
 			}
@@ -753,7 +755,7 @@ EditorPlugin::AfterGUIInput GridMapEditor::forward_spatial_input_event(Camera3D 
 
 	Ref<InputEventPanGesture> pan_gesture = p_event;
 	if (pan_gesture.is_valid()) {
-		if (pan_gesture->is_alt_pressed() && (pan_gesture->is_command_or_control_pressed() || pan_gesture->is_shift_pressed())) {
+		if (pan_gesture->is_alt_pressed() && pan_gesture->is_command_or_control_pressed()) {
 			const real_t delta = pan_gesture->get_delta().y * 0.5;
 			accumulated_floor_delta += delta;
 			int step = 0;
@@ -913,7 +915,7 @@ void GridMapEditor::update_palette() {
 }
 
 void GridMapEditor::edit(GridMap *p_gridmap) {
-	if (node) {
+	if (node && node->is_connected("cell_size_changed", callable_mp(this, &GridMapEditor::_draw_grids))) {
 		node->disconnect("cell_size_changed", callable_mp(this, &GridMapEditor::_draw_grids));
 	}
 

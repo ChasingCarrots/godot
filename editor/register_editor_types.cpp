@@ -30,21 +30,25 @@
 
 #include "register_editor_types.h"
 
-#include "editor/animation_track_editor.h"
 #include "editor/debugger/debug_adapter/debug_adapter_server.h"
 #include "editor/editor_command_palette.h"
 #include "editor/editor_feature_profile.h"
-#include "editor/editor_file_dialog.h"
 #include "editor/editor_file_system.h"
+#include "editor/editor_interface.h"
 #include "editor/editor_node.h"
 #include "editor/editor_paths.h"
 #include "editor/editor_resource_picker.h"
 #include "editor/editor_resource_preview.h"
-#include "editor/editor_run_script.h"
+#include "editor/editor_script.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_translation_parser.h"
 #include "editor/editor_undo_redo_manager.h"
+#include "editor/export/editor_export_platform.h"
+#include "editor/export/editor_export_platform_pc.h"
+#include "editor/export/editor_export_plugin.h"
 #include "editor/filesystem_dock.h"
+#include "editor/gui/editor_file_dialog.h"
+#include "editor/gui/editor_spin_slider.h"
 #include "editor/import/editor_import_plugin.h"
 #include "editor/import/resource_importer_scene.h"
 #include "editor/plugins/animation_tree_editor_plugin.h"
@@ -106,6 +110,7 @@
 #include "editor/plugins/version_control_editor_plugin.h"
 #include "editor/plugins/visual_shader_editor_plugin.h"
 #include "editor/plugins/voxel_gi_editor_plugin.h"
+#include "editor/register_exporters.h"
 
 void register_editor_types() {
 	ResourceLoader::set_timestamp_on_load(true);
@@ -132,13 +137,16 @@ void register_editor_types() {
 	GDREGISTER_ABSTRACT_CLASS(EditorInterface);
 	GDREGISTER_CLASS(EditorExportPlugin);
 	GDREGISTER_ABSTRACT_CLASS(EditorExportPlatform);
+	GDREGISTER_ABSTRACT_CLASS(EditorExportPlatformPC);
+
+	register_exporter_types();
+
 	GDREGISTER_CLASS(EditorResourceConversionPlugin);
 	GDREGISTER_CLASS(EditorSceneFormatImporter);
 	GDREGISTER_CLASS(EditorScenePostImportPlugin);
 	GDREGISTER_CLASS(EditorInspector);
 	GDREGISTER_CLASS(EditorInspectorPlugin);
 	GDREGISTER_CLASS(EditorProperty);
-	GDREGISTER_CLASS(AnimationTrackEditPlugin);
 	GDREGISTER_CLASS(ScriptCreateDialog);
 	GDREGISTER_CLASS(EditorFeatureProfile);
 	GDREGISTER_CLASS(EditorSpinSlider);
@@ -212,10 +220,31 @@ void register_editor_types() {
 	EditorPlugins::add_by_type<Skeleton2DEditorPlugin>();
 	EditorPlugins::add_by_type<Sprite2DEditorPlugin>();
 	EditorPlugins::add_by_type<TilesEditorPlugin>();
+
+	// For correct doc generation.
+	GLOBAL_DEF("editor/run/main_run_args", "");
+
+	GLOBAL_DEF(PropertyInfo(Variant::STRING, "editor/script/templates_search_path", PROPERTY_HINT_DIR), "res://script_templates");
+
+	GLOBAL_DEF("editor/naming/default_signal_callback_name", "_on_{node_name}_{signal_name}");
+	GLOBAL_DEF("editor/naming/default_signal_callback_to_self_name", "_on_{signal_name}");
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/scene_name_casing", PROPERTY_HINT_ENUM, "Auto,PascalCase,snake_case"), EditorNode::SCENE_NAME_CASING_SNAKE_CASE);
+
+	GLOBAL_DEF("editor/import/reimport_missing_imported_files", true);
+	GLOBAL_DEF("editor/import/use_multiple_threads", true);
+
+	GLOBAL_DEF("editor/export/convert_text_resources_to_binary", true);
+
+	GLOBAL_DEF("editor/version_control/plugin_name", "");
+	GLOBAL_DEF("editor/version_control/autoload_on_startup", false);
+
+	EditorInterface::create();
 }
 
 void unregister_editor_types() {
 	EditorNode::cleanup();
+	EditorInterface::free();
+
 	if (EditorPaths::get_singleton()) {
 		EditorPaths::free();
 	}

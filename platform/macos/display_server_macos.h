@@ -188,7 +188,7 @@ private:
 		Variant tag;
 		Callable callback;
 	};
-	Vector<MenuCall> deferred_menu_calls;
+	List<MenuCall> deferred_menu_calls;
 
 	const NSMenu *_get_menu_root(const String &p_menu_root) const;
 	NSMenu *_get_menu_root(const String &p_menu_root);
@@ -327,6 +327,7 @@ public:
 
 	virtual int get_screen_count() const override;
 	virtual int get_primary_screen() const override;
+	virtual int get_keyboard_focus_screen() const override;
 	virtual Point2i screen_get_position(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
 	virtual Size2i screen_get_size(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
 	virtual int screen_get_dpi(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
@@ -334,6 +335,7 @@ public:
 	virtual float screen_get_max_scale() const override;
 	virtual Rect2i screen_get_usable_rect(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
 	virtual float screen_get_refresh_rate(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
+	virtual Color screen_get_pixel(const Point2i &p_position) const override;
 	virtual void screen_set_keep_on(bool p_enable) override;
 	virtual bool screen_is_kept_on() const override;
 

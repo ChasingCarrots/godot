@@ -58,7 +58,7 @@
 # idleman <1524328475@qq.com>, 2019.
 # king <wangding1992@126.com>, 2019.
 # silentbird <silentbird520@outlook.com>, 2019.
-# Haoyu Qiu <timothyqiu32@gmail.com>, 2019, 2020, 2021, 2022.
+# Haoyu Qiu <timothyqiu32@gmail.com>, 2019, 2020, 2021, 2022, 2023.
 # Revan Ji <jiruifancr@gmail.com>, 2020.
 # nieyuanhong <15625988003@163.com>, 2020.
 # binotaliu <binota@protonmail.ch>, 2020.
@@ -92,7 +92,7 @@ msgstr ""
 "Project-Id-Version: Chinese (Simplified) (Godot Engine)\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: 2018-01-20 12:15+0200\n"
-"PO-Revision-Date: 2023-02-25 00:15+0000\n"
+"PO-Revision-Date: 2023-04-13 04:06+0000\n"
 "Last-Translator: Haoyu Qiu <timothyqiu32@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://hosted.weblate.org/projects/"
 "godot-engine/godot-properties/zh_Hans/>\n"
@@ -101,7 +101,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.16-dev\n"
+"X-Generator: Weblate 4.17-dev\n"
 
 msgid "Application"
 msgstr "应用"
@@ -141,6 +141,15 @@ msgstr "自定义用户目录名称"
 
 msgid "Project Settings Override"
 msgstr "项目设置覆盖"
+
+msgid "Main Loop Type"
+msgstr "主循环类型"
+
+msgid "Auto Accept Quit"
+msgstr "自动接受退出"
+
+msgid "Quit on Go Back"
+msgstr "返回时退出"
 
 msgid "Display"
 msgstr "显示"
@@ -212,16 +221,13 @@ msgid "General"
 msgstr "常规"
 
 msgid "2D Panning Strength"
-msgstr "2D 平移强度"
+msgstr "2D 声像强度"
 
 msgid "3D Panning Strength"
-msgstr "3D 平移强度"
+msgstr "3D 声像强度"
 
 msgid "Editor"
 msgstr "编辑器"
-
-msgid "Main Run Args"
-msgstr "主运行参数"
 
 msgid "Script"
 msgstr "脚本"
@@ -229,17 +235,11 @@ msgstr "脚本"
 msgid "Search in File Extensions"
 msgstr "搜索文件扩展名"
 
-msgid "Templates Search Path"
-msgstr "模板搜索路径"
+msgid "Subwindows"
+msgstr "子窗口"
 
-msgid "Naming"
-msgstr "命名"
-
-msgid "Default Signal Callback Name"
-msgstr "默认信号回调名称"
-
-msgid "Default Signal Callback to Self Name"
-msgstr "默认信号回调为自身名称"
+msgid "Embed Subwindows"
+msgstr "嵌入式子窗口"
 
 msgid "Physics"
 msgstr "物理"
@@ -252,6 +252,15 @@ msgstr "在独立的线程上运行"
 
 msgid "3D"
 msgstr "3D"
+
+msgid "Stretch"
+msgstr "拉伸"
+
+msgid "Aspect"
+msgstr "比例"
+
+msgid "Scale"
+msgstr "缩放"
 
 msgid "Debug"
 msgstr "调试"
@@ -322,6 +331,9 @@ msgstr "国际化"
 msgid "Force Right to Left Layout Direction"
 msgstr "强制从右至左的布局方向"
 
+msgid "Root Node Layout Direction"
+msgstr "根节点排版方向"
+
 msgid "GUI"
 msgstr "GUI"
 
@@ -330,6 +342,21 @@ msgstr "计时器"
 
 msgid "Incremental Search Max Interval Msec"
 msgstr "增量搜索最大间隔（毫秒）"
+
+msgid "Common"
+msgstr "通用"
+
+msgid "Snap Controls to Pixels"
+msgstr "控件像素吸附"
+
+msgid "Fonts"
+msgstr "字体"
+
+msgid "Dynamic Fonts"
+msgstr "动态字体"
+
+msgid "Use Oversampling"
+msgstr "使用过采样"
 
 msgid "Rendering Device"
 msgstr "渲染设备"
@@ -351,6 +378,18 @@ msgstr "Vulkan"
 
 msgid "Max Descriptors per Pool"
 msgstr "单池最大描述符数"
+
+msgid "Textures"
+msgstr "纹理"
+
+msgid "Canvas Textures"
+msgstr "画布纹理"
+
+msgid "Default Texture Filter"
+msgstr "默认纹理过滤"
+
+msgid "Default Texture Repeat"
+msgstr "默认纹理重复"
 
 msgid "Low Processor Usage Mode"
 msgstr "低处理器使用模式"
@@ -542,7 +581,7 @@ msgid "Resource"
 msgstr "资源"
 
 msgid "Local to Scene"
-msgstr "本地于场景"
+msgstr "本地化到场景"
 
 msgid "Path"
 msgstr "路径"
@@ -658,9 +697,6 @@ msgstr "跳过占位符"
 msgid "Rotation"
 msgstr "旋转"
 
-msgid "Scale"
-msgstr "缩放"
-
 msgid "Value"
 msgstr "值"
 
@@ -745,15 +781,6 @@ msgstr "显示隐藏文件"
 msgid "Disable Overwrite Warning"
 msgstr "禁用覆盖警告"
 
-msgid "Import"
-msgstr "导入"
-
-msgid "Reimport Missing Imported Files"
-msgstr "重新导入缺失的已导入文件"
-
-msgid "Use Multiple Threads"
-msgstr "使用多线程"
-
 msgid "Text Editor"
 msgstr "文本编辑器"
 
@@ -783,9 +810,6 @@ msgstr "制作关键帧"
 
 msgid "Deletable"
 msgstr "可删除"
-
-msgid "Scene Name Casing"
-msgstr "场景名称大小写"
 
 msgid "Interface"
 msgstr "界面"
@@ -1076,7 +1100,7 @@ msgid "Appearance"
 msgstr "外观"
 
 msgid "Caret"
-msgstr "光标"
+msgstr "（文本）光标"
 
 msgid "Caret Blink"
 msgstr "光标闪烁"
@@ -1660,12 +1684,6 @@ msgstr "隐藏滑动条"
 msgid "Zoom"
 msgstr "缩放"
 
-msgid "Export"
-msgstr "导出"
-
-msgid "Convert Text Resources to Binary"
-msgstr "将文本资源转换为二进制"
-
 msgid "Custom Template"
 msgstr "自定义模板"
 
@@ -1695,6 +1713,9 @@ msgstr "ETC"
 
 msgid "ETC2"
 msgstr "ETC2"
+
+msgid "Export"
+msgstr "导出"
 
 msgid "SSH"
 msgstr "SSH"
@@ -1914,6 +1935,9 @@ msgstr "偏移网格"
 
 msgid "Optimize Mesh"
 msgstr "优化网格"
+
+msgid "Import"
+msgstr "导入"
 
 msgid "Skip Import"
 msgstr "跳过导入"
@@ -2267,7 +2291,7 @@ msgid "Auto Reload and Parse Scripts on Save"
 msgstr "保存时自动重新加载并解析脚本"
 
 msgid "Open Dominant Script on Scene Change"
-msgstr "场景变化时打开主要脚本"
+msgstr "场景变化时打开主导脚本"
 
 msgid "External"
 msgstr "外部"
@@ -2359,12 +2383,6 @@ msgstr "时长"
 msgid "Version Control"
 msgstr "版本控制"
 
-msgid "Plugin Name"
-msgstr "插件名"
-
-msgid "Autoload on Startup"
-msgstr "启动时自动加载"
-
 msgid "Username"
 msgstr "用户名"
 
@@ -2373,6 +2391,39 @@ msgstr "SSH 公钥路径"
 
 msgid "SSH Private Key Path"
 msgstr "SSH 私钥路径"
+
+msgid "Main Run Args"
+msgstr "主运行参数"
+
+msgid "Templates Search Path"
+msgstr "模板搜索路径"
+
+msgid "Naming"
+msgstr "命名"
+
+msgid "Default Signal Callback Name"
+msgstr "默认信号回调名称"
+
+msgid "Default Signal Callback to Self Name"
+msgstr "默认信号回调为自身名称"
+
+msgid "Scene Name Casing"
+msgstr "场景名称大小写"
+
+msgid "Reimport Missing Imported Files"
+msgstr "重新导入缺失的已导入文件"
+
+msgid "Use Multiple Threads"
+msgstr "使用多线程"
+
+msgid "Convert Text Resources to Binary"
+msgstr "将文本资源转换为二进制"
+
+msgid "Plugin Name"
+msgstr "插件名"
+
+msgid "Autoload on Startup"
+msgstr "启动时自动加载"
 
 msgid "Show Scene Tree Root Selection"
 msgstr "显示场景树根选择"
@@ -2455,9 +2506,6 @@ msgstr "垂直同步"
 msgid "V-Sync Mode"
 msgstr "垂直同步模式"
 
-msgid "Common"
-msgstr "通用"
-
 msgid "stdout"
 msgstr "标准输出"
 
@@ -2511,6 +2559,9 @@ msgstr "参照空间"
 
 msgid "Submit Depth Buffer"
 msgstr "提交深度缓冲区"
+
+msgid "Startup Alert"
+msgstr "启动警报"
 
 msgid "In Editor"
 msgstr "在编辑器中"
@@ -2601,51 +2652,6 @@ msgstr "程序集名称"
 
 msgid "Solution Directory"
 msgstr "解决方案目录"
-
-msgid "Main Loop Type"
-msgstr "主循环类型"
-
-msgid "Subwindows"
-msgstr "子窗口"
-
-msgid "Embed Subwindows"
-msgstr "嵌入式子窗口"
-
-msgid "Stretch"
-msgstr "拉伸"
-
-msgid "Aspect"
-msgstr "比例"
-
-msgid "Auto Accept Quit"
-msgstr "自动接受退出"
-
-msgid "Quit on Go Back"
-msgstr "返回时退出"
-
-msgid "Snap Controls to Pixels"
-msgstr "控件像素吸附"
-
-msgid "Fonts"
-msgstr "字体"
-
-msgid "Dynamic Fonts"
-msgstr "动态字体"
-
-msgid "Use Oversampling"
-msgstr "使用过采样"
-
-msgid "Textures"
-msgstr "纹理"
-
-msgid "Canvas Textures"
-msgstr "画布纹理"
-
-msgid "Default Texture Filter"
-msgstr "默认纹理过滤"
-
-msgid "Default Texture Repeat"
-msgstr "默认纹理重复"
 
 msgid "Operation"
 msgstr "操作"
@@ -4240,14 +4246,8 @@ msgstr "底"
 msgid "Smoothed"
 msgstr "平滑"
 
-msgid "Follow Smoothing"
-msgstr "跟随平滑"
-
-msgid "Position Smoothing Enabled"
-msgstr "启用位置平滑"
-
-msgid "Position Smoothing Speed"
-msgstr "位置平滑速度"
+msgid "Position Smoothing"
+msgstr "位置平滑"
 
 msgid "Rotation Smoothing"
 msgstr "旋转平滑"
@@ -4656,6 +4656,12 @@ msgstr "路径最大距离"
 
 msgid "Navigation Layers"
 msgstr "导航层"
+
+msgid "Pathfinding Algorithm"
+msgstr "寻路算法"
+
+msgid "Path Postprocessing"
+msgstr "路径后处理"
 
 msgid "Path Metadata Flags"
 msgstr "路径元数据标志"
@@ -6166,6 +6172,18 @@ msgstr "十六进制可见"
 msgid "Presets Visible"
 msgstr "预设可见"
 
+msgid "Theme Overrides"
+msgstr "主题覆盖"
+
+msgid "Constants"
+msgstr "常量"
+
+msgid "Font Sizes"
+msgstr "字体大小"
+
+msgid "Styles"
+msgstr "样式"
+
 msgid "Clip Contents"
 msgstr "裁剪内容"
 
@@ -6556,8 +6574,8 @@ msgstr "字形标志"
 msgid "Relative Index"
 msgstr "相对索引"
 
-msgid "Bbcode Enabled"
-msgstr "启用 Bbcode"
+msgid "BBCode Enabled"
+msgstr "启用 BBCode"
 
 msgid "Fit Content"
 msgstr "适配内容"
@@ -7697,10 +7715,10 @@ msgid "Relationship Line Color"
 msgstr "关系线颜色"
 
 msgid "Parent HL Line Color"
-msgstr "父 HL 线颜色"
+msgstr "父高亮线颜色"
 
 msgid "Children HL Line Color"
-msgstr "子 HL 线颜色"
+msgstr "子高亮线颜色"
 
 msgid "Custom Button Font Highlight"
 msgstr "自定义按钮字体高亮"
@@ -7718,13 +7736,13 @@ msgid "Relationship Line Width"
 msgstr "关系线宽度"
 
 msgid "Parent HL Line Width"
-msgstr "父 HL 线宽度"
+msgstr "父高亮线宽度"
 
 msgid "Children HL Line Width"
-msgstr "子 HL 线宽度"
+msgstr "子高亮线宽度"
 
 msgid "Parent HL Line Margin"
-msgstr "父 HL 线边距"
+msgstr "父高亮线边距"
 
 msgid "Draw Guides"
 msgstr "绘制参考线"
@@ -9214,12 +9232,6 @@ msgstr "电影文件"
 msgid "Disable V-Sync"
 msgstr "禁用垂直同步"
 
-msgid "Pathfinding Algorithm"
-msgstr "寻路算法"
-
-msgid "Path Postprocessing"
-msgstr "路径后处理"
-
 msgid "Metadata Flags"
 msgstr "元数据标志"
 
@@ -9753,6 +9765,9 @@ msgstr "有跟踪数据"
 
 msgid "Tracking Confidence"
 msgstr "追踪置信度"
+
+msgid "World Origin"
+msgstr "世界原点"
 
 msgid "Primary Interface"
 msgstr "主接口"

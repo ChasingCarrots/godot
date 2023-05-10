@@ -169,8 +169,7 @@ public:
 	virtual void clear_executing_line() = 0;
 	virtual void trim_trailing_whitespace() = 0;
 	virtual void insert_final_newline() = 0;
-	virtual void convert_indent_to_spaces() = 0;
-	virtual void convert_indent_to_tabs() = 0;
+	virtual void convert_indent() = 0;
 	virtual void ensure_focus() = 0;
 	virtual void tag_saved_version() = 0;
 	virtual void reload(bool p_soft) {}
@@ -336,6 +335,7 @@ class ScriptEditor : public PanelContainer {
 	bool _has_docs_tab() const;
 	bool _has_script_tab() const;
 	void _prepare_file_menu();
+	void _file_menu_closed();
 
 	Tree *disk_changed_list = nullptr;
 	ConfirmationDialog *disk_changed = nullptr;
@@ -389,7 +389,6 @@ class ScriptEditor : public PanelContainer {
 
 	bool open_textfile_after_create = true;
 	bool trim_trailing_whitespace_on_save;
-	bool use_space_indentation;
 	bool convert_indent_on_save;
 
 	void _goto_script_line2(int p_line);
@@ -481,6 +480,7 @@ class ScriptEditor : public PanelContainer {
 	void _on_find_in_files_modified_files(PackedStringArray paths);
 
 	static void _open_script_request(const String &p_path);
+	void _close_builtin_scripts_from_scene(const String &p_scene);
 
 	static ScriptEditor *script_editor;
 
@@ -521,8 +521,6 @@ public:
 
 	void notify_script_close(const Ref<Script> &p_script);
 	void notify_script_changed(const Ref<Script> &p_script);
-
-	void close_builtin_scripts_from_scene(const String &p_scene);
 
 	void goto_help(const String &p_desc) { _help_class_goto(p_desc); }
 	void update_doc(const String &p_name);

@@ -44,13 +44,17 @@
 # 오지훈 <jule1130@naver.com>, 2023.
 # 이정희 <daemul72@gmail.com>, 2023.
 # nulta <un5450@naver.com>, 2023.
+# jaehun choe <jayden.choe@gmail.com>, 2023.
+# 설동훈 <tjfehdgns@gmail.com>, 2023.
+# Rocream <kbg4660@gmail.com>, 2023.
+# Seania Twix <admin@ez.is>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine editor interface\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-02-26 20:44+0000\n"
-"Last-Translator: Godoto <aicompose@gmail.com>\n"
+"PO-Revision-Date: 2023-04-06 16:01+0000\n"
+"Last-Translator: Seania Twix <admin@ez.is>\n"
 "Language-Team: Korean <https://hosted.weblate.org/projects/godot-engine/"
 "godot/ko/>\n"
 "Language: ko\n"
@@ -58,7 +62,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.16-dev\n"
+"X-Generator: Weblate 4.17-dev\n"
 
 msgid "Unset"
 msgstr "설정 해제"
@@ -210,6 +214,9 @@ msgstr "압력:"
 msgid "touched"
 msgstr "터치"
 
+msgid "released"
+msgstr "출시된"
+
 msgid "Screen %s at (%s) with %s touch points"
 msgstr "터치 포인트가 %s개인 (%s)의 %s 화면"
 
@@ -257,6 +264,15 @@ msgstr "위"
 msgid "Down"
 msgstr "아래"
 
+msgid "Page Up"
+msgstr "페이지 업"
+
+msgid "Page Down"
+msgstr "페이지 다운"
+
+msgid "Home"
+msgstr "홈"
+
 msgid "End"
 msgstr "끝"
 
@@ -275,11 +291,20 @@ msgstr "실행 취소"
 msgid "Redo"
 msgstr "다시 실행"
 
+msgid "New Line"
+msgstr "뉴라인"
+
 msgid "New Blank Line"
-msgstr "새로운 빈 줄"
+msgstr "뉴라인(Blank)"
+
+msgid "New Line Above"
+msgstr "뉴라인(위로)"
 
 msgid "Indent"
 msgstr "들여쓰기"
+
+msgid "Backspace"
+msgstr "백스페이스"
 
 msgid "Backspace Word"
 msgstr "백스페이스 단어"
@@ -289,6 +314,9 @@ msgstr "모두 왼쪽으로 백스페이스"
 
 msgid "Delete"
 msgstr "삭제"
+
+msgid "Delete Word"
+msgstr "단어 삭제"
 
 msgid "Caret Add Above"
 msgstr "위에 캐럿 추가"
@@ -453,7 +481,7 @@ msgstr "애니메이션 루프 바꾸기"
 
 msgid "Can't change loop mode on animation instanced from imported scene."
 msgstr ""
-"임포트된 씬에서 인스턴스화된 애니메이션의 루프 모드를 변경할 수 없습니다."
+"가져온 씬에서 인스턴스화된 애니메이션의 루프 모드를 변경할 수 없습니다."
 
 msgid "Can't change loop mode on animation embedded in another scene."
 msgstr "다른 장면에 임베드된 애니메이션의 루프 모드를 변경할 수 없습니다."
@@ -819,6 +847,9 @@ msgstr "복사할 트랙 선택"
 msgid "Select All/None"
 msgstr "모두 선택/해제"
 
+msgid "Animation Change Keyframe Time"
+msgstr "애니메이션 키 프레임 시간 바꾸기"
+
 msgid "Add Audio Track Clip"
 msgstr "오디오 트랙 클립 추가"
 
@@ -840,6 +871,10 @@ msgstr "%d개 찾아 바꿈."
 msgid "%d match"
 msgid_plural "%d matches"
 msgstr[0] "%d개 일치"
+
+msgid "%d of %d match"
+msgid_plural "%d of %d matches"
+msgstr[0] "%d 중 %d 일치"
 
 msgid "Match Case"
 msgstr "대소문자 구분"
@@ -2055,7 +2090,7 @@ msgid "(Re)Importing Assets"
 msgstr "애셋 (다시) 가져오는 중"
 
 msgid "Experimental"
-msgstr "실험적"
+msgstr "실험적인"
 
 msgid "This method supports a variable number of arguments."
 msgstr "이 메서드는 다양한 인수를 지원합니다."
@@ -2176,8 +2211,14 @@ msgstr ""
 "현재 이 속성의 설명이 없습니다. [color=$color][url=$url]관련 정보를 기여하여"
 "[/url][/color] 개선할 수 있도록 도와주세요!"
 
+msgid "Constructor Descriptions"
+msgstr "생성자 설명"
+
 msgid "Method Descriptions"
 msgstr "메서드 설명"
+
+msgid "Operator Descriptions"
+msgstr "연산자 설명"
 
 msgid "%d match."
 msgstr "%d개 일치."
@@ -3651,7 +3692,7 @@ msgid ""
 "FBX2glTF is required for importing FBX files.\n"
 "Please download it and provide a valid path to the binary:"
 msgstr ""
-"FBX 파일을 임포트하려면 FBX2glTF가 필요합니다.\n"
+"FBX 파일을 가져오려면 FBX2glTF가 필요합니다.\n"
 "다운로드하고 바이너리의 유효한 경로를 제공하세요:"
 
 msgid "Click this link to download FBX2glTF"
@@ -5963,6 +6004,9 @@ msgstr "오버드로 표시"
 msgid "Display Unshaded"
 msgstr "셰이더 없음 표시"
 
+msgid "Normal Buffer"
+msgstr "방출 소스:"
+
 msgid "View Environment"
 msgstr "환경 보기"
 
@@ -7386,6 +7430,9 @@ msgstr "수평으로 뒤집기"
 
 msgid "Flip Vertically"
 msgstr "수직으로 뒤집기"
+
+msgid "Tiles"
+msgstr "타일"
 
 msgid "Yes"
 msgstr "예"
@@ -9226,6 +9273,9 @@ msgstr "식별자가 누락되어 있습니다."
 msgid "The character '%s' is not allowed in Identifier."
 msgstr "문자 '%s'은(는) 식별자에 쓸 수 없습니다."
 
+msgid "Stop and uninstall"
+msgstr "멈춤 및 설치 제거"
+
 msgid "Could not open icon file \"%s\"."
 msgstr "아이콘 파일 \"%s\"를 열 수 없습니다."
 
@@ -9523,9 +9573,6 @@ msgstr ""
 "Hint Tooltip은 Control의 Mouse Filter가 \"Ignore\"으로 설정되어 있기 때문에 "
 "보이지 않습니다. 해결하려면 Mouse Filter를 \"Stop\"이나 \"Pass\"로 설정하세"
 "요."
-
-msgid "Theme Overrides"
-msgstr "테마 오버라이드"
 
 msgid "Alert!"
 msgstr "경고!"

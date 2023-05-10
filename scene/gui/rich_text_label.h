@@ -252,6 +252,7 @@ private:
 		ListType list_type = LIST_DOTS;
 		bool capitalize = false;
 		int level = 0;
+		String bullet = String::utf8("•");
 		ItemList() { type = ITEM_LIST; }
 	};
 
@@ -376,6 +377,7 @@ private:
 	bool threaded = false;
 	std::atomic<bool> stop_thread;
 	std::atomic<bool> updating;
+	std::atomic<bool> validating;
 	std::atomic<double> loaded;
 
 	uint64_t loading_started = 0;
@@ -526,6 +528,7 @@ private:
 #endif
 	bool use_bbcode = false;
 	String text;
+	void _apply_translation();
 
 	bool fit_content = false;
 
@@ -592,7 +595,7 @@ public:
 	void push_strikethrough();
 	void push_paragraph(HorizontalAlignment p_alignment, Control::TextDirection p_direction = Control::TEXT_DIRECTION_INHERITED, const String &p_language = "", TextServer::StructuredTextParser p_st_parser = TextServer::STRUCTURED_TEXT_DEFAULT);
 	void push_indent(int p_level);
-	void push_list(int p_level, ListType p_list, bool p_capitalize);
+	void push_list(int p_level, ListType p_list, bool p_capitalize, const String &p_bullet = String::utf8("•"));
 	void push_meta(const Variant &p_meta);
 	void push_hint(const String &p_string);
 	void push_table(int p_columns, InlineAlignment p_alignment = INLINE_ALIGNMENT_TOP, int p_align_to_row = -1);
@@ -622,9 +625,6 @@ public:
 
 	void set_hint_underline(bool p_underline);
 	bool is_hint_underlined() const;
-
-	void set_override_selected_font_color(bool p_override_selected_font_color);
-	bool is_overriding_selected_font_color() const;
 
 	void set_scroll_active(bool p_active);
 	bool is_scroll_active() const;
@@ -679,6 +679,7 @@ public:
 	void deselect();
 
 	bool is_ready() const;
+	bool is_updating() const;
 
 	void set_threaded(bool p_threaded);
 	bool is_threaded() const;

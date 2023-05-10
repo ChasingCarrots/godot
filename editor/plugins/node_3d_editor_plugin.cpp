@@ -40,7 +40,40 @@
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_undo_redo_manager.h"
+#include "editor/gui/editor_run_bar.h"
+#include "editor/gui/editor_spin_slider.h"
 #include "editor/plugins/animation_player_editor_plugin.h"
+#include "editor/plugins/gizmos/audio_listener_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/audio_stream_player_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/camera_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/collision_object_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/collision_polygon_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/collision_shape_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/cpu_particles_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/decal_gizmo_plugin.h"
+#include "editor/plugins/gizmos/fog_volume_gizmo_plugin.h"
+#include "editor/plugins/gizmos/gpu_particles_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/gpu_particles_collision_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/joint_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/label_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/light_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/lightmap_gi_gizmo_plugin.h"
+#include "editor/plugins/gizmos/lightmap_probe_gizmo_plugin.h"
+#include "editor/plugins/gizmos/marker_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/mesh_instance_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/navigation_link_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/navigation_region_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/occluder_instance_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/physics_bone_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/ray_cast_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/reflection_probe_gizmo_plugin.h"
+#include "editor/plugins/gizmos/shape_cast_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/soft_body_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/spring_arm_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/sprite_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/vehicle_body_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/visible_on_screen_notifier_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/voxel_gi_gizmo_plugin.h"
 #include "editor/plugins/node_3d_editor_gizmos.h"
 #include "editor/scene_tree_dock.h"
 #include "scene/3d/camera_3d.h"
@@ -2102,6 +2135,11 @@ void Node3DEditorViewport::_sinput(const Ref<InputEvent> &p_event) {
 		}
 
 		if (_edit.mode == TRANSFORM_NONE) {
+			if (_edit.gizmo.is_valid()) {
+				// Restore.
+				_edit.gizmo->commit_handle(_edit.gizmo_handle, _edit.gizmo_handle_secondary, _edit.gizmo_initial_value, true);
+				_edit.gizmo = Ref<EditorNode3DGizmo>();
+			}
 			if (k->get_keycode() == Key::ESCAPE && !cursor.region_select) {
 				_clear_selected();
 				return;
@@ -3693,6 +3731,7 @@ void Node3DEditorViewport::update_transform_gizmo_view() {
 		return;
 	}
 
+	bool show_gizmo = spatial_editor->is_gizmo_visible() && !_edit.instant;
 	for (int i = 0; i < 3; i++) {
 		Transform3D axis_angle;
 		if (xform.basis.get_column(i).normalized().dot(xform.basis.get_column((i + 1) % 3).normalized()) < 1.0) {
@@ -3701,15 +3740,15 @@ void Node3DEditorViewport::update_transform_gizmo_view() {
 		axis_angle.basis.scale(scale);
 		axis_angle.origin = xform.origin;
 		RenderingServer::get_singleton()->instance_set_transform(move_gizmo_instance[i], axis_angle);
-		RenderingServer::get_singleton()->instance_set_visible(move_gizmo_instance[i], spatial_editor->is_gizmo_visible() && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_MOVE));
+		RenderingServer::get_singleton()->instance_set_visible(move_gizmo_instance[i], show_gizmo && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_MOVE));
 		RenderingServer::get_singleton()->instance_set_transform(move_plane_gizmo_instance[i], axis_angle);
-		RenderingServer::get_singleton()->instance_set_visible(move_plane_gizmo_instance[i], spatial_editor->is_gizmo_visible() && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_MOVE));
+		RenderingServer::get_singleton()->instance_set_visible(move_plane_gizmo_instance[i], show_gizmo && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_MOVE));
 		RenderingServer::get_singleton()->instance_set_transform(rotate_gizmo_instance[i], axis_angle);
-		RenderingServer::get_singleton()->instance_set_visible(rotate_gizmo_instance[i], spatial_editor->is_gizmo_visible() && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_ROTATE));
+		RenderingServer::get_singleton()->instance_set_visible(rotate_gizmo_instance[i], show_gizmo && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_ROTATE));
 		RenderingServer::get_singleton()->instance_set_transform(scale_gizmo_instance[i], axis_angle);
-		RenderingServer::get_singleton()->instance_set_visible(scale_gizmo_instance[i], spatial_editor->is_gizmo_visible() && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SCALE));
+		RenderingServer::get_singleton()->instance_set_visible(scale_gizmo_instance[i], show_gizmo && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SCALE));
 		RenderingServer::get_singleton()->instance_set_transform(scale_plane_gizmo_instance[i], axis_angle);
-		RenderingServer::get_singleton()->instance_set_visible(scale_plane_gizmo_instance[i], spatial_editor->is_gizmo_visible() && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SCALE));
+		RenderingServer::get_singleton()->instance_set_visible(scale_plane_gizmo_instance[i], show_gizmo && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SCALE));
 		RenderingServer::get_singleton()->instance_set_transform(axis_gizmo_instance[i], xform);
 	}
 
@@ -4477,6 +4516,7 @@ void Node3DEditorViewport::begin_transform(TransformMode p_mode, bool instant) {
 		_compute_edit(_edit.mouse_pos);
 		_edit.instant = instant;
 		_edit.snap = spatial_editor->is_snap_enabled();
+		update_transform_gizmo_view();
 	}
 }
 
@@ -4858,15 +4898,15 @@ void Node3DEditorViewport::update_transform(Point2 p_mousepos, bool p_shift) {
 
 void Node3DEditorViewport::finish_transform() {
 	spatial_editor->set_local_coords_enabled(_edit.original_local);
-	spatial_editor->update_transform_gizmo();
 	_edit.mode = TRANSFORM_NONE;
 	_edit.instant = false;
+	spatial_editor->update_transform_gizmo();
 	surface->queue_redraw();
 }
 
 // Register a shortcut and also add it as an input action with the same events.
-void Node3DEditorViewport::register_shortcut_action(const String &p_path, const String &p_name, Key p_keycode) {
-	Ref<Shortcut> sc = ED_SHORTCUT(p_path, p_name, p_keycode);
+void Node3DEditorViewport::register_shortcut_action(const String &p_path, const String &p_name, Key p_keycode, bool p_physical) {
+	Ref<Shortcut> sc = ED_SHORTCUT(p_path, p_name, p_keycode, p_physical);
 	shortcut_changed_callback(sc, p_path);
 	// Connect to the change event on the shortcut so the input binding can be updated.
 	sc->connect("changed", callable_mp(this, &Node3DEditorViewport::shortcut_changed_callback).bind(sc, p_path));
@@ -5047,12 +5087,12 @@ Node3DEditorViewport::Node3DEditorViewport(Node3DEditor *p_spatial_editor, int p
 		view_menu->get_popup()->set_item_tooltip(shadeless_idx, unsupported_tooltip);
 	}
 
-	register_shortcut_action("spatial_editor/freelook_left", TTR("Freelook Left"), Key::A);
-	register_shortcut_action("spatial_editor/freelook_right", TTR("Freelook Right"), Key::D);
-	register_shortcut_action("spatial_editor/freelook_forward", TTR("Freelook Forward"), Key::W);
-	register_shortcut_action("spatial_editor/freelook_backwards", TTR("Freelook Backwards"), Key::S);
-	register_shortcut_action("spatial_editor/freelook_up", TTR("Freelook Up"), Key::E);
-	register_shortcut_action("spatial_editor/freelook_down", TTR("Freelook Down"), Key::Q);
+	register_shortcut_action("spatial_editor/freelook_left", TTR("Freelook Left"), Key::A, true);
+	register_shortcut_action("spatial_editor/freelook_right", TTR("Freelook Right"), Key::D, true);
+	register_shortcut_action("spatial_editor/freelook_forward", TTR("Freelook Forward"), Key::W, true);
+	register_shortcut_action("spatial_editor/freelook_backwards", TTR("Freelook Backwards"), Key::S, true);
+	register_shortcut_action("spatial_editor/freelook_up", TTR("Freelook Up"), Key::E, true);
+	register_shortcut_action("spatial_editor/freelook_down", TTR("Freelook Down"), Key::Q, true);
 	register_shortcut_action("spatial_editor/freelook_speed_modifier", TTR("Freelook Speed Modifier"), Key::SHIFT);
 	register_shortcut_action("spatial_editor/freelook_slow_modifier", TTR("Freelook Slow Modifier"), Key::ALT);
 
@@ -5155,10 +5195,10 @@ Node3DEditorViewport::Node3DEditorViewport(Node3DEditor *p_spatial_editor, int p
 	position_control->set_navigation_mode(Node3DEditorViewport::NAVIGATION_MOVE);
 	position_control->set_custom_minimum_size(Size2(navigation_control_size, navigation_control_size) * EDSCALE);
 	position_control->set_h_size_flags(SIZE_SHRINK_END);
-	position_control->set_anchor_and_offset(SIDE_LEFT, ANCHOR_BEGIN, 0 * EDSCALE);
+	position_control->set_anchor_and_offset(SIDE_LEFT, ANCHOR_BEGIN, 0);
 	position_control->set_anchor_and_offset(SIDE_TOP, ANCHOR_END, -navigation_control_size * EDSCALE);
 	position_control->set_anchor_and_offset(SIDE_RIGHT, ANCHOR_BEGIN, navigation_control_size * EDSCALE);
-	position_control->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, 0 * EDSCALE);
+	position_control->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, 0);
 	position_control->set_viewport(this);
 	surface->add_child(position_control);
 
@@ -5168,8 +5208,8 @@ Node3DEditorViewport::Node3DEditorViewport(Node3DEditor *p_spatial_editor, int p
 	look_control->set_h_size_flags(SIZE_SHRINK_END);
 	look_control->set_anchor_and_offset(SIDE_LEFT, ANCHOR_END, -navigation_control_size * EDSCALE);
 	look_control->set_anchor_and_offset(SIDE_TOP, ANCHOR_END, -navigation_control_size * EDSCALE);
-	look_control->set_anchor_and_offset(SIDE_RIGHT, ANCHOR_END, 0 * EDSCALE);
-	look_control->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, 0 * EDSCALE);
+	look_control->set_anchor_and_offset(SIDE_RIGHT, ANCHOR_END, 0);
+	look_control->set_anchor_and_offset(SIDE_BOTTOM, ANCHOR_END, 0);
 	look_control->set_viewport(this);
 	surface->add_child(look_control);
 
@@ -5988,6 +6028,10 @@ void Node3DEditor::_snap_changed() {
 	snap_translate_value = snap_translate->get_text().to_float();
 	snap_rotate_value = snap_rotate->get_text().to_float();
 	snap_scale_value = snap_scale->get_text().to_float();
+
+	EditorSettings::get_singleton()->set_project_metadata("3d_editor", "snap_translate_value", snap_translate_value);
+	EditorSettings::get_singleton()->set_project_metadata("3d_editor", "snap_rotate_value", snap_rotate_value);
+	EditorSettings::get_singleton()->set_project_metadata("3d_editor", "snap_scale_value", snap_scale_value);
 }
 
 void Node3DEditor::_snap_update() {
@@ -7475,8 +7519,8 @@ void Node3DEditor::_notification(int p_what) {
 			SceneTreeDock::get_singleton()->get_tree_editor()->connect("node_changed", callable_mp(this, &Node3DEditor::_refresh_menu_icons));
 			editor_selection->connect("selection_changed", callable_mp(this, &Node3DEditor::_selection_changed));
 
-			EditorNode::get_singleton()->connect("stop_pressed", callable_mp(this, &Node3DEditor::_update_camera_override_button).bind(false));
-			EditorNode::get_singleton()->connect("play_pressed", callable_mp(this, &Node3DEditor::_update_camera_override_button).bind(true));
+			EditorRunBar::get_singleton()->connect("stop_pressed", callable_mp(this, &Node3DEditor::_update_camera_override_button).bind(false));
+			EditorRunBar::get_singleton()->connect("play_pressed", callable_mp(this, &Node3DEditor::_update_camera_override_button).bind(true));
 
 			_update_preview_environment();
 
@@ -7846,11 +7890,19 @@ void Node3DEditor::clear() {
 	settings_znear->set_value(EDITOR_GET("editors/3d/default_z_near"));
 	settings_zfar->set_value(EDITOR_GET("editors/3d/default_z_far"));
 
+	snap_translate_value = EditorSettings::get_singleton()->get_project_metadata("3d_editor", "snap_translate_value", 1);
+	snap_rotate_value = EditorSettings::get_singleton()->get_project_metadata("3d_editor", "snap_rotate_value", 15);
+	snap_scale_value = EditorSettings::get_singleton()->get_project_metadata("3d_editor", "snap_scale_value", 10);
+	_snap_update();
+
 	for (uint32_t i = 0; i < VIEWPORTS_COUNT; i++) {
 		viewports[i]->reset();
 	}
 
-	RenderingServer::get_singleton()->instance_set_visible(origin_instance, true);
+	if (origin_instance.is_valid()) {
+		RenderingServer::get_singleton()->instance_set_visible(origin_instance, true);
+	}
+
 	view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(MENU_VIEW_ORIGIN), true);
 	for (int i = 0; i < 3; ++i) {
 		if (grid_enable[i]) {
@@ -8300,10 +8352,6 @@ Node3DEditor::Node3DEditor() {
 
 	/* SNAP DIALOG */
 
-	snap_translate_value = 1;
-	snap_rotate_value = 15;
-	snap_scale_value = 10;
-
 	snap_dialog = memnew(ConfirmationDialog);
 	snap_dialog->set_title(TTR("Snap Settings"));
 	add_child(snap_dialog);
@@ -8530,9 +8578,11 @@ void fragment() {
 		sun_color->get_popup()->connect("about_to_popup", callable_mp(EditorNode::get_singleton(), &EditorNode::setup_color_picker).bind(sun_color->get_picker()));
 
 		sun_energy = memnew(EditorSpinSlider);
+		sun_energy->set_max(64.0);
+		sun_energy->set_min(0);
+		sun_energy->set_step(0.05);
 		sun_vb->add_margin_child(TTR("Sun Energy"), sun_energy);
 		sun_energy->connect("value_changed", callable_mp(this, &Node3DEditor::_preview_settings_changed).unbind(1));
-		sun_energy->set_max(64.0);
 
 		sun_max_distance = memnew(EditorSpinSlider);
 		sun_vb->add_margin_child(TTR("Shadow Max Distance"), sun_max_distance);
@@ -8581,8 +8631,10 @@ void fragment() {
 		environ_ground_color->get_popup()->connect("about_to_popup", callable_mp(EditorNode::get_singleton(), &EditorNode::setup_color_picker).bind(environ_ground_color->get_picker()));
 		environ_vb->add_margin_child(TTR("Ground Color"), environ_ground_color);
 		environ_energy = memnew(EditorSpinSlider);
-		environ_energy->connect("value_changed", callable_mp(this, &Node3DEditor::_preview_settings_changed).unbind(1));
 		environ_energy->set_max(8.0);
+		environ_energy->set_min(0);
+		environ_energy->set_step(0.05);
+		environ_energy->connect("value_changed", callable_mp(this, &Node3DEditor::_preview_settings_changed).unbind(1));
 		environ_vb->add_margin_child(TTR("Sky Energy"), environ_energy);
 		HBoxContainer *fx_vb = memnew(HBoxContainer);
 		fx_vb->set_h_size_flags(SIZE_EXPAND_FILL);
@@ -8642,6 +8694,7 @@ void fragment() {
 		_load_default_preview_settings();
 		_preview_settings_changed();
 	}
+	clear(); // Make sure values are initialized.
 }
 Node3DEditor::~Node3DEditor() {
 	memdelete(preview_node);

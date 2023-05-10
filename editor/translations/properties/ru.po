@@ -127,13 +127,18 @@
 # Vladimir Kirillovskiy <vladimir.kirillovskiy@gmail.com>, 2022.
 # Evgeniy Khramov <thejenjagamertjg@gmail.com>, 2022.
 # kirill blaze <kirillblaze2@gmail.com>, 2022.
+# Yunis Nabiyev <yunisnabiyev2@gmail.com>, 2023.
+# Usow Maxim <usow.maxim2016@yandex.ru>, 2023.
+# Noky Socket <lollysimbart@gmail.com>, 2023.
+# Melairz1237 <mr.artem.snegov@mail.ru>, 2023.
+# Aleksey Smirnov <debugger94@gmail.com>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine properties\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-02-13 07:39+0000\n"
-"Last-Translator: Danil Alexeev <danil@alexeev.xyz>\n"
+"PO-Revision-Date: 2023-04-20 03:46+0000\n"
+"Last-Translator: Aleksey Smirnov <debugger94@gmail.com>\n"
 "Language-Team: Russian <https://hosted.weblate.org/projects/godot-engine/"
 "godot-properties/ru/>\n"
 "Language: ru\n"
@@ -142,7 +147,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.16-dev\n"
+"X-Generator: Weblate 4.18-dev\n"
 
 msgid "Application"
 msgstr "Приложение"
@@ -152,6 +157,9 @@ msgstr "Конфигурация"
 
 msgid "Name"
 msgstr "Название"
+
+msgid "Name Localized"
+msgstr "Name Localized"
 
 msgid "Description"
 msgstr "Описание"
@@ -180,6 +188,12 @@ msgstr "Имя собственной директории данных поль
 msgid "Project Settings Override"
 msgstr "Переопределение Настроек проекта"
 
+msgid "Main Loop Type"
+msgstr "Тип основного цикла"
+
+msgid "Auto Accept Quit"
+msgstr "Автоподтверждение выхода"
+
 msgid "Display"
 msgstr "Дисплей"
 
@@ -189,8 +203,20 @@ msgstr "Окно"
 msgid "Size"
 msgstr "Размер"
 
+msgid "Viewport Width"
+msgstr "Ширина окна предпросмотра"
+
 msgid "Mode"
 msgstr "Режим"
+
+msgid "Initial Position Type"
+msgstr "Тип глобальной позиции"
+
+msgid "Initial Position"
+msgstr "Начальная позиция"
+
+msgid "Initial Screen"
+msgstr "Начальный экран"
 
 msgid "Resizable"
 msgstr "Изменяемый размер"
@@ -198,8 +224,20 @@ msgstr "Изменяемый размер"
 msgid "Borderless"
 msgstr "Без границ"
 
+msgid "Always on Top"
+msgstr "Всегда сверху"
+
 msgid "Transparent"
 msgstr "Прозрачный"
+
+msgid "No Focus"
+msgstr "Не фокусировать"
+
+msgid "Window Width Override"
+msgstr "Переопределение ширины окна"
+
+msgid "Window Height Override"
+msgstr "Переопределение высоту окна"
 
 msgid "Energy Saving"
 msgstr "Энергосбережение"
@@ -210,11 +248,20 @@ msgstr "Не выключать экран"
 msgid "Audio"
 msgstr "Аудио"
 
+msgid "General"
+msgstr "Основное"
+
+msgid "2D Panning Strength"
+msgstr "Сила панорамирования 2D"
+
+msgid "3D Panning Strength"
+msgstr "Сила панорамирования 3D"
+
 msgid "Editor"
 msgstr "Редактор"
 
-msgid "Main Run Args"
-msgstr "Основные аргументы запуска"
+msgid "Script"
+msgstr "Скрипт"
 
 msgid "Physics"
 msgstr "Физика"
@@ -222,8 +269,20 @@ msgstr "Физика"
 msgid "2D"
 msgstr "2D"
 
+msgid "Run on Separate Thread"
+msgstr "Запуск в отдельном потоке"
+
 msgid "3D"
 msgstr "3D"
+
+msgid "Stretch"
+msgstr "Растягивание"
+
+msgid "Aspect"
+msgstr "Соотношение"
+
+msgid "Scale"
+msgstr "Масштаб"
 
 msgid "Debug"
 msgstr "Отладка"
@@ -234,6 +293,9 @@ msgstr "Настройки"
 msgid "Compression"
 msgstr "Сжатие"
 
+msgid "Compression Level"
+msgstr "Уровень сжатия"
+
 msgid "Crash Handler"
 msgstr "Обработчик падений"
 
@@ -243,14 +305,35 @@ msgstr "Сообщение"
 msgid "Rendering"
 msgstr "Рендеринг"
 
+msgid "Memory"
+msgstr "Память"
+
 msgid "Limits"
 msgstr "Лимиты"
 
+msgid "Internationalization"
+msgstr "Интернационализация"
+
 msgid "GUI"
-msgstr "GUI"
+msgstr "ГПИ"
+
+msgid "Common"
+msgstr "Общий"
+
+msgid "Fonts"
+msgstr "Шрифты"
+
+msgid "Dynamic Fonts"
+msgstr "Динамические шрифты"
+
+msgid "Use Oversampling"
+msgstr "Использовать передискретизацию"
 
 msgid "Vulkan"
 msgstr "Vulkan"
+
+msgid "Textures"
+msgstr "Текстуры"
 
 msgid "Low Processor Usage Mode"
 msgstr "Режим низкой нагрузки процессора"
@@ -426,9 +509,6 @@ msgstr "Суффикс"
 msgid "Rotation"
 msgstr "Поворот"
 
-msgid "Scale"
-msgstr "Масштабировать"
-
 msgid "Value"
 msgstr "Значение"
 
@@ -494,12 +574,6 @@ msgstr "Показывать скрытые файлы"
 
 msgid "Disable Overwrite Warning"
 msgstr "Отключить предупреждение о перезаписи"
-
-msgid "Import"
-msgstr "Импорт"
-
-msgid "Reimport Missing Imported Files"
-msgstr "Реимпорт недостающих импортированных файлов"
 
 msgid "Text Editor"
 msgstr "Текстовый редактор"
@@ -622,7 +696,7 @@ msgid "Theme"
 msgstr "Тема"
 
 msgid "Preset"
-msgstr "Пресет"
+msgstr "Набор"
 
 msgid "Base Color"
 msgstr "Базовый цвет"
@@ -1185,9 +1259,6 @@ msgstr "Плоская"
 msgid "Hide Slider"
 msgstr "Скрыть Slider"
 
-msgid "Export"
-msgstr "Экспорт"
-
 msgid "Custom Template"
 msgstr "Пользовательский шаблон"
 
@@ -1214,6 +1285,9 @@ msgstr "ETC"
 
 msgid "ETC2"
 msgstr "ETC2"
+
+msgid "Export"
+msgstr "Экспорт"
 
 msgid "Export Path"
 msgstr "Путь экспорта"
@@ -1299,6 +1373,9 @@ msgstr "Масштаб сетки"
 msgid "Offset Mesh"
 msgstr "Смещение сетки"
 
+msgid "Import"
+msgstr "Импорт"
+
 msgid "Advanced"
 msgstr "Дополнительно"
 
@@ -1333,7 +1410,7 @@ msgid "Nodes"
 msgstr "Узлы"
 
 msgid "Root Type"
-msgstr "Тип ветви"
+msgstr "Тип кореня"
 
 msgid "Root Name"
 msgstr "Имя ветви"
@@ -1435,7 +1512,7 @@ msgid "Available URLs"
 msgstr "Доступные URL"
 
 msgid "Unset"
-msgstr "Сбросить"
+msgstr "Не задано"
 
 msgid "Error"
 msgstr "Ошибка"
@@ -1454,6 +1531,9 @@ msgstr "Частицы"
 
 msgid "Reflection Probe"
 msgstr "Проба отражения"
+
+msgid "Decal"
+msgstr "Декаль"
 
 msgid "Joint Body A"
 msgstr "Сустав тела A"
@@ -1527,6 +1607,12 @@ msgstr "Путь к открытому ключу SSH"
 msgid "SSH Private Key Path"
 msgstr "Путь к закрытому ключу SSH"
 
+msgid "Main Run Args"
+msgstr "Основные аргументы запуска"
+
+msgid "Reimport Missing Imported Files"
+msgstr "Реимпорт недостающих импортированных файлов"
+
 msgid "Show Scene Tree Root Selection"
 msgstr "Показывать выбор корня дерева сцены"
 
@@ -1571,9 +1657,6 @@ msgstr "Ориентация"
 
 msgid "V-Sync"
 msgstr "Вертикальная синхронизация"
-
-msgid "Common"
-msgstr "Общий"
 
 msgid "stdout"
 msgstr "Стандартный вывод"
@@ -1652,30 +1735,6 @@ msgstr "Смещение позиции всплывающей подсказк�
 
 msgid "Project"
 msgstr "Проект"
-
-msgid "Main Loop Type"
-msgstr "Тип основного цикла"
-
-msgid "Stretch"
-msgstr "Растяжение"
-
-msgid "Aspect"
-msgstr "Соотношение"
-
-msgid "Auto Accept Quit"
-msgstr "Автоподтверждение выхода"
-
-msgid "Fonts"
-msgstr "Шрифты"
-
-msgid "Dynamic Fonts"
-msgstr "Динамические шрифты"
-
-msgid "Use Oversampling"
-msgstr "Использовать передискретизацию"
-
-msgid "Textures"
-msgstr "Текстуры"
 
 msgid "Operation"
 msgstr "Операция"
@@ -1867,7 +1926,7 @@ msgid "Animations"
 msgstr "Анимации"
 
 msgid "FBX"
-msgstr "ФБХ"
+msgstr "FBX"
 
 msgid "Buffer View"
 msgstr "Просмотр буфера"
@@ -2375,6 +2434,9 @@ msgstr "Алгоритм"
 
 msgid "Build"
 msgstr "Сборка"
+
+msgid "Landscape"
+msgstr "Пейзаж"
 
 msgid "Portrait"
 msgstr "Портрет"
@@ -3522,6 +3584,9 @@ msgstr "Z-индекс"
 msgid "Repeat"
 msgstr "Повторить"
 
+msgid "NormalMap"
+msgstr "Карта Нормалей"
+
 msgid "Download File"
 msgstr "Загрузить файл"
 
@@ -3807,8 +3872,14 @@ msgstr "Белый"
 msgid "Max Steps"
 msgstr "Макс шагов"
 
+msgid "SSAO"
+msgstr "SSAO"
+
 msgid "Detail"
 msgstr "Деталь"
+
+msgid "SSIL"
+msgstr "SSIL"
 
 msgid "Glow"
 msgstr "Свечение"
@@ -4176,8 +4247,26 @@ msgstr "Отражения"
 msgid "Overrides"
 msgstr "Переопределить"
 
+msgid "Decals"
+msgstr "Декали"
+
+msgid "Light Projectors"
+msgstr "Прожекторы света"
+
+msgid "Occlusion Rays per Thread"
+msgstr "Лучи окклюзии на поток"
+
+msgid "Roughness Quality"
+msgstr "Качество шероховатости"
+
+msgid "Subsurface Scattering Depth Scale"
+msgstr "Шкала глубины подповерхностного рассеяния"
+
 msgid "Buffer Size"
 msgstr "Размер буфера"
+
+msgid "OpenGL"
+msgstr "OpenGL"
 
 msgid "Shaders"
 msgstr "Шейдеры"

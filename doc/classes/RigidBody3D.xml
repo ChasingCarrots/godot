@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="RigidBody3D" inherits="PhysicsBody3D" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="RigidBody3D" inherits="PhysicsBody3D" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Physics Body which is moved by 3D physics simulation. Useful for objects that have gravity and can be pushed by other objects.
 	</brief_description>
@@ -290,7 +290,7 @@
 			Kinematic body freeze mode. Similar to [constant FREEZE_MODE_STATIC], but collides with other bodies along its path when moved. Useful for a frozen body that needs to be animated.
 		</constant>
 		<constant name="CENTER_OF_MASS_MODE_AUTO" value="0" enum="CenterOfMassMode">
-			In this mode, the body's center of mass is calculated automatically based on its shapes.
+			In this mode, the body's center of mass is calculated automatically based on its shapes. This assumes that the shapes' origins are also their center of mass.
 		</constant>
 		<constant name="CENTER_OF_MASS_MODE_CUSTOM" value="1" enum="CenterOfMassMode">
 			In this mode, the body's center of mass is set through [member center_of_mass]. Defaults to the body's origin position.

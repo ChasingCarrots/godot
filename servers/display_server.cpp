@@ -649,6 +649,7 @@ void DisplayServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_screen_count"), &DisplayServer::get_screen_count);
 	ClassDB::bind_method(D_METHOD("get_primary_screen"), &DisplayServer::get_primary_screen);
+	ClassDB::bind_method(D_METHOD("get_keyboard_focus_screen"), &DisplayServer::get_keyboard_focus_screen);
 	ClassDB::bind_method(D_METHOD("get_screen_from_rect", "rect"), &DisplayServer::get_screen_from_rect);
 	ClassDB::bind_method(D_METHOD("screen_get_position", "screen"), &DisplayServer::screen_get_position, DEFVAL(SCREEN_OF_MAIN_WINDOW));
 	ClassDB::bind_method(D_METHOD("screen_get_size", "screen"), &DisplayServer::screen_get_size, DEFVAL(SCREEN_OF_MAIN_WINDOW));
@@ -658,6 +659,7 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_touchscreen_available"), &DisplayServer::is_touchscreen_available, DEFVAL(SCREEN_OF_MAIN_WINDOW));
 	ClassDB::bind_method(D_METHOD("screen_get_max_scale"), &DisplayServer::screen_get_max_scale);
 	ClassDB::bind_method(D_METHOD("screen_get_refresh_rate", "screen"), &DisplayServer::screen_get_refresh_rate, DEFVAL(SCREEN_OF_MAIN_WINDOW));
+	ClassDB::bind_method(D_METHOD("screen_get_pixel", "position"), &DisplayServer::screen_get_pixel);
 
 	ClassDB::bind_method(D_METHOD("screen_set_orientation", "orientation", "screen"), &DisplayServer::screen_set_orientation, DEFVAL(SCREEN_OF_MAIN_WINDOW));
 	ClassDB::bind_method(D_METHOD("screen_get_orientation", "screen"), &DisplayServer::screen_get_orientation, DEFVAL(SCREEN_OF_MAIN_WINDOW));
@@ -785,6 +787,7 @@ void DisplayServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEATURE_CLIPBOARD_PRIMARY);
 	BIND_ENUM_CONSTANT(FEATURE_TEXT_TO_SPEECH);
 	BIND_ENUM_CONSTANT(FEATURE_EXTEND_TO_TITLE);
+	BIND_ENUM_CONSTANT(FEATURE_SCREEN_CAPTURE);
 
 	BIND_ENUM_CONSTANT(MOUSE_MODE_VISIBLE);
 	BIND_ENUM_CONSTANT(MOUSE_MODE_HIDDEN);
@@ -792,6 +795,8 @@ void DisplayServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(MOUSE_MODE_CONFINED);
 	BIND_ENUM_CONSTANT(MOUSE_MODE_CONFINED_HIDDEN);
 
+	BIND_CONSTANT(SCREEN_WITH_MOUSE_FOCUS);
+	BIND_CONSTANT(SCREEN_WITH_KEYBOARD_FOCUS);
 	BIND_CONSTANT(SCREEN_PRIMARY);
 	BIND_CONSTANT(SCREEN_OF_MAIN_WINDOW);
 

@@ -599,9 +599,7 @@ void RigidBody3D::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_LOCAL_TRANSFORM_CHANGED: {
-			if (Engine::get_singleton()->is_editor_hint()) {
-				update_configuration_warnings();
-			}
+			update_configuration_warnings();
 		} break;
 	}
 #endif
@@ -1108,8 +1106,8 @@ void RigidBody3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "angular_damp_mode", PROPERTY_HINT_ENUM, "Combine,Replace"), "set_angular_damp_mode", "get_angular_damp_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "angular_damp", PROPERTY_HINT_RANGE, "0,100,0.001,or_greater"), "set_angular_damp", "get_angular_damp");
 	ADD_GROUP("Constant Forces", "constant_");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "constant_force"), "set_constant_force", "get_constant_force");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "constant_torque"), "set_constant_torque", "get_constant_torque");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "constant_force", PROPERTY_HINT_NONE, U"suffix:kg\u22C5m/s\u00B2 (N)"), "set_constant_force", "get_constant_force");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "constant_torque", PROPERTY_HINT_NONE, U"suffix:kg\u22C5m\u00B2/s\u00B2/rad"), "set_constant_torque", "get_constant_torque");
 
 	ADD_SIGNAL(MethodInfo("body_shape_entered", PropertyInfo(Variant::RID, "body_rid"), PropertyInfo(Variant::OBJECT, "body", PROPERTY_HINT_RESOURCE_TYPE, "Node"), PropertyInfo(Variant::INT, "body_shape_index"), PropertyInfo(Variant::INT, "local_shape_index")));
 	ADD_SIGNAL(MethodInfo("body_shape_exited", PropertyInfo(Variant::RID, "body_rid"), PropertyInfo(Variant::OBJECT, "body", PROPERTY_HINT_RESOURCE_TYPE, "Node"), PropertyInfo(Variant::INT, "body_shape_index"), PropertyInfo(Variant::INT, "local_shape_index")));
@@ -1565,8 +1563,8 @@ void CharacterBody3D::_move_and_slide_floating(double p_delta) {
 	}
 }
 
-void CharacterBody3D::_snap_on_floor(bool p_was_on_floor, bool p_vel_dir_facing_up) {
-	if (collision_state.floor || !p_was_on_floor || p_vel_dir_facing_up) {
+void CharacterBody3D::apply_floor_snap() {
+	if (collision_state.floor) {
 		return;
 	}
 
@@ -1599,6 +1597,14 @@ void CharacterBody3D::_snap_on_floor(bool p_was_on_floor, bool p_vel_dir_facing_
 			set_global_transform(parameters.from);
 		}
 	}
+}
+
+void CharacterBody3D::_snap_on_floor(bool p_was_on_floor, bool p_vel_dir_facing_up) {
+	if (collision_state.floor || !p_was_on_floor || p_vel_dir_facing_up) {
+		return;
+	}
+
+	apply_floor_snap();
 }
 
 bool CharacterBody3D::_on_floor_if_snapped(bool p_was_on_floor, bool p_vel_dir_facing_up) {
@@ -1954,6 +1960,7 @@ void CharacterBody3D::_notification(int p_what) {
 
 void CharacterBody3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("move_and_slide"), &CharacterBody3D::move_and_slide);
+	ClassDB::bind_method(D_METHOD("apply_floor_snap"), &CharacterBody3D::apply_floor_snap);
 
 	ClassDB::bind_method(D_METHOD("set_velocity", "velocity"), &CharacterBody3D::set_velocity);
 	ClassDB::bind_method(D_METHOD("get_velocity"), &CharacterBody3D::get_velocity);
@@ -2023,8 +2030,8 @@ void CharacterBody3D::_bind_methods() {
 
 	ADD_GROUP("Moving Platform", "platform_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "platform_on_leave", PROPERTY_HINT_ENUM, "Add Velocity,Add Upward Velocity,Do Nothing", PROPERTY_USAGE_DEFAULT), "set_platform_on_leave", "get_platform_on_leave");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "platform_floor_layers", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_platform_floor_layers", "get_platform_floor_layers");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "platform_wall_layers", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_platform_wall_layers", "get_platform_wall_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "platform_floor_layers", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_platform_floor_layers", "get_platform_floor_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "platform_wall_layers", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_platform_wall_layers", "get_platform_wall_layers");
 
 	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "safe_margin", PROPERTY_HINT_RANGE, "0.001,256,0.001,suffix:m"), "set_safe_margin", "get_safe_margin");

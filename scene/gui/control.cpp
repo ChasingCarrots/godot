@@ -360,7 +360,7 @@ bool Control::_get(const StringName &p_name, Variant &r_ret) const {
 void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 	Ref<Theme> default_theme = ThemeDB::get_singleton()->get_default_theme();
 
-	p_list->push_back(PropertyInfo(Variant::NIL, TTRC("Theme Overrides"), PROPERTY_HINT_NONE, "theme_override_", PROPERTY_USAGE_GROUP));
+	p_list->push_back(PropertyInfo(Variant::NIL, GNAME("Theme Overrides", "theme_override_"), PROPERTY_HINT_NONE, "theme_override_", PROPERTY_USAGE_GROUP));
 
 	{
 		List<StringName> names;
@@ -371,7 +371,7 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::COLOR, "theme_override_colors/" + E, PROPERTY_HINT_NONE, "", usage));
+			p_list->push_back(PropertyInfo(Variant::COLOR, PNAME("theme_override_colors") + String("/") + E, PROPERTY_HINT_NONE, "", usage));
 		}
 	}
 	{
@@ -383,7 +383,7 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::INT, "theme_override_constants/" + E, PROPERTY_HINT_RANGE, "-16384,16384", usage));
+			p_list->push_back(PropertyInfo(Variant::INT, PNAME("theme_override_constants") + String("/") + E, PROPERTY_HINT_RANGE, "-16384,16384", usage));
 		}
 	}
 	{
@@ -395,7 +395,7 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::OBJECT, "theme_override_fonts/" + E, PROPERTY_HINT_RESOURCE_TYPE, "Font", usage));
+			p_list->push_back(PropertyInfo(Variant::OBJECT, PNAME("theme_override_fonts") + String("/") + E, PROPERTY_HINT_RESOURCE_TYPE, "Font", usage));
 		}
 	}
 	{
@@ -407,7 +407,7 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::INT, "theme_override_font_sizes/" + E, PROPERTY_HINT_RANGE, "1,256,1,or_greater,suffix:px", usage));
+			p_list->push_back(PropertyInfo(Variant::INT, PNAME("theme_override_font_sizes") + String("/") + E, PROPERTY_HINT_RANGE, "1,256,1,or_greater,suffix:px", usage));
 		}
 	}
 	{
@@ -419,7 +419,7 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::OBJECT, "theme_override_icons/" + E, PROPERTY_HINT_RESOURCE_TYPE, "Texture2D", usage));
+			p_list->push_back(PropertyInfo(Variant::OBJECT, PNAME("theme_override_icons") + String("/") + E, PROPERTY_HINT_RESOURCE_TYPE, "Texture2D", usage));
 		}
 	}
 	{
@@ -431,7 +431,7 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::OBJECT, "theme_override_styles/" + E, PROPERTY_HINT_RESOURCE_TYPE, "StyleBox", usage));
+			p_list->push_back(PropertyInfo(Variant::OBJECT, PNAME("theme_override_styles") + String("/") + E, PROPERTY_HINT_RESOURCE_TYPE, "StyleBox", usage));
 		}
 	}
 }
@@ -765,7 +765,7 @@ void Control::set_anchor_and_offset(Side p_side, real_t p_anchor, real_t p_pos, 
 	set_offset(p_side, p_pos);
 }
 
-void Control::set_begin(const Size2 &p_point) {
+void Control::set_begin(const Point2 &p_point) {
 	ERR_FAIL_COND(!isfinite(p_point.x) || !isfinite(p_point.y));
 	if (data.offset[0] == p_point.x && data.offset[1] == p_point.y) {
 		return;
@@ -776,11 +776,11 @@ void Control::set_begin(const Size2 &p_point) {
 	_size_changed();
 }
 
-Size2 Control::get_begin() const {
-	return Size2(data.offset[0], data.offset[1]);
+Point2 Control::get_begin() const {
+	return Point2(data.offset[0], data.offset[1]);
 }
 
-void Control::set_end(const Size2 &p_point) {
+void Control::set_end(const Point2 &p_point) {
 	if (data.offset[2] == p_point.x && data.offset[3] == p_point.y) {
 		return;
 	}
@@ -790,8 +790,8 @@ void Control::set_end(const Size2 &p_point) {
 	_size_changed();
 }
 
-Size2 Control::get_end() const {
-	return Size2(data.offset[2], data.offset[3]);
+Point2 Control::get_end() const {
+	return Point2(data.offset[2], data.offset[3]);
 }
 
 void Control::set_h_grow_direction(GrowDirection p_direction) {
@@ -1358,11 +1358,11 @@ void Control::set_grow_direction_preset(LayoutPreset p_preset) {
 
 /// Manual positioning.
 
-void Control::_set_position(const Size2 &p_point) {
+void Control::_set_position(const Point2 &p_point) {
 	set_position(p_point);
 }
 
-void Control::set_position(const Size2 &p_point, bool p_keep_offsets) {
+void Control::set_position(const Point2 &p_point, bool p_keep_offsets) {
 	if (p_keep_offsets) {
 		_compute_anchors(Rect2(p_point, data.size_cache), data.offset, data.anchor);
 	} else {
@@ -1735,13 +1735,18 @@ real_t Control::get_stretch_ratio() const {
 // Input events.
 
 void Control::_call_gui_input(const Ref<InputEvent> &p_event) {
-	emit_signal(SceneStringNames::get_singleton()->gui_input, p_event); //signal should be first, so it's possible to override an event (and then accept it)
-	if (!is_inside_tree() || get_viewport()->is_input_handled()) {
-		return; //input was handled, abort
+	if (p_event->get_device() != InputEvent::DEVICE_ID_INTERNAL) {
+		emit_signal(SceneStringNames::get_singleton()->gui_input, p_event); // Signal should be first, so it's possible to override an event (and then accept it).
 	}
-	GDVIRTUAL_CALL(_gui_input, p_event);
 	if (!is_inside_tree() || get_viewport()->is_input_handled()) {
-		return; //input was handled, abort
+		return; // Input was handled, abort.
+	}
+
+	if (p_event->get_device() != InputEvent::DEVICE_ID_INTERNAL) {
+		GDVIRTUAL_CALL(_gui_input, p_event);
+	}
+	if (!is_inside_tree() || get_viewport()->is_input_handled()) {
+		return; // Input was handled, abort.
 	}
 	gui_input(p_event);
 }
@@ -2424,6 +2429,10 @@ StringName Control::get_theme_type_variation() const {
 /// Theme property lookup.
 
 Ref<Texture2D> Control::get_theme_icon(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		const Ref<Texture2D> *tex = data.theme_icon_override.getptr(p_name);
 		if (tex) {
@@ -2443,6 +2452,10 @@ Ref<Texture2D> Control::get_theme_icon(const StringName &p_name, const StringNam
 }
 
 Ref<StyleBox> Control::get_theme_stylebox(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		const Ref<StyleBox> *style = data.theme_style_override.getptr(p_name);
 		if (style) {
@@ -2462,6 +2475,10 @@ Ref<StyleBox> Control::get_theme_stylebox(const StringName &p_name, const String
 }
 
 Ref<Font> Control::get_theme_font(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		const Ref<Font> *font = data.theme_font_override.getptr(p_name);
 		if (font) {
@@ -2481,6 +2498,10 @@ Ref<Font> Control::get_theme_font(const StringName &p_name, const StringName &p_
 }
 
 int Control::get_theme_font_size(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		const int *font_size = data.theme_font_size_override.getptr(p_name);
 		if (font_size && (*font_size) > 0) {
@@ -2500,6 +2521,10 @@ int Control::get_theme_font_size(const StringName &p_name, const StringName &p_t
 }
 
 Color Control::get_theme_color(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		const Color *color = data.theme_color_override.getptr(p_name);
 		if (color) {
@@ -2519,6 +2544,10 @@ Color Control::get_theme_color(const StringName &p_name, const StringName &p_the
 }
 
 int Control::get_theme_constant(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		const int *constant = data.theme_constant_override.getptr(p_name);
 		if (constant) {
@@ -2538,6 +2567,10 @@ int Control::get_theme_constant(const StringName &p_name, const StringName &p_th
 }
 
 bool Control::has_theme_icon(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		if (has_theme_icon_override(p_name)) {
 			return true;
@@ -2550,6 +2583,10 @@ bool Control::has_theme_icon(const StringName &p_name, const StringName &p_theme
 }
 
 bool Control::has_theme_stylebox(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		if (has_theme_stylebox_override(p_name)) {
 			return true;
@@ -2562,6 +2599,10 @@ bool Control::has_theme_stylebox(const StringName &p_name, const StringName &p_t
 }
 
 bool Control::has_theme_font(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		if (has_theme_font_override(p_name)) {
 			return true;
@@ -2574,6 +2615,10 @@ bool Control::has_theme_font(const StringName &p_name, const StringName &p_theme
 }
 
 bool Control::has_theme_font_size(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		if (has_theme_font_size_override(p_name)) {
 			return true;
@@ -2586,6 +2631,10 @@ bool Control::has_theme_font_size(const StringName &p_name, const StringName &p_
 }
 
 bool Control::has_theme_color(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		if (has_theme_color_override(p_name)) {
 			return true;
@@ -2598,6 +2647,10 @@ bool Control::has_theme_color(const StringName &p_name, const StringName &p_them
 }
 
 bool Control::has_theme_constant(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!data.initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == data.theme_type_variation) {
 		if (has_theme_constant_override(p_name)) {
 			return true;
@@ -2793,19 +2846,34 @@ bool Control::is_layout_rtl() const {
 	if (data.is_rtl_dirty) {
 		const_cast<Control *>(this)->data.is_rtl_dirty = false;
 		if (data.layout_dir == LAYOUT_DIRECTION_INHERITED) {
-			Window *parent_window = get_parent_window();
-			Control *parent_control = get_parent_control();
-			if (parent_control) {
-				const_cast<Control *>(this)->data.is_rtl = parent_control->is_layout_rtl();
-			} else if (parent_window) {
-				const_cast<Control *>(this)->data.is_rtl = parent_window->is_layout_rtl();
-			} else {
-				if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
-					const_cast<Control *>(this)->data.is_rtl = true;
-				} else {
-					String locale = TranslationServer::get_singleton()->get_tool_locale();
-					const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
+			if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
+				const_cast<Control *>(this)->data.is_rtl = true;
+				return data.is_rtl;
+			}
+			Node *parent_node = get_parent();
+			while (parent_node) {
+				Control *parent_control = Object::cast_to<Control>(parent_node);
+				if (parent_control) {
+					const_cast<Control *>(this)->data.is_rtl = parent_control->is_layout_rtl();
+					return data.is_rtl;
 				}
+
+				Window *parent_window = Object::cast_to<Window>(parent_node);
+				if (parent_window) {
+					const_cast<Control *>(this)->data.is_rtl = parent_window->is_layout_rtl();
+					return data.is_rtl;
+				}
+				parent_node = parent_node->get_parent();
+			}
+
+			int root_dir = GLOBAL_GET(SNAME("internationalization/rendering/root_node_layout_direction"));
+			if (root_dir == 1) {
+				const_cast<Control *>(this)->data.is_rtl = false;
+			} else if (root_dir == 2) {
+				const_cast<Control *>(this)->data.is_rtl = true;
+			} else {
+				String locale = TranslationServer::get_singleton()->get_tool_locale();
+				const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
 			}
 		} else if (data.layout_dir == LAYOUT_DIRECTION_LOCALE) {
 			if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
@@ -2861,6 +2929,10 @@ String Control::get_tooltip_text() const {
 }
 
 String Control::get_tooltip(const Point2 &p_pos) const {
+	String ret;
+	if (GDVIRTUAL_CALL(_get_tooltip, p_pos, ret)) {
+		return ret;
+	}
 	return data.tooltip;
 }
 
@@ -2875,6 +2947,8 @@ Control *Control::make_custom_tooltip(const String &p_text) const {
 void Control::_notification(int p_notification) {
 	switch (p_notification) {
 		case NOTIFICATION_POSTINITIALIZE: {
+			data.initialized = true;
+
 			_invalidate_theme_cache();
 			_update_theme_item_cache();
 		} break;
@@ -2897,6 +2971,13 @@ void Control::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_ENTER_TREE: {
+#ifdef TOOLS_ENABLED
+			if (is_part_of_edited_scene()) {
+				// Don't translate Controls on scene when inside editor.
+				set_message_translation(false);
+				notification(NOTIFICATION_TRANSLATION_CHANGED);
+			}
+#endif
 			notification(NOTIFICATION_THEME_CHANGED);
 		} break;
 
@@ -2945,6 +3026,8 @@ void Control::_notification(int p_notification) {
 				Viewport *viewport = get_viewport();
 				ERR_FAIL_COND(!viewport);
 				data.RI = viewport->_gui_add_root_control(this);
+
+				get_parent()->connect(SNAME("child_order_changed"), callable_mp(get_viewport(), &Viewport::gui_set_root_order_dirty), CONNECT_REFERENCE_COUNTED);
 			}
 
 			data.parent_canvas_item = get_parent_item();
@@ -2973,24 +3056,17 @@ void Control::_notification(int p_notification) {
 			if (data.RI) {
 				get_viewport()->_gui_remove_root_control(data.RI);
 				data.RI = nullptr;
+				get_parent()->disconnect(SNAME("child_order_changed"), callable_mp(get_viewport(), &Viewport::gui_set_root_order_dirty));
 			}
 
 			data.parent_canvas_item = nullptr;
 			data.is_rtl_dirty = true;
 		} break;
 
-		case NOTIFICATION_MOVED_IN_PARENT: {
+		case NOTIFICATION_CHILD_ORDER_CHANGED: {
 			// Some parents need to know the order of the children to draw (like TabContainer),
 			// so we update them just in case.
-			Control *parent_control = get_parent_control();
-			if (parent_control) {
-				parent_control->queue_redraw();
-			}
 			queue_redraw();
-
-			if (data.RI) {
-				get_viewport()->gui_set_root_order_dirty();
-			}
 		} break;
 
 		case NOTIFICATION_RESIZED: {
@@ -3230,7 +3306,7 @@ void Control::_bind_methods() {
 	ADD_GROUP("Layout", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "clip_contents"), "set_clip_contents", "is_clipping_contents");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "custom_minimum_size", PROPERTY_HINT_NONE, "suffix:px"), "set_custom_minimum_size", "get_custom_minimum_size");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "layout_direction", PROPERTY_HINT_ENUM, "Inherited,Locale,Left-to-Right,Right-to-Left"), "set_layout_direction", "get_layout_direction");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "layout_direction", PROPERTY_HINT_ENUM, "Inherited,Based on Locale,Left-to-Right,Right-to-Left"), "set_layout_direction", "get_layout_direction");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "layout_mode", PROPERTY_HINT_ENUM, "Position,Anchors,Container,Uncontrolled", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_INTERNAL), "_set_layout_mode", "_get_layout_mode");
 	ADD_PROPERTY_DEFAULT("layout_mode", LayoutMode::LAYOUT_MODE_POSITION);
 
@@ -3395,6 +3471,7 @@ void Control::_bind_methods() {
 	GDVIRTUAL_BIND(_has_point, "point");
 	GDVIRTUAL_BIND(_structured_text_parser, "args", "text");
 	GDVIRTUAL_BIND(_get_minimum_size);
+	GDVIRTUAL_BIND(_get_tooltip, "at_position");
 
 	GDVIRTUAL_BIND(_get_drag_data, "at_position");
 	GDVIRTUAL_BIND(_can_drop_data, "at_position", "data");

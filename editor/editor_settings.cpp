@@ -400,6 +400,13 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	const String display_scale_hint_string = vformat("Auto (%d%%),75%%,100%%,125%%,150%%,175%%,200%%,Custom", Math::round(get_auto_display_scale() * 100));
 	EDITOR_SETTING_USAGE(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/display_scale", 0, display_scale_hint_string, PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 
+	String ed_screen_hints = "Screen With Mouse Pointer:-4,Screen With Keyboard Focus:-3,Primary Screen:-2"; // Note: Main Window Screen:-1 is not used for the main window.
+	for (int i = 0; i < DisplayServer::get_singleton()->get_screen_count(); i++) {
+		ed_screen_hints += ",Screen " + itos(i + 1) + ":" + itos(i);
+	}
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/editor_screen", -2, ed_screen_hints)
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/project_manager_screen", -2, ed_screen_hints)
+
 	_initial_set("interface/editor/debug/enable_pseudolocalization", false);
 	set_restart_if_changed("interface/editor/debug/enable_pseudolocalization", true);
 	// Use pseudolocalization in editor.
@@ -447,6 +454,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	// Inspector
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/inspector/max_array_dictionary_items_per_page", 20, "10,100,1")
 	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/inspector/show_low_level_opentype_features", false, "")
+	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/inspector/float_drag_speed", 5.0, "0.1,100,0.01")
 
 	// Theme
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/preset", "Default", "Default,Breeze Dark,Godot 2,Gray,Light,Solarized (Dark),Solarized (Light),Black (OLED),Custom")
@@ -469,6 +477,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	set_restart_if_changed("interface/touchscreen/enable_long_press_as_right_click", true);
 	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/touchscreen/enable_pan_and_scale_gestures", has_touchscreen_ui, "")
 	set_restart_if_changed("interface/touchscreen/enable_pan_and_scale_gestures", true);
+	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/touchscreen/scale_gizmo_handles", has_touchscreen_ui ? 3 : 1, "1,5,1")
 
 	// Scene tabs
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/scene_tabs/display_close_button", 1, "Never,If Tab Active,Always"); // TabBar::CloseButtonDisplayPolicy
@@ -688,7 +697,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	_initial_set("editors/tiles_editor/grid_color", Color(1.0, 0.5, 0.2, 0.5));
 
 	// Polygon editor
-	_initial_set("editors/polygon_editor/point_grab_radius", 8);
+	_initial_set("editors/polygon_editor/point_grab_radius", has_touchscreen_ui ? 32 : 8);
 	_initial_set("editors/polygon_editor/show_previous_outline", true);
 
 	// Animation
@@ -709,9 +718,9 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	// Window placement
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "run/window_placement/rect", 1, "Top Left,Centered,Custom Position,Force Maximized,Force Fullscreen")
 	// Keep the enum values in sync with the `DisplayServer::SCREEN_` enum.
-	String screen_hints = "Same as Editor:-5,Previous Monitor:-4,Next Monitor:-3,Primary Monitor:-2"; // Note: Main Window Screen:-1 is not used for the main window.
+	String screen_hints = "Same as Editor:-5,Previous Screen:-4,Next Screen:-3,Primary Screen:-2"; // Note: Main Window Screen:-1 is not used for the main window.
 	for (int i = 0; i < DisplayServer::get_singleton()->get_screen_count(); i++) {
-		screen_hints += ",Monitor " + itos(i + 1) + ":" + itos(i);
+		screen_hints += ",Screen " + itos(i + 1) + ":" + itos(i);
 	}
 	_initial_set("run/window_placement/rect_custom_position", Vector2());
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "run/window_placement/screen", -5, screen_hints)
@@ -749,12 +758,12 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 
 #if defined(WEB_ENABLED)
 	// Web platform only supports `gl_compatibility`.
-	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_NONE, "project_manager/default_renderer", "gl_compatibility", "forward_plus,mobile,gl_compatibility")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_ENUM, "project_manager/default_renderer", "gl_compatibility", "forward_plus,mobile,gl_compatibility")
 #elif defined(ANDROID_ENABLED)
 	// Use more suitable rendering method by default.
-	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_NONE, "project_manager/default_renderer", "mobile", "forward_plus,mobile,gl_compatibility")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_ENUM, "project_manager/default_renderer", "mobile", "forward_plus,mobile,gl_compatibility")
 #else
-	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_NONE, "project_manager/default_renderer", "forward_plus", "forward_plus,mobile,gl_compatibility")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_ENUM, "project_manager/default_renderer", "forward_plus", "forward_plus,mobile,gl_compatibility")
 #endif
 
 	if (p_extra_config.is_valid()) {
@@ -1468,7 +1477,7 @@ Ref<Shortcut> ED_GET_SHORTCUT(const String &p_path) {
 	return sc;
 }
 
-void ED_SHORTCUT_OVERRIDE(const String &p_path, const String &p_feature, Key p_keycode) {
+void ED_SHORTCUT_OVERRIDE(const String &p_path, const String &p_feature, Key p_keycode, bool p_physical) {
 	ERR_FAIL_NULL_MSG(EditorSettings::get_singleton(), "EditorSettings not instantiated yet.");
 
 	Ref<Shortcut> sc = EditorSettings::get_singleton()->get_shortcut(p_path);
@@ -1477,10 +1486,10 @@ void ED_SHORTCUT_OVERRIDE(const String &p_path, const String &p_feature, Key p_k
 	PackedInt32Array arr;
 	arr.push_back((int32_t)p_keycode);
 
-	ED_SHORTCUT_OVERRIDE_ARRAY(p_path, p_feature, arr);
+	ED_SHORTCUT_OVERRIDE_ARRAY(p_path, p_feature, arr, p_physical);
 }
 
-void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, const PackedInt32Array &p_keycodes) {
+void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, const PackedInt32Array &p_keycodes, bool p_physical) {
 	ERR_FAIL_NULL_MSG(EditorSettings::get_singleton(), "EditorSettings not instantiated yet.");
 
 	Ref<Shortcut> sc = EditorSettings::get_singleton()->get_shortcut(p_path);
@@ -1488,7 +1497,9 @@ void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, c
 
 	// Only add the override if the OS supports the provided feature.
 	if (!OS::get_singleton()->has_feature(p_feature)) {
-		return;
+		if (!(p_feature == "macos" && (OS::get_singleton()->has_feature("web_macos") || OS::get_singleton()->has_feature("web_ios")))) {
+			return;
+		}
 	}
 
 	Array events;
@@ -1496,16 +1507,16 @@ void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, c
 	for (int i = 0; i < p_keycodes.size(); i++) {
 		Key keycode = (Key)p_keycodes[i];
 
-#ifdef MACOS_ENABLED
-		// Use Cmd+Backspace as a general replacement for Delete shortcuts on macOS
-		if (keycode == Key::KEY_DELETE) {
-			keycode = KeyModifierMask::META | Key::BACKSPACE;
+		if (OS::get_singleton()->has_feature("macos") || OS::get_singleton()->has_feature("web_macos") || OS::get_singleton()->has_feature("web_ios")) {
+			// Use Cmd+Backspace as a general replacement for Delete shortcuts on macOS
+			if (keycode == Key::KEY_DELETE) {
+				keycode = KeyModifierMask::META | Key::BACKSPACE;
+			}
 		}
-#endif
 
 		Ref<InputEventKey> ie;
 		if (keycode != Key::NONE) {
-			ie = InputEventKey::create_reference(keycode);
+			ie = InputEventKey::create_reference(keycode, p_physical);
 			events.push_back(ie);
 		}
 	}
@@ -1518,28 +1529,28 @@ void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, c
 	sc->set_meta("original", events.duplicate(true));
 }
 
-Ref<Shortcut> ED_SHORTCUT(const String &p_path, const String &p_name, Key p_keycode) {
+Ref<Shortcut> ED_SHORTCUT(const String &p_path, const String &p_name, Key p_keycode, bool p_physical) {
 	PackedInt32Array arr;
 	arr.push_back((int32_t)p_keycode);
-	return ED_SHORTCUT_ARRAY(p_path, p_name, arr);
+	return ED_SHORTCUT_ARRAY(p_path, p_name, arr, p_physical);
 }
 
-Ref<Shortcut> ED_SHORTCUT_ARRAY(const String &p_path, const String &p_name, const PackedInt32Array &p_keycodes) {
+Ref<Shortcut> ED_SHORTCUT_ARRAY(const String &p_path, const String &p_name, const PackedInt32Array &p_keycodes, bool p_physical) {
 	Array events;
 
 	for (int i = 0; i < p_keycodes.size(); i++) {
 		Key keycode = (Key)p_keycodes[i];
 
-#ifdef MACOS_ENABLED
-		// Use Cmd+Backspace as a general replacement for Delete shortcuts on macOS
-		if (keycode == Key::KEY_DELETE) {
-			keycode = KeyModifierMask::META | Key::BACKSPACE;
+		if (OS::get_singleton()->has_feature("macos") || OS::get_singleton()->has_feature("web_macos") || OS::get_singleton()->has_feature("web_ios")) {
+			// Use Cmd+Backspace as a general replacement for Delete shortcuts on macOS
+			if (keycode == Key::KEY_DELETE) {
+				keycode = KeyModifierMask::META | Key::BACKSPACE;
+			}
 		}
-#endif
 
 		Ref<InputEventKey> ie;
 		if (keycode != Key::NONE) {
-			ie = InputEventKey::create_reference(keycode);
+			ie = InputEventKey::create_reference(keycode, p_physical);
 			events.push_back(ie);
 		}
 	}

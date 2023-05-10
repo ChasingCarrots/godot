@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Node3D" inherits="Node" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="Node3D" inherits="Node" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Most basic 3D game object, parent of all 3D-related nodes.
 	</brief_description>
@@ -105,7 +105,7 @@
 		<method name="is_visible_in_tree" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns [code]true[/code] if the node is present in the [SceneTree], its [member visible] property is [code]true[/code] and all its antecedents are also visible. If any antecedent is hidden, this node will not be visible in the scene tree.
+				Returns [code]true[/code] if the node is present in the [SceneTree], its [member visible] property is [code]true[/code] and all its ancestors are also visible. If any ancestor is hidden, this node will not be visible in the scene tree.
 			</description>
 		</method>
 		<method name="look_at">
@@ -315,7 +315,7 @@
 			Defines the visibility range parent for this node and its subtree. The visibility parent must be a GeometryInstance3D. Any visual instance will only be visible if the visibility parent (and all of its visibility ancestors) is hidden by being closer to the camera than its own [member GeometryInstance3D.visibility_range_begin]. Nodes hidden via the [member Node3D.visible] property are essentially removed from the visibility dependency tree, so dependent instances will not take the hidden node or its ancestors into account.
 		</member>
 		<member name="visible" type="bool" setter="set_visible" getter="is_visible" default="true">
-			If [code]true[/code], this node is drawn. The node is only visible if all of its antecedents are visible as well (in other words, [method is_visible_in_tree] must return [code]true[/code]).
+			If [code]true[/code], this node is drawn. The node is only visible if all of its ancestors are visible as well (in other words, [method is_visible_in_tree] must return [code]true[/code]).
 		</member>
 	</members>
 	<signals>
@@ -344,10 +344,13 @@
 			In order for [constant NOTIFICATION_LOCAL_TRANSFORM_CHANGED] to work, users first need to ask for it, with [method set_notify_local_transform].
 		</constant>
 		<constant name="ROTATION_EDIT_MODE_EULER" value="0" enum="RotationEditMode">
+			The rotation is edited using [Vector3] Euler angles.
 		</constant>
 		<constant name="ROTATION_EDIT_MODE_QUATERNION" value="1" enum="RotationEditMode">
+			The rotation is edited using a [Quaternion].
 		</constant>
 		<constant name="ROTATION_EDIT_MODE_BASIS" value="2" enum="RotationEditMode">
+			The rotation is edited using a [Basis]. In this mode, [member scale] can't be edited separately.
 		</constant>
 	</constants>
 </class>

@@ -742,12 +742,12 @@ void CPUParticles3D::_particles_process(double p_delta) {
 				tex_linear_velocity = curve_parameters[PARAM_INITIAL_LINEAR_VELOCITY]->sample(0);
 			}*/
 
-			real_t tex_angle = 0.0;
+			real_t tex_angle = 1.0;
 			if (curve_parameters[PARAM_ANGLE].is_valid()) {
 				tex_angle = curve_parameters[PARAM_ANGLE]->sample(tv);
 			}
 
-			real_t tex_anim_offset = 0.0;
+			real_t tex_anim_offset = 1.0;
 			if (curve_parameters[PARAM_ANGLE].is_valid()) {
 				tex_anim_offset = curve_parameters[PARAM_ANGLE]->sample(tv);
 			}
@@ -1207,7 +1207,7 @@ void CPUParticles3D::_update_particle_data_buffer() {
 			ptr[10] = t.basis.rows[2][2];
 			ptr[11] = t.origin.z;
 		} else {
-			memset(ptr, 0, sizeof(Transform3D));
+			memset(ptr, 0, sizeof(float) * 12);
 		}
 
 		Color c = r[idx].color;

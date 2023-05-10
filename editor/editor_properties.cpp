@@ -33,17 +33,18 @@
 #include "core/config/project_settings.h"
 #include "core/core_string_names.h"
 #include "editor/create_dialog.h"
-#include "editor/editor_file_dialog.h"
 #include "editor/editor_node.h"
 #include "editor/editor_properties_array_dict.h"
 #include "editor/editor_resource_picker.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/gui/editor_file_dialog.h"
+#include "editor/gui/editor_spin_slider.h"
+#include "editor/gui/scene_tree_editor.h"
 #include "editor/inspector_dock.h"
 #include "editor/plugins/script_editor_plugin.h"
 #include "editor/project_settings_editor.h"
 #include "editor/property_selector.h"
-#include "editor/scene_tree_editor.h"
 #include "scene/2d/gpu_particles_2d.h"
 #include "scene/3d/fog_volume.h"
 #include "scene/3d/gpu_particles_3d.h"
@@ -358,6 +359,7 @@ EditorPropertyTextEnum::EditorPropertyTextEnum() {
 	option_button->set_h_size_flags(SIZE_EXPAND_FILL);
 	option_button->set_clip_text(true);
 	option_button->set_flat(true);
+	option_button->set_auto_translate(false);
 	default_layout->add_child(option_button);
 	option_button->connect("item_selected", callable_mp(this, &EditorPropertyTextEnum::_option_selected));
 
@@ -711,6 +713,7 @@ EditorPropertyEnum::EditorPropertyEnum() {
 	options = memnew(OptionButton);
 	options->set_clip_text(true);
 	options->set_flat(true);
+	options->set_auto_translate(false);
 	add_child(options);
 	add_focusable(options);
 	options->connect("item_selected", callable_mp(this, &EditorPropertyEnum::_option_selected));
@@ -868,56 +871,75 @@ String EditorPropertyLayersGrid::get_tooltip(const Point2 &p_pos) const {
 	return String();
 }
 
+void EditorPropertyLayersGrid::_update_hovered(const Vector2 &p_position) {
+	bool expand_was_hovered = expand_hovered;
+	expand_hovered = expand_rect.has_point(p_position);
+	if (expand_hovered != expand_was_hovered) {
+		queue_redraw();
+	}
+
+	if (!expand_hovered) {
+		for (int i = 0; i < flag_rects.size(); i++) {
+			if (flag_rects[i].has_point(p_position)) {
+				// Used to highlight the hovered flag in the layers grid.
+				hovered_index = i;
+				queue_redraw();
+				return;
+			}
+		}
+	}
+
+	// Remove highlight when no square is hovered.
+	if (hovered_index != -1) {
+		hovered_index = -1;
+		queue_redraw();
+	}
+}
+
+void EditorPropertyLayersGrid::_on_hover_exit() {
+	if (expand_hovered) {
+		expand_hovered = false;
+		queue_redraw();
+	}
+	if (hovered_index != -1) {
+		hovered_index = -1;
+		queue_redraw();
+	}
+}
+
+void EditorPropertyLayersGrid::_update_flag() {
+	if (hovered_index >= 0) {
+		// Toggle the flag.
+		// We base our choice on the hovered flag, so that it always matches the hovered flag.
+		if (value & (1 << hovered_index)) {
+			value &= ~(1 << hovered_index);
+		} else {
+			value |= (1 << hovered_index);
+		}
+
+		emit_signal(SNAME("flag_changed"), value);
+		queue_redraw();
+	} else if (expand_hovered) {
+		expanded = !expanded;
+		update_minimum_size();
+		queue_redraw();
+	}
+}
+
 void EditorPropertyLayersGrid::gui_input(const Ref<InputEvent> &p_ev) {
 	if (read_only) {
 		return;
 	}
 	const Ref<InputEventMouseMotion> mm = p_ev;
 	if (mm.is_valid()) {
-		bool expand_was_hovered = expand_hovered;
-		expand_hovered = expand_rect.has_point(mm->get_position());
-		if (expand_hovered != expand_was_hovered) {
-			queue_redraw();
-		}
-
-		if (!expand_hovered) {
-			for (int i = 0; i < flag_rects.size(); i++) {
-				if (flag_rects[i].has_point(mm->get_position())) {
-					// Used to highlight the hovered flag in the layers grid.
-					hovered_index = i;
-					queue_redraw();
-					return;
-				}
-			}
-		}
-
-		// Remove highlight when no square is hovered.
-		if (hovered_index != -1) {
-			hovered_index = -1;
-			queue_redraw();
-		}
-
+		_update_hovered(mm->get_position());
 		return;
 	}
 
 	const Ref<InputEventMouseButton> mb = p_ev;
 	if (mb.is_valid() && mb->get_button_index() == MouseButton::LEFT && mb->is_pressed()) {
-		if (hovered_index >= 0) {
-			// Toggle the flag.
-			// We base our choice on the hovered flag, so that it always matches the hovered flag.
-			if (value & (1 << hovered_index)) {
-				value &= ~(1 << hovered_index);
-			} else {
-				value |= (1 << hovered_index);
-			}
-
-			emit_signal(SNAME("flag_changed"), value);
-			queue_redraw();
-		} else if (expand_hovered) {
-			expanded = !expanded;
-			update_minimum_size();
-			queue_redraw();
-		}
+		_update_hovered(mb->get_position());
+		_update_flag();
 	}
 	if (mb.is_valid() && mb->get_button_index() == MouseButton::RIGHT && mb->is_pressed()) {
 		if (hovered_index >= 0) {
@@ -1052,14 +1074,7 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_MOUSE_EXIT: {
-			if (expand_hovered) {
-				expand_hovered = false;
-				queue_redraw();
-			}
-			if (hovered_index != -1) {
-				hovered_index = -1;
-				queue_redraw();
-			}
+			_on_hover_exit();
 		} break;
 	}
 }
@@ -1210,7 +1225,7 @@ void EditorPropertyLayers::_button_pressed() {
 
 void EditorPropertyLayers::_menu_pressed(int p_menu) {
 	if (p_menu == grid->layer_count) {
-		ProjectSettingsEditor::get_singleton()->popup_project_settings();
+		ProjectSettingsEditor::get_singleton()->popup_project_settings(true);
 		ProjectSettingsEditor::get_singleton()->set_general_page(basename);
 	} else {
 		if (grid->value & (1 << p_menu)) {

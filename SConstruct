@@ -66,6 +66,7 @@ if ARGUMENTS.get("target", "editor") == "editor":
 platform_list = []  # list of platforms
 platform_opts = {}  # options for each platform
 platform_flags = {}  # flags for each platform
+platform_doc_class_path = {}
 
 active_platforms = []
 active_platform_ids = []
@@ -81,6 +82,15 @@ for x in sorted(glob.glob("platform/*")):
 
     sys.path.insert(0, tmppath)
     import detect
+
+    # Get doc classes paths (if present)
+    try:
+        doc_classes = detect.get_doc_classes()
+        doc_path = detect.get_doc_path()
+        for c in doc_classes:
+            platform_doc_class_path[c] = x.replace("\\", "/") + "/" + doc_path
+    except Exception:
+        pass
 
     if os.path.exists(x + "/export/export.cpp"):
         platform_exporters.append(x[9:])
@@ -181,6 +191,7 @@ opts.Add(BoolVariable("production", "Set defaults to build Godot for use in prod
 opts.Add(BoolVariable("deprecated", "Enable compatibility code for deprecated and removed features", True))
 opts.Add(EnumVariable("precision", "Set the floating-point precision level", "single", ("single", "double")))
 opts.Add(BoolVariable("minizip", "Enable ZIP archive support using minizip", True))
+opts.Add(BoolVariable("brotli", "Enable Brotli for decompresson and WOFF2 fonts support", True))
 opts.Add(BoolVariable("xaudio2", "Enable the XAudio2 audio driver", False))
 opts.Add(BoolVariable("vulkan", "Enable the vulkan rendering driver", True))
 opts.Add(BoolVariable("opengl3", "Enable the OpenGL/GLES3 rendering driver", True))
@@ -649,7 +660,7 @@ if selected_platform in platform_list:
             print(
                 "Detected mingw version is not using posix threads. Only posix "
                 "version of mingw is supported. "
-                'Use "update-alternatives --config <platform>-w64-mingw32-[gcc|g++]" '
+                'Use "update-alternatives --config x86_64-w64-mingw32-g++" '
                 "to switch to posix threads."
             )
             Exit(255)
@@ -786,7 +797,7 @@ if selected_platform in platform_list:
     modules_enabled = OrderedDict()
     env.module_dependencies = {}
     env.module_icons_paths = []
-    env.doc_class_path = {}
+    env.doc_class_path = platform_doc_class_path
 
     for name, path in modules_detected.items():
         if not env["module_" + name + "_enabled"]:
@@ -824,6 +835,15 @@ if selected_platform in platform_list:
     env.module_list = modules_enabled
     methods.sort_module_list(env)
 
+    if env.editor_build:
+        # Add editor-specific dependencies to the dependency graph.
+        env.module_add_dependencies("editor", ["freetype", "svg"])
+
+        # And check if they are met.
+        if not env.module_check_dependencies("editor"):
+            print("Not all modules required by editor builds are enabled.")
+            Exit(255)
+
     methods.generate_version_header(env.module_version_string)
 
     env["PROGSUFFIX_WRAP"] = suffix + env.module_version_string + ".console" + env["PROGSUFFIX"]
@@ -844,7 +864,7 @@ if selected_platform in platform_list:
 
     if env["disable_3d"]:
         if env.editor_build:
-            print("Build option 'disable_3d=yes' cannot be used for editor builds, but only for export templates.")
+            print("Build option 'disable_3d=yes' cannot be used for editor builds, only for export template builds.")
             Exit(255)
         else:
             env.Append(CPPDEFINES=["_3D_DISABLED"])
@@ -852,13 +872,15 @@ if selected_platform in platform_list:
         if env.editor_build:
             print(
                 "Build option 'disable_advanced_gui=yes' cannot be used for editor builds, "
-                "but only for export templates."
+                "only for export template builds."
             )
             Exit(255)
         else:
             env.Append(CPPDEFINES=["ADVANCED_GUI_DISABLED"])
     if env["minizip"]:
         env.Append(CPPDEFINES=["MINIZIP_ENABLED"])
+    if env["brotli"]:
+        env.Append(CPPDEFINES=["BROTLI_ENABLED"])
 
     if not env["verbose"]:
         methods.no_verbose(sys, env)

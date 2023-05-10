@@ -2820,7 +2820,13 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 				if (j == 0) {
 					const Array &target_names = extras.has("targetNames") ? (Array)extras["targetNames"] : Array();
 					for (int k = 0; k < targets.size(); k++) {
-						import_mesh->add_blend_shape(k < target_names.size() ? (String)target_names[k] : String("morph_") + itos(k));
+						String bs_name;
+						if (k < target_names.size() && ((String)target_names[k]).size() != 0) {
+							bs_name = (String)target_names[k];
+						} else {
+							bs_name = String("morph_") + itos(k);
+						}
+						import_mesh->add_blend_shape(bs_name);
 					}
 				}
 
@@ -3748,6 +3754,14 @@ Error GLTFDocument::_serialize_materials(Ref<GLTFState> p_state) {
 			d["alphaMode"] = "BLEND";
 		}
 
+		Dictionary extensions;
+		if (base_material->get_shading_mode() == BaseMaterial3D::SHADING_MODE_UNSHADED) {
+			Dictionary mat_unlit;
+			extensions["KHR_materials_unlit"] = mat_unlit;
+			p_state->add_used_extension("KHR_materials_unlit");
+		}
+		d["extensions"] = extensions;
+
 		materials.push_back(d);
 	}
 	if (!materials.size()) {
@@ -3780,6 +3794,11 @@ Error GLTFDocument::_parse_materials(Ref<GLTFState> p_state) {
 		if (d.has("extensions")) {
 			pbr_spec_gloss_extensions = d["extensions"];
 		}
+
+		if (pbr_spec_gloss_extensions.has("KHR_materials_unlit")) {
+			material->set_shading_mode(BaseMaterial3D::SHADING_MODE_UNSHADED);
+		}
+
 		if (pbr_spec_gloss_extensions.has("KHR_materials_pbrSpecularGlossiness")) {
 			WARN_PRINT("Material uses a specular and glossiness workflow. Textures will be converted to roughness and metallic workflow, which may not be 100% accurate.");
 			Dictionary sgm = pbr_spec_gloss_extensions["KHR_materials_pbrSpecularGlossiness"];
@@ -6459,7 +6478,7 @@ GLTFAnimation::Track GLTFDocument::_convert_animation_track(Ref<GLTFState> p_sta
 			bool last = false;
 			while (true) {
 				Vector3 scale;
-				Error err = p_animation->scale_track_interpolate(p_track_i, time, &scale);
+				Error err = p_animation->try_scale_track_interpolate(p_track_i, time, &scale);
 				ERR_CONTINUE(err != OK);
 				p_track.scale_track.values.push_back(scale);
 				p_track.scale_track.times.push_back(time);
@@ -6494,7 +6513,7 @@ GLTFAnimation::Track GLTFDocument::_convert_animation_track(Ref<GLTFState> p_sta
 			bool last = false;
 			while (true) {
 				Vector3 scale;
-				Error err = p_animation->position_track_interpolate(p_track_i, time, &scale);
+				Error err = p_animation->try_position_track_interpolate(p_track_i, time, &scale);
 				ERR_CONTINUE(err != OK);
 				p_track.position_track.values.push_back(scale);
 				p_track.position_track.times.push_back(time);
@@ -6529,7 +6548,7 @@ GLTFAnimation::Track GLTFDocument::_convert_animation_track(Ref<GLTFState> p_sta
 			bool last = false;
 			while (true) {
 				Quaternion rotation;
-				Error err = p_animation->rotation_track_interpolate(p_track_i, time, &rotation);
+				Error err = p_animation->try_rotation_track_interpolate(p_track_i, time, &rotation);
 				ERR_CONTINUE(err != OK);
 				p_track.rotation_track.values.push_back(rotation);
 				p_track.rotation_track.times.push_back(time);
@@ -6569,7 +6588,7 @@ GLTFAnimation::Track GLTFDocument::_convert_animation_track(Ref<GLTFState> p_sta
 				bool last = false;
 				while (true) {
 					Vector3 position;
-					Error err = p_animation->position_track_interpolate(p_track_i, time, &position);
+					Error err = p_animation->try_position_track_interpolate(p_track_i, time, &position);
 					ERR_CONTINUE(err != OK);
 					p_track.position_track.values.push_back(position);
 					p_track.position_track.times.push_back(time);
@@ -6602,7 +6621,7 @@ GLTFAnimation::Track GLTFDocument::_convert_animation_track(Ref<GLTFState> p_sta
 				bool last = false;
 				while (true) {
 					Quaternion rotation;
-					Error err = p_animation->rotation_track_interpolate(p_track_i, time, &rotation);
+					Error err = p_animation->try_rotation_track_interpolate(p_track_i, time, &rotation);
 					ERR_CONTINUE(err != OK);
 					p_track.rotation_track.values.push_back(rotation);
 					p_track.rotation_track.times.push_back(time);
@@ -6638,7 +6657,7 @@ GLTFAnimation::Track GLTFDocument::_convert_animation_track(Ref<GLTFState> p_sta
 				bool last = false;
 				while (true) {
 					Vector3 scale;
-					Error err = p_animation->scale_track_interpolate(p_track_i, time, &scale);
+					Error err = p_animation->try_scale_track_interpolate(p_track_i, time, &scale);
 					ERR_CONTINUE(err != OK);
 					p_track.scale_track.values.push_back(scale);
 					p_track.scale_track.times.push_back(time);
@@ -7171,9 +7190,9 @@ PackedByteArray GLTFDocument::_serialize_glb_buffer(Ref<GLTFState> p_state, Erro
 	const int32_t header_size = 12;
 	const int32_t chunk_header_size = 8;
 
-	for (int32_t pad_i = 0; pad_i < (chunk_header_size + json.utf8().length()) % 4; pad_i++) {
-		json += " ";
-	}
+	int32_t padding = (chunk_header_size + json.utf8().length()) % 4;
+	json += String(" ").repeat(padding);
+
 	CharString cs = json.utf8();
 	const uint32_t text_chunk_length = cs.length();
 
@@ -7440,6 +7459,7 @@ Error GLTFDocument::_parse_gltf_extensions(Ref<GLTFState> p_state) {
 	supported_extensions.insert("KHR_lights_punctual");
 	supported_extensions.insert("KHR_materials_pbrSpecularGlossiness");
 	supported_extensions.insert("KHR_texture_transform");
+	supported_extensions.insert("KHR_materials_unlit");
 	for (Ref<GLTFDocumentExtension> ext : document_extensions) {
 		ERR_CONTINUE(ext.is_null());
 		Vector<String> ext_supported_extensions = ext->get_supported_extensions();
@@ -7447,7 +7467,7 @@ Error GLTFDocument::_parse_gltf_extensions(Ref<GLTFState> p_state) {
 			supported_extensions.insert(ext_supported_extensions[i]);
 		}
 	}
-	Error ret = Error::OK;
+	Error ret = OK;
 	for (int i = 0; i < p_state->extensions_required.size(); i++) {
 		if (!supported_extensions.has(p_state->extensions_required[i])) {
 			ERR_PRINT("GLTF: Can't import file '" + p_state->filename + "', required extension '" + String(p_state->extensions_required[i]) + "' is not supported. Are you missing a GLTFDocumentExtension plugin?");

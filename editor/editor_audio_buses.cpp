@@ -34,12 +34,12 @@
 #include "core/input/input.h"
 #include "core/io/resource_saver.h"
 #include "core/os/keyboard.h"
-#include "editor/editor_file_dialog.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_undo_redo_manager.h"
-#include "filesystem_dock.h"
+#include "editor/filesystem_dock.h"
+#include "editor/gui/editor_file_dialog.h"
 #include "scene/gui/separator.h"
 #include "scene/resources/font.h"
 #include "servers/audio_server.h"
@@ -257,7 +257,14 @@ void EditorAudioBus::update_bus() {
 }
 
 void EditorAudioBus::_name_changed(const String &p_new_name) {
+	if (updating_bus) {
+		return;
+	}
+	updating_bus = true;
+	track_name->release_focus();
+
 	if (p_new_name == AudioServer::get_singleton()->get_bus_name(get_index())) {
+		updating_bus = false;
 		return;
 	}
 
@@ -280,12 +287,15 @@ void EditorAudioBus::_name_changed(const String &p_new_name) {
 		attempts++;
 		attempt = p_new_name + " " + itos(attempts);
 	}
-	updating_bus = true;
 
 	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 
 	StringName current = AudioServer::get_singleton()->get_bus_name(get_index());
+
 	ur->create_action(TTR("Rename Audio Bus"));
+	ur->add_do_method(buses, "_set_renaming_buses", true);
+	ur->add_undo_method(buses, "_set_renaming_buses", true);
+
 	ur->add_do_method(AudioServer::get_singleton(), "set_bus_name", get_index(), attempt);
 	ur->add_undo_method(AudioServer::get_singleton(), "set_bus_name", get_index(), current);
 
@@ -301,11 +311,12 @@ void EditorAudioBus::_name_changed(const String &p_new_name) {
 
 	ur->add_do_method(buses, "_update_sends");
 	ur->add_undo_method(buses, "_update_sends");
+
+	ur->add_do_method(buses, "_set_renaming_buses", false);
+	ur->add_undo_method(buses, "_set_renaming_buses", false);
 	ur->commit_action();
 
 	updating_bus = false;
-
-	track_name->release_focus();
 }
 
 void EditorAudioBus::_volume_changed(float p_normalized) {
@@ -995,12 +1006,31 @@ void EditorAudioBusDrop::_bind_methods() {
 EditorAudioBusDrop::EditorAudioBusDrop() {
 }
 
+void EditorAudioBuses::_set_renaming_buses(bool p_renaming) {
+	renaming_buses = p_renaming;
+}
+
 void EditorAudioBuses::_update_buses() {
-	while (bus_hb->get_child_count() > 0) {
-		memdelete(bus_hb->get_child(0));
+	if (renaming_buses) {
+		// This case will be handled more gracefully, no need to trigger a full rebuild.
+		// This is possibly a mistake in the AudioServer, which fires bus_layout_changed
+		// on a rename. This may not be intended, but no way to tell at the moment.
+		return;
 	}
 
-	drop_end = nullptr;
+	for (int i = bus_hb->get_child_count() - 1; i >= 0; i--) {
+		EditorAudioBus *audio_bus = Object::cast_to<EditorAudioBus>(bus_hb->get_child(i));
+		if (audio_bus) {
+			bus_hb->remove_child(audio_bus);
+			audio_bus->queue_free();
+		}
+	}
+
+	if (drop_end) {
+		bus_hb->remove_child(drop_end);
+		drop_end->queue_free();
+		drop_end = nullptr;
+	}
 
 	for (int i = 0; i < AudioServer::get_singleton()->get_bus_count(); i++) {
 		bool is_master = (i == 0);
@@ -1033,6 +1063,7 @@ void EditorAudioBuses::_notification(int p_what) {
 
 		case NOTIFICATION_DRAG_END: {
 			if (drop_end) {
+				bus_hb->remove_child(drop_end);
 				drop_end->queue_free();
 				drop_end = nullptr;
 			}
@@ -1259,6 +1290,7 @@ void EditorAudioBuses::_file_dialog_callback(const String &p_string) {
 }
 
 void EditorAudioBuses::_bind_methods() {
+	ClassDB::bind_method("_set_renaming_buses", &EditorAudioBuses::_set_renaming_buses);
 	ClassDB::bind_method("_update_buses", &EditorAudioBuses::_update_buses);
 	ClassDB::bind_method("_update_bus", &EditorAudioBuses::_update_bus);
 	ClassDB::bind_method("_update_sends", &EditorAudioBuses::_update_sends);
@@ -1404,6 +1436,15 @@ Size2 EditorAudioMeterNotches::get_minimum_size() const {
 	return Size2(width, height);
 }
 
+void EditorAudioMeterNotches::_update_theme_item_cache() {
+	Control::_update_theme_item_cache();
+
+	theme_cache.notch_color = get_theme_color(SNAME("font_color"), SNAME("Editor"));
+
+	theme_cache.font = get_theme_font(SNAME("font"), SNAME("Label"));
+	theme_cache.font_size = get_theme_font_size(SNAME("font_size"), SNAME("Label"));
+}
+
 void EditorAudioMeterNotches::_bind_methods() {
 	ClassDB::bind_method("add_notch", &EditorAudioMeterNotches::add_notch);
 	ClassDB::bind_method("_draw_audio_notches", &EditorAudioMeterNotches::_draw_audio_notches);
@@ -1411,10 +1452,6 @@ void EditorAudioMeterNotches::_bind_methods() {
 
 void EditorAudioMeterNotches::_notification(int p_what) {
 	switch (p_what) {
-		case NOTIFICATION_THEME_CHANGED: {
-			notch_color = get_theme_color(SNAME("font_color"), SNAME("Editor"));
-		} break;
-
 		case NOTIFICATION_DRAW: {
 			_draw_audio_notches();
 		} break;
@@ -1422,28 +1459,22 @@ void EditorAudioMeterNotches::_notification(int p_what) {
 }
 
 void EditorAudioMeterNotches::_draw_audio_notches() {
-	Ref<Font> font = get_theme_font(SNAME("font"), SNAME("Label"));
-	int font_size = get_theme_font_size(SNAME("font_size"), SNAME("Label"));
-	float font_height = font->get_height(font_size);
+	float font_height = theme_cache.font->get_height(theme_cache.font_size);
 
 	for (int i = 0; i < notches.size(); i++) {
 		AudioNotch n = notches[i];
 		draw_line(Vector2(0, (1.0f - n.relative_position) * (get_size().y - btm_padding - top_padding) + top_padding),
 				Vector2(line_length * EDSCALE, (1.0f - n.relative_position) * (get_size().y - btm_padding - top_padding) + top_padding),
-				notch_color,
+				theme_cache.notch_color,
 				Math::round(EDSCALE));
 
 		if (n.render_db_value) {
-			draw_string(font,
+			draw_string(theme_cache.font,
 					Vector2((line_length + label_space) * EDSCALE,
 							(1.0f - n.relative_position) * (get_size().y - btm_padding - top_padding) + (font_height / 4) + top_padding),
 					String::num(Math::abs(n.db_value)) + "dB",
-					HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
-					notch_color);
+					HORIZONTAL_ALIGNMENT_LEFT, -1, theme_cache.font_size,
+					theme_cache.notch_color);
 		}
 	}
-}
-
-EditorAudioMeterNotches::EditorAudioMeterNotches() {
-	notch_color = get_theme_color(SNAME("font_color"), SNAME("Editor"));
 }

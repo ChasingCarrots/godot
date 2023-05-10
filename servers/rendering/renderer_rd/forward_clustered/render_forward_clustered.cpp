@@ -721,6 +721,14 @@ void RenderForwardClustered::_fill_instance_data(RenderListType p_render_list, i
 		if (inst->store_transform_cache) {
 			RendererRD::MaterialStorage::store_transform(inst->transform, instance_data.transform);
 			RendererRD::MaterialStorage::store_transform(inst->prev_transform, instance_data.prev_transform);
+
+#ifdef REAL_T_IS_DOUBLE
+			// Split the origin into two components, the float approximation and the missing precision
+			// In the shader we will combine these back together to restore the lost precision.
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.x, &instance_data.transform[12], &instance_data.transform[3]);
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.y, &instance_data.transform[13], &instance_data.transform[7]);
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.z, &instance_data.transform[14], &instance_data.transform[11]);
+#endif
 		} else {
 			RendererRD::MaterialStorage::store_transform(Transform3D(), instance_data.transform);
 			RendererRD::MaterialStorage::store_transform(Transform3D(), instance_data.prev_transform);
@@ -734,14 +742,6 @@ void RenderForwardClustered::_fill_instance_data(RenderListType p_render_list, i
 		instance_data.lightmap_uv_scale[1] = inst->lightmap_uv_scale.position.y;
 		instance_data.lightmap_uv_scale[2] = inst->lightmap_uv_scale.size.x;
 		instance_data.lightmap_uv_scale[3] = inst->lightmap_uv_scale.size.y;
-
-#ifdef REAL_T_IS_DOUBLE
-		// Split the origin into two components, the float approximation and the missing precision
-		// In the shader we will combine these back together to restore the lost precision.
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.x, &instance_data.transform[12], &instance_data.transform[3]);
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.y, &instance_data.transform[13], &instance_data.transform[7]);
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.z, &instance_data.transform[14], &instance_data.transform[11]);
-#endif
 
 		bool cant_repeat = instance_data.flags & INSTANCE_DATA_FLAG_MULTIMESH || inst->mesh_instance.is_valid();
 
@@ -1972,22 +1972,25 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		RD::get_singleton()->draw_list_end();
 		RD::get_singleton()->draw_command_end_label();
 	}
+	if (rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
+		RENDER_TIMESTAMP("Resolve MSAA");
 
-	if (!can_continue_color && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
-		// Handle views individual, might want to look at rewriting our resolve to do both layers in one pass.
-		for (uint32_t v = 0; v < rb->get_view_count(); v++) {
-			RD::get_singleton()->texture_resolve_multisample(rb_data->get_color_msaa(v), rb->get_internal_texture(v));
-		}
-		if (using_separate_specular) {
+		if (!can_continue_color) {
+			// Handle views individual, might want to look at rewriting our resolve to do both layers in one pass.
 			for (uint32_t v = 0; v < rb->get_view_count(); v++) {
-				RD::get_singleton()->texture_resolve_multisample(rb_data->get_specular_msaa(v), rb_data->get_specular(v));
+				RD::get_singleton()->texture_resolve_multisample(rb_data->get_color_msaa(v), rb->get_internal_texture(v));
+			}
+			if (using_separate_specular) {
+				for (uint32_t v = 0; v < rb->get_view_count(); v++) {
+					RD::get_singleton()->texture_resolve_multisample(rb_data->get_specular_msaa(v), rb_data->get_specular(v));
+				}
 			}
 		}
-	}
 
-	if (!can_continue_depth && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
-		for (uint32_t v = 0; v < rb->get_view_count(); v++) {
-			resolve_effects->resolve_depth(rb_data->get_depth_msaa(v), rb->get_depth_texture(v), rb->get_internal_size(), texture_multisamples[rb->get_msaa_3d()]);
+		if (!can_continue_depth) {
+			for (uint32_t v = 0; v < rb->get_view_count(); v++) {
+				resolve_effects->resolve_depth(rb_data->get_depth_msaa(v), rb->get_depth_texture(v), rb->get_internal_size(), texture_multisamples[rb->get_msaa_3d()]);
+			}
 		}
 	}
 
@@ -2016,11 +2019,15 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	}
 
 	if (scene_state.used_screen_texture) {
+		RENDER_TIMESTAMP("Copy Screen Texture");
+
 		// Copy screen texture to backbuffer so we can read from it
 		_render_buffers_copy_screen_texture(p_render_data);
 	}
 
 	if (scene_state.used_depth_texture) {
+		RENDER_TIMESTAMP("Copy Depth Texture");
+
 		// Copy depth texture to backbuffer so we can read from it
 		_render_buffers_copy_depth_texture(p_render_data);
 	}

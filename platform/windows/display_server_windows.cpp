@@ -90,6 +90,7 @@ bool DisplayServerWindows::has_feature(Feature p_feature) const {
 		case FEATURE_SWAP_BUFFERS:
 		case FEATURE_KEEP_SCREEN_ON:
 		case FEATURE_TEXT_TO_SPEECH:
+		case FEATURE_SCREEN_CAPTURE:
 			return true;
 		default:
 			return false;
@@ -264,15 +265,15 @@ BitField<MouseButtonMask> DisplayServerWindows::mouse_get_button_state() const {
 void DisplayServerWindows::clipboard_set(const String &p_text) {
 	_THREAD_SAFE_METHOD_
 
-	if (!windows.has(last_focused_window)) {
-		return; // No focused window?
+	if (!windows.has(MAIN_WINDOW_ID)) {
+		return;
 	}
 
 	// Convert LF line endings to CRLF in clipboard content.
 	// Otherwise, line endings won't be visible when pasted in other software.
 	String text = p_text.replace("\r\n", "\n").replace("\n", "\r\n"); // Avoid \r\r\n.
 
-	if (!OpenClipboard(windows[last_focused_window].hWnd)) {
+	if (!OpenClipboard(windows[MAIN_WINDOW_ID].hWnd)) {
 		ERR_FAIL_MSG("Unable to open clipboard.");
 	}
 	EmptyClipboard();
@@ -305,12 +306,12 @@ void DisplayServerWindows::clipboard_set(const String &p_text) {
 String DisplayServerWindows::clipboard_get() const {
 	_THREAD_SAFE_METHOD_
 
-	if (!windows.has(last_focused_window)) {
-		return String(); // No focused window?
+	if (!windows.has(MAIN_WINDOW_ID)) {
+		return String();
 	}
 
 	String ret;
-	if (!OpenClipboard(windows[last_focused_window].hWnd)) {
+	if (!OpenClipboard(windows[MAIN_WINDOW_ID].hWnd)) {
 		ERR_FAIL_V_MSG("", "Unable to open clipboard.");
 	}
 
@@ -387,6 +388,17 @@ int DisplayServerWindows::get_primary_screen() const {
 	return data.screen;
 }
 
+int DisplayServerWindows::get_keyboard_focus_screen() const {
+	HWND hwnd = GetForegroundWindow();
+	if (hwnd) {
+		EnumScreenData data = { 0, 0, MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+		EnumDisplayMonitors(nullptr, nullptr, _MonitorEnumProcScreen, (LPARAM)&data);
+		return data.screen;
+	} else {
+		return get_primary_screen();
+	}
+}
+
 typedef struct {
 	int count;
 	int screen;
@@ -423,17 +435,7 @@ Point2i DisplayServerWindows::_get_screens_origin() const {
 Point2i DisplayServerWindows::screen_get_position(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
+	p_screen = _get_screen_index(p_screen);
 	EnumPosData data = { 0, p_screen, Point2() };
 	EnumDisplayMonitors(nullptr, nullptr, _MonitorEnumProcPos, (LPARAM)&data);
 	return data.pos - _get_screens_origin();
@@ -471,17 +473,7 @@ static BOOL CALLBACK _MonitorEnumProcSize(HMONITOR hMonitor, HDC hdcMonitor, LPR
 Size2i DisplayServerWindows::screen_get_size(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
+	p_screen = _get_screen_index(p_screen);
 	EnumSizeData data = { 0, p_screen, Size2() };
 	EnumDisplayMonitors(nullptr, nullptr, _MonitorEnumProcSize, (LPARAM)&data);
 	return data.size;
@@ -528,17 +520,7 @@ static BOOL CALLBACK _MonitorEnumProcRefreshRate(HMONITOR hMonitor, HDC hdcMonit
 Rect2i DisplayServerWindows::screen_get_usable_rect(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
+	p_screen = _get_screen_index(p_screen);
 	EnumRectData data = { 0, p_screen, Rect2i() };
 	EnumDisplayMonitors(nullptr, nullptr, _MonitorEnumProcUsableSize, (LPARAM)&data);
 	data.rect.position -= _get_screens_origin();
@@ -616,35 +598,35 @@ static BOOL CALLBACK _MonitorEnumProcDpi(HMONITOR hMonitor, HDC hdcMonitor, LPRE
 int DisplayServerWindows::screen_get_dpi(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
+	p_screen = _get_screen_index(p_screen);
 	EnumDpiData data = { 0, p_screen, 72 };
 	EnumDisplayMonitors(nullptr, nullptr, _MonitorEnumProcDpi, (LPARAM)&data);
 	return data.dpi;
 }
+
+Color DisplayServerWindows::screen_get_pixel(const Point2i &p_position) const {
+	Point2i pos = p_position + _get_screens_origin();
+
+	POINT p;
+	p.x = pos.x;
+	p.y = pos.y;
+	if (win81p_LogicalToPhysicalPointForPerMonitorDPI) {
+		win81p_LogicalToPhysicalPointForPerMonitorDPI(0, &p);
+	}
+	HDC dc = GetDC(0);
+	COLORREF col = GetPixel(dc, p.x, p.y);
+	if (col != CLR_INVALID) {
+		return Color(float(col & 0x000000FF) / 256.0, float((col & 0x0000FF00) >> 8) / 256.0, float((col & 0x00FF0000) >> 16) / 256.0, 1.0);
+	}
+	ReleaseDC(NULL, dc);
+
+	return Color();
+}
+
 float DisplayServerWindows::screen_get_refresh_rate(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
-	switch (p_screen) {
-		case SCREEN_PRIMARY: {
-			p_screen = get_primary_screen();
-		} break;
-		case SCREEN_OF_MAIN_WINDOW: {
-			p_screen = window_get_current_screen(MAIN_WINDOW_ID);
-		} break;
-		default:
-			break;
-	}
-
+	p_screen = _get_screen_index(p_screen);
 	EnumRefreshRateData data = { 0, p_screen, SCREEN_REFRESH_RATE_FALLBACK };
 	EnumDisplayMonitors(nullptr, nullptr, _MonitorEnumProcRefreshRate, (LPARAM)&data);
 	return data.rate;
@@ -1734,38 +1716,37 @@ void DisplayServerWindows::cursor_set_custom_image(const Ref<Resource> &p_cursor
 		}
 
 		Ref<Texture2D> texture = p_cursor;
+		ERR_FAIL_COND(!texture.is_valid());
 		Ref<AtlasTexture> atlas_texture = p_cursor;
-		Ref<Image> image;
 		Size2 texture_size;
 		Rect2 atlas_rect;
 
-		if (texture.is_valid()) {
-			image = texture->get_image();
-		}
-
-		if (!image.is_valid() && atlas_texture.is_valid()) {
+		if (atlas_texture.is_valid()) {
 			texture = atlas_texture->get_atlas();
 
 			atlas_rect.size.width = texture->get_width();
 			atlas_rect.size.height = texture->get_height();
 			atlas_rect.position.x = atlas_texture->get_region().position.x;
 			atlas_rect.position.y = atlas_texture->get_region().position.y;
-
 			texture_size.width = atlas_texture->get_region().size.x;
 			texture_size.height = atlas_texture->get_region().size.y;
-		} else if (image.is_valid()) {
+		} else {
 			texture_size.width = texture->get_width();
 			texture_size.height = texture->get_height();
 		}
 
-		ERR_FAIL_COND(!texture.is_valid());
 		ERR_FAIL_COND(p_hotspot.x < 0 || p_hotspot.y < 0);
 		ERR_FAIL_COND(texture_size.width > 256 || texture_size.height > 256);
 		ERR_FAIL_COND(p_hotspot.x > texture_size.width || p_hotspot.y > texture_size.height);
 
-		image = texture->get_image();
+		Ref<Image> image = texture->get_image();
 
 		ERR_FAIL_COND(!image.is_valid());
+		if (image->is_compressed()) {
+			image = image->duplicate(true);
+			Error err = image->decompress();
+			ERR_FAIL_COND_MSG(err != OK, "Couldn't decompress VRAM-compressed custom mouse cursor image. Switch to a lossless compression mode in the Import dock.");
+		}
 
 		UINT image_size = texture_size.width * texture_size.height;
 
@@ -3404,16 +3385,8 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		} break;
 		case WM_SYSKEYUP:
 		case WM_KEYUP:
-			if (windows[window_id].ime_suppress_next_keyup) {
-				windows[window_id].ime_suppress_next_keyup = false;
-				break;
-			}
-			[[fallthrough]];
 		case WM_SYSKEYDOWN:
 		case WM_KEYDOWN: {
-			if (windows[window_id].ime_in_progress) {
-				break;
-			}
 			if (wParam == VK_SHIFT) {
 				shift_mem = (uMsg == WM_KEYDOWN || uMsg == WM_SYSKEYDOWN);
 			}
@@ -3425,6 +3398,14 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 				if (lParam & (1 << 24)) {
 					gr_mem = alt_mem;
 				}
+			}
+
+			if (windows[window_id].ime_suppress_next_keyup && (uMsg == WM_KEYUP || uMsg == WM_SYSKEYUP)) {
+				windows[window_id].ime_suppress_next_keyup = false;
+				break;
+			}
+			if (windows[window_id].ime_in_progress) {
+				break;
 			}
 
 			if (mouse_mode == MOUSE_MODE_CAPTURED) {
@@ -4020,6 +4001,7 @@ GetImmersiveUserColorSetPreferencePtr DisplayServerWindows::GetImmersiveUserColo
 bool DisplayServerWindows::winink_available = false;
 GetPointerTypePtr DisplayServerWindows::win8p_GetPointerType = nullptr;
 GetPointerPenInfoPtr DisplayServerWindows::win8p_GetPointerPenInfo = nullptr;
+LogicalToPhysicalPointForPerMonitorDPIPtr DisplayServerWindows::win81p_LogicalToPhysicalPointForPerMonitorDPI = nullptr;
 
 typedef enum _SHC_PROCESS_DPI_AWARENESS {
 	SHC_PROCESS_DPI_UNAWARE = 0,
@@ -4148,10 +4130,12 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 	}
 
 	// Note: Windows Ink API for pen input, available on Windows 8+ only.
+	// Note: DPI conversion API, available on Windows 8.1+ only.
 	HMODULE user32_lib = LoadLibraryW(L"user32.dll");
 	if (user32_lib) {
 		win8p_GetPointerType = (GetPointerTypePtr)GetProcAddress(user32_lib, "GetPointerType");
 		win8p_GetPointerPenInfo = (GetPointerPenInfoPtr)GetProcAddress(user32_lib, "GetPointerPenInfo");
+		win81p_LogicalToPhysicalPointForPerMonitorDPI = (LogicalToPhysicalPointForPerMonitorDPIPtr)GetProcAddress(user32_lib, "LogicalToPhysicalPointForPerMonitorDPI");
 
 		winink_available = win8p_GetPointerType && win8p_GetPointerPenInfo;
 	}
@@ -4309,7 +4293,7 @@ DisplayServer *DisplayServerWindows::create_func(const String &p_rendering_drive
 					vformat("Your video card drivers seem not to support the required Vulkan version.\n\n"
 							"If possible, consider updating your video card drivers or using the OpenGL 3 driver.\n\n"
 							"You can enable the OpenGL 3 driver by starting the engine from the\n"
-							"command line with the command:\n'%s --rendering-driver opengl3'\n\n"
+							"command line with the command:\n\n    \"%s\" --rendering-driver opengl3\n\n"
 							"If you have recently updated your video card drivers, try rebooting.",
 							executable_name),
 					"Unable to initialize Vulkan video driver");
@@ -4388,5 +4372,4 @@ DisplayServerWindows::~DisplayServerWindows() {
 	if (tts) {
 		memdelete(tts);
 	}
-	CoUninitialize();
 }

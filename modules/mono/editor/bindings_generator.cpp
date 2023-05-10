@@ -523,7 +523,10 @@ void BindingsGenerator::_append_xml_method(StringBuilder &p_xml_output, const Ty
 				p_xml_output.append(target_imethod->proxy_name);
 				p_xml_output.append("\"/>");
 			} else {
-				ERR_PRINT("Cannot resolve method reference in documentation: '" + p_link_target + "'.");
+				if (!p_target_itype->is_intentionally_ignored(p_link_target)) {
+					ERR_PRINT("Cannot resolve method reference in documentation: '" + p_link_target + "'.");
+				}
+
 				_append_xml_undeclared(p_xml_output, p_link_target);
 			}
 		}
@@ -563,7 +566,10 @@ void BindingsGenerator::_append_xml_member(StringBuilder &p_xml_output, const Ty
 			p_xml_output.append(target_iprop->proxy_name);
 			p_xml_output.append("\"/>");
 		} else {
-			ERR_PRINT("Cannot resolve member reference in documentation: '" + p_link_target + "'.");
+			if (!p_target_itype->is_intentionally_ignored(p_link_target)) {
+				ERR_PRINT("Cannot resolve member reference in documentation: '" + p_link_target + "'.");
+			}
+
 			_append_xml_undeclared(p_xml_output, p_link_target);
 		}
 	}
@@ -591,7 +597,10 @@ void BindingsGenerator::_append_xml_signal(StringBuilder &p_xml_output, const Ty
 			p_xml_output.append(target_isignal->proxy_name);
 			p_xml_output.append("\"/>");
 		} else {
-			ERR_PRINT("Cannot resolve signal reference in documentation: '" + p_link_target + "'.");
+			if (!p_target_itype->is_intentionally_ignored(p_link_target)) {
+				ERR_PRINT("Cannot resolve signal reference in documentation: '" + p_link_target + "'.");
+			}
+
 			_append_xml_undeclared(p_xml_output, p_link_target);
 		}
 	}
@@ -613,7 +622,10 @@ void BindingsGenerator::_append_xml_enum(StringBuilder &p_xml_output, const Type
 		p_xml_output.append(target_enum_itype.proxy_name); // Includes nesting class if any
 		p_xml_output.append("\"/>");
 	} else {
-		ERR_PRINT("Cannot resolve enum reference in documentation: '" + p_link_target + "'.");
+		if (!p_target_itype->is_intentionally_ignored(p_link_target)) {
+			ERR_PRINT("Cannot resolve enum reference in documentation: '" + p_link_target + "'.");
+		}
+
 		_append_xml_undeclared(p_xml_output, p_link_target);
 	}
 }
@@ -673,7 +685,10 @@ void BindingsGenerator::_append_xml_constant(StringBuilder &p_xml_output, const 
 				// Also search in @GlobalScope as a last resort if no class was specified
 				_append_xml_constant_in_global_scope(p_xml_output, p_target_cname, p_link_target);
 			} else {
-				ERR_PRINT("Cannot resolve constant reference in documentation: '" + p_link_target + "'.");
+				if (!p_target_itype->is_intentionally_ignored(p_link_target)) {
+					ERR_PRINT("Cannot resolve constant reference in documentation: '" + p_link_target + "'.");
+				}
+
 				_append_xml_undeclared(p_xml_output, p_link_target);
 			}
 		}
@@ -1483,9 +1498,9 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 
 		output << MEMBER_BEGIN "public static GodotObject " CS_PROPERTY_SINGLETON "\n" INDENT1 "{\n"
 			   << INDENT2 "get\n" INDENT2 "{\n" INDENT3 "if (singleton == null)\n"
-			   << INDENT4 "singleton = " C_METHOD_ENGINE_GET_SINGLETON "(typeof("
-			   << itype.proxy_name
-			   << ").Name);\n" INDENT3 "return singleton;\n" INDENT2 "}\n" INDENT1 "}\n";
+			   << INDENT4 "singleton = " C_METHOD_ENGINE_GET_SINGLETON "(\""
+			   << itype.name
+			   << "\");\n" INDENT3 "return singleton;\n" INDENT2 "}\n" INDENT1 "}\n";
 
 		output.append(MEMBER_BEGIN "private static readonly StringName " BINDINGS_NATIVE_NAME_FIELD " = \"");
 		output.append(itype.name);
@@ -2936,6 +2951,7 @@ bool BindingsGenerator::_populate_object_type_interfaces() {
 
 			if (method_has_ptr_parameter(method_info)) {
 				// Pointers are not supported.
+				itype.ignored_members.insert(method_info.name);
 				continue;
 			}
 
@@ -3878,7 +3894,7 @@ void BindingsGenerator::_log(const char *p_format, ...) {
 void BindingsGenerator::_initialize() {
 	initialized = false;
 
-	EditorHelp::generate_doc();
+	EditorHelp::generate_doc(false);
 
 	enum_types.clear();
 

@@ -33,6 +33,7 @@
 #include "core/input/input_map.h"
 #include "core/input/shortcut.h"
 #include "core/os/keyboard.h"
+#include "core/os/os.h"
 
 const int InputEvent::DEVICE_ID_EMULATION = -1;
 const int InputEvent::DEVICE_ID_INTERNAL = -2;
@@ -145,13 +146,13 @@ int64_t InputEventFromWindow::get_window_id() const {
 void InputEventWithModifiers::set_command_or_control_autoremap(bool p_enabled) {
 	command_or_control_autoremap = p_enabled;
 	if (command_or_control_autoremap) {
-#ifdef MACOS_ENABLED
-		ctrl_pressed = false;
-		meta_pressed = true;
-#else
-		ctrl_pressed = true;
-		meta_pressed = false;
-#endif
+		if (OS::get_singleton()->has_feature("macos") || OS::get_singleton()->has_feature("web_macos") || OS::get_singleton()->has_feature("web_ios")) {
+			ctrl_pressed = false;
+			meta_pressed = true;
+		} else {
+			ctrl_pressed = true;
+			meta_pressed = false;
+		}
 	} else {
 		ctrl_pressed = false;
 		meta_pressed = false;
@@ -164,11 +165,11 @@ bool InputEventWithModifiers::is_command_or_control_autoremap() const {
 }
 
 bool InputEventWithModifiers::is_command_or_control_pressed() const {
-#ifdef MACOS_ENABLED
-	return meta_pressed;
-#else
-	return ctrl_pressed;
-#endif
+	if (OS::get_singleton()->has_feature("macos") || OS::get_singleton()->has_feature("web_macos") || OS::get_singleton()->has_feature("web_ios")) {
+		return meta_pressed;
+	} else {
+		return ctrl_pressed;
+	}
 }
 
 void InputEventWithModifiers::set_shift_pressed(bool p_enabled) {
@@ -231,11 +232,11 @@ BitField<KeyModifierMask> InputEventWithModifiers::get_modifiers_mask() const {
 		mask.set_flag(KeyModifierMask::META);
 	}
 	if (is_command_or_control_autoremap()) {
-#ifdef MACOS_ENABLED
-		mask.set_flag(KeyModifierMask::META);
-#else
-		mask.set_flag(KeyModifierMask::CTRL);
-#endif
+		if (OS::get_singleton()->has_feature("macos") || OS::get_singleton()->has_feature("web_macos") || OS::get_singleton()->has_feature("web_ios")) {
+			mask.set_flag(KeyModifierMask::META);
+		} else {
+			mask.set_flag(KeyModifierMask::CTRL);
+		}
 	}
 	return mask;
 }
@@ -474,10 +475,15 @@ String InputEventKey::to_string() {
 	return vformat("InputEventKey: keycode=%s, mods=%s, physical=%s, pressed=%s, echo=%s", kc, mods, physical, p, e);
 }
 
-Ref<InputEventKey> InputEventKey::create_reference(Key p_keycode) {
+Ref<InputEventKey> InputEventKey::create_reference(Key p_keycode, bool p_physical) {
 	Ref<InputEventKey> ie;
 	ie.instantiate();
-	ie->set_keycode(p_keycode & KeyModifierMask::CODE_MASK);
+	if (p_physical) {
+		ie->set_physical_keycode(p_keycode & KeyModifierMask::CODE_MASK);
+	} else {
+		ie->set_keycode(p_keycode & KeyModifierMask::CODE_MASK);
+	}
+
 	ie->set_unicode(char32_t(p_keycode & KeyModifierMask::CODE_MASK));
 
 	if ((p_keycode & KeyModifierMask::SHIFT) != Key::NONE) {

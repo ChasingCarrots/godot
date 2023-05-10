@@ -146,7 +146,7 @@ bool Window::_get(const StringName &p_name, Variant &r_ret) const {
 void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 	Ref<Theme> default_theme = ThemeDB::get_singleton()->get_default_theme();
 
-	p_list->push_back(PropertyInfo(Variant::NIL, TTRC("Theme Overrides"), PROPERTY_HINT_NONE, "theme_override_", PROPERTY_USAGE_GROUP));
+	p_list->push_back(PropertyInfo(Variant::NIL, GNAME("Theme Overrides", "theme_override_"), PROPERTY_HINT_NONE, "theme_override_", PROPERTY_USAGE_GROUP));
 
 	{
 		List<StringName> names;
@@ -157,7 +157,7 @@ void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::COLOR, "theme_override_colors/" + E, PROPERTY_HINT_NONE, "", usage));
+			p_list->push_back(PropertyInfo(Variant::COLOR, PNAME("theme_override_colors") + String("/") + E, PROPERTY_HINT_NONE, "", usage));
 		}
 	}
 	{
@@ -169,7 +169,7 @@ void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::INT, "theme_override_constants/" + E, PROPERTY_HINT_RANGE, "-16384,16384", usage));
+			p_list->push_back(PropertyInfo(Variant::INT, PNAME("theme_override_constants") + String("/") + E, PROPERTY_HINT_RANGE, "-16384,16384", usage));
 		}
 	}
 	{
@@ -181,7 +181,7 @@ void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::OBJECT, "theme_override_fonts/" + E, PROPERTY_HINT_RESOURCE_TYPE, "Font", usage));
+			p_list->push_back(PropertyInfo(Variant::OBJECT, PNAME("theme_override_fonts") + String("/") + E, PROPERTY_HINT_RESOURCE_TYPE, "Font", usage));
 		}
 	}
 	{
@@ -193,7 +193,7 @@ void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::INT, "theme_override_font_sizes/" + E, PROPERTY_HINT_RANGE, "1,256,1,or_greater,suffix:px", usage));
+			p_list->push_back(PropertyInfo(Variant::INT, PNAME("theme_override_font_sizes") + String("/") + E, PROPERTY_HINT_RANGE, "1,256,1,or_greater,suffix:px", usage));
 		}
 	}
 	{
@@ -205,7 +205,7 @@ void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::OBJECT, "theme_override_icons/" + E, PROPERTY_HINT_RESOURCE_TYPE, "Texture2D", usage));
+			p_list->push_back(PropertyInfo(Variant::OBJECT, PNAME("theme_override_icons") + String("/") + E, PROPERTY_HINT_RESOURCE_TYPE, "Texture2D", usage));
 		}
 	}
 	{
@@ -217,7 +217,7 @@ void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 				usage |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
 			}
 
-			p_list->push_back(PropertyInfo(Variant::OBJECT, "theme_override_styles/" + E, PROPERTY_HINT_RESOURCE_TYPE, "StyleBox", usage));
+			p_list->push_back(PropertyInfo(Variant::OBJECT, PNAME("theme_override_styles") + String("/") + E, PROPERTY_HINT_RESOURCE_TYPE, "StyleBox", usage));
 		}
 	}
 }
@@ -490,7 +490,7 @@ bool Window::is_embedded() const {
 
 bool Window::is_in_edited_scene_root() const {
 #ifdef TOOLS_ENABLED
-	return (Engine::get_singleton()->is_editor_hint() && get_tree()->get_edited_scene_root() && (get_tree()->get_edited_scene_root()->is_ancestor_of(this) || get_tree()->get_edited_scene_root() == this));
+	return is_part_of_edited_scene();
 #else
 	return false;
 #endif
@@ -516,7 +516,12 @@ void Window::_make_window() {
 		window_rect = Rect2i(DisplayServer::get_singleton()->screen_get_position(DisplayServer::SCREEN_OF_MAIN_WINDOW) + (DisplayServer::get_singleton()->screen_get_size(DisplayServer::SCREEN_OF_MAIN_WINDOW) - size) / 2, size);
 	} else if (initial_position == WINDOW_INITIAL_POSITION_CENTER_OTHER_SCREEN) {
 		window_rect = Rect2i(DisplayServer::get_singleton()->screen_get_position(current_screen) + (DisplayServer::get_singleton()->screen_get_size(current_screen) - size) / 2, size);
+	} else if (initial_position == WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_MOUSE_FOCUS) {
+		window_rect = Rect2i(DisplayServer::get_singleton()->screen_get_position(DisplayServer::SCREEN_WITH_MOUSE_FOCUS) + (DisplayServer::get_singleton()->screen_get_size(DisplayServer::SCREEN_WITH_MOUSE_FOCUS) - size) / 2, size);
+	} else if (initial_position == WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_KEYBOARD_FOCUS) {
+		window_rect = Rect2i(DisplayServer::get_singleton()->screen_get_position(DisplayServer::SCREEN_WITH_KEYBOARD_FOCUS) + (DisplayServer::get_singleton()->screen_get_size(DisplayServer::SCREEN_WITH_KEYBOARD_FOCUS) - size) / 2, size);
 	}
+
 	window_id = DisplayServer::get_singleton()->create_sub_window(DisplayServer::WindowMode(mode), vsync_mode, f, window_rect);
 	ERR_FAIL_COND(window_id == DisplayServer::INVALID_WINDOW_ID);
 	DisplayServer::get_singleton()->window_set_max_size(Size2i(), window_id);
@@ -1073,6 +1078,8 @@ Viewport *Window::get_embedder() const {
 void Window::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_POSTINITIALIZE: {
+			initialized = true;
+
 			_invalidate_theme_cache();
 			_update_theme_item_cache();
 		} break;
@@ -1138,6 +1145,13 @@ void Window::_notification(int p_what) {
 				RS::get_singleton()->viewport_set_active(get_viewport_rid(), true);
 			}
 
+#ifdef TOOLS_ENABLED
+			if (is_part_of_edited_scene()) {
+				// Don't translate Windows on scene when inside editor.
+				set_message_translation(false);
+				notification(NOTIFICATION_TRANSLATION_CHANGED);
+			}
+#endif
 			notification(NOTIFICATION_THEME_CHANGED);
 		} break;
 
@@ -1363,11 +1377,12 @@ void Window::_window_input(const Ref<InputEvent> &p_ev) {
 		}
 	}
 
-	emit_signal(SceneStringNames::get_singleton()->window_input, p_ev);
+	if (p_ev->get_device() != InputEvent::DEVICE_ID_INTERNAL) {
+		emit_signal(SceneStringNames::get_singleton()->window_input, p_ev);
+	}
 
-	push_input(p_ev);
-	if (!is_input_handled()) {
-		push_unhandled_input(p_ev);
+	if (is_inside_tree()) {
+		push_input(p_ev);
 	}
 }
 
@@ -1554,9 +1569,36 @@ void Window::popup(const Rect2i &p_screen_rect) {
 		ERR_PRINT(vformat("Window %d spawned at invalid position: %s.", get_window_id(), position));
 		set_position((parent_rect.size - size) / 2);
 	}
+	if (parent_rect != Rect2i() && is_clamped_to_embedder() && is_embedded()) {
+		Rect2i new_rect = fit_rect_in_parent(Rect2i(position, size), parent_rect);
+		set_position(new_rect.position);
+		set_size(new_rect.size);
+	}
 
 	_post_popup();
 	notification(NOTIFICATION_POST_POPUP);
+}
+
+Rect2i Window::fit_rect_in_parent(Rect2i p_rect, const Rect2i &p_parent_rect) const {
+	Size2i limit = p_parent_rect.size;
+	if (p_rect.position.x + p_rect.size.x > limit.x) {
+		p_rect.position.x = limit.x - p_rect.size.x;
+	}
+	if (p_rect.position.y + p_rect.size.y > limit.y) {
+		p_rect.position.y = limit.y - p_rect.size.y;
+	}
+
+	if (p_rect.position.x < 0) {
+		p_rect.position.x = 0;
+	}
+
+	int title_height = get_flag(Window::FLAG_BORDERLESS) ? 0 : get_theme_constant(SNAME("title_height"));
+
+	if (p_rect.position.y < title_height) {
+		p_rect.position.y = title_height;
+	}
+
+	return p_rect;
 }
 
 Size2 Window::get_contents_minimum_size() const {
@@ -1717,6 +1759,10 @@ StringName Window::get_theme_type_variation() const {
 /// Theme property lookup.
 
 Ref<Texture2D> Window::get_theme_icon(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		const Ref<Texture2D> *tex = theme_icon_override.getptr(p_name);
 		if (tex) {
@@ -1736,6 +1782,10 @@ Ref<Texture2D> Window::get_theme_icon(const StringName &p_name, const StringName
 }
 
 Ref<StyleBox> Window::get_theme_stylebox(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		const Ref<StyleBox> *style = theme_style_override.getptr(p_name);
 		if (style) {
@@ -1755,6 +1805,10 @@ Ref<StyleBox> Window::get_theme_stylebox(const StringName &p_name, const StringN
 }
 
 Ref<Font> Window::get_theme_font(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		const Ref<Font> *font = theme_font_override.getptr(p_name);
 		if (font) {
@@ -1774,6 +1828,10 @@ Ref<Font> Window::get_theme_font(const StringName &p_name, const StringName &p_t
 }
 
 int Window::get_theme_font_size(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		const int *font_size = theme_font_size_override.getptr(p_name);
 		if (font_size && (*font_size) > 0) {
@@ -1793,6 +1851,10 @@ int Window::get_theme_font_size(const StringName &p_name, const StringName &p_th
 }
 
 Color Window::get_theme_color(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		const Color *color = theme_color_override.getptr(p_name);
 		if (color) {
@@ -1812,6 +1874,10 @@ Color Window::get_theme_color(const StringName &p_name, const StringName &p_them
 }
 
 int Window::get_theme_constant(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		const int *constant = theme_constant_override.getptr(p_name);
 		if (constant) {
@@ -1831,6 +1897,10 @@ int Window::get_theme_constant(const StringName &p_name, const StringName &p_the
 }
 
 bool Window::has_theme_icon(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		if (has_theme_icon_override(p_name)) {
 			return true;
@@ -1843,6 +1913,10 @@ bool Window::has_theme_icon(const StringName &p_name, const StringName &p_theme_
 }
 
 bool Window::has_theme_stylebox(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		if (has_theme_stylebox_override(p_name)) {
 			return true;
@@ -1855,6 +1929,10 @@ bool Window::has_theme_stylebox(const StringName &p_name, const StringName &p_th
 }
 
 bool Window::has_theme_font(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		if (has_theme_font_override(p_name)) {
 			return true;
@@ -1867,6 +1945,10 @@ bool Window::has_theme_font(const StringName &p_name, const StringName &p_theme_
 }
 
 bool Window::has_theme_font_size(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		if (has_theme_font_size_override(p_name)) {
 			return true;
@@ -1879,6 +1961,10 @@ bool Window::has_theme_font_size(const StringName &p_name, const StringName &p_t
 }
 
 bool Window::has_theme_color(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		if (has_theme_color_override(p_name)) {
 			return true;
@@ -1891,6 +1977,10 @@ bool Window::has_theme_color(const StringName &p_name, const StringName &p_theme
 }
 
 bool Window::has_theme_constant(const StringName &p_name, const StringName &p_theme_type) const {
+	if (!initialized) {
+		WARN_PRINT_ONCE("Attempting to access theme items too early; prefer NOTIFICATION_POSTINITIALIZE and NOTIFICATION_THEME_CHANGED");
+	}
+
 	if (p_theme_type == StringName() || p_theme_type == get_class_name() || p_theme_type == theme_type_variation) {
 		if (has_theme_constant_override(p_name)) {
 			return true;
@@ -2113,22 +2203,39 @@ Window::LayoutDirection Window::get_layout_direction() const {
 
 bool Window::is_layout_rtl() const {
 	if (layout_dir == LAYOUT_DIRECTION_INHERITED) {
-		Window *parent_w = Object::cast_to<Window>(get_parent());
-		if (parent_w) {
-			return parent_w->is_layout_rtl();
-		} else {
-			if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
-				return true;
+		if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
+			return true;
+		}
+		Node *parent_node = get_parent();
+		while (parent_node) {
+			Control *parent_control = Object::cast_to<Control>(parent_node);
+			if (parent_control) {
+				return parent_control->is_layout_rtl();
 			}
+
+			Window *parent_window = Object::cast_to<Window>(parent_node);
+			if (parent_window) {
+				return parent_window->is_layout_rtl();
+			}
+			parent_node = parent_node->get_parent();
+		}
+
+		int root_dir = GLOBAL_GET(SNAME("internationalization/rendering/root_node_layout_direction"));
+		if (root_dir == 1) {
+			return false;
+		} else if (root_dir == 2) {
+			return true;
+		} else {
 			String locale = TranslationServer::get_singleton()->get_tool_locale();
 			return TS->is_locale_right_to_left(locale);
 		}
 	} else if (layout_dir == LAYOUT_DIRECTION_LOCALE) {
 		if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
 			return true;
+		} else {
+			String locale = TranslationServer::get_singleton()->get_tool_locale();
+			return TS->is_locale_right_to_left(locale);
 		}
-		String locale = TranslationServer::get_singleton()->get_tool_locale();
-		return TS->is_locale_right_to_left(locale);
 	} else {
 		return (layout_dir == LAYOUT_DIRECTION_RTL);
 	}
@@ -2323,7 +2430,7 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("popup_centered", "minsize"), &Window::popup_centered, DEFVAL(Size2i()));
 	ClassDB::bind_method(D_METHOD("popup_centered_clamped", "minsize", "fallback_ratio"), &Window::popup_centered_clamped, DEFVAL(Size2i()), DEFVAL(0.75));
 
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "initial_position", PROPERTY_HINT_ENUM, "Absolute,Primary Screen Center,Main Window Screen Center,Other Screen Center"), "set_initial_position", "get_initial_position");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "initial_position", PROPERTY_HINT_ENUM, "Absolute,Center of Primary Screen,Center of Other Screen,Center of Screen With Mouse Pointer,Center of Screen With Keyboard Focus"), "set_initial_position", "get_initial_position");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "title"), "set_title", "get_title");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "position", PROPERTY_HINT_NONE, "suffix:px"), "set_position", "get_position");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "size", PROPERTY_HINT_NONE, "suffix:px"), "set_size", "get_size");
@@ -2417,6 +2524,8 @@ void Window::_bind_methods() {
 	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_PRIMARY_SCREEN);
 	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_MAIN_WINDOW_SCREEN);
 	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_OTHER_SCREEN);
+	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_MOUSE_FOCUS);
+	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_KEYBOARD_FOCUS);
 }
 
 Window::Window() {

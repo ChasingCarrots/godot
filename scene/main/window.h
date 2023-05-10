@@ -93,10 +93,13 @@ public:
 		WINDOW_INITIAL_POSITION_CENTER_PRIMARY_SCREEN,
 		WINDOW_INITIAL_POSITION_CENTER_MAIN_WINDOW_SCREEN,
 		WINDOW_INITIAL_POSITION_CENTER_OTHER_SCREEN,
+		WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_MOUSE_FOCUS,
+		WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_KEYBOARD_FOCUS,
 	};
 
 private:
 	DisplayServer::WindowID window_id = DisplayServer::INVALID_WINDOW_ID;
+	bool initialized = false;
 
 	String title;
 	mutable int current_screen = 0;
@@ -310,6 +313,7 @@ public:
 	void popup_centered(const Size2i &p_minsize = Size2i());
 	void popup_centered_clamped(const Size2i &p_size = Size2i(), float p_fallback_ratio = 0.75);
 
+	Rect2i fit_rect_in_parent(Rect2i p_rect, const Rect2i &p_parent_rect) const;
 	Size2 get_contents_minimum_size() const;
 	Size2 get_clamped_minimum_size() const;
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="@GDScript" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+<class name="@GDScript" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
 	<brief_description>
 		Built-in GDScript functions.
 	</brief_description>
@@ -18,12 +18,13 @@
 			<param index="2" name="b8" type="int" />
 			<param index="3" name="a8" type="int" default="255" />
 			<description>
-				Returns a [Color] constructed from red ([param r8]), green ([param g8]), blue ([param b8]), and optionally alpha ([param a8]) integer channels, each divided by [code]255.0[/code] for their final value.
+				Returns a [Color] constructed from red ([param r8]), green ([param g8]), blue ([param b8]), and optionally alpha ([param a8]) integer channels, each divided by [code]255.0[/code] for their final value. Using [method Color8] instead of the standard [Color] constructor is useful when you need to match exact color values in an [Image].
 				[codeblock]
 				var red = Color8(255, 0, 0)             # Same as Color(1, 0, 0).
 				var dark_blue = Color8(0, 0, 51)        # Same as Color(0, 0, 0.2).
 				var my_color = Color8(306, 255, 0, 102) # Same as Color(1.2, 1, 0, 0.4).
 				[/codeblock]
+				[b]Note:[/b] Due to the lower precision of [method Color8] compared to the standard [Color] constructor, a color created with [method Color8] will generally not be equal to the same color created with the standard [Color] constructor. Use [method Color.is_equal_approx] for comparisons to avoid issues with floating-point precision error.
 			</description>
 		</method>
 		<method name="assert">
@@ -138,7 +139,7 @@
 				print(is_instance_of(a, MyClass))
 				print(is_instance_of(a, MyClass.InnerClass))
 				[/codeblock]
-				[b]Note:[/b] If [param value] and/or [param type] are freed objects (see [method @GlobalScope.is_instance_valid]), or [param type] is not one of the above options, this method will raise an runtime error.
+				[b]Note:[/b] If [param value] and/or [param type] are freed objects (see [method @GlobalScope.is_instance_valid]), or [param type] is not one of the above options, this method will raise a runtime error.
 				See also [method @GlobalScope.typeof], [method type_exists], [method Array.is_same_typed] (and other [Array] methods).
 			</description>
 		</method>
@@ -226,8 +227,8 @@
 				To iterate over an [Array] backwards, use:
 				[codeblock]
 				var array = [3, 6, 9]
-				for i in range(array.size(), 0, -1):
-				    print(array[i - 1])
+				for i in range(array.size() - 1, -1, -1):
+				    print(array[i])
 				[/codeblock]
 				Output:
 				[codeblock]
@@ -285,7 +286,7 @@
 				@export var string = ""
 				@export var int_number = 5
 				@export var float_number: float = 5
-				@export var image : Image
+				@export var image: Image
 				[/codeblock]
 			</description>
 		</annotation>
@@ -309,7 +310,7 @@
 				Export a [Color] property without allowing its transparency ([member Color.a]) to be edited.
 				See also [constant PROPERTY_HINT_COLOR_NO_ALPHA].
 				[codeblock]
-				@export_color_no_alpha var dye_color : Color
+				@export_color_no_alpha var dye_color: Color
 				[/codeblock]
 			</description>
 		</annotation>
@@ -485,7 +486,7 @@
 			<param index="1" name="prefix" type="String" default="&quot;&quot;" />
 			<description>
 				Define a new group for the following exported properties. This helps to organize properties in the Inspector dock. Groups can be added with an optional [param prefix], which would make group to only consider properties that have this prefix. The grouping will break on the first property that doesn't have a prefix. The prefix is also removed from the property's name in the Inspector dock.
-				If no [param prefix] is provided, the every following property is added to the group. The group ends when then next group or category is defined. You can also force end a group by using this annotation with empty strings for parameters, [code]@export_group("", "")[/code].
+				If no [param prefix] is provided, then every following property will be added to the group. The group ends when then next group or category is defined. You can also force end a group by using this annotation with empty strings for parameters, [code]@export_group("", "")[/code].
 				Groups cannot be nested, use [annotation @export_subgroup] to add subgroups within groups.
 				See also [constant PROPERTY_USAGE_GROUP].
 				[codeblock]
@@ -608,7 +609,7 @@
 			<param index="3" name="transfer_channel" type="int" default="0" />
 			<description>
 				Mark the following method for remote procedure calls. See [url=$DOCS_URL/tutorials/networking/high_level_multiplayer.html]High-level multiplayer[/url].
-				The order of [code]mode[/code], [code]sync[/code] and [code]transfer_mode[/code] does not matter and all arguments can be omitted, but [code]transfer_channel[/code] always has to be the last argument. The accepted values for [code]mode[/code] are [code]"any_peer"[/code] or [code]"authority"[/code], for [code]sync[/code] are [code]"call_remote"[/code] or [code]"call_local"[/code] and for [code]transfer_mode[/code] are [code]"unreliable"[/code], [code]"unreliable_ordered"[/code] or [code]"reliable"[/code].
+				The order of [param mode], [param sync] and [param transfer_mode] does not matter and all arguments can be omitted, but [param transfer_channel] always has to be the last argument. The accepted values for [param mode] are [code]"any_peer"[/code] or [code]"authority"[/code], for [param sync] are [code]"call_remote"[/code] or [code]"call_local"[/code] and for [param transfer_mode] are [code]"unreliable"[/code], [code]"unreliable_ordered"[/code] or [code]"reliable"[/code].
 				[codeblock]
 				@rpc
 				func fn(): pass
@@ -619,6 +620,12 @@
 				@rpc("authority", "call_remote", "unreliable", 0) # Equivalent to @rpc
 				func fn_default(): pass
 				[/codeblock]
+			</description>
+		</annotation>
+		<annotation name="@static_unload">
+			<return type="void" />
+			<description>
+				Make a script with static variables to not persist after all references are lost. If the script is loaded again the static variables will revert to their default values.
 			</description>
 		</annotation>
 		<annotation name="@tool">

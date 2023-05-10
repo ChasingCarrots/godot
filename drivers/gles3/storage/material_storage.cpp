@@ -1066,6 +1066,12 @@ static const RS::CanvasItemTextureRepeat repeat_from_uniform[ShaderLanguage::REP
 	RS::CanvasItemTextureRepeat::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED, // ShaderLanguage::TextureRepeat::REPEAT_DEFAULT,
 };
 
+static const RS::CanvasItemTextureRepeat repeat_from_uniform_canvas[ShaderLanguage::REPEAT_DEFAULT + 1] = {
+	RS::CanvasItemTextureRepeat::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED, // ShaderLanguage::TextureRepeat::REPEAT_DISABLE,
+	RS::CanvasItemTextureRepeat::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED, // ShaderLanguage::TextureRepeat::REPEAT_ENABLE,
+	RS::CanvasItemTextureRepeat::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED, // ShaderLanguage::TextureRepeat::REPEAT_DEFAULT,
+};
+
 static const RS::CanvasItemTextureFilter filter_from_uniform[ShaderLanguage::FILTER_DEFAULT + 1] = {
 	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_NEAREST, // ShaderLanguage::TextureFilter::FILTER_NEAREST,
 	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, // ShaderLanguage::TextureFilter::FILTER_LINEAR,
@@ -1074,6 +1080,16 @@ static const RS::CanvasItemTextureFilter filter_from_uniform[ShaderLanguage::FIL
 	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC, // ShaderLanguage::TextureFilter::FILTER_NEAREST_MIPMAP_ANISOTROPIC,
 	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC, // ShaderLanguage::TextureFilter::FILTER_LINEAR_MIPMAP_ANISOTROPIC,
 	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, // ShaderLanguage::TextureFilter::FILTER_DEFAULT,
+};
+
+static const RS::CanvasItemTextureFilter filter_from_uniform_canvas[ShaderLanguage::FILTER_DEFAULT + 1] = {
+	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_NEAREST, // ShaderLanguage::TextureFilter::FILTER_NEAREST,
+	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, // ShaderLanguage::TextureFilter::FILTER_LINEAR,
+	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, // ShaderLanguage::TextureFilter::FILTER_NEAREST_MIPMAP,
+	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, // ShaderLanguage::TextureFilter::FILTER_LINEAR_MIPMAP,
+	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC, // ShaderLanguage::TextureFilter::FILTER_NEAREST_MIPMAP_ANISOTROPIC,
+	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC, // ShaderLanguage::TextureFilter::FILTER_LINEAR_MIPMAP_ANISOTROPIC,
+	RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, // ShaderLanguage::TextureFilter::FILTER_DEFAULT,
 };
 
 void MaterialData::update_uniform_buffer(const HashMap<StringName, ShaderLanguage::ShaderNode::Uniform> &p_uniforms, const uint32_t *p_uniform_offsets, const HashMap<StringName, Variant> &p_parameters, uint8_t *p_buffer, uint32_t p_buffer_size, bool p_use_linear_color) {
@@ -1473,7 +1489,7 @@ MaterialStorage::MaterialStorage() {
 	global_shader_uniforms.buffer_size = MAX(4096, (int)GLOBAL_GET("rendering/limits/global_shader_variables/buffer_size"));
 	if (global_shader_uniforms.buffer_size > uint32_t(Config::get_singleton()->max_uniform_buffer_size)) {
 		global_shader_uniforms.buffer_size = uint32_t(Config::get_singleton()->max_uniform_buffer_size);
-		WARN_PRINT("Project setting: rendering/limits/global_shader_variables/buffer_size exceeds maximum uniform buffer size of: " + itos(Config::get_singleton()->max_uniform_buffer_size));
+		WARN_PRINT("Project setting \"rendering/limits/global_shader_variables/buffer_size\" exceeds maximum uniform buffer size of: " + itos(Config::get_singleton()->max_uniform_buffer_size));
 	}
 
 	global_shader_uniforms.buffer_values = memnew_arr(GlobalShaderUniforms::Value, global_shader_uniforms.buffer_size);
@@ -1494,7 +1510,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["LIGHT_VERTEX"] = "light_vertex";
 		actions.renames["SHADOW_VERTEX"] = "shadow_vertex";
 		actions.renames["UV"] = "uv";
-		actions.renames["POINT_SIZE"] = "gl_PointSize";
+		actions.renames["POINT_SIZE"] = "point_size";
 
 		actions.renames["MODEL_MATRIX"] = "model_matrix";
 		actions.renames["CANVAS_MATRIX"] = "canvas_transform";
@@ -1575,7 +1591,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["UV"] = "uv_interp";
 		actions.renames["UV2"] = "uv2_interp";
 		actions.renames["COLOR"] = "color_interp";
-		actions.renames["POINT_SIZE"] = "gl_PointSize";
+		actions.renames["POINT_SIZE"] = "point_size";
 		actions.renames["INSTANCE_ID"] = "gl_InstanceID";
 		actions.renames["VERTEX_ID"] = "gl_VertexID";
 
@@ -1587,6 +1603,7 @@ MaterialStorage::MaterialStorage() {
 		//builtins
 
 		actions.renames["TIME"] = "scene_data.time";
+		actions.renames["EXPOSURE"] = "(1.0 / scene_data.emissive_exposure_normalization)";
 		actions.renames["PI"] = _MKSTR(Math_PI);
 		actions.renames["TAU"] = _MKSTR(Math_TAU);
 		actions.renames["E"] = _MKSTR(Math_E);
@@ -1619,7 +1636,6 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["INSTANCE_CUSTOM"] = "instance_custom";
 		actions.renames["SCREEN_UV"] = "screen_uv";
 		actions.renames["DEPTH"] = "gl_FragDepth";
-		actions.renames["OUTPUT_IS_SRGB"] = "true";
 		actions.renames["FOG"] = "fog";
 		actions.renames["RADIANCE"] = "custom_radiance";
 		actions.renames["IRRADIANCE"] = "custom_irradiance";
@@ -1635,7 +1651,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["CAMERA_POSITION_WORLD"] = "scene_data.inv_view_matrix[3].xyz";
 		actions.renames["CAMERA_DIRECTION_WORLD"] = "scene_data.view_matrix[3].xyz";
 		actions.renames["CAMERA_VISIBLE_LAYERS"] = "scene_data.camera_visible_layers";
-		actions.renames["NODE_POSITION_VIEW"] = "(model_matrix * scene_data.view_matrix)[3].xyz";
+		actions.renames["NODE_POSITION_VIEW"] = "(scene_data.view_matrix * model_matrix)[3].xyz";
 
 		actions.renames["VIEW_INDEX"] = "ViewIndex";
 		actions.renames["VIEW_MONO_LEFT"] = "uint(0)";
@@ -1644,7 +1660,9 @@ MaterialStorage::MaterialStorage() {
 
 		//for light
 		actions.renames["VIEW"] = "view";
+		actions.renames["SPECULAR_AMOUNT"] = "specular_amount";
 		actions.renames["LIGHT_COLOR"] = "light_color";
+		actions.renames["LIGHT_IS_DIRECTIONAL"] = "is_directional";
 		actions.renames["LIGHT"] = "light";
 		actions.renames["ATTENUATION"] = "attenuation";
 		actions.renames["DIFFUSE_LIGHT"] = "diffuse_light";
@@ -3061,8 +3079,8 @@ void CanvasMaterialData::bind_uniforms() {
 			texture->render_target->used_in_frame = true;
 		}
 
-		texture->gl_set_filter(filter_from_uniform[int(texture_uniforms[ti].filter)]);
-		texture->gl_set_repeat(repeat_from_uniform[int(texture_uniforms[ti].repeat)]);
+		texture->gl_set_filter(filter_from_uniform_canvas[int(texture_uniforms[ti].filter)]);
+		texture->gl_set_repeat(repeat_from_uniform_canvas[int(texture_uniforms[ti].repeat)]);
 	}
 }
 

@@ -92,13 +92,14 @@
 # Luis Miguel Soto Sánchez <luismiguelsoto@jerez.es>, 2022.
 # Victor Stancioiu <victorstancioiu@gmail.com>, 2022, 2023.
 # Daniel Miranda <danmiranda@gmail.com>, 2023.
+# Sebas Echazú <sebastianechazu@outlook.com>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine properties\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-02-28 17:36+0000\n"
-"Last-Translator: Haoyu Qiu <timothyqiu32@gmail.com>\n"
+"PO-Revision-Date: 2023-04-08 06:27+0000\n"
+"Last-Translator: Sebas Echazú <sebastianechazu@outlook.com>\n"
 "Language-Team: Spanish <https://hosted.weblate.org/projects/godot-engine/"
 "godot-properties/es/>\n"
 "Language: es\n"
@@ -106,7 +107,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.16-rc\n"
+"X-Generator: Weblate 4.17-dev\n"
 
 msgid "Application"
 msgstr "Aplicación"
@@ -116,6 +117,9 @@ msgstr "Configuración"
 
 msgid "Name"
 msgstr "Nombre"
+
+msgid "Name Localized"
+msgstr "Nombre Localizado"
 
 msgid "Description"
 msgstr "Descripción"
@@ -143,6 +147,15 @@ msgstr "Nombre de Directorio de Usuario Personalizado"
 
 msgid "Project Settings Override"
 msgstr "Anulación de la Configuración del Proyecto"
+
+msgid "Main Loop Type"
+msgstr "Tipo de Bucle Principal"
+
+msgid "Auto Accept Quit"
+msgstr "Aceptar Cierre Del Programa Automáticamente"
+
+msgid "Quit on Go Back"
+msgstr "Salir y volver"
 
 msgid "Display"
 msgstr "Monitor"
@@ -189,6 +202,12 @@ msgstr "Extender al Título"
 msgid "No Focus"
 msgstr "Sin foco"
 
+msgid "Window Width Override"
+msgstr "Sobreescribir Ancho de Ventana"
+
+msgid "Window Height Override"
+msgstr "Sobreescribir Altura de Ventana"
+
 msgid "Energy Saving"
 msgstr "Ahorro de Energía"
 
@@ -200,6 +219,9 @@ msgstr "Audio"
 
 msgid "Buses"
 msgstr "Buses"
+
+msgid "Default Bus Layout"
+msgstr "Esquema de bus por defecto"
 
 msgid "General"
 msgstr "General"
@@ -213,20 +235,14 @@ msgstr "Fuerza de panoramización 3D"
 msgid "Editor"
 msgstr "Editor"
 
-msgid "Main Run Args"
-msgstr "Argumentos de la Ejecución Principal"
-
 msgid "Script"
 msgstr "Script"
 
 msgid "Search in File Extensions"
 msgstr "Buscar en Extensiones de Archivos"
 
-msgid "Templates Search Path"
-msgstr "Ruta de Búsqueda de Plantillas"
-
 msgid "Physics"
-msgstr "Física"
+msgstr "Físicas"
 
 msgid "2D"
 msgstr "2D"
@@ -236,6 +252,15 @@ msgstr "Ejecutar en Hilo Separado"
 
 msgid "3D"
 msgstr "3D"
+
+msgid "Stretch"
+msgstr "Estirar"
+
+msgid "Aspect"
+msgstr "Aspecto"
+
+msgid "Scale"
+msgstr "Escala"
 
 msgid "Debug"
 msgstr "Depurar"
@@ -268,7 +293,7 @@ msgid "Message"
 msgstr "Mensaje"
 
 msgid "Rendering"
-msgstr "Renderización"
+msgstr "Renderizado"
 
 msgid "Occlusion Culling"
 msgstr "Occlusion Culling"
@@ -294,6 +319,18 @@ msgstr "Temporizadores"
 msgid "Incremental Search Max Interval Msec"
 msgstr "Intervalo Máximo de Busqueda Incremental ms"
 
+msgid "Common"
+msgstr "Más información"
+
+msgid "Fonts"
+msgstr "Fuentes"
+
+msgid "Dynamic Fonts"
+msgstr "Fuentes Dinámicas"
+
+msgid "Use Oversampling"
+msgstr "Usar Sobremuestreo"
+
 msgid "Rendering Device"
 msgstr "Dispositivo de Renderizado"
 
@@ -305,6 +342,9 @@ msgstr "Tamaño Máximo (MB)"
 
 msgid "Vulkan"
 msgstr "Vulkan"
+
+msgid "Textures"
+msgstr "Texturas"
 
 msgid "Low Processor Usage Mode"
 msgstr "Modo de Bajo Uso del Procesador"
@@ -492,9 +532,6 @@ msgstr "Sufijo"
 msgid "Rotation"
 msgstr "Rotación"
 
-msgid "Scale"
-msgstr "Escala"
-
 msgid "Value"
 msgstr "Valor"
 
@@ -560,12 +597,6 @@ msgstr "Mostrar Archivos Ocultos"
 
 msgid "Disable Overwrite Warning"
 msgstr "Deshabilitar La Advertencia De Sobrescritura"
-
-msgid "Import"
-msgstr "Importar"
-
-msgid "Reimport Missing Imported Files"
-msgstr "Reimportar Archivos Importados Faltantes"
 
 msgid "Text Editor"
 msgstr "Editor de Textos"
@@ -752,6 +783,9 @@ msgstr "Árbol de Escenas"
 
 msgid "Start Create Dialog Fully Expanded"
 msgstr "Comenzar Diálogo de Creación Expandido"
+
+msgid "Auto Expand to Selected"
+msgstr "Auto Expandir a Seleccionado"
 
 msgid "Always Show Folders"
 msgstr "Siempre Mostrar Carpetas"
@@ -1105,7 +1139,7 @@ msgid "Window Placement"
 msgstr "Ubicación de la Ventana"
 
 msgid "Rect"
-msgstr "Rect"
+msgstr "Rectángulo"
 
 msgid "Rect Custom Position"
 msgstr "Posición Personalizada de Rect"
@@ -1263,9 +1297,6 @@ msgstr "Ocultar Deslizador"
 msgid "Zoom"
 msgstr "Zoom"
 
-msgid "Export"
-msgstr "Exportar"
-
 msgid "Custom Template"
 msgstr "Plantilla Personalizada"
 
@@ -1292,6 +1323,9 @@ msgstr "ETC"
 
 msgid "ETC2"
 msgstr "ETC2"
+
+msgid "Export"
+msgstr "Exportar"
 
 msgid "Export Path"
 msgstr "Ruta de Exportación"
@@ -1388,6 +1422,9 @@ msgstr "Escalar Mesh"
 
 msgid "Offset Mesh"
 msgstr "Offset de Mesh"
+
+msgid "Import"
+msgstr "Importar"
 
 msgid "NavMesh"
 msgstr "NavMesh"
@@ -1632,6 +1669,18 @@ msgstr "Ruta de la clave pública SSH"
 msgid "SSH Private Key Path"
 msgstr "Ruta de la Clave Privada SSH"
 
+msgid "Main Run Args"
+msgstr "Argumentos de la Ejecución Principal"
+
+msgid "Templates Search Path"
+msgstr "Ruta de Búsqueda de Plantillas"
+
+msgid "Naming"
+msgstr "Nombrando"
+
+msgid "Reimport Missing Imported Files"
+msgstr "Reimportar Archivos Importados Faltantes"
+
 msgid "Show Scene Tree Root Selection"
 msgstr "Mostrar Selección de la Raíz del Árbol de Escenas"
 
@@ -1688,9 +1737,6 @@ msgstr "Orientación"
 
 msgid "V-Sync"
 msgstr "Sincronización Vertical"
-
-msgid "Common"
-msgstr "Más información"
 
 msgid "stdout"
 msgstr "stdout"
@@ -1790,30 +1836,6 @@ msgstr "Nombre del Conjunto"
 
 msgid "Solution Directory"
 msgstr "Directorio de Soluciones"
-
-msgid "Main Loop Type"
-msgstr "Tipo de Bucle Principal"
-
-msgid "Stretch"
-msgstr "Estirar"
-
-msgid "Aspect"
-msgstr "Aspecto"
-
-msgid "Auto Accept Quit"
-msgstr "Aceptar Cierre Del Programa Automáticamente"
-
-msgid "Fonts"
-msgstr "Fuentes"
-
-msgid "Dynamic Fonts"
-msgstr "Fuentes Dinámicas"
-
-msgid "Use Oversampling"
-msgstr "Usar Sobremuestreo"
-
-msgid "Textures"
-msgstr "Texturas"
 
 msgid "Operation"
 msgstr "Operación"
@@ -4260,6 +4282,9 @@ msgstr "Expandir Icono"
 msgid "Use Top Left"
 msgstr "Usar Superior Izquierda"
 
+msgid "Indentation"
+msgstr "Sangría"
+
 msgid "Edit Alpha"
 msgstr "Editar Alfa"
 
@@ -4630,7 +4655,7 @@ msgid "Light Mask"
 msgstr "Máscara de Luz"
 
 msgid "Z Index"
-msgstr "Índice Z"
+msgstr "Z Index"
 
 msgid "Repeat"
 msgstr "Repetir"
@@ -5712,8 +5737,20 @@ msgstr "Cámara Activa"
 msgid "Default Font"
 msgstr "Fuente Predeterminada"
 
+msgid "Custom Data"
+msgstr "Datos Personalizados"
+
 msgid "Transpose"
 msgstr "Transponer"
+
+msgid "Texture Origin"
+msgstr "Origen de Textura"
+
+msgid "Y Sort Origin"
+msgstr "Origen de Ordenación Y"
+
+msgid "Probability"
+msgstr "Probabilidad"
 
 msgid "Modes"
 msgstr "Modos"
@@ -5984,6 +6021,9 @@ msgstr "Usar Filtro de Mapa MIP más Cercano"
 
 msgid "Buffer Size"
 msgstr "Tamaño del Buffer"
+
+msgid "OpenGL"
+msgstr "OpenGL"
 
 msgid "Shaders"
 msgstr "Shaders"

@@ -34,9 +34,10 @@
 
 #include "../gltf_document.h"
 
-#include "editor/editor_file_dialog.h"
 #include "editor/editor_file_system.h"
 #include "editor/editor_node.h"
+#include "editor/gui/editor_file_dialog.h"
+#include "scene/gui/popup_menu.h"
 
 String SceneExporterGLTFPlugin::get_name() const {
 	return "ConvertGLTF2";

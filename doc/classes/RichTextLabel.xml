@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="RichTextLabel" inherits="Control" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="RichTextLabel" inherits="Control" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Label that displays rich text.
 	</brief_description>
@@ -357,7 +357,7 @@
 		<method name="push_italics">
 			<return type="void" />
 			<description>
-				Adds a [code][font][/code] tag with a italics font to the tag stack. This is the same as adding a [code][i][/code] tag if not currently in a [code][b][/code] tag.
+				Adds a [code][font][/code] tag with an italics font to the tag stack. This is the same as adding an [code][i][/code] tag if not currently in a [code][b][/code] tag.
 			</description>
 		</method>
 		<method name="push_list">
@@ -365,6 +365,7 @@
 			<param index="0" name="level" type="int" />
 			<param index="1" name="type" type="int" enum="RichTextLabel.ListType" />
 			<param index="2" name="capitalize" type="bool" />
+			<param index="3" name="bullet" type="String" default="&quot;•&quot;" />
 			<description>
 				Adds [code][ol][/code] or [code][ul][/code] tag to the tag stack. Multiplies [param level] by current [member tab_size] to determine new margin length.
 			</description>

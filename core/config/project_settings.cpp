@@ -36,7 +36,6 @@
 #include "core/io/config_file.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
-#include "core/io/file_access_network.h"
 #include "core/io/file_access_pack.h"
 #include "core/io/marshalls.h"
 #include "core/os/keyboard.h"
@@ -401,6 +400,10 @@ void ProjectSettings::_get_property_list(List<PropertyInfo> *p_list) const {
 			vc.flags = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE;
 		}
 
+		if (v->internal) {
+			vc.flags |= PROPERTY_USAGE_INTERNAL;
+		}
+
 		if (v->basic) {
 			vc.flags |= PROPERTY_USAGE_EDITOR_BASIC_SETTING;
 		}
@@ -496,17 +499,6 @@ Error ProjectSettings::_setup(const String &p_path, const String &p_main_pack, b
 		if (!resource_path.is_empty() && resource_path[resource_path.length() - 1] == '/') {
 			resource_path = resource_path.substr(0, resource_path.length() - 1); // Chop end.
 		}
-	}
-
-	// If looking for files in a network client, use it directly
-
-	if (FileAccessNetworkClient::get_singleton()) {
-		Error err = _load_settings_text_or_binary("res://project.godot", "res://project.binary");
-		if (err == OK && !p_ignore_override) {
-			// Optional, we don't mind if it fails
-			_load_settings_text("res://override.cfg");
-		}
-		return err;
 	}
 
 	// Attempt with a user-defined main pack first
@@ -1242,7 +1234,7 @@ void ProjectSettings::_add_builtin_input_map() {
 			action["events"] = events;
 
 			String action_name = "input/" + E.key;
-			GLOBAL_DEF_INTERNAL(action_name, action);
+			GLOBAL_DEF(action_name, action);
 			input_presets.push_back(action_name);
 		}
 	}
@@ -1266,6 +1258,10 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF("application/config/custom_user_dir_name", "");
 	GLOBAL_DEF("application/config/project_settings_override", "");
 
+	GLOBAL_DEF("application/run/main_loop_type", "SceneTree");
+	GLOBAL_DEF("application/config/auto_accept_quit", true);
+	GLOBAL_DEF("application/config/quit_on_go_back", true);
+
 	// The default window size is tuned to:
 	// - Have a 16:9 aspect ratio,
 	// - Have both dimensions divisible by 8 to better play along with video recording,
@@ -1276,7 +1272,7 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "display/window/size/mode", PROPERTY_HINT_ENUM, "Windowed,Minimized,Maximized,Fullscreen,Exclusive Fullscreen"), 0);
 
 	// Keep the enum values in sync with the `DisplayServer::SCREEN_` enum.
-	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "display/window/size/initial_position_type", PROPERTY_HINT_ENUM, "Absolute,Primary Screen Center,Other Screen Center"), 1);
+	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "display/window/size/initial_position_type", PROPERTY_HINT_ENUM, "Absolute,Center of Primary Screen,Center of Other Screen,Center of Screen With Mouse Pointer,Center of Screen With Keyboard Focus"), 1);
 	GLOBAL_DEF_BASIC(PropertyInfo(Variant::VECTOR2I, "display/window/size/initial_position"), Vector2i());
 	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "display/window/size/initial_screen", PROPERTY_HINT_RANGE, "0,64,1,or_greater"), 0);
 
@@ -1304,25 +1300,22 @@ ProjectSettings::ProjectSettings() {
 	}
 	extensions.push_back("gdshader");
 
-	GLOBAL_DEF("editor/run/main_run_args", "");
-
 	GLOBAL_DEF(PropertyInfo(Variant::PACKED_STRING_ARRAY, "editor/script/search_in_file_extensions"), extensions);
-
-	GLOBAL_DEF(PropertyInfo(Variant::STRING, "editor/script/templates_search_path", PROPERTY_HINT_DIR), "res://script_templates");
-
-	// For correct doc generation.
-	GLOBAL_DEF("editor/naming/default_signal_callback_name", "_on_{node_name}_{signal_name}");
-	GLOBAL_DEF("editor/naming/default_signal_callback_to_self_name", "_on_{signal_name}");
 
 	_add_builtin_input_map();
 
 	// Keep the enum values in sync with the `DisplayServer::ScreenOrientation` enum.
 	custom_prop_info["display/window/handheld/orientation"] = PropertyInfo(Variant::INT, "display/window/handheld/orientation", PROPERTY_HINT_ENUM, "Landscape,Portrait,Reverse Landscape,Reverse Portrait,Sensor Landscape,Sensor Portrait,Sensor");
+	GLOBAL_DEF("display/window/subwindows/embed_subwindows", true);
 	// Keep the enum values in sync with the `DisplayServer::VSyncMode` enum.
 	custom_prop_info["display/window/vsync/vsync_mode"] = PropertyInfo(Variant::INT, "display/window/vsync/vsync_mode", PROPERTY_HINT_ENUM, "Disabled,Enabled,Adaptive,Mailbox");
 	custom_prop_info["rendering/driver/threads/thread_model"] = PropertyInfo(Variant::INT, "rendering/driver/threads/thread_model", PROPERTY_HINT_ENUM, "Single-Unsafe,Single-Safe,Multi-Threaded");
 	GLOBAL_DEF("physics/2d/run_on_separate_thread", false);
 	GLOBAL_DEF("physics/3d/run_on_separate_thread", false);
+
+	GLOBAL_DEF_BASIC(PropertyInfo(Variant::STRING, "display/window/stretch/mode", PROPERTY_HINT_ENUM, "disabled,canvas_items,viewport"), "disabled");
+	GLOBAL_DEF_BASIC(PropertyInfo(Variant::STRING, "display/window/stretch/aspect", PROPERTY_HINT_ENUM, "ignore,keep,keep_width,keep_height,expand"), "keep");
+	GLOBAL_DEF_BASIC(PropertyInfo(Variant::FLOAT, "display/window/stretch/scale", PROPERTY_HINT_RANGE, "0.5,8.0,0.01"), 1.0);
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "debug/settings/profiler/max_functions", PROPERTY_HINT_RANGE, "128,65535,1"), 16384);
 
@@ -1339,18 +1332,26 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/occlusion_culling/bvh_build_quality", PROPERTY_HINT_ENUM, "Low,Medium,High"), 2);
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "memory/limits/multithreaded_server/rid_pool_prealloc", PROPERTY_HINT_RANGE, "0,500,1"), 60); // No negative and limit to 500 due to crashes.
 	GLOBAL_DEF_RST("internationalization/rendering/force_right_to_left_layout_direction", false);
+	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "internationalization/rendering/root_node_layout_direction", PROPERTY_HINT_RANGE, "Based on Locale,Left-to-Right,Right-to-Left"), 0);
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "gui/timers/incremental_search_max_interval_msec", PROPERTY_HINT_RANGE, "0,10000,1,or_greater"), 2000);
+
+	GLOBAL_DEF_BASIC("gui/common/snap_controls_to_pixels", true);
+	GLOBAL_DEF_BASIC("gui/fonts/dynamic_fonts/use_oversampling", true);
 
 	GLOBAL_DEF("rendering/rendering_device/staging_buffer/block_size_kb", 256);
 	GLOBAL_DEF("rendering/rendering_device/staging_buffer/max_size_mb", 128);
 	GLOBAL_DEF("rendering/rendering_device/staging_buffer/texture_upload_region_size_px", 64);
 	GLOBAL_DEF("rendering/rendering_device/vulkan/max_descriptors_per_pool", 64);
 
+	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "rendering/textures/canvas_textures/default_texture_filter", PROPERTY_HINT_ENUM, "Nearest,Linear,Linear Mipmap,Nearest Mipmap"), 1);
+	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "rendering/textures/canvas_textures/default_texture_repeat", PROPERTY_HINT_ENUM, "Disable,Enable,Mirror"), 0);
+
 	// These properties will not show up in the dialog nor in the documentation. If you want to exclude whole groups, see _get_property_list() method.
 	GLOBAL_DEF_INTERNAL("application/config/features", PackedStringArray());
 	GLOBAL_DEF_INTERNAL("internationalization/locale/translation_remaps", PackedStringArray());
 	GLOBAL_DEF_INTERNAL("internationalization/locale/translations", PackedStringArray());
+	GLOBAL_DEF_INTERNAL("internationalization/locale/translations_pot_files", PackedStringArray());
 }
 
 ProjectSettings::~ProjectSettings() {

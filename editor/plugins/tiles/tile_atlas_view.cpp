@@ -247,7 +247,7 @@ void TileAtlasView::_draw_base_tiles() {
 			for (int frame = 0; frame < tile_set_atlas_source->get_tile_animation_frames_count(atlas_coords); frame++) {
 				// Update the y to max value.
 				Rect2i base_frame_rect = tile_set_atlas_source->get_tile_texture_region(atlas_coords, frame);
-				Vector2i offset_pos = base_frame_rect.get_center() + tile_set_atlas_source->get_tile_data(atlas_coords, 0)->get_texture_origin();
+				Vector2 offset_pos = Rect2(base_frame_rect).get_center() + Vector2(tile_set_atlas_source->get_tile_data(atlas_coords, 0)->get_texture_origin());
 
 				// Draw the tile.
 				TileMap::draw_tile(base_tiles_draw->get_canvas_item(), offset_pos, tile_set, source_id, atlas_coords, 0, frame);
@@ -331,7 +331,7 @@ void TileAtlasView::_draw_base_tiles_shape_grid() {
 				}
 				Rect2i texture_region = tile_set_atlas_source->get_tile_texture_region(tile_id, frame);
 				Transform2D tile_xform;
-				tile_xform.set_origin(texture_region.get_center() + in_tile_base_offset);
+				tile_xform.set_origin(Rect2(texture_region).get_center() + in_tile_base_offset);
 				tile_xform.set_scale(tile_shape_size);
 				tile_set->draw_tile_shape(base_tiles_shape_grid, tile_xform, color);
 			}
@@ -394,13 +394,11 @@ void TileAtlasView::_draw_alternatives() {
 }
 
 void TileAtlasView::_draw_background_left() {
-	Ref<Texture2D> texture = get_theme_icon(SNAME("Checkerboard"), SNAME("EditorIcons"));
-	background_left->draw_texture_rect(texture, Rect2(Vector2(), background_left->get_size()), true);
+	background_left->draw_texture_rect(theme_cache.checkerboard, Rect2(Vector2(), background_left->get_size()), true);
 }
 
 void TileAtlasView::_draw_background_right() {
-	Ref<Texture2D> texture = get_theme_icon(SNAME("Checkerboard"), SNAME("EditorIcons"));
-	background_right->draw_texture_rect(texture, Rect2(Vector2(), background_right->get_size()), true);
+	background_right->draw_texture_rect(theme_cache.checkerboard, Rect2(Vector2(), background_right->get_size()), true);
 }
 
 void TileAtlasView::set_atlas_source(TileSet *p_tile_set, TileSetAtlasSource *p_tile_set_atlas_source, int p_source_id) {
@@ -539,6 +537,13 @@ void TileAtlasView::queue_redraw() {
 	background_right->queue_redraw();
 }
 
+void TileAtlasView::_update_theme_item_cache() {
+	Control::_update_theme_item_cache();
+
+	theme_cache.center_view_icon = get_theme_icon(SNAME("CenterView"), SNAME("EditorIcons"));
+	theme_cache.checkerboard = get_theme_icon(SNAME("Checkerboard"), SNAME("EditorIcons"));
+}
+
 void TileAtlasView::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
@@ -546,8 +551,8 @@ void TileAtlasView::_notification(int p_what) {
 			panner->setup((ViewPanner::ControlScheme)EDITOR_GET("editors/panning/sub_editors_panning_scheme").operator int(), ED_GET_SHORTCUT("canvas_item_editor/pan_view"), bool(EDITOR_GET("editors/panning/simple_panning")));
 		} break;
 
-		case NOTIFICATION_READY: {
-			button_center_view->set_icon(get_theme_icon(SNAME("CenterView"), SNAME("EditorIcons")));
+		case NOTIFICATION_THEME_CHANGED: {
+			button_center_view->set_icon(theme_cache.center_view_icon);
 		} break;
 	}
 }
@@ -574,7 +579,6 @@ TileAtlasView::TileAtlasView() {
 	zoom_widget->set_shortcut_context(this);
 
 	button_center_view = memnew(Button);
-	button_center_view->set_icon(get_theme_icon(SNAME("CenterView"), SNAME("EditorIcons")));
 	button_center_view->set_anchors_and_offsets_preset(Control::PRESET_TOP_RIGHT, Control::PRESET_MODE_MINSIZE, 5);
 	button_center_view->connect("pressed", callable_mp(this, &TileAtlasView::_center_view));
 	button_center_view->set_flat(true);

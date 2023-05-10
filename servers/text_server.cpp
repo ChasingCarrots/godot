@@ -332,6 +332,7 @@ void TextServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("font_get_kerning", "font_rid", "size", "glyph_pair"), &TextServer::font_get_kerning);
 
 	ClassDB::bind_method(D_METHOD("font_get_glyph_index", "font_rid", "size", "char", "variation_selector"), &TextServer::font_get_glyph_index);
+	ClassDB::bind_method(D_METHOD("font_get_char_from_glyph_index", "font_rid", "size", "glyph_index"), &TextServer::font_get_char_from_glyph_index);
 
 	ClassDB::bind_method(D_METHOD("font_has_char", "font_rid", "char"), &TextServer::font_has_char);
 	ClassDB::bind_method(D_METHOD("font_get_supported_chars", "font_rid"), &TextServer::font_get_supported_chars);
@@ -546,6 +547,7 @@ void TextServer::_bind_methods() {
 	BIND_BITFIELD_FLAG(GRAPHEME_IS_UNDERSCORE);
 	BIND_BITFIELD_FLAG(GRAPHEME_IS_CONNECTED);
 	BIND_BITFIELD_FLAG(GRAPHEME_IS_SAFE_TO_INSERT_TATWEEL);
+	BIND_BITFIELD_FLAG(GRAPHEME_IS_EMBEDDED_OBJECT);
 
 	/* Hinting */
 	BIND_ENUM_CONSTANT(HINTING_NONE);
@@ -1448,7 +1450,7 @@ void TextServer::shaped_text_draw(const RID &p_shaped, const RID &p_canvas, cons
 
 			if (glyphs[i].font_rid != RID()) {
 				font_draw_glyph(glyphs[i].font_rid, p_canvas, glyphs[i].font_size, ofs + Vector2(glyphs[i].x_off, glyphs[i].y_off), glyphs[i].index, p_color);
-			} else if (hex_codes && ((glyphs[i].flags & GRAPHEME_IS_VIRTUAL) != GRAPHEME_IS_VIRTUAL)) {
+			} else if (hex_codes && ((glyphs[i].flags & GRAPHEME_IS_VIRTUAL) != GRAPHEME_IS_VIRTUAL) && ((glyphs[i].flags & GRAPHEME_IS_EMBEDDED_OBJECT) != GRAPHEME_IS_EMBEDDED_OBJECT)) {
 				TextServer::draw_hex_code_box(p_canvas, glyphs[i].font_size, ofs + Vector2(glyphs[i].x_off, glyphs[i].y_off), glyphs[i].index, p_color);
 			}
 			if (orientation == ORIENTATION_HORIZONTAL) {

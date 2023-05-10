@@ -168,7 +168,8 @@ void ImageTexture::_get_property_list(List<PropertyInfo> *p_list) const {
 }
 
 Ref<ImageTexture> ImageTexture::create_from_image(const Ref<Image> &p_image) {
-	ERR_FAIL_COND_V_MSG(p_image.is_null() || p_image->is_empty(), Ref<ImageTexture>(), "Invalid image");
+	ERR_FAIL_COND_V_MSG(p_image.is_null(), Ref<ImageTexture>(), "Invalid image: null");
+	ERR_FAIL_COND_V_MSG(p_image->is_empty(), Ref<ImageTexture>(), "Invalid image: image is empty");
 
 	Ref<ImageTexture> image_texture;
 	image_texture.instantiate();
@@ -1231,6 +1232,12 @@ Error ImageTexture3D::create(Image::Format p_format, int p_width, int p_height, 
 	} else {
 		texture = tex;
 	}
+
+	format = p_format;
+	width = p_width;
+	height = p_height;
+	depth = p_depth;
+	mipmaps = p_mipmaps;
 
 	return OK;
 }
@@ -2929,6 +2936,10 @@ TypedArray<Image> ImageTextureLayered::_get_images() const {
 	return images;
 }
 
+void ImageTextureLayered::_set_images(const TypedArray<Image> &p_images) {
+	ERR_FAIL_COND(_create_from_images(p_images) != OK);
+}
+
 Error ImageTextureLayered::create_from_images(Vector<Ref<Image>> p_images) {
 	int new_layers = p_images.size();
 	ERR_FAIL_COND_V(new_layers == 0, ERR_INVALID_PARAMETER);
@@ -3008,8 +3019,9 @@ void ImageTextureLayered::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_layer", "image", "layer"), &ImageTextureLayered::update_layer);
 
 	ClassDB::bind_method(D_METHOD("_get_images"), &ImageTextureLayered::_get_images);
+	ClassDB::bind_method(D_METHOD("_set_images", "images"), &ImageTextureLayered::_set_images);
 
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_images", PROPERTY_HINT_ARRAY_TYPE, "Image", PROPERTY_USAGE_INTERNAL), "create_from_images", "_get_images");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_images", PROPERTY_HINT_ARRAY_TYPE, "Image", PROPERTY_USAGE_INTERNAL), "_set_images", "_get_images");
 }
 
 ImageTextureLayered::ImageTextureLayered(LayeredType p_layered_type) {

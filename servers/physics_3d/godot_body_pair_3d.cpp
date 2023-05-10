@@ -237,17 +237,10 @@ bool GodotBodyPair3D::_test_ccd(real_t p_step, GodotBody3D *p_A, int p_shape_A, 
 	Vector3 hitpos = p_xform_B.xform(segment_hit_local);
 
 	real_t newlen = hitpos.distance_to(supports_A[segment_support_idx]);
-	if (shape_B_ptr->is_concave()) {
-		// Subtracting 5% of body length from the distance between collision and support point
-		// should cause body A's support point to arrive just before a face of B next frame.
-		newlen = MAX(newlen - (max - min) * 0.05, 0.0);
-		// NOTE: This may stop body A completely, without a proper collision response.
-		// We consider this preferable to tunneling.
-	} else {
-		// Adding 1% of body length to the distance between collision and support point
-		// should cause body A's support point to arrive just within B's collider next frame.
-		newlen += (max - min) * 0.01;
-	}
+	// Adding 1% of body length to the distance between collision and support point
+	// should cause body A's support point to arrive just within B's collider next frame.
+	newlen += (max - min) * 0.01;
+	// FIXME: This doesn't always work well when colliding with a triangle face of a trimesh shape.
 
 	p_A->set_linear_velocity((mnormal * newlen) / p_step);
 
@@ -414,14 +407,18 @@ bool GodotBodyPair3D::pre_solve(real_t p_step) {
 
 		// contact query reporting...
 
-		if (A->can_report_contacts()) {
-			Vector3 crA = A->get_angular_velocity().cross(c.rA) + A->get_linear_velocity();
-			A->add_contact(global_A, -c.normal, depth, shape_A, global_B, shape_B, B->get_instance_id(), B->get_self(), crA, c.acc_impulse);
-		}
-
-		if (B->can_report_contacts()) {
+		if (A->can_report_contacts() || B->can_report_contacts()) {
 			Vector3 crB = B->get_angular_velocity().cross(c.rB) + B->get_linear_velocity();
-			B->add_contact(global_B, c.normal, depth, shape_B, global_A, shape_A, A->get_instance_id(), A->get_self(), crB, -c.acc_impulse);
+			Vector3 crA = A->get_angular_velocity().cross(c.rA) + A->get_linear_velocity();
+			Vector3 wlB = global_B - offset_B;
+
+			if (A->can_report_contacts()) {
+				A->add_contact(global_A, -c.normal, depth, shape_A, crA, wlB, shape_B, B->get_instance_id(), B->get_self(), crB, c.acc_impulse);
+			}
+
+			if (B->can_report_contacts()) {
+				B->add_contact(wlB, c.normal, depth, shape_B, crB, global_A, shape_A, A->get_instance_id(), A->get_self(), crA, -c.acc_impulse);
+			}
 		}
 
 		if (report_contacts_only) {
@@ -804,9 +801,9 @@ bool GodotBodySoftBodyPair3D::pre_solve(real_t p_step) {
 
 		if (body->can_report_contacts()) {
 			Vector3 crA = body->get_angular_velocity().cross(c.rA) + body->get_linear_velocity();
-			body->add_contact(global_A, -c.normal, depth, body_shape, global_B, 0, soft_body->get_instance_id(), soft_body->get_self(), crA, c.acc_impulse);
+			Vector3 crB = soft_body->get_node_velocity(c.index_B);
+			body->add_contact(global_A, -c.normal, depth, body_shape, crA, global_B, 0, soft_body->get_instance_id(), soft_body->get_self(), crB, c.acc_impulse);
 		}
-
 		if (report_contacts_only) {
 			collided = false;
 			continue;
