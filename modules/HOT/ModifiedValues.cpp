@@ -6,6 +6,7 @@ void ModifiedIntValue::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("init", "baseVal", "modifierName", "gameObject", "rankModifier"), &ModifiedIntValue::_init);
 	ClassDB::bind_method(D_METHOD("initAsAdditiveOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedIntValue::_initAsAdditiveOnly);
 	ClassDB::bind_method(D_METHOD("setModifierCategories", "categories"), &ModifiedIntValue::setModifierCategories);
+	ClassDB::bind_method(D_METHOD("getModifierCategories"), &ModifiedIntValue::getModifierCategories);
 	ClassDB::bind_method(D_METHOD("updateManually"), &ModifiedIntValue::updateManually);
 	ClassDB::bind_method(D_METHOD("updateModifier", "mod"), &ModifiedIntValue::updateModifier);
 	ClassDB::bind_method(D_METHOD("Value"), &ModifiedIntValue::Value);
@@ -73,6 +74,7 @@ void ModifiedFloatValue::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("initAsAdditiveOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_initAsAdditiveOnly);
 	ClassDB::bind_method(D_METHOD("initAsMultiplicativeOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_initAsMultiplicativeOnly);
 	ClassDB::bind_method(D_METHOD("setModifierCategories", "categories"), &ModifiedFloatValue::setModifierCategories);
+	ClassDB::bind_method(D_METHOD("getModifierCategories"), &ModifiedFloatValue::getModifierCategories);
 	ClassDB::bind_method(D_METHOD("updateManually"), &ModifiedFloatValue::updateManually);
 	ClassDB::bind_method(D_METHOD("updateModifier", "mod"), &ModifiedFloatValue::updateModifier);
 	ClassDB::bind_method(D_METHOD("Value"), &ModifiedFloatValue::Value);
