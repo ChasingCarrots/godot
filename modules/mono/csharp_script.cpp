@@ -55,6 +55,10 @@
 #include "class_db_api_json.h"
 #endif
 
+#ifdef USE_BREAKPAD
+#include "modules/breakpad/breakpad.h"
+#endif
+
 #include "godotsharp_dirs.h"
 #include "managed_callable.h"
 #include "mono_gd/gd_mono_cache.h"
@@ -102,6 +106,10 @@ void CSharpLanguage::init() {
 	}
 #endif
 
+
+#ifdef USE_BREAKPAD
+	report_mono_loaded_to_breakpad();
+#endif
 #if defined(TOOLS_ENABLED) && defined(DEBUG_METHODS_ENABLED)
 	// Generate the bindings here, before loading assemblies. The Godot assemblies
 	// may be missing if the glue wasn't generated yet in order to build them.
