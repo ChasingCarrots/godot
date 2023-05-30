@@ -95,7 +95,7 @@ Array Stats::GetDamagingWeaponIndices() {
 int Stats::GetTotalDamageOfWeapon(int weaponIndex) {
 	WeaponDataIter weaponData = GlobalWeaponData.find(weaponIndex);
 	if(weaponData == GlobalWeaponData.end()) {
-		print_error(String("There are no statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
+		// print_error(String("There are no statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
 		return 0;
 	}
 	return weaponData->second.TotalDamageDealt;
@@ -104,7 +104,7 @@ int Stats::GetTotalDamageOfWeapon(int weaponIndex) {
 float Stats::GetMaxDPSOfWeapon(int weaponIndex) {
 	WeaponDataIter weaponData = GlobalWeaponData.find(weaponIndex);
 	if(weaponData == GlobalWeaponData.end()) {
-		print_error(String("There are no damage statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
+		// print_error(String("There are no damage statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
 		return 0;
 	}
 	return weaponData->second.Max30SecondDamage / 30.0f;
@@ -120,7 +120,7 @@ Array Stats::GetHealingWeaponIndices() {
 int Stats::GetTotalHealingOfWeapon(int weaponIndex) {
 	auto healingDataIter = GlobalHealingData.find(weaponIndex);
 	if(healingDataIter == GlobalHealingData.end()) {
-		print_error(String("There are no healing statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
+		// print_error(String("There are no healing statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
 		return 0;
 	}
 	return healingDataIter->second;

@@ -152,6 +152,11 @@ void breakpad_handle_exception_pointers(void *exinfo) {
 		return;
 
 #ifdef WINDOWS_ENABLED
+	MessageBox(
+		NULL,
+		L"Unfortunately, the game just crashed. It will write a crash dump after this message box (takes 5-10 Seconds). It would help us tremendously if you could send us that file. The file will be here:\n%AppData%\\HallsOfTorment\\crashes\nPlease send it to support@chasing-carrots.com. There also is a pinned post in the Steam community forums of Halls of Torment on how to send us crash dumps. Thank you so much and sorry for the inconvenience!",
+		L"Halls of Torment crashed",
+		MB_OK | MB_ICONEXCLAMATION);
 	breakpad_handler->WriteMinidumpForException(static_cast<EXCEPTION_POINTERS *>(exinfo));
 #endif
 }
