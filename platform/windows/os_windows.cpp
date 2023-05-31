@@ -191,6 +191,10 @@ void OS_Windows::initialize() {
 	main_loop = nullptr;
 
 	CoInitialize(nullptr);
+	// we are not using system fallback fonts and we had "hang dumps", which were
+	// hanging in GetSystemFontCollection, so we just skip this in non-editor godot builds.
+#ifdef TOOLS_ENABLED
+	print_verbose("Trying to initialize windows system font support.");
 	HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown **>(&dwrite_factory));
 	if (SUCCEEDED(hr)) {
 		hr = dwrite_factory->GetSystemFontCollection(&font_collection, false);
@@ -210,6 +214,7 @@ void OS_Windows::initialize() {
 	} else if (!dwrite2_init) {
 		print_verbose("Unable to load IDWriteFactory2, automatic system font fallback is disabled.");
 	}
+#endif
 
 	FileAccessWindows::initialize();
 }
