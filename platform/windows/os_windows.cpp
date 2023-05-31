@@ -205,6 +205,7 @@ void OS_Windows::initialize() {
 	main_loop = nullptr;
 
 	// we are not using system fallback fonts and we had "hang dumps", which were
+	// we are not using system fallback fonts and we had "hang dumps", which were
 	// hanging in GetSystemFontCollection, so we just skip this in non-editor godot builds.
 #ifdef TOOLS_ENABLED
 	print_verbose("Trying to initialize windows system font support.");
