@@ -229,18 +229,19 @@ Node* GameObject::getChildNodeInGroup(String groupName) {
 
 void GameObject::setInheritModifierFrom(GameObject *otherGameObject, bool automaticallyKeepUpdated) {
 	PROFILE_FUNCTION()
-	if(automaticallyKeepUpdated && _inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
-		_inheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
+	GameObject* validatedCurrentInheritModifierFrom = getValidatedInheritModifierFrom();
+	if(automaticallyKeepUpdated && validatedCurrentInheritModifierFrom != nullptr && !validatedCurrentInheritModifierFrom->is_queued_for_deletion())
+		validatedCurrentInheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 
 	_inheritModifierFrom = otherGameObject;
 
-	if(automaticallyKeepUpdated && _inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion())
-		_inheritModifierFrom->connect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
+	if(automaticallyKeepUpdated && otherGameObject != nullptr && !otherGameObject->is_queued_for_deletion())
+		otherGameObject->connect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 	triggerModifierUpdated("ALL");
 }
 
 GameObject *GameObject::getInheritModifierFrom() {
-	return _inheritModifierFrom;
+	return getValidatedInheritModifierFrom();
 }
 
 void GameObject::triggerModifierUpdated(String modifierType) {
@@ -262,8 +263,9 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 		multiplier += modifier->getMultiplierModifier();
 	}
 
-	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion()) {
-		for(auto modifier : _inheritModifierFrom->_modifier) {
+	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
+	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
+		for(auto modifier : validatedInheritModifierFrom->_modifier) {
 			if(!modifier->isRelevant(modifierType, categories))
 				continue ;
 			baseValueInt += (int)modifier->getAdditiveModifier();
@@ -289,8 +291,9 @@ float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> ca
 		additiveModifierSum += modifier->getAdditiveModifier();
 	}
 
-	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion()) {
-		for(auto modifier : _inheritModifierFrom->_modifier) {
+	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
+	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
+		for(auto modifier : validatedInheritModifierFrom->_modifier) {
 			if(!modifier->isRelevant(modifierType, categories))
 				continue ;
 			additiveModifierSum += modifier->getAdditiveModifier();
@@ -310,8 +313,9 @@ float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<Stri
 		multiplierSum += modifier->getMultiplierModifier();
 	}
 
-	if(_inheritModifierFrom != nullptr && !_inheritModifierFrom->is_queued_for_deletion()) {
-		for(auto modifier : _inheritModifierFrom->_modifier) {
+	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
+	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
+		for(auto modifier : validatedInheritModifierFrom->_modifier) {
 			if(!modifier->isRelevant(modifierType, categories))
 				continue ;
 			multiplierSum += modifier->getMultiplierModifier();

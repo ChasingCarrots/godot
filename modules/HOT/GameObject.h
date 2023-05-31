@@ -16,7 +16,17 @@ class GameObject : public Node2D {
     GDCLASS(GameObject, Node2D)
 
 	Variant _spawn_origin;
-	GameObject* _inheritModifierFrom = nullptr;
+	Variant _inheritModifierFrom;
+	GameObject* getValidatedInheritModifierFrom() {
+		if (_inheritModifierFrom.get_type() != Variant::OBJECT)
+			return nullptr;
+		Object* gameObjectAsPtr = _inheritModifierFrom.get_validated_object();
+		if (gameObjectAsPtr == nullptr)
+			return nullptr;
+		if (!gameObjectAsPtr->is_class("GameObject"))
+			return nullptr;
+		return static_cast<GameObject*>(gameObjectAsPtr);
+	}
 	std::vector<SignalCallable> _connectedSignals;
 	std::vector<Variant> _sourceTree;
 	std::vector<Modifier*> _modifier;

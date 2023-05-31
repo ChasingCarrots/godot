@@ -14,17 +14,28 @@ void Modifier::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("getMultiplierMod"), &Modifier::getMultiplierModifier);
 }
 
-void Modifier::_init(String modifierName, GameObject *gameObject) {
+void Modifier::_init(String modifierName, Variant gameObject) {
 	_modifiedType = modifierName;
+	if (gameObject.get_type() != Variant::OBJECT)
+		return;
+	Object* gameObjectAsPtr = gameObject.get_validated_object();
+	if (gameObjectAsPtr == nullptr)
+		return;
+	if (!gameObjectAsPtr->is_class("GameObject"))
+		return;
 	_gameObject = gameObject;
-	_gameObject->registerModifier(this);
+	static_cast<GameObject*>(gameObjectAsPtr)->registerModifier(this);
 }
 
 Modifier::~Modifier() {
-	if(_gameObject != nullptr) {
-		_gameObject->unregisterModifier(this);
-		_gameObject = nullptr;
-	}
+	if (_gameObject.get_type() != Variant::OBJECT)
+		return;
+	Object* gameObjectAsPtr = _gameObject.get_validated_object();
+	if (gameObjectAsPtr == nullptr)
+		return;
+	if (!gameObjectAsPtr->is_class("GameObject"))
+		return;
+	static_cast<GameObject*>(gameObjectAsPtr)->unregisterModifier(this);
 }
 
 void Modifier::allowCategories(TypedArray<String> categories) {

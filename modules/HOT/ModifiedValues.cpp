@@ -15,11 +15,18 @@ void ModifiedIntValue::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("ValueUpdated", PropertyInfo(Variant::INT, "oldValue"), PropertyInfo(Variant::INT, "newValue")));
 }
 
-void ModifiedIntValue::_init(int baseVal, String modifierName, GameObject *gameObject, Callable rankModifier) {
+void ModifiedIntValue::_init(int baseVal, String modifierName, Variant gameObject, Callable rankModifier) {
+	PROFILE_FUNCTION()
+	_gameObjectChecker = gameObject;
+	if (!IsGameObjectValid()) {
+		print_error(String("Error: ModifiedIntValue init received an invalid gameObject! ModifierName: ")+modifierName);
+		_gameObject = nullptr;
+		return;
+	}
+	_gameObject = static_cast<GameObject*>(gameObject.get_validated_object());
 	_baseValue = baseVal;
 	_currentModifiedValue = baseVal;
 	_modifiedBy = modifierName;
-	_gameObject = gameObject;
 	// should be possible to call init multiple times, to change values...
 	if(!_gameObject->is_connected("ModifierUpdated", callable_mp(this, &ModifiedIntValue::updateModifier)))
 		_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedIntValue::updateModifier));
@@ -27,7 +34,7 @@ void ModifiedIntValue::_init(int baseVal, String modifierName, GameObject *gameO
 	updateModifier(modifierName);
 }
 
-void ModifiedIntValue::_initAsAdditiveOnly(String modifierName, GameObject *gameObject, Callable rankModifier) {
+void ModifiedIntValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier) {
 	_type = ModifiedValueType::AdditiveOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
@@ -42,6 +49,11 @@ void ModifiedIntValue::updateManually() {
 }
 
 void ModifiedIntValue::updateModifier(String mod) {
+	if (_gameObject == nullptr || !IsGameObjectValid()) {
+		_gameObject = nullptr;
+		return;
+	}
+
 	if(mod == _modifiedBy || mod == "ALL") {
 		PROFILE_FUNCTION()
 		int oldValue = _currentModifiedValue;
@@ -83,11 +95,18 @@ void ModifiedFloatValue::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("ValueUpdated", PropertyInfo(Variant::FLOAT, "oldValue"), PropertyInfo(Variant::FLOAT, "newValue")));
 }
 
-void ModifiedFloatValue::_init(float baseVal, String modifierName, GameObject *gameObject, Callable rankModifier) {
+void ModifiedFloatValue::_init(float baseVal, String modifierName, Variant gameObject, Callable rankModifier) {
+	PROFILE_FUNCTION()
+	_gameObjectChecker = gameObject;
+	if (!IsGameObjectValid()) {
+		print_error(String("Error: ModifiedFloatValue init received an invalid gameObject! ModifierName: ")+modifierName);
+		_gameObject = nullptr;
+		return;
+	}
+	_gameObject = static_cast<GameObject*>(gameObject.get_validated_object());
 	_baseValue = baseVal;
 	_currentModifiedValue = baseVal;
 	_modifiedBy = modifierName;
-	_gameObject = gameObject;
 	// should be possible to call init multiple times, to change values...
 	if(!_gameObject->is_connected("ModifierUpdated", callable_mp(this, &ModifiedFloatValue::updateModifier)))
 		_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedFloatValue::updateModifier));
@@ -95,12 +114,12 @@ void ModifiedFloatValue::_init(float baseVal, String modifierName, GameObject *g
 	updateModifier(modifierName);
 }
 
-void ModifiedFloatValue::_initAsMultiplicativeOnly(String modifierName, GameObject *gameObject, Callable rankModifier) {
+void ModifiedFloatValue::_initAsMultiplicativeOnly(String modifierName, Variant gameObject, Callable rankModifier) {
 	_type = ModifiedValueType::MultiplicativeOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
 
-void ModifiedFloatValue::_initAsAdditiveOnly(String modifierName, GameObject *gameObject, Callable rankModifier) {
+void ModifiedFloatValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier) {
 	_type = ModifiedValueType::AdditiveOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
@@ -115,6 +134,11 @@ void ModifiedFloatValue::updateManually() {
 }
 
 void ModifiedFloatValue::updateModifier(String mod) {
+	if (_gameObject == nullptr || !IsGameObjectValid()) {
+		_gameObject = nullptr;
+		return;
+	}
+
 	if(mod == _modifiedBy || mod == "ALL") {
 		PROFILE_FUNCTION()
 		float oldValue = _currentModifiedValue;

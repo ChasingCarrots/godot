@@ -15,7 +15,7 @@ class Modifier : public RefCounted {
 	float _multiplierMod = 0;
 	String _modifiedType;
 	String _modifierName = "Unnamed Modifier";
-	GameObject* _gameObject = nullptr;
+	Variant _gameObject;
 	TypedArray<String> _modifierCategories;
 
 	~Modifier();
@@ -25,12 +25,12 @@ protected:
 	static void _bind_methods();
 
 public:
-	static Modifier* create(String modifiedType, GameObject* gameObject) {
+	static Modifier* create(String modifiedType, Variant gameObject) {
 		Modifier* mod = memnew(Modifier);
 		mod->_init(modifiedType, gameObject);
 		return mod;
 	}
-	void _init(String modifiedType, GameObject* gameObject);
+	void _init(String modifiedType, Variant gameObject);
 
 	void setModifierName(String modifierName) {
 		_modifierName = modifierName;
