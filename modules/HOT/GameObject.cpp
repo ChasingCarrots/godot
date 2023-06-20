@@ -33,14 +33,19 @@ void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_spawn_origin", "spawn_origin_node"), &GameObject::set_spawn_origin);
 	ClassDB::bind_method(D_METHOD("get_spawn_origin"), &GameObject::get_spawn_origin);
 
+	ClassDB::bind_method(D_METHOD("_connect_child_entered_tree"), &GameObject::_connect_child_entered_tree);
+
 	ADD_SIGNAL(MethodInfo("ModifierUpdated", PropertyInfo(Variant::STRING_NAME, "type")));
 	ADD_SIGNAL(MethodInfo("Removed", PropertyInfo(Variant::OBJECT, "type", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
 }
 
 void GameObject::_notification(int p_notification) {
 	switch(p_notification) {
-		case NOTIFICATION_READY:
-			_ready();
+		case NOTIFICATION_ENTER_TREE:
+			// needs to be called deferred, so that the actual "child_entered_tree" doesn't
+			// directly get called for all the existing children!
+			// (especially problematic when removing and readding a gameobject)
+			call_deferred("_connect_child_entered_tree");
 			break;
 		case NOTIFICATION_EXIT_TREE:
 			_exit_tree();
@@ -48,7 +53,7 @@ void GameObject::_notification(int p_notification) {
 	}
 }
 
-void GameObject::_ready() {
+void GameObject::_connect_child_entered_tree() {
 	connect("child_entered_tree", callable_mp(this, &GameObject::_child_entered_tree));
 }
 

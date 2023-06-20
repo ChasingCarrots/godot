@@ -40,8 +40,7 @@ protected:
 	void _notification(int p_notification);
 
 public:
-    // calls from godot
-    void _ready();
+    void _connect_child_entered_tree();
     void _exit_tree();
     void _child_entered_tree(Node* childNode);
 

@@ -272,7 +272,7 @@ void Window::set_title(const String &p_title) {
 			// Append a suffix to the window title to denote that the project is running
 			// from a debug build (including the editor). Since this results in lower performance,
 			// this should be clearly presented to the user.
-			tr_title = vformat("%s (DEBUG)", tr_title);
+			tr_title = vformat("%s", tr_title);
 		}
 #endif
 		DisplayServer::get_singleton()->window_set_title(tr_title, window_id);
