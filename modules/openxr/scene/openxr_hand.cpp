@@ -28,10 +28,11 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+#include "openxr_hand.h"
+
 #include "../extensions/openxr_hand_tracking_extension.h"
 #include "../openxr_api.h"
 
-#include "openxr_hand.h"
 #include "scene/3d/skeleton_3d.h"
 #include "servers/xr_server.h"
 
@@ -216,7 +217,7 @@ void OpenXRHand::_update_skeleton() {
 			const auto &pose = location.pose;
 
 			if (location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-				if (pose.orientation.x != 0 || pose.orientation.y != 0 || pose.orientation.y != 0 || pose.orientation.w != 0) {
+				if (pose.orientation.x != 0 || pose.orientation.y != 0 || pose.orientation.z != 0 || pose.orientation.w != 0) {
 					quaternions[i] = Quaternion(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
 					inv_quaternions[i] = quaternions[i].inverse();
 

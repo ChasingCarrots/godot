@@ -39,7 +39,7 @@
 #include "servers/rendering/renderer_compositor.h"
 #include "servers/rendering/storage/texture_storage.h"
 
-#include "../shaders/canvas_sdf.glsl.gen.h"
+#include "drivers/gles3/shaders/canvas_sdf.glsl.gen.h"
 
 // This must come first to avoid windows.h mess
 #include "platform_config.h"
@@ -345,6 +345,7 @@ struct RenderTarget {
 	GLuint depth = 0;
 	GLuint backbuffer_fbo = 0;
 	GLuint backbuffer = 0;
+	GLuint backbuffer_depth = 0;
 
 	GLuint color_internal_format = GL_RGBA8;
 	GLuint color_format = GL_RGBA;
@@ -450,6 +451,8 @@ private:
 	void _render_target_clear_sdf(RenderTarget *rt);
 	Rect2i _render_target_get_sdf_rect(const RenderTarget *rt) const;
 
+	void _texture_set_data(RID p_texture, const Ref<Image> &p_image, int p_layer, bool initialize);
+
 	struct RenderTargetSDF {
 		CanvasSdfShaderGLES3 shader;
 		RID shader_version;
@@ -493,8 +496,6 @@ public:
 
 	virtual bool can_create_resources_async() const override;
 
-	RID texture_create();
-
 	virtual RID texture_allocate() override;
 	virtual void texture_free(RID p_rid) override;
 
@@ -535,19 +536,16 @@ public:
 
 	virtual Size2 texture_size_with_proxy(RID p_proxy) override;
 
-	virtual RID texture_get_rd_texture_rid(RID p_texture, bool p_srgb = false) const override;
+	virtual RID texture_get_rd_texture(RID p_texture, bool p_srgb = false) const override;
+	virtual uint64_t texture_get_native_handle(RID p_texture, bool p_srgb = false) const override;
 
 	void texture_set_data(RID p_texture, const Ref<Image> &p_image, int p_layer = 0);
-	void texture_set_data_partial(RID p_texture, const Ref<Image> &p_image, int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, int p_dst_mip, int p_layer = 0);
-	//Ref<Image> texture_get_data(RID p_texture, int p_layer = 0) const;
-	void texture_set_sampler(RID p_texture, RS::CanvasItemTextureFilter p_filter, RS::CanvasItemTextureRepeat p_repeat);
 	Image::Format texture_get_format(RID p_texture) const;
 	uint32_t texture_get_texid(RID p_texture) const;
 	uint32_t texture_get_width(RID p_texture) const;
 	uint32_t texture_get_height(RID p_texture) const;
 	uint32_t texture_get_depth(RID p_texture) const;
 	void texture_bind(RID p_texture, uint32_t p_texture_no);
-	RID texture_create_radiance_cubemap(RID p_source, int p_resolution = -1) const;
 
 	/* TEXTURE ATLAS API */
 
@@ -603,6 +601,8 @@ public:
 
 	RenderTarget *get_render_target(RID p_rid) { return render_target_owner.get_or_null(p_rid); };
 	bool owns_render_target(RID p_rid) { return render_target_owner.owns(p_rid); };
+
+	void copy_scene_to_backbuffer(RenderTarget *rt, const bool uses_screen_texture, const bool uses_depth_texture);
 
 	virtual RID render_target_create() override;
 	virtual void render_target_free(RID p_rid) override;

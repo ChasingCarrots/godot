@@ -32,6 +32,7 @@
 
 #include "core/object/message_queue.h"
 #include "core/os/os.h"
+#include "editor/editor_interface.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "main/main.h"
@@ -133,38 +134,20 @@ void BackgroundProgress::end_task(const String &p_task) {
 
 ProgressDialog *ProgressDialog::singleton = nullptr;
 
-void ProgressDialog::_notification(int p_what) {
-	if (p_what == NOTIFICATION_VISIBILITY_CHANGED) {
-		if (!is_visible()) {
-			Node *p = get_parent();
-			if (p) {
-				p->remove_child(this);
-			}
-		}
-	}
-}
-
 void ProgressDialog::_popup() {
 	Size2 ms = main->get_combined_minimum_size();
 	ms.width = MAX(500 * EDSCALE, ms.width);
 
 	Ref<StyleBox> style = main->get_theme_stylebox(SNAME("panel"), SNAME("PopupMenu"));
 	ms += style->get_minimum_size();
+
 	main->set_offset(SIDE_LEFT, style->get_margin(SIDE_LEFT));
 	main->set_offset(SIDE_RIGHT, -style->get_margin(SIDE_RIGHT));
 	main->set_offset(SIDE_TOP, style->get_margin(SIDE_TOP));
 	main->set_offset(SIDE_BOTTOM, -style->get_margin(SIDE_BOTTOM));
 
-	EditorNode *ed = EditorNode::get_singleton();
-	if (ed && !is_inside_tree()) {
-		Window *w = ed->get_window();
-		while (w && w->get_exclusive_child()) {
-			w = w->get_exclusive_child();
-		}
-		if (w && w != this) {
-			w->add_child(this);
-			popup_centered(ms);
-		}
+	if (!is_inside_tree()) {
+		EditorInterface::get_singleton()->popup_dialog_centered(this, ms);
 	}
 }
 
@@ -221,9 +204,7 @@ bool ProgressDialog::task_step(const String &p_task, const String &p_state, int 
 
 	t.state->set_text(p_state);
 	last_progress_tick = OS::get_singleton()->get_ticks_usec();
-	if (cancel_hb->is_visible()) {
-		DisplayServer::get_singleton()->process_events();
-	}
+	DisplayServer::get_singleton()->process_events();
 
 #ifndef ANDROID_ENABLED
 	Main::iteration(); // this will not work on a lot of platforms, so it's only meant for the editor

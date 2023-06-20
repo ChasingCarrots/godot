@@ -32,8 +32,6 @@
 
 #include "audio_driver_wasapi.h"
 
-#include "core/profiling.h"
-
 #include "core/config/project_settings.h"
 #include "core/os/os.h"
 
@@ -207,8 +205,6 @@ Error AudioDriverWASAPI::audio_device_init(AudioDeviceWASAPI *p_device, bool p_i
 	WAVEFORMATEX *pwfex;
 	IMMDeviceEnumerator *enumerator = nullptr;
 	IMMDevice *output_device = nullptr;
-
-	CoInitialize(nullptr);
 
 	HRESULT hr = CoCreateInstance(CLSID_MMDeviceEnumerator, nullptr, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&enumerator);
 	ERR_FAIL_COND_V(hr != S_OK, ERR_CANT_OPEN);
@@ -557,7 +553,7 @@ Error AudioDriverWASAPI::finish_input_device() {
 }
 
 Error AudioDriverWASAPI::init() {
-	mix_rate = GLOBAL_GET("audio/driver/mix_rate");
+	mix_rate = _get_configured_mix_rate();
 
 	target_latency_ms = GLOBAL_GET("audio/driver/output_latency");
 
@@ -591,8 +587,6 @@ PackedStringArray AudioDriverWASAPI::audio_device_get_list(bool p_input) {
 	IMMDeviceEnumerator *enumerator = nullptr;
 
 	list.push_back(String("Default"));
-
-	CoInitialize(nullptr);
 
 	HRESULT hr = CoCreateInstance(CLSID_MMDeviceEnumerator, nullptr, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&enumerator);
 	ERR_FAIL_COND_V(hr != S_OK, PackedStringArray());
@@ -712,14 +706,13 @@ void AudioDriverWASAPI::write_sample(WORD format_tag, int bits_per_sample, BYTE 
 }
 
 void AudioDriverWASAPI::thread_func(void *p_udata) {
-	PROFILING_THREAD("AudioDriverWASAPI")
+	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
 	AudioDriverWASAPI *ad = static_cast<AudioDriverWASAPI *>(p_udata);
 	uint32_t avail_frames = 0;
 	uint32_t write_ofs = 0;
 
 	while (!ad->exit_thread.is_set()) {
-		PROFILE_FUNCTION("Audio Thread Tick")
 		uint32_t read_frames = 0;
 		uint32_t written_frames = 0;
 
@@ -934,6 +927,7 @@ void AudioDriverWASAPI::thread_func(void *p_udata) {
 			OS::get_singleton()->delay_usec(1000);
 		}
 	}
+	CoUninitialize();
 }
 
 void AudioDriverWASAPI::start() {
@@ -957,7 +951,9 @@ void AudioDriverWASAPI::unlock() {
 
 void AudioDriverWASAPI::finish() {
 	exit_thread.set();
-	thread.wait_to_finish();
+	if (thread.is_started()) {
+		thread.wait_to_finish();
+	}
 
 	finish_input_device();
 	finish_output_device();

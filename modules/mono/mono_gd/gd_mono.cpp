@@ -30,25 +30,24 @@
 
 #include "gd_mono.h"
 
+#include "../csharp_script.h"
+#include "../glue/runtime_interop.h"
+#include "../godotsharp_dirs.h"
+#include "../thirdparty/coreclr_delegates.h"
+#include "../thirdparty/hostfxr.h"
+#include "../utils/path_utils.h"
+#include "gd_mono_cache.h"
+
+#ifdef TOOLS_ENABLED
+#include "../editor/hostfxr_resolver.h"
+#endif
+
 #include "core/config/project_settings.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/os/os.h"
 #include "core/os/thread.h"
-
-#include "../csharp_script.h"
-#include "../glue/runtime_interop.h"
-#include "../godotsharp_dirs.h"
-#include "../utils/path_utils.h"
-#include "gd_mono_cache.h"
-
-#include "../thirdparty/coreclr_delegates.h"
-#include "../thirdparty/hostfxr.h"
-
-#ifdef TOOLS_ENABLED
-#include "../editor/hostfxr_resolver.h"
-#endif
 
 #ifdef UNIX_ENABLED
 #include <dlfcn.h>
@@ -293,20 +292,10 @@ godot_plugins_initialize_fn initialize_hostfxr_and_godot_plugins(bool &r_runtime
 	return godot_plugins_initialize;
 }
 #else
-static String get_assembly_name() {
-	String assembly_name = GLOBAL_GET("dotnet/project/assembly_name");
-
-	if (assembly_name.is_empty()) {
-		assembly_name = ProjectSettings::get_singleton()->get_safe_project_name();
-	}
-
-	return assembly_name;
-}
-
 godot_plugins_initialize_fn initialize_hostfxr_and_godot_plugins(bool &r_runtime_initialized) {
 	godot_plugins_initialize_fn godot_plugins_initialize = nullptr;
 
-	String assembly_name = get_assembly_name();
+	String assembly_name = path::get_csharp_project_name();
 
 	HostFxrCharString assembly_path = str_to_hostfxr(GodotSharpDirs::get_api_assemblies_dir()
 															 .path_join(assembly_name + ".dll"));
@@ -331,7 +320,7 @@ godot_plugins_initialize_fn initialize_hostfxr_and_godot_plugins(bool &r_runtime
 }
 
 godot_plugins_initialize_fn try_load_native_aot_library(void *&r_aot_dll_handle) {
-	String assembly_name = get_assembly_name();
+	String assembly_name = path::get_csharp_project_name();
 
 #if defined(WINDOWS_ENABLED)
 	String native_aot_so_path = GodotSharpDirs::get_api_assemblies_dir().path_join(assembly_name + ".dll");
@@ -443,6 +432,8 @@ void GDMono::initialize() {
 	print_verbose(".NET: GodotPlugins initialized");
 
 	_on_core_api_assembly_loaded();
+
+	initialized = true;
 }
 
 #ifdef TOOLS_ENABLED
@@ -474,11 +465,7 @@ void GDMono::_init_godot_api_hashes() {
 
 #ifdef TOOLS_ENABLED
 bool GDMono::_load_project_assembly() {
-	String assembly_name = GLOBAL_GET("dotnet/project/assembly_name");
-
-	if (assembly_name.is_empty()) {
-		assembly_name = ProjectSettings::get_singleton()->get_safe_project_name();
-	}
+	String assembly_name = path::get_csharp_project_name();
 
 	String assembly_path = GodotSharpDirs::get_res_temp_assemblies_dir()
 								   .path_join(assembly_name + ".dll");
@@ -527,14 +514,6 @@ Error GDMono::reload_project_assemblies() {
 
 GDMono::GDMono() {
 	singleton = this;
-
-	runtime_initialized = false;
-	finalizing_scripts_domain = false;
-
-	api_core_hash = 0;
-#ifdef TOOLS_ENABLED
-	api_editor_hash = 0;
-#endif
 }
 
 GDMono::~GDMono() {

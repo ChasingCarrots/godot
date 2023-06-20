@@ -34,6 +34,7 @@
 #include "core/config/engine.h"
 #include "core/io/image.h"
 #include "core/io/logger.h"
+#include "core/io/remote_filesystem_client.h"
 #include "core/os/time_enums.h"
 #include "core/string/ustring.h"
 #include "core/templates/list.h"
@@ -72,6 +73,14 @@ class OS {
 	int _display_driver_id = -1;
 	String _current_rendering_driver_name;
 	String _current_rendering_method;
+
+	RemoteFilesystemClient default_rfs;
+
+	// For tracking benchmark data
+	bool use_benchmark = false;
+	String benchmark_file;
+	HashMap<String, uint64_t> start_benchmark_from;
+	Dictionary startup_benchmark_json;
 
 protected:
 	void _set_logger(CompositeLogger *p_logger);
@@ -135,6 +144,7 @@ public:
 	virtual String get_stdin_string() = 0;
 
 	virtual Error get_entropy(uint8_t *r_buffer, int p_bytes) = 0; // Should return cryptographically-safe random bytes.
+	virtual String get_system_ca_certificates() { return ""; } // Concatenated certificates in PEM format.
 
 	virtual PackedStringArray get_connected_midi_inputs();
 	virtual void open_midi_inputs();
@@ -167,6 +177,7 @@ public:
 	virtual void vibrate_handheld(int p_duration_ms = 500) {}
 
 	virtual Error shell_open(String p_uri);
+	virtual Error shell_show_in_file_manager(String p_path, bool p_open_folder = true);
 	virtual Error set_cwd(const String &p_cwd);
 
 	virtual bool has_environment(const String &p_var) const = 0;
@@ -175,6 +186,7 @@ public:
 	virtual void unset_environment(const String &p_var) const = 0;
 
 	virtual String get_name() const = 0;
+	virtual String get_identifier() const;
 	virtual String get_distribution_name() const = 0;
 	virtual String get_version() const = 0;
 	virtual List<String> get_cmdline_args() const { return _cmdline; }
@@ -233,7 +245,7 @@ public:
 
 	virtual uint64_t get_static_memory_usage() const;
 	virtual uint64_t get_static_memory_peak_usage() const;
-	virtual uint64_t get_free_static_memory() const;
+	virtual Dictionary get_memory_info() const;
 
 	RenderThreadMode get_render_thread_mode() const { return _render_thread_mode; }
 
@@ -293,7 +305,18 @@ public:
 	virtual bool request_permissions() { return true; }
 	virtual Vector<String> get_granted_permissions() const { return Vector<String>(); }
 
+	// For recording / measuring benchmark data. Only enabled with tools
+	void set_use_benchmark(bool p_use_benchmark);
+	bool is_use_benchmark_set();
+	void set_benchmark_file(const String &p_benchmark_file);
+	String get_benchmark_file();
+	virtual void benchmark_begin_measure(const String &p_what);
+	virtual void benchmark_end_measure(const String &p_what);
+	virtual void benchmark_dump();
+
 	virtual void process_and_drop_events() {}
+
+	virtual Error setup_remote_filesystem(const String &p_server_host, int p_port, const String &p_password, String &r_project_path);
 
 	enum PreferredTextureFormat {
 		PREFERRED_TEXTURE_FORMAT_S3TC_BPTC,

@@ -39,6 +39,7 @@ import org.godotengine.godot.io.file.FileAccessHandler;
 import org.godotengine.godot.plugin.GodotPlugin;
 import org.godotengine.godot.plugin.GodotPluginRegistry;
 import org.godotengine.godot.tts.GodotTTS;
+import org.godotengine.godot.utils.BenchmarkUtils;
 import org.godotengine.godot.utils.GodotNetUtils;
 import org.godotengine.godot.utils.PermissionsUtil;
 import org.godotengine.godot.xr.XRMode;
@@ -74,10 +75,14 @@ import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.Surface;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.view.ViewTreeObserver;
 import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsAnimation;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -176,7 +181,8 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 	public GodotIO io;
 	public GodotNetUtils netUtils;
 	public GodotTTS tts;
-	DirectoryAccessHandler directoryAccessHandler;
+	private DirectoryAccessHandler directoryAccessHandler;
+	private FileAccessHandler fileAccessHandler;
 
 	public interface ResultCallback {
 		void callback(int requestCode, int resultCode, Intent data);
@@ -270,7 +276,9 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 		// ...add to FrameLayout
 		containerLayout.addView(editText);
 
-		if (!GodotLib.setup(command_line)) {
+		tts = new GodotTTS(activity);
+
+		if (!GodotLib.setup(command_line, tts)) {
 			Log.e(TAG, "Unable to setup the Godot engine! Aborting...");
 			alert(R.string.error_engine_setup_message, R.string.text_error_title, this::forceQuit);
 			return false;
@@ -278,7 +286,8 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 
 		if (usesVulkan()) {
 			if (!meetsVulkanRequirements(activity.getPackageManager())) {
-				Log.w(TAG, "Missing requirements for vulkan support!");
+				alert(R.string.error_missing_vulkan_requirements_message, R.string.text_error_title, this::forceQuit);
+				return false;
 			}
 			mRenderView = new GodotVulkanRenderView(activity, this);
 		} else {
@@ -291,14 +300,64 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 		editText.setView(mRenderView);
 		io.setEdit(editText);
 
-		view.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-			Point fullSize = new Point();
-			activity.getWindowManager().getDefaultDisplay().getSize(fullSize);
-			Rect gameSize = new Rect();
-			mRenderView.getView().getWindowVisibleDisplayFrame(gameSize);
-			final int keyboardHeight = fullSize.y - gameSize.bottom;
-			GodotLib.setVirtualKeyboardHeight(keyboardHeight);
-		});
+		// Listeners for keyboard height.
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			// Report the height of virtual keyboard as it changes during the animation.
+			final View decorView = activity.getWindow().getDecorView();
+			decorView.setWindowInsetsAnimationCallback(new WindowInsetsAnimation.Callback(WindowInsetsAnimation.Callback.DISPATCH_MODE_STOP) {
+				int startBottom, endBottom;
+				@Override
+				public void onPrepare(@NonNull WindowInsetsAnimation animation) {
+					startBottom = decorView.getRootWindowInsets().getInsets(WindowInsets.Type.ime()).bottom;
+				}
+
+				@NonNull
+				@Override
+				public WindowInsetsAnimation.Bounds onStart(@NonNull WindowInsetsAnimation animation, @NonNull WindowInsetsAnimation.Bounds bounds) {
+					endBottom = decorView.getRootWindowInsets().getInsets(WindowInsets.Type.ime()).bottom;
+					return bounds;
+				}
+
+				@NonNull
+				@Override
+				public WindowInsets onProgress(@NonNull WindowInsets windowInsets, @NonNull List<WindowInsetsAnimation> list) {
+					// Find the IME animation.
+					WindowInsetsAnimation imeAnimation = null;
+					for (WindowInsetsAnimation animation : list) {
+						if ((animation.getTypeMask() & WindowInsets.Type.ime()) != 0) {
+							imeAnimation = animation;
+							break;
+						}
+					}
+					// Update keyboard height based on IME animation.
+					if (imeAnimation != null) {
+						float interpolatedFraction = imeAnimation.getInterpolatedFraction();
+						// Linear interpolation between start and end values.
+						float keyboardHeight = startBottom * (1.0f - interpolatedFraction) + endBottom * interpolatedFraction;
+						GodotLib.setVirtualKeyboardHeight((int)keyboardHeight);
+					}
+					return windowInsets;
+				}
+
+				@Override
+				public void onEnd(@NonNull WindowInsetsAnimation animation) {
+				}
+			});
+		} else {
+			// Infer the virtual keyboard height using visible area.
+			view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+				// Don't allocate a new Rect every time the callback is called.
+				final Rect visibleSize = new Rect();
+
+				@Override
+				public void onGlobalLayout() {
+					final SurfaceView view = mRenderView.getView();
+					view.getWindowVisibleDisplayFrame(visibleSize);
+					final int keyboardHeight = view.getHeight() - visibleSize.bottom;
+					GodotLib.setVirtualKeyboardHeight(keyboardHeight);
+				}
+			});
+		}
 
 		mRenderView.queueOnRenderThread(() -> {
 			for (GodotPlugin plugin : pluginRegistry.getAllPlugins()) {
@@ -338,7 +397,17 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 			return false;
 		}
 
-		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && packageManager.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, 1);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			if (!packageManager.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, 1)) {
+				// Optional requirements.. log as warning if missing
+				Log.w(TAG, "The vulkan hardware level does not meet the minimum requirement: 1");
+			}
+
+			// Check for api version 1.0
+			return packageManager.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, 0x400003);
+		}
+
+		return false;
 	}
 
 	public void setKeepScreenOn(final boolean p_enabled) {
@@ -455,7 +524,7 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 			}
 			return cmdline;
 		} catch (Exception e) {
-			e.printStackTrace();
+			// The _cl_ file can be missing with no adverse effect
 			return new String[0];
 		}
 	}
@@ -509,10 +578,9 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 		final Activity activity = getActivity();
 		io = new GodotIO(activity);
 		netUtils = new GodotNetUtils(activity);
-		tts = new GodotTTS(activity);
 		Context context = getContext();
 		directoryAccessHandler = new DirectoryAccessHandler(context);
-		FileAccessHandler fileAccessHandler = new FileAccessHandler(context);
+		fileAccessHandler = new FileAccessHandler(context);
 		mSensorManager = (SensorManager)activity.getSystemService(Context.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
@@ -526,8 +594,7 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 				netUtils,
 				directoryAccessHandler,
 				fileAccessHandler,
-				use_apk_expansion,
-				tts);
+				use_apk_expansion);
 
 		result_callback = null;
 	}
@@ -540,6 +607,7 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 
 	@Override
 	public void onCreate(Bundle icicle) {
+		BenchmarkUtils.beginBenchmarkMeasure("Godot::onCreate");
 		super.onCreate(icicle);
 
 		final Activity activity = getActivity();
@@ -588,6 +656,18 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 
 				editor.apply();
 				i++;
+			} else if (command_line[i].equals("--benchmark")) {
+				BenchmarkUtils.setUseBenchmark(true);
+				new_args.add(command_line[i]);
+			} else if (has_extra && command_line[i].equals("--benchmark-file")) {
+				BenchmarkUtils.setUseBenchmark(true);
+				new_args.add(command_line[i]);
+
+				// Retrieve the filepath
+				BenchmarkUtils.setBenchmarkFile(command_line[i + 1]);
+				new_args.add(command_line[i + 1]);
+
+				i++;
 			} else if (command_line[i].trim().length() != 0) {
 				new_args.add(command_line[i]);
 			}
@@ -631,8 +711,14 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 				Intent notifierIntent = new Intent(activity, activity.getClass());
 				notifierIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
-				PendingIntent pendingIntent = PendingIntent.getActivity(activity, 0,
-						notifierIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+				PendingIntent pendingIntent;
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+					pendingIntent = PendingIntent.getActivity(activity, 0,
+							notifierIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+				} else {
+					pendingIntent = PendingIntent.getActivity(activity, 0,
+							notifierIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+				}
 
 				int startResult;
 				try {
@@ -658,6 +744,7 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 		mCurrentIntent = activity.getIntent();
 
 		initializeGodot();
+		BenchmarkUtils.endBenchmarkMeasure("Godot::onCreate");
 	}
 
 	@Override
@@ -863,20 +950,6 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 		// Do something here if sensor accuracy changes.
 	}
 
-	/*
-	@Override public boolean dispatchKeyEvent(KeyEvent event) {
-		if (event.getKeyCode()==KeyEvent.KEYCODE_BACK) {
-			System.out.printf("** BACK REQUEST!\n");
-
-			GodotLib.quit();
-			return true;
-		}
-		System.out.printf("** OTHER KEY!\n");
-
-		return false;
-	}
-	*/
-
 	public void onBackPressed() {
 		boolean shouldQuit = true;
 
@@ -977,6 +1050,11 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 
 	public String[] getGrantedPermissions() {
 		return PermissionsUtil.getGrantedPermissions(getActivity());
+	}
+
+	@Keep
+	private String getCACertificates() {
+		return GodotNetUtils.getCACertificates();
 	}
 
 	/**
@@ -1083,10 +1161,35 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 	}
 
 	@Keep
+	public DirectoryAccessHandler getDirectoryAccessHandler() {
+		return directoryAccessHandler;
+	}
+
+	@Keep
+	public FileAccessHandler getFileAccessHandler() {
+		return fileAccessHandler;
+	}
+
+	@Keep
 	private int createNewGodotInstance(String[] args) {
 		if (godotHost != null) {
 			return godotHost.onNewGodotInstanceRequested(args);
 		}
 		return 0;
+	}
+
+	@Keep
+	private void beginBenchmarkMeasure(String label) {
+		BenchmarkUtils.beginBenchmarkMeasure(label);
+	}
+
+	@Keep
+	private void endBenchmarkMeasure(String label) {
+		BenchmarkUtils.endBenchmarkMeasure(label);
+	}
+
+	@Keep
+	private void dumpBenchmark(String benchmarkFile) {
+		BenchmarkUtils.dumpBenchmark(fileAccessHandler, benchmarkFile);
 	}
 }

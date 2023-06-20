@@ -1114,11 +1114,9 @@ void RendererCanvasRenderRD::_render_items(RID p_to_render_target, int p_item_co
 
 		RID material = ci->material_owner == nullptr ? ci->material : ci->material_owner->material;
 
-		if (ci->canvas_group != nullptr) {
+		if (ci->use_canvas_group) {
 			if (ci->canvas_group->mode == RS::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
-				if (!p_to_backbuffer) {
-					material = default_clip_children_material;
-				}
+				material = default_clip_children_material;
 			} else {
 				if (material.is_null()) {
 					if (ci->canvas_group->mode == RS::CANVAS_GROUP_MODE_CLIP_ONLY) {
@@ -1209,7 +1207,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 				state.light_uniforms[index].color[i] = l->color[i];
 			}
 
-			state.light_uniforms[index].color[3] = l->energy; //use alpha for energy, so base color can go separate
+			state.light_uniforms[index].color[3] *= l->energy; //use alpha for energy, so base color can go separate
 
 			if (state.shadow_fb.is_valid()) {
 				state.light_uniforms[index].shadow_pixel_size = (1.0 / state.shadow_texture_size) * (1.0 + l->shadow_smooth);
@@ -1271,7 +1269,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 				state.light_uniforms[index].color[i] = l->color[i];
 			}
 
-			state.light_uniforms[index].color[3] = l->energy; //use alpha for energy, so base color can go separate
+			state.light_uniforms[index].color[3] *= l->energy; //use alpha for energy, so base color can go separate
 
 			if (state.shadow_fb.is_valid()) {
 				state.light_uniforms[index].shadow_pixel_size = (1.0 / state.shadow_texture_size) * (1.0 + l->shadow_smooth);
@@ -1386,6 +1384,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 	bool backbuffer_gen_mipmaps = false;
 
 	Item *canvas_group_owner = nullptr;
+	bool skip_item = false;
 
 	bool update_skeletons = false;
 	bool time_used = false;
@@ -1458,6 +1457,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 					Rect2i group_rect = ci->canvas_group_owner->global_rect_cache;
 					texture_storage->render_target_copy_to_back_buffer(p_to_render_target, group_rect, false);
 					if (ci->canvas_group_owner->canvas_group->mode == RS::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+						ci->canvas_group_owner->use_canvas_group = false;
 						items[item_count++] = ci->canvas_group_owner;
 					}
 				} else if (!backbuffer_cleared) {
@@ -1472,9 +1472,8 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 			ci->canvas_group_owner = nullptr; //must be cleared
 		}
 
-		if (!backbuffer_cleared && canvas_group_owner == nullptr && ci->canvas_group != nullptr && !backbuffer_copy) {
-			texture_storage->render_target_clear_back_buffer(p_to_render_target, Rect2i(), Color(0, 0, 0, 0));
-			backbuffer_cleared = true;
+		if (canvas_group_owner == nullptr && ci->canvas_group != nullptr && ci->canvas_group->mode != RS::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+			skip_item = true;
 		}
 
 		if (ci == canvas_group_owner) {
@@ -1493,6 +1492,11 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 			canvas_group_owner = nullptr;
 			// Backbuffer is dirty now and needs to be re-cleared if another CanvasGroup needs it.
 			backbuffer_cleared = false;
+
+			// Tell the renderer to paint this as a canvas group
+			ci->use_canvas_group = true;
+		} else {
+			ci->use_canvas_group = false;
 		}
 
 		if (backbuffer_copy) {
@@ -1508,9 +1512,9 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 			texture_storage->render_target_copy_to_back_buffer(p_to_render_target, back_buffer_rect, backbuffer_gen_mipmaps);
 
 			backbuffer_copy = false;
-			backbuffer_gen_mipmaps = false;
 			material_screen_texture_cached = true; // After a backbuffer copy, screen texture makes no further copies.
 			material_screen_texture_mipmaps_cached = backbuffer_gen_mipmaps;
+			backbuffer_gen_mipmaps = false;
 		}
 
 		if (backbuffer_gen_mipmaps) {
@@ -1520,7 +1524,11 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 			material_screen_texture_mipmaps_cached = true;
 		}
 
-		items[item_count++] = ci;
+		if (skip_item) {
+			skip_item = false;
+		} else {
+			items[item_count++] = ci;
+		}
 
 		if (!ci->next || item_count == MAX_RENDER_ITEMS - 1) {
 			if (update_skeletons) {
@@ -1528,7 +1536,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 				update_skeletons = false;
 			}
 
-			_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, false);
+			_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, canvas_group_owner != nullptr);
 			//then reset
 			item_count = 0;
 		}
@@ -1868,7 +1876,7 @@ void RendererCanvasRenderRD::occluder_polygon_set_shape(RID p_occluder, const Ve
 		}
 	}
 
-	if (oc->line_point_count != lines.size() && oc->vertex_array.is_valid()) {
+	if ((oc->line_point_count != lines.size() || lines.size() == 0) && oc->vertex_array.is_valid()) {
 		RD::get_singleton()->free(oc->vertex_array);
 		RD::get_singleton()->free(oc->vertex_buffer);
 		RD::get_singleton()->free(oc->index_array);
@@ -1883,6 +1891,7 @@ void RendererCanvasRenderRD::occluder_polygon_set_shape(RID p_occluder, const Ve
 	}
 
 	if (lines.size()) {
+		oc->line_point_count = lines.size();
 		Vector<uint8_t> geometry;
 		Vector<uint8_t> indices;
 		int lc = lines.size();
@@ -1973,7 +1982,7 @@ void RendererCanvasRenderRD::occluder_polygon_set_shape(RID p_occluder, const Ve
 		}
 	}
 
-	if (oc->sdf_index_count != sdf_indices.size() && oc->sdf_point_count != p_points.size() && oc->sdf_vertex_array.is_valid()) {
+	if (((oc->sdf_index_count != sdf_indices.size() && oc->sdf_point_count != p_points.size()) || p_points.size() == 0) && oc->sdf_vertex_array.is_valid()) {
 		RD::get_singleton()->free(oc->sdf_vertex_array);
 		RD::get_singleton()->free(oc->sdf_vertex_buffer);
 		RD::get_singleton()->free(oc->sdf_index_array);
@@ -2122,8 +2131,8 @@ void RendererCanvasRenderRD::CanvasShaderData::set_code(const String &p_code) {
 		} break;
 		case BLEND_MODE_SUB: {
 			attachment.enable_blend = true;
-			attachment.alpha_blend_op = RD::BLEND_OP_SUBTRACT;
-			attachment.color_blend_op = RD::BLEND_OP_SUBTRACT;
+			attachment.alpha_blend_op = RD::BLEND_OP_REVERSE_SUBTRACT;
+			attachment.color_blend_op = RD::BLEND_OP_REVERSE_SUBTRACT;
 			attachment.src_color_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
 			attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE;
 			attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;

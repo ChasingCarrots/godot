@@ -557,10 +557,14 @@ bool GridMap::_octant_update(const OctantKey &p_key) {
 	}
 
 	//erase navigation
-	for (const KeyValue<IndexKey, Octant::NavigationCell> &E : g.navigation_cell_ids) {
-		NavigationServer3D::get_singleton()->free(E.value.region);
+	for (KeyValue<IndexKey, Octant::NavigationCell> &E : g.navigation_cell_ids) {
+		if (E.value.region.is_valid()) {
+			NavigationServer3D::get_singleton()->free(E.value.region);
+			E.value.region = RID();
+		}
 		if (E.value.navigation_mesh_debug_instance.is_valid()) {
 			RS::get_singleton()->free(E.value.navigation_mesh_debug_instance);
+			E.value.navigation_mesh_debug_instance = RID();
 		}
 	}
 	g.navigation_cell_ids.clear();
@@ -903,7 +907,7 @@ void GridMap::_notification(int p_what) {
 
 #ifdef DEBUG_ENABLED
 		case NOTIFICATION_ENTER_TREE: {
-			if (bake_navigation && NavigationServer3D::get_singleton()->get_debug_enabled()) {
+			if (bake_navigation && NavigationServer3D::get_singleton()->get_debug_navigation_enabled()) {
 				_update_navigation_debug_edge_connections();
 			}
 		} break;
@@ -1348,7 +1352,7 @@ void GridMap::_update_octant_navigation_debug_edge_connections_mesh(const Octant
 	ERR_FAIL_COND(!octant_map.has(p_key));
 	Octant &g = *octant_map[p_key];
 
-	if (!NavigationServer3D::get_singleton()->get_debug_enabled()) {
+	if (!NavigationServer3D::get_singleton()->get_debug_navigation_enabled()) {
 		if (g.navigation_debug_edge_connections_instance.is_valid()) {
 			RS::get_singleton()->instance_set_visible(g.navigation_debug_edge_connections_instance, false);
 		}

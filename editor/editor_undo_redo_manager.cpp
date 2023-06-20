@@ -110,13 +110,13 @@ EditorUndoRedoManager::History &EditorUndoRedoManager::get_history_for_object(Ob
 	History &history = get_or_create_history(history_id);
 	if (pending_action.history_id == INVALID_HISTORY) {
 		pending_action.history_id = history_id;
-		history.undo_redo->create_action(pending_action.action_name, pending_action.merge_mode);
+		history.undo_redo->create_action(pending_action.action_name, pending_action.merge_mode, pending_action.backward_undo_ops);
 	}
 
 	return history;
 }
 
-void EditorUndoRedoManager::create_action_for_history(const String &p_name, int p_history_id, UndoRedo::MergeMode p_mode) {
+void EditorUndoRedoManager::create_action_for_history(const String &p_name, int p_history_id, UndoRedo::MergeMode p_mode, bool p_backward_undo_ops) {
 	if (pending_action.history_id != INVALID_HISTORY) {
 		// Nested action.
 		p_history_id = pending_action.history_id;
@@ -124,17 +124,18 @@ void EditorUndoRedoManager::create_action_for_history(const String &p_name, int 
 		pending_action.action_name = p_name;
 		pending_action.timestamp = OS::get_singleton()->get_unix_time();
 		pending_action.merge_mode = p_mode;
+		pending_action.backward_undo_ops = p_backward_undo_ops;
 	}
 
 	if (p_history_id != INVALID_HISTORY) {
 		pending_action.history_id = p_history_id;
 		History &history = get_or_create_history(p_history_id);
-		history.undo_redo->create_action(pending_action.action_name, pending_action.merge_mode);
+		history.undo_redo->create_action(pending_action.action_name, pending_action.merge_mode, pending_action.backward_undo_ops);
 	}
 }
 
-void EditorUndoRedoManager::create_action(const String &p_name, UndoRedo::MergeMode p_mode, Object *p_custom_context) {
-	create_action_for_history(p_name, INVALID_HISTORY, p_mode);
+void EditorUndoRedoManager::create_action(const String &p_name, UndoRedo::MergeMode p_mode, Object *p_custom_context, bool p_backward_undo_ops) {
+	create_action_for_history(p_name, INVALID_HISTORY, p_mode, p_backward_undo_ops);
 
 	if (p_custom_context) {
 		// This assigns history to pending action.
@@ -248,12 +249,32 @@ void EditorUndoRedoManager::commit_action(bool p_execute) {
 	}
 
 	if (!history.undo_stack.is_empty()) {
-		const Action &prev_action = history.undo_stack.back()->get();
-		if (pending_action.merge_mode != UndoRedo::MERGE_DISABLE && pending_action.merge_mode == prev_action.merge_mode && pending_action.action_name == prev_action.action_name) {
-			// Discard action if it should be merged (UndoRedo handles merging internally).
-			pending_action = Action();
-			is_committing = false;
-			return;
+		// Discard action if it should be merged (UndoRedo handles merging internally).
+		switch (pending_action.merge_mode) {
+			case UndoRedo::MERGE_DISABLE:
+				break; // Nothing to do here.
+			case UndoRedo::MERGE_ENDS: {
+				if (history.undo_stack.size() < 2) {
+					break;
+				}
+
+				const Action &prev_action = history.undo_stack.back()->get();
+				const Action &pre_prev_action = history.undo_stack.back()->prev()->get();
+				if (pending_action.merge_mode == prev_action.merge_mode && pending_action.merge_mode == pre_prev_action.merge_mode &&
+						pending_action.action_name == prev_action.action_name && pending_action.action_name == pre_prev_action.action_name) {
+					pending_action = Action();
+					is_committing = false;
+					return;
+				}
+			} break;
+			case UndoRedo::MERGE_ALL: {
+				const Action &prev_action = history.undo_stack.back()->get();
+				if (pending_action.merge_mode == prev_action.merge_mode && pending_action.action_name == prev_action.action_name) {
+					pending_action = Action();
+					is_committing = false;
+					return;
+				}
+			} break;
 		}
 	}
 
@@ -467,7 +488,7 @@ EditorUndoRedoManager::History *EditorUndoRedoManager::_get_newest_undo() {
 }
 
 void EditorUndoRedoManager::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("create_action", "name", "merge_mode", "custom_context"), &EditorUndoRedoManager::create_action, DEFVAL(UndoRedo::MERGE_DISABLE), DEFVAL((Object *)nullptr));
+	ClassDB::bind_method(D_METHOD("create_action", "name", "merge_mode", "custom_context", "backward_undo_ops"), &EditorUndoRedoManager::create_action, DEFVAL(UndoRedo::MERGE_DISABLE), DEFVAL((Object *)nullptr), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("commit_action", "execute"), &EditorUndoRedoManager::commit_action, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("is_committing_action"), &EditorUndoRedoManager::is_committing_action);
 

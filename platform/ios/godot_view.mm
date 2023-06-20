@@ -30,16 +30,17 @@
 
 #import "godot_view.h"
 
+#import "display_layer.h"
+#import "display_server_ios.h"
+#import "godot_view_renderer.h"
+
 #include "core/config/project_settings.h"
 #include "core/os/keyboard.h"
 #include "core/string/ustring.h"
-#import "display_layer.h"
-#include "display_server_ios.h"
-#import "godot_view_renderer.h"
 
 #import <CoreMotion/CoreMotion.h>
 
-static const int max_touches = 8;
+static const int max_touches = 32;
 static const float earth_gravity = 9.80665;
 
 @interface GodotView () {
@@ -173,7 +174,7 @@ static const float earth_gravity = 9.80665;
 
 	self.isActive = NO;
 
-	printf("******** stop animation!\n");
+	print_verbose("Stop animation!");
 
 	if (self.useCADisplayLink) {
 		[self.displayLink invalidate];
@@ -193,7 +194,7 @@ static const float earth_gravity = 9.80665;
 
 	self.isActive = YES;
 
-	printf("start animation!\n");
+	print_verbose("Start animation!");
 
 	if (self.useCADisplayLink) {
 		self.displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(drawView)];
@@ -213,7 +214,7 @@ static const float earth_gravity = 9.80665;
 
 - (void)drawView {
 	if (!self.isActive) {
-		printf("draw view not active!\n");
+		print_verbose("Draw view not active!");
 		return;
 	}
 

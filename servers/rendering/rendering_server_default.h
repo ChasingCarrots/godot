@@ -213,7 +213,8 @@ public:
 	FUNC1(texture_debug_usage, List<TextureInfo> *)
 
 	FUNC2(texture_set_force_redraw_if_visible, RID, bool)
-	FUNC2RC(RID, texture_get_rd_texture_rid, RID, bool)
+	FUNC2RC(RID, texture_get_rd_texture, RID, bool)
+	FUNC2RC(uint64_t, texture_get_native_handle, RID, bool)
 
 	/* SHADER API */
 
@@ -606,6 +607,7 @@ public:
 
 	FUNC2(viewport_set_update_mode, RID, ViewportUpdateMode)
 
+	FUNC1RC(RID, viewport_get_render_target, RID)
 	FUNC1RC(RID, viewport_get_texture, RID)
 
 	FUNC2(viewport_set_disable_2d, RID, bool)

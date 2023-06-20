@@ -438,6 +438,7 @@ void MeshStorage::mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface)
 	} else {
 		mesh->aabb.merge_with(p_surface.aabb);
 	}
+	mesh->skeleton_aabb_version = 0;
 
 	s->material = p_surface.material;
 
@@ -626,7 +627,7 @@ AABB MeshStorage::mesh_get_aabb(RID p_mesh, RID p_skeleton) {
 
 			if (skeleton->use_2d) {
 				for (int j = 0; j < bs; j++) {
-					if (skbones[0].size == Vector3()) {
+					if (skbones[j].size == Vector3(-1, -1, -1)) {
 						continue; //bone is unused
 					}
 
@@ -634,12 +635,12 @@ AABB MeshStorage::mesh_get_aabb(RID p_mesh, RID p_skeleton) {
 
 					Transform3D mtx;
 
-					mtx.basis.rows[0].x = dataptr[0];
-					mtx.basis.rows[1].x = dataptr[1];
+					mtx.basis.rows[0][0] = dataptr[0];
+					mtx.basis.rows[0][1] = dataptr[1];
 					mtx.origin.x = dataptr[3];
 
-					mtx.basis.rows[0].y = dataptr[4];
-					mtx.basis.rows[1].y = dataptr[5];
+					mtx.basis.rows[1][0] = dataptr[4];
+					mtx.basis.rows[1][1] = dataptr[5];
 					mtx.origin.y = dataptr[7];
 
 					AABB baabb = mtx.xform(skbones[j]);
@@ -653,7 +654,7 @@ AABB MeshStorage::mesh_get_aabb(RID p_mesh, RID p_skeleton) {
 				}
 			} else {
 				for (int j = 0; j < bs; j++) {
-					if (skbones[0].size == Vector3()) {
+					if (skbones[j].size == Vector3(-1, -1, -1)) {
 						continue; //bone is unused
 					}
 
@@ -726,6 +727,12 @@ void MeshStorage::mesh_set_shadow_mesh(RID p_mesh, RID p_shadow_mesh) {
 void MeshStorage::mesh_clear(RID p_mesh) {
 	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
 	ERR_FAIL_COND(!mesh);
+
+	// Clear instance data before mesh data.
+	for (MeshInstance *mi : mesh->instances) {
+		_mesh_instance_clear(mi);
+	}
+
 	for (uint32_t i = 0; i < mesh->surface_count; i++) {
 		Mesh::Surface &s = *mesh->surfaces[i];
 		if (s.vertex_buffer.is_valid()) {
@@ -765,10 +772,6 @@ void MeshStorage::mesh_clear(RID p_mesh) {
 	mesh->surfaces = nullptr;
 	mesh->surface_count = 0;
 	mesh->material_cache.clear();
-	//clear instance data
-	for (MeshInstance *mi : mesh->instances) {
-		_mesh_instance_clear(mi);
-	}
 	mesh->has_bone_weights = false;
 	mesh->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_MESH);
 
@@ -859,6 +862,7 @@ void MeshStorage::_mesh_instance_clear(MeshInstance *mi) {
 
 	if (mi->blend_weights_buffer.is_valid()) {
 		RD::get_singleton()->free(mi->blend_weights_buffer);
+		mi->blend_weights_buffer = RID();
 	}
 	mi->blend_weights.clear();
 	mi->weights_dirty = false;
@@ -1501,12 +1505,12 @@ void MeshStorage::_multimesh_re_create_aabb(MultiMesh *multimesh, const float *p
 			t.origin.z = data[11];
 
 		} else {
-			t.basis.rows[0].x = data[0];
-			t.basis.rows[1].x = data[1];
+			t.basis.rows[0][0] = data[0];
+			t.basis.rows[0][1] = data[1];
 			t.origin.x = data[3];
 
-			t.basis.rows[0].y = data[4];
-			t.basis.rows[1].y = data[5];
+			t.basis.rows[1][0] = data[4];
+			t.basis.rows[1][1] = data[5];
 			t.origin.y = data[7];
 		}
 

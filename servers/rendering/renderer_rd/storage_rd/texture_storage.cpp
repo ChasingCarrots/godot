@@ -1153,8 +1153,8 @@ void TextureStorage::texture_3d_update(RID p_texture, const Vector<Ref<Image>> &
 				image = image->duplicate();
 				image->convert(tex->validated_format);
 			}
-			all_data_size += images[i]->get_data().size();
-			images.push_back(image);
+			all_data_size += image->get_data().size();
+			images.write[i] = image;
 		}
 
 		all_data.resize(all_data_size); //consolidate all data here
@@ -1193,6 +1193,9 @@ void TextureStorage::texture_proxy_update(RID p_texture, RID p_proxy_to) {
 		prev_tex->proxies.erase(p_texture);
 	}
 
+	// Copy canvas_texture so it doesn't leak.
+	CanvasTexture *canvas_texture = tex->canvas_texture;
+
 	*tex = *proxy_to;
 
 	tex->proxy_to = p_proxy_to;
@@ -1200,6 +1203,7 @@ void TextureStorage::texture_proxy_update(RID p_texture, RID p_proxy_to) {
 	tex->is_proxy = true;
 	tex->proxies.clear();
 	proxy_to->proxies.push_back(p_texture);
+	tex->canvas_texture = canvas_texture;
 
 	tex->rd_view.format_override = tex->rd_format;
 	tex->rd_texture = RD::get_singleton()->texture_create_shared(tex->rd_view, proxy_to->rd_texture);
@@ -1425,11 +1429,28 @@ Size2 TextureStorage::texture_size_with_proxy(RID p_proxy) {
 	return texture_2d_get_size(p_proxy);
 }
 
-RID TextureStorage::texture_get_rd_texture_rid(RID p_texture, bool p_srgb) const {
+RID TextureStorage::texture_get_rd_texture(RID p_texture, bool p_srgb) const {
+	if (p_texture.is_null()) {
+		return RID();
+	}
+
 	Texture *tex = texture_owner.get_or_null(p_texture);
-	ERR_FAIL_COND_V(!tex, RID());
+	if (!tex) {
+		return RID();
+	}
 
 	return (p_srgb && tex->rd_texture_srgb.is_valid()) ? tex->rd_texture_srgb : tex->rd_texture;
+}
+
+uint64_t TextureStorage::texture_get_native_handle(RID p_texture, bool p_srgb) const {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_COND_V(!tex, 0);
+
+	if (p_srgb && tex->rd_texture_srgb.is_valid()) {
+		return RD::get_singleton()->texture_get_native_handle(tex->rd_texture_srgb);
+	} else {
+		return RD::get_singleton()->texture_get_native_handle(tex->rd_texture);
+	}
 }
 
 Ref<Image> TextureStorage::_validate_texture_format(const Ref<Image> &p_image, TextureToRDFormat &r_format) {
@@ -2905,6 +2926,13 @@ RID TextureStorage::render_target_get_rd_texture_slice(RID p_render_target, uint
 		}
 		return rt->color_slices[p_layer];
 	}
+}
+
+RID TextureStorage::render_target_get_rd_texture_msaa(RID p_render_target) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_COND_V(!rt, RID());
+
+	return rt->color_multisample;
 }
 
 RID TextureStorage::render_target_get_rd_backbuffer(RID p_render_target) {

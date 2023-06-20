@@ -1610,7 +1610,7 @@ Vector<Point2> TileSet::get_terrain_peering_bit_polygon(int p_terrain_set, TileS
 #define TERRAIN_ALPHA 0.6
 
 void TileSet::draw_terrains(CanvasItem *p_canvas_item, Transform2D p_transform, const TileData *p_tile_data) {
-	ERR_FAIL_COND(!p_tile_data);
+	ERR_FAIL_NULL(p_tile_data);
 
 	if (terrain_bits_meshes_dirty) {
 		// Recompute the meshes.
@@ -2563,7 +2563,7 @@ void TileSet::_compatibility_conversion() {
 					Transform2D xform;
 					xform = flip_h ? xform.scaled(Size2(-1, 1)) : xform;
 					xform = flip_v ? xform.scaled(Size2(1, -1)) : xform;
-					xform = transpose ? xform.rotated(Math_PI).scaled(Size2(-1, -1)) : xform;
+					xform = transpose ? Transform2D(xform[1], xform[0], Vector2()) : xform;
 
 					int alternative_tile = 0;
 					if (!atlas_source->has_tile(coords)) {
@@ -2677,7 +2677,7 @@ void TileSet::_compatibility_conversion() {
 							Transform2D xform;
 							xform = flip_h ? xform.scaled(Size2(-1, 1)) : xform;
 							xform = flip_v ? xform.scaled(Size2(1, -1)) : xform;
-							xform = transpose ? xform.rotated(Math_PI).scaled(Size2(-1, -1)) : xform;
+							xform = transpose ? Transform2D(xform[1], xform[0], Vector2()) : xform;
 
 							int alternative_tile = 0;
 							if (!atlas_source->has_tile(coords)) {

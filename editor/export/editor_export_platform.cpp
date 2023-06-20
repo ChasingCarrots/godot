@@ -42,6 +42,7 @@
 #include "editor/editor_paths.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/export/editor_export.h"
 #include "editor/plugins/script_editor_plugin.h"
 #include "editor_export_plugin.h"
 #include "scene/resources/packed_scene.h"
@@ -322,6 +323,11 @@ Ref<EditorExportPreset> EditorExportPlatform::create_preset() {
 	List<ExportOption> options;
 	get_export_options(&options);
 
+	Vector<Ref<EditorExportPlugin>> export_plugins = EditorExport::get_singleton()->get_export_plugins();
+	for (int i = 0; i < export_plugins.size(); i++) {
+		export_plugins.write[i]->_get_export_options(Ref<EditorExportPlatform>(this), &options);
+	}
+
 	for (const ExportOption &E : options) {
 		preset->properties.push_back(E.option);
 		preset->values[E.option.name] = E.default_value;
@@ -489,6 +495,7 @@ EditorExportPlatform::ExportNotifier::ExportNotifier(EditorExportPlatform &p_pla
 	Vector<Ref<EditorExportPlugin>> export_plugins = EditorExport::get_singleton()->get_export_plugins();
 	//initial export plugin callback
 	for (int i = 0; i < export_plugins.size(); i++) {
+		export_plugins.write[i]->set_export_preset(p_preset);
 		if (export_plugins[i]->get_script_instance()) { //script based
 			PackedStringArray features_psa;
 			for (const String &feature : features) {
@@ -508,6 +515,7 @@ EditorExportPlatform::ExportNotifier::~ExportNotifier() {
 			export_plugins.write[i]->_export_end_script();
 		}
 		export_plugins.write[i]->_export_end();
+		export_plugins.write[i]->set_export_preset(Ref<EditorExportPlugin>());
 	}
 }
 
@@ -810,12 +818,64 @@ String EditorExportPlatform::_export_customize(const String &p_path, LocalVector
 	return save_path.is_empty() ? p_path : save_path;
 }
 
+String EditorExportPlatform::_get_script_encryption_key(const Ref<EditorExportPreset> &p_preset) const {
+	const String from_env = OS::get_singleton()->get_environment(ENV_SCRIPT_ENCRYPTION_KEY);
+	if (!from_env.is_empty()) {
+		return from_env.to_lower();
+	}
+	return p_preset->get_script_encryption_key().to_lower();
+}
+
+Vector<String> EditorExportPlatform::get_forced_export_files() {
+	Vector<String> files;
+
+	files.push_back(ProjectSettings::get_singleton()->get_global_class_list_path());
+
+	String icon = GLOBAL_GET("application/config/icon");
+	String splash = GLOBAL_GET("application/boot_splash/image");
+	if (!icon.is_empty() && FileAccess::exists(icon)) {
+		files.push_back(icon);
+	}
+	if (!splash.is_empty() && FileAccess::exists(splash) && icon != splash) {
+		files.push_back(splash);
+	}
+	String resource_cache_file = ResourceUID::get_cache_file();
+	if (FileAccess::exists(resource_cache_file)) {
+		files.push_back(resource_cache_file);
+	}
+
+	String extension_list_config_file = GDExtension::get_extension_list_config_file();
+	if (FileAccess::exists(extension_list_config_file)) {
+		files.push_back(extension_list_config_file);
+	}
+
+	// Store text server data if it is supported.
+	if (TS->has_feature(TextServer::FEATURE_USE_SUPPORT_DATA)) {
+		bool use_data = GLOBAL_GET("internationalization/locale/include_text_server_data");
+		if (use_data) {
+			// Try using user provided data file.
+			String ts_data = "res://" + TS->get_support_data_filename();
+			if (FileAccess::exists(ts_data)) {
+				files.push_back(ts_data);
+			} else {
+				// Use default text server data.
+				String icu_data_file = EditorPaths::get_singleton()->get_cache_dir().path_join("tmp_icu_data");
+				ERR_FAIL_COND_V(!TS->save_support_data(icu_data_file), files);
+				files.push_back(icu_data_file);
+				// Remove the file later.
+				MessageQueue::get_singleton()->push_callable(callable_mp_static(DirAccess::remove_absolute), icu_data_file);
+			}
+		}
+	}
+
+	return files;
+}
+
 Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &p_preset, bool p_debug, EditorExportSaveFunction p_func, void *p_udata, EditorExportSaveSharedObject p_so_func) {
 	//figure out paths of files that will be exported
 	HashSet<String> paths;
 	Vector<String> path_remaps;
 
-	paths.insert(ProjectSettings::get_singleton()->get_global_class_list_path());
 	if (p_preset->get_export_filter() == EditorExportPreset::EXPORT_ALL_RESOURCES) {
 		//find stuff
 		_export_find_resources(EditorFileSystem::get_singleton()->get_filesystem(), paths);
@@ -894,7 +954,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 		}
 
 		// Get encryption key.
-		String script_key = p_preset->get_script_encryption_key().to_lower();
+		String script_key = _get_script_encryption_key(p_preset);
 		key.resize(32);
 		if (script_key.length() == 64) {
 			for (int i = 0; i < 32; i++) {
@@ -932,12 +992,10 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 		}
 	};
 
-	// Always sort by name, to so if for some reason theya are re-arranged, it still works.
+	// Always sort by name, to so if for some reason they are re-arranged, it still works.
 	export_plugins.sort_custom<SortByName>();
 
 	for (int i = 0; i < export_plugins.size(); i++) {
-		export_plugins.write[i]->set_export_preset(p_preset);
-
 		if (p_so_func) {
 			for (int j = 0; j < export_plugins[i]->shared_objects.size(); j++) {
 				err = p_so_func(p_udata, export_plugins[i]->shared_objects[j]);
@@ -1026,13 +1084,13 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 		String type = ResourceLoader::get_resource_type(path);
 
 		if (FileAccess::exists(path + ".import")) {
-			// Before doing this, try to see if it can be customized
+			// Before doing this, try to see if it can be customized.
 
 			String export_path = _export_customize(path, customize_resources_plugins, customize_scenes_plugins, export_cache, export_base_path, false);
 
 			if (export_path != path) {
-				// It was actually customized..
-				// Since the original file is likely not recognized, just use the import system
+				// It was actually customized.
+				// Since the original file is likely not recognized, just use the import system.
 
 				Ref<ConfigFile> config;
 				config.instantiate();
@@ -1043,18 +1101,18 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 				}
 				config->set_value("remap", "type", ResourceLoader::get_resource_type(export_path));
 
-				// Erase all PAths
+				// Erase all Paths.
 				List<String> keys;
 				config->get_section_keys("remap", &keys);
 				for (const String &K : keys) {
-					if (E.begins_with("path")) {
+					if (K.begins_with("path")) {
 						config->erase_section_key("remap", K);
 					}
 				}
 				// Set actual converted path.
 				config->set_value("remap", "path", export_path);
 
-				// erase useless sections
+				// Erase useless sections.
 				config->erase_section("deps");
 				config->erase_section("params");
 
@@ -1075,7 +1133,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 					return err;
 				}
 			} else {
-				// file is imported and not customized, replace by what it imports
+				// File is imported and not customized, replace by what it imports.
 				Ref<ConfigFile> config;
 				config.instantiate();
 				err = config->load(path + ".import");
@@ -1087,7 +1145,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 				String importer_type = config->get_value("remap", "importer");
 
 				if (importer_type == "keep") {
-					//just keep file as-is
+					// Just keep file as-is.
 					Vector<uint8_t> array = FileAccess::get_file_as_bytes(path);
 					err = p_func(p_udata, path, array, idx, total, enc_in_filters, enc_ex_filters, key);
 
@@ -1130,6 +1188,9 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 							String remapped_path = config->get_value("remap", remap);
 							Vector<uint8_t> array = FileAccess::get_file_as_bytes(remapped_path);
 							err = p_func(p_udata, remapped_path, array, idx, total, enc_in_filters, enc_ex_filters, key);
+						} else {
+							// Remove paths if feature not enabled.
+							config->erase_section_key("remap", remap);
 						}
 					}
 				}
@@ -1138,9 +1199,17 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 					return err;
 				}
 
-				//also save the .import file
-				Vector<uint8_t> array = FileAccess::get_file_as_bytes(path + ".import");
-				err = p_func(p_udata, path + ".import", array, idx, total, enc_in_filters, enc_ex_filters, key);
+				// Erase useless sections.
+				config->erase_section("deps");
+				config->erase_section("params");
+
+				String import_text = config->encode_to_text();
+				CharString cs = import_text.utf8();
+				Vector<uint8_t> sarr;
+				sarr.resize(cs.size());
+				memcpy(sarr.ptrw(), cs.ptr(), sarr.size());
+
+				err = p_func(p_udata, path + ".import", sarr, idx, total, enc_in_filters, enc_ex_filters, key);
 
 				if (err != OK) {
 					return err;
@@ -1148,7 +1217,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 			}
 
 		} else {
-			// Customize
+			// Customize.
 
 			bool do_export = true;
 			for (int i = 0; i < export_plugins.size(); i++) {
@@ -1278,66 +1347,12 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 		}
 	}
 
-	// Store icon and splash images directly, they need to bypass the import system and be loaded as images
-	String icon = GLOBAL_GET("application/config/icon");
-	String splash = GLOBAL_GET("application/boot_splash/image");
-	if (!icon.is_empty() && FileAccess::exists(icon)) {
-		Vector<uint8_t> array = FileAccess::get_file_as_bytes(icon);
-		err = p_func(p_udata, icon, array, idx, total, enc_in_filters, enc_ex_filters, key);
+	Vector<String> forced_export = get_forced_export_files();
+	for (int i = 0; i < forced_export.size(); i++) {
+		Vector<uint8_t> array = FileAccess::get_file_as_bytes(forced_export[i]);
+		err = p_func(p_udata, forced_export[i], array, idx, total, enc_in_filters, enc_ex_filters, key);
 		if (err != OK) {
 			return err;
-		}
-	}
-	if (!splash.is_empty() && FileAccess::exists(splash) && icon != splash) {
-		Vector<uint8_t> array = FileAccess::get_file_as_bytes(splash);
-		err = p_func(p_udata, splash, array, idx, total, enc_in_filters, enc_ex_filters, key);
-		if (err != OK) {
-			return err;
-		}
-	}
-	String resource_cache_file = ResourceUID::get_cache_file();
-	if (FileAccess::exists(resource_cache_file)) {
-		Vector<uint8_t> array = FileAccess::get_file_as_bytes(resource_cache_file);
-		err = p_func(p_udata, resource_cache_file, array, idx, total, enc_in_filters, enc_ex_filters, key);
-		if (err != OK) {
-			return err;
-		}
-	}
-
-	String extension_list_config_file = GDExtension::get_extension_list_config_file();
-	if (FileAccess::exists(extension_list_config_file)) {
-		Vector<uint8_t> array = FileAccess::get_file_as_bytes(extension_list_config_file);
-		err = p_func(p_udata, extension_list_config_file, array, idx, total, enc_in_filters, enc_ex_filters, key);
-		if (err != OK) {
-			return err;
-		}
-	}
-
-	// Store text server data if it is supported.
-	if (TS->has_feature(TextServer::FEATURE_USE_SUPPORT_DATA)) {
-		bool use_data = GLOBAL_GET("internationalization/locale/include_text_server_data");
-		if (use_data) {
-			// Try using user provided data file.
-			String ts_data = "res://" + TS->get_support_data_filename();
-			if (FileAccess::exists(ts_data)) {
-				Vector<uint8_t> array = FileAccess::get_file_as_bytes(ts_data);
-				err = p_func(p_udata, ts_data, array, idx, total, enc_in_filters, enc_ex_filters, key);
-				if (err != OK) {
-					return err;
-				}
-			} else {
-				// Use default text server data.
-				String icu_data_file = EditorPaths::get_singleton()->get_cache_dir().path_join("tmp_icu_data");
-				if (!TS->save_support_data(icu_data_file)) {
-					return ERR_INVALID_DATA;
-				}
-				Vector<uint8_t> array = FileAccess::get_file_as_bytes(icu_data_file);
-				err = p_func(p_udata, ts_data, array, idx, total, enc_in_filters, enc_ex_filters, key);
-				DirAccess::remove_file_or_error(icu_data_file);
-				if (err != OK) {
-					return err;
-				}
-			}
 		}
 	}
 
@@ -1570,7 +1585,7 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 	Ref<FileAccess> fhead = f;
 
 	if (enc_pck && enc_directory) {
-		String script_key = p_preset->get_script_encryption_key().to_lower();
+		String script_key = _get_script_encryption_key(p_preset);
 		Vector<uint8_t> key;
 		key.resize(32);
 		if (script_key.length() == 64) {
@@ -1773,11 +1788,12 @@ void EditorExportPlatform::gen_export_flags(Vector<String> &r_flags, int p_flags
 	}
 }
 
-bool EditorExportPlatform::can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
+bool EditorExportPlatform::can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates, bool p_debug) const {
 	bool valid = true;
+
 #ifndef ANDROID_ENABLED
 	String templates_error;
-	valid = valid && has_valid_export_configuration(p_preset, templates_error, r_missing_templates);
+	valid = valid && has_valid_export_configuration(p_preset, templates_error, r_missing_templates, p_debug);
 
 	if (!templates_error.is_empty()) {
 		r_error += templates_error;

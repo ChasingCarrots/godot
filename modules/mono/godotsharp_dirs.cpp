@@ -30,6 +30,13 @@
 
 #include "godotsharp_dirs.h"
 
+#include "mono_gd/gd_mono.h"
+#include "utils/path_utils.h"
+
+#ifdef ANDROID_ENABLED
+#include "mono_gd/support/android_support.h"
+#endif
+
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 #include "core/os/os.h"
@@ -38,12 +45,6 @@
 #include "core/version.h"
 #include "editor/editor_paths.h"
 #endif
-
-#ifdef ANDROID_ENABLED
-#include "mono_gd/support/android_support.h"
-#endif
-
-#include "mono_gd/gd_mono.h"
 
 namespace GodotSharpDirs {
 
@@ -66,23 +67,25 @@ String _get_mono_user_dir() {
 	if (EditorPaths::get_singleton()) {
 		return EditorPaths::get_singleton()->get_data_dir().path_join("mono");
 	} else {
-		String settings_path;
+		String settings_path = OS::get_singleton()->get_data_path().path_join(OS::get_singleton()->get_godot_dir_name());
 
 		// Self-contained mode if a `._sc_` or `_sc_` file is present in executable dir.
 		String exe_dir = OS::get_singleton()->get_executable_path().get_base_dir();
-
-		// On macOS, look outside .app bundle, since .app bundle is read-only.
-		if (OS::get_singleton()->has_feature("macos") && exe_dir.ends_with("MacOS") && exe_dir.path_join("..").simplify_path().ends_with("Contents")) {
-			exe_dir = exe_dir.path_join("../../..").simplify_path();
-		}
-
 		Ref<DirAccess> d = DirAccess::create_for_path(exe_dir);
-
 		if (d->file_exists("._sc_") || d->file_exists("_sc_")) {
 			// contain yourself
 			settings_path = exe_dir.path_join("editor_data");
-		} else {
-			settings_path = OS::get_singleton()->get_data_path().path_join(OS::get_singleton()->get_godot_dir_name());
+		}
+
+		// On macOS, look outside .app bundle, since .app bundle is read-only.
+		// Note: This will not work if Gatekeeper path randomization is active.
+		if (OS::get_singleton()->has_feature("macos") && exe_dir.ends_with("MacOS") && exe_dir.path_join("..").simplify_path().ends_with("Contents")) {
+			exe_dir = exe_dir.path_join("../../..").simplify_path();
+			d = DirAccess::create_for_path(exe_dir);
+			if (d->file_exists("._sc_") || d->file_exists("_sc_")) {
+				// contain yourself
+				settings_path = exe_dir.path_join("editor_data");
+			}
 		}
 
 		return settings_path.path_join("mono");
@@ -137,8 +140,7 @@ private:
 		api_assemblies_dir = api_assemblies_base_dir.path_join(GDMono::get_expected_api_build_config());
 #else // TOOLS_ENABLED
 		String arch = Engine::get_singleton()->get_architecture_name();
-		String appname = GLOBAL_GET("application/config/name");
-		String appname_safe = OS::get_singleton()->get_safe_dir_name(appname);
+		String appname_safe = path::get_csharp_project_name();
 		String data_dir_root = exe_dir.path_join("data_" + appname_safe + "_" + arch);
 		if (!DirAccess::exists(data_dir_root)) {
 			data_dir_root = exe_dir.path_join("data_Godot_" + arch);

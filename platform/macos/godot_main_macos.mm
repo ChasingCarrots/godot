@@ -28,9 +28,9 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "main/main.h"
-
 #include "os_macos.h"
+
+#include "main/main.h"
 
 #include <string.h>
 #include <unistd.h>
@@ -53,20 +53,11 @@ int main(int argc, char **argv) {
 
 	int first_arg = 1;
 	const char *dbg_arg = "-NSDocumentRevisionsDebugMode";
-	printf("arguments\n");
 	for (int i = 0; i < argc; i++) {
 		if (strcmp(dbg_arg, argv[i]) == 0) {
 			first_arg = i + 2;
 		}
-		printf("%i: %s\n", i, argv[i]);
 	}
-
-#ifdef DEBUG_ENABLED
-	// Lets report the path we made current after all that.
-	char cwd[4096];
-	getcwd(cwd, 4096);
-	printf("Current path: %s\n", cwd);
-#endif
 
 	OS_MacOS os;
 	Error err;

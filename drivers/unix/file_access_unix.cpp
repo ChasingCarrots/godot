@@ -100,10 +100,31 @@ Error FileAccessUnix::open_internal(const String &p_path, int p_mode_flags) {
 
 	if (is_backup_save_enabled() && (p_mode_flags == WRITE)) {
 		save_path = path;
-		path = path + ".tmp";
-	}
+		// Create a temporary file in the same directory as the target file.
+		path = path + "-XXXXXX";
+		CharString cs = path.utf8();
+		int fd = mkstemp(cs.ptrw());
+		if (fd == -1) {
+			last_error = ERR_FILE_CANT_OPEN;
+			return last_error;
+		}
+		// Fix temporary file permissions (defaults to 0600 instead of 0666 & ~umask).
+		mode_t mask = umask(022);
+		umask(mask);
+		fchmod(fd, 0666 & ~mask);
+		path = String::utf8(cs.ptr());
 
-	f = fopen(path.utf8().get_data(), mode_string);
+		f = fdopen(fd, mode_string);
+		if (f == nullptr) {
+			// Delete temp file and close descriptor if open failed.
+			::unlink(cs.ptr());
+			::close(fd);
+			last_error = ERR_FILE_CANT_OPEN;
+			return last_error;
+		}
+	} else {
+		f = fopen(path.utf8().get_data(), mode_string);
+	}
 
 	if (f == nullptr) {
 		switch (errno) {
@@ -143,7 +164,7 @@ void FileAccessUnix::_close() {
 	}
 
 	if (!save_path.is_empty()) {
-		int rename_error = rename((save_path + ".tmp").utf8().get_data(), save_path.utf8().get_data());
+		int rename_error = rename(path.utf8().get_data(), save_path.utf8().get_data());
 
 		if (rename_error && close_fail_notify) {
 			close_fail_notify(save_path);
@@ -284,11 +305,11 @@ bool FileAccessUnix::file_exists(const String &p_path) {
 
 uint64_t FileAccessUnix::_get_modified_time(const String &p_file) {
 	String file = fix_path(p_file);
-	struct stat flags = {};
-	int err = stat(file.utf8().get_data(), &flags);
+	struct stat status = {};
+	int err = stat(file.utf8().get_data(), &status);
 
 	if (!err) {
-		return flags.st_mtime;
+		return status.st_mtime;
 	} else {
 		print_verbose("Failed to get modified time for: " + p_file + "");
 		return 0;
@@ -297,11 +318,11 @@ uint64_t FileAccessUnix::_get_modified_time(const String &p_file) {
 
 uint32_t FileAccessUnix::_get_unix_permissions(const String &p_file) {
 	String file = fix_path(p_file);
-	struct stat flags = {};
-	int err = stat(file.utf8().get_data(), &flags);
+	struct stat status = {};
+	int err = stat(file.utf8().get_data(), &status);
 
 	if (!err) {
-		return flags.st_mode & 0x7FF; //only permissions
+		return status.st_mode & 0x7FF; //only permissions
 	} else {
 		ERR_FAIL_V_MSG(0, "Failed to get unix permissions for: " + p_file + ".");
 	}

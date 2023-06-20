@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="SceneTree" inherits="MainLoop" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="SceneTree" inherits="MainLoop" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Manages the game loop via a hierarchy of nodes.
 	</brief_description>
@@ -61,10 +61,10 @@
 			<param index="2" name="process_in_physics" type="bool" default="false" />
 			<param index="3" name="ignore_time_scale" type="bool" default="false" />
 			<description>
-				Returns a [SceneTreeTimer] which will [signal SceneTreeTimer.timeout] after the given time in seconds elapsed in this [SceneTree].
-				If [code]process_always[/code] is set to [code]false[/code], pausing the [SceneTree] will also pause the timer.
-				If [code]process_in_physics[/code] is set to [code]true[/code], will update the [SceneTreeTimer] during the physics frame instead of the process frame (fixed framerate processing).
-				If [code]ignore_time_scale[/code] is set to [code]true[/code], will ignore [member Engine.time_scale] and update the [SceneTreeTimer] with the actual frame delta.
+				Returns a [SceneTreeTimer] which will emit [signal SceneTreeTimer.timeout] after the given time in seconds elapsed in this [SceneTree].
+				If [param process_always] is set to [code]false[/code], pausing the [SceneTree] will also pause the timer.
+				If [param process_in_physics] is set to [code]true[/code], will update the [SceneTreeTimer] during the physics frame instead of the process frame (fixed framerate processing).
+				If [param ignore_time_scale] is set to [code]true[/code], will ignore [member Engine.time_scale] and update the [SceneTreeTimer] with the actual frame delta.
 				Commonly used to create a one-shot delay timer as in the following example:
 				[codeblocks]
 				[gdscript]
@@ -88,7 +88,7 @@
 		<method name="create_tween">
 			<return type="Tween" />
 			<description>
-				Creates and returns a new [Tween].
+				Creates and returns a new [Tween]. The Tween will start automatically on the next process frame or physics frame (depending on [enum Tween.TweenProcessMode]).
 			</description>
 		</method>
 		<method name="get_first_node_in_group">
@@ -218,7 +218,7 @@
 	</methods>
 	<members>
 		<member name="auto_accept_quit" type="bool" setter="set_auto_accept_quit" getter="is_auto_accept_quit" default="true">
-			If [code]true[/code], the application automatically accepts quitting.
+			If [code]true[/code], the application automatically accepts quitting requests.
 			For mobile platforms, see [member quit_on_go_back].
 		</member>
 		<member name="current_scene" type="Node" setter="set_current_scene" getter="get_current_scene">
@@ -249,7 +249,7 @@
 			- [method Node._process], [method Node._physics_process] and [method Node._input] will not be called anymore in nodes.
 		</member>
 		<member name="quit_on_go_back" type="bool" setter="set_quit_on_go_back" getter="is_quit_on_go_back" default="true">
-			If [code]true[/code], the application quits automatically on going back (e.g. on Android).
+			If [code]true[/code], the application quits automatically when navigating back (e.g. using the system "Back" button on Android).
 			To handle 'Go Back' button when this option is disabled, use [constant DisplayServer.WINDOW_EVENT_GO_BACK_REQUEST].
 		</member>
 		<member name="root" type="Window" setter="" getter="get_root">

@@ -712,7 +712,25 @@ String TranslationServer::get_tool_locale() {
 #else
 	{
 #endif
-		return get_locale();
+		// Look for best matching loaded translation.
+		String best_locale = "en";
+		int best_score = 0;
+
+		for (const Ref<Translation> &E : translations) {
+			const Ref<Translation> &t = E;
+			ERR_FAIL_COND_V(t.is_null(), best_locale);
+			String l = t->get_locale();
+
+			int score = compare_locales(locale, l);
+			if (score > 0 && score >= best_score) {
+				best_locale = l;
+				best_score = score;
+				if (score == 10) {
+					break; // Exact match, skip the rest.
+				}
+			}
+		}
+		return best_locale;
 	}
 }
 
@@ -923,18 +941,11 @@ String TranslationServer::wrap_with_fakebidi_characters(String &p_message) const
 }
 
 String TranslationServer::add_padding(const String &p_message, int p_length) const {
-	String res;
-	String prefix = pseudolocalization_prefix;
-	String suffix;
-	for (int i = 0; i < p_length * expansion_ratio / 2; i++) {
-		prefix += "_";
-		suffix += "_";
-	}
-	suffix += pseudolocalization_suffix;
-	res += prefix;
-	res += p_message;
-	res += suffix;
-	return res;
+	String underscores = String("_").repeat(p_length * expansion_ratio / 2);
+	String prefix = pseudolocalization_prefix + underscores;
+	String suffix = underscores + pseudolocalization_suffix;
+
+	return prefix + p_message + suffix;
 }
 
 const char32_t *TranslationServer::get_accented_version(char32_t p_character) const {

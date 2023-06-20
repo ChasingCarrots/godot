@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="TLSOptions" inherits="RefCounted" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="TLSOptions" inherits="RefCounted" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		TLS configuration for clients and servers.
 	</brief_description>
@@ -15,7 +15,7 @@
 		# Create a TLS server configuration.
 		var server_certs = load("res://my_server_cas.crt")
 		var server_key = load("res://my_server_key.key")
-		var server_tls_options = TLSOptions.server(server_certs, server_key)
+		var server_tls_options = TLSOptions.server(server_key, server_certs)
 		[/gdscript]
 		[/codeblocks]
 	</description>

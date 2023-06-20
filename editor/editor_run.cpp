@@ -70,6 +70,7 @@ Error EditorRun::run(const String &p_scene, const String &p_write_movie) {
 	bool debug_collisions = EditorSettings::get_singleton()->get_project_metadata("debug_options", "run_debug_collisions", false);
 	bool debug_paths = EditorSettings::get_singleton()->get_project_metadata("debug_options", "run_debug_paths", false);
 	bool debug_navigation = EditorSettings::get_singleton()->get_project_metadata("debug_options", "run_debug_navigation", false);
+	bool debug_avoidance = EditorSettings::get_singleton()->get_project_metadata("debug_options", "run_debug_avoidance", false);
 	if (debug_collisions) {
 		args.push_back("--debug-collisions");
 	}
@@ -80,6 +81,10 @@ Error EditorRun::run(const String &p_scene, const String &p_write_movie) {
 
 	if (debug_navigation) {
 		args.push_back("--debug-navigation");
+	}
+
+	if (debug_avoidance) {
+		args.push_back("--debug-avoidance");
 	}
 
 	if (p_write_movie != "") {
@@ -261,11 +266,12 @@ Error EditorRun::run(const String &p_scene, const String &p_write_movie) {
 	VariantWriter::write_to_string(ED_GET_SHORTCUT("editor/stop_running_project"), shortcut);
 	OS::get_singleton()->set_environment("__GODOT_EDITOR_STOP_SHORTCUT__", shortcut);
 
-	printf("Running: %s", exec.utf8().get_data());
-	for (const String &E : args) {
-		printf(" %s", E.utf8().get_data());
-	};
-	printf("\n");
+	if (OS::get_singleton()->is_stdout_verbose()) {
+		print_line(vformat("Running: %s", exec));
+		for (const String &E : args) {
+			print_line(vformat(" %s", E));
+		}
+	}
 
 	int instances = EditorSettings::get_singleton()->get_project_metadata("debug_options", "run_debug_instances", 1);
 	for (int i = 0; i < instances; i++) {

@@ -34,7 +34,6 @@
 #include "core/object/worker_thread_pool.h"
 #include "core/os/os.h"
 #include "rendering_server_default.h"
-#include "rendering_server_globals.h"
 
 #include <new>
 
@@ -197,8 +196,8 @@ void RendererSceneCull::_instance_pair(Instance *p_A, Instance *p_B) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(A->base_data);
 
 		if (A->dynamic_gi) {
-			geom->lightmap_captures.insert(A);
-			lightmap_data->geometries.insert(B);
+			geom->lightmap_captures.insert(B);
+			lightmap_data->geometries.insert(A);
 
 			if (A->scenario && A->array_index >= 0) {
 				InstanceData &idata = A->scenario->instance_data[A->array_index];
@@ -653,6 +652,7 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 				geom->geometry_instance->set_use_baked_light(instance->baked_light);
 				geom->geometry_instance->set_use_dynamic_gi(instance->dynamic_gi);
 				geom->geometry_instance->set_use_lightmap(RID(), instance->lightmap_uv_scale, instance->lightmap_slice_index);
+				geom->geometry_instance->set_instance_shader_uniforms_offset(instance->instance_allocated_shader_uniforms_offset);
 				geom->geometry_instance->set_cast_double_sided_shadows(instance->cast_shadows == RS::SHADOW_CASTING_SETTING_DOUBLE_SIDED);
 				if (instance->lightmap_sh.size() == 9) {
 					geom->geometry_instance->set_lightmap_capture(instance->lightmap_sh.ptr());

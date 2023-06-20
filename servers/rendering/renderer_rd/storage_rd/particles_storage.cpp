@@ -47,6 +47,10 @@ ParticlesStorage::ParticlesStorage() {
 
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
 
+	/* Effects */
+
+	sort_effects = memnew(SortEffects);
+
 	/* Particles */
 
 	{
@@ -205,6 +209,11 @@ ParticlesStorage::~ParticlesStorage() {
 
 	material_storage->material_free(particles_shader.default_material);
 	material_storage->shader_free(particles_shader.default_shader);
+
+	if (sort_effects) {
+		memdelete(sort_effects);
+		sort_effects = nullptr;
+	}
 
 	singleton = nullptr;
 }
@@ -1193,7 +1202,7 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
 	}
 
 	copy_push_constant.order_by_lifetime = (particles->draw_order == RS::PARTICLES_DRAW_ORDER_LIFETIME || particles->draw_order == RS::PARTICLES_DRAW_ORDER_REVERSE_LIFETIME);
-	copy_push_constant.lifetime_split = MIN(particles->amount * particles->phase, particles->amount - 1);
+	copy_push_constant.lifetime_split = (MIN(int(particles->amount * particles->phase), particles->amount - 1) + 1) % particles->amount;
 	copy_push_constant.lifetime_reverse = particles->draw_order == RS::PARTICLES_DRAW_ORDER_REVERSE_LIFETIME;
 
 	copy_push_constant.frame_remainder = particles->interpolate ? particles->frame_remainder : 0.0;
@@ -1228,7 +1237,7 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
 		RD::get_singleton()->compute_list_dispatch_threads(compute_list, particles->amount, 1, 1);
 
 		RD::get_singleton()->compute_list_end();
-		RendererCompositorRD::get_singleton()->get_effects()->sort_buffer(particles->particles_sort_uniform_set, particles->amount);
+		sort_effects->sort_buffer(particles->particles_sort_uniform_set, particles->amount);
 	}
 
 	if (particles->trails_enabled && particles->trail_bind_poses.size() > 1) {
@@ -1511,7 +1520,7 @@ void ParticlesStorage::update_particles() {
 			}
 
 			copy_push_constant.order_by_lifetime = (particles->draw_order == RS::PARTICLES_DRAW_ORDER_LIFETIME || particles->draw_order == RS::PARTICLES_DRAW_ORDER_REVERSE_LIFETIME);
-			copy_push_constant.lifetime_split = MIN(particles->amount * particles->phase, particles->amount - 1);
+			copy_push_constant.lifetime_split = (MIN(int(particles->amount * particles->phase), particles->amount - 1) + 1) % particles->amount;
 			copy_push_constant.lifetime_reverse = particles->draw_order == RS::PARTICLES_DRAW_ORDER_REVERSE_LIFETIME;
 
 			RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();

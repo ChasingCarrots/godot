@@ -334,6 +334,9 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 			} else if (unlikely(get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_OVERDRAW)) {
 				material_uniform_set = scene_shader.overdraw_material_uniform_set;
 				shader = scene_shader.overdraw_material_shader_ptr;
+			} else if (unlikely(get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_PSSM_SPLITS)) {
+				material_uniform_set = scene_shader.debug_shadow_splits_material_uniform_set;
+				shader = scene_shader.debug_shadow_splits_material_shader_ptr;
 			} else {
 #endif
 				material_uniform_set = surf->material_uniform_set;
@@ -721,6 +724,14 @@ void RenderForwardClustered::_fill_instance_data(RenderListType p_render_list, i
 		if (inst->store_transform_cache) {
 			RendererRD::MaterialStorage::store_transform(inst->transform, instance_data.transform);
 			RendererRD::MaterialStorage::store_transform(inst->prev_transform, instance_data.prev_transform);
+
+#ifdef REAL_T_IS_DOUBLE
+			// Split the origin into two components, the float approximation and the missing precision
+			// In the shader we will combine these back together to restore the lost precision.
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.x, &instance_data.transform[12], &instance_data.transform[3]);
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.y, &instance_data.transform[13], &instance_data.transform[7]);
+			RendererRD::MaterialStorage::split_double(inst->transform.origin.z, &instance_data.transform[14], &instance_data.transform[11]);
+#endif
 		} else {
 			RendererRD::MaterialStorage::store_transform(Transform3D(), instance_data.transform);
 			RendererRD::MaterialStorage::store_transform(Transform3D(), instance_data.prev_transform);
@@ -734,14 +745,6 @@ void RenderForwardClustered::_fill_instance_data(RenderListType p_render_list, i
 		instance_data.lightmap_uv_scale[1] = inst->lightmap_uv_scale.position.y;
 		instance_data.lightmap_uv_scale[2] = inst->lightmap_uv_scale.size.x;
 		instance_data.lightmap_uv_scale[3] = inst->lightmap_uv_scale.size.y;
-
-#ifdef REAL_T_IS_DOUBLE
-		// Split the origin into two components, the float approximation and the missing precision
-		// In the shader we will combine these back together to restore the lost precision.
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.x, &instance_data.transform[12], &instance_data.transform[3]);
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.y, &instance_data.transform[13], &instance_data.transform[7]);
-		RendererRD::MaterialStorage::split_double(inst->transform.origin.z, &instance_data.transform[14], &instance_data.transform[11]);
-#endif
 
 		bool cant_repeat = instance_data.flags & INSTANCE_DATA_FLAG_MULTIMESH || inst->mesh_instance.is_valid();
 
@@ -981,9 +984,9 @@ void RenderForwardClustered::_fill_render_list(RenderListType p_render_list, con
 					to_draw = _indices_to_primitives(surf->primitive, to_draw);
 					to_draw *= inst->instance_count;
 					if (p_render_list == RENDER_LIST_OPAQUE) { //opaque
-						p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME] += mesh_storage->mesh_surface_get_vertices_drawn_count(surf->surface);
+						p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME] += to_draw;
 					} else if (p_render_list == RENDER_LIST_SECONDARY) { //shadow
-						p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_SHADOW][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME] += mesh_storage->mesh_surface_get_vertices_drawn_count(surf->surface);
+						p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_SHADOW][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME] += to_draw;
 					}
 				}
 			}
@@ -1696,6 +1699,8 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 					scene_state.used_normal_texture) {
 				depth_pass_mode = PASS_MODE_DEPTH_NORMAL_ROUGHNESS;
 			}
+		} else if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_NORMAL_BUFFER || scene_state.used_normal_texture) {
+			depth_pass_mode = PASS_MODE_DEPTH_NORMAL_ROUGHNESS;
 		}
 
 		switch (depth_pass_mode) {
@@ -1795,9 +1800,9 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 				correction.set_depth_correction(true);
 				Projection projection = correction * p_render_data->scene_data->cam_projection;
 
-				sky.setup_sky(p_render_data->environment, rb, *p_render_data->lights, p_render_data->camera_attributes, 1, &projection, &eye_offset, p_render_data->scene_data->cam_transform, screen_size, this);
+				sky.setup_sky(p_render_data->environment, rb, *p_render_data->lights, p_render_data->camera_attributes, 1, &projection, &eye_offset, p_render_data->scene_data->cam_transform, projection, screen_size, this);
 			} else {
-				sky.setup_sky(p_render_data->environment, rb, *p_render_data->lights, p_render_data->camera_attributes, p_render_data->scene_data->view_count, p_render_data->scene_data->view_projection, p_render_data->scene_data->view_eye_offset, p_render_data->scene_data->cam_transform, screen_size, this);
+				sky.setup_sky(p_render_data->environment, rb, *p_render_data->lights, p_render_data->camera_attributes, p_render_data->scene_data->view_count, p_render_data->scene_data->view_projection, p_render_data->scene_data->view_eye_offset, p_render_data->scene_data->cam_transform, p_render_data->scene_data->cam_projection, screen_size, this);
 			}
 
 			sky_energy_multiplier *= bg_energy_multiplier;
@@ -1972,22 +1977,25 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		RD::get_singleton()->draw_list_end();
 		RD::get_singleton()->draw_command_end_label();
 	}
+	if (rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
+		RENDER_TIMESTAMP("Resolve MSAA");
 
-	if (!can_continue_color && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
-		// Handle views individual, might want to look at rewriting our resolve to do both layers in one pass.
-		for (uint32_t v = 0; v < rb->get_view_count(); v++) {
-			RD::get_singleton()->texture_resolve_multisample(rb_data->get_color_msaa(v), rb->get_internal_texture(v));
-		}
-		if (using_separate_specular) {
+		if (!can_continue_color) {
+			// Handle views individual, might want to look at rewriting our resolve to do both layers in one pass.
 			for (uint32_t v = 0; v < rb->get_view_count(); v++) {
-				RD::get_singleton()->texture_resolve_multisample(rb_data->get_specular_msaa(v), rb_data->get_specular(v));
+				RD::get_singleton()->texture_resolve_multisample(rb_data->get_color_msaa(v), rb->get_internal_texture(v));
+			}
+			if (using_separate_specular) {
+				for (uint32_t v = 0; v < rb->get_view_count(); v++) {
+					RD::get_singleton()->texture_resolve_multisample(rb_data->get_specular_msaa(v), rb_data->get_specular(v));
+				}
 			}
 		}
-	}
 
-	if (!can_continue_depth && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
-		for (uint32_t v = 0; v < rb->get_view_count(); v++) {
-			resolve_effects->resolve_depth(rb_data->get_depth_msaa(v), rb->get_depth_texture(v), rb->get_internal_size(), texture_multisamples[rb->get_msaa_3d()]);
+		if (!can_continue_depth) {
+			for (uint32_t v = 0; v < rb->get_view_count(); v++) {
+				resolve_effects->resolve_depth(rb_data->get_depth_msaa(v), rb->get_depth_texture(v), rb->get_internal_size(), texture_multisamples[rb->get_msaa_3d()]);
+			}
 		}
 	}
 
@@ -2016,11 +2024,15 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	}
 
 	if (scene_state.used_screen_texture) {
+		RENDER_TIMESTAMP("Copy Screen Texture");
+
 		// Copy screen texture to backbuffer so we can read from it
 		_render_buffers_copy_screen_texture(p_render_data);
 	}
 
 	if (scene_state.used_depth_texture) {
+		RENDER_TIMESTAMP("Copy Depth Texture");
+
 		// Copy depth texture to backbuffer so we can read from it
 		_render_buffers_copy_depth_texture(p_render_data);
 	}
@@ -2139,6 +2151,7 @@ void RenderForwardClustered::_render_shadow_pass(RID p_light, RID p_shadow_atlas
 	uint32_t atlas_size = 1;
 	RID atlas_fb;
 
+	bool reverse_cull_face = light_storage->light_get_reverse_cull_face_mode(base);
 	bool using_dual_paraboloid = false;
 	bool using_dual_paraboloid_flip = false;
 	Vector2i dual_paraboloid_offset;
@@ -2282,7 +2295,7 @@ void RenderForwardClustered::_render_shadow_pass(RID p_light, RID p_shadow_atlas
 
 	if (render_cubemap) {
 		//rendering to cubemap
-		_render_shadow_append(render_fb, p_instances, light_projection, light_transform, zfar, 0, 0, false, false, use_pancake, p_camera_plane, p_lod_distance_multiplier, p_screen_mesh_lod_threshold, Rect2(), false, true, true, true, p_render_info);
+		_render_shadow_append(render_fb, p_instances, light_projection, light_transform, zfar, 0, 0, reverse_cull_face, false, false, use_pancake, p_camera_plane, p_lod_distance_multiplier, p_screen_mesh_lod_threshold, Rect2(), false, true, true, true, p_render_info);
 		if (finalize_cubemap) {
 			_render_shadow_process();
 			_render_shadow_end();
@@ -2300,7 +2313,7 @@ void RenderForwardClustered::_render_shadow_pass(RID p_light, RID p_shadow_atlas
 
 	} else {
 		//render shadow
-		_render_shadow_append(render_fb, p_instances, light_projection, light_transform, zfar, 0, 0, using_dual_paraboloid, using_dual_paraboloid_flip, use_pancake, p_camera_plane, p_lod_distance_multiplier, p_screen_mesh_lod_threshold, atlas_rect, flip_y, p_clear_region, p_open_pass, p_close_pass, p_render_info);
+		_render_shadow_append(render_fb, p_instances, light_projection, light_transform, zfar, 0, 0, reverse_cull_face, using_dual_paraboloid, using_dual_paraboloid_flip, use_pancake, p_camera_plane, p_lod_distance_multiplier, p_screen_mesh_lod_threshold, atlas_rect, flip_y, p_clear_region, p_open_pass, p_close_pass, p_render_info);
 	}
 }
 
@@ -2313,7 +2326,7 @@ void RenderForwardClustered::_render_shadow_begin() {
 	scene_state.instance_data[RENDER_LIST_SECONDARY].clear();
 }
 
-void RenderForwardClustered::_render_shadow_append(RID p_framebuffer, const PagedArray<RenderGeometryInstance *> &p_instances, const Projection &p_projection, const Transform3D &p_transform, float p_zfar, float p_bias, float p_normal_bias, bool p_use_dp, bool p_use_dp_flip, bool p_use_pancake, const Plane &p_camera_plane, float p_lod_distance_multiplier, float p_screen_mesh_lod_threshold, const Rect2i &p_rect, bool p_flip_y, bool p_clear_region, bool p_begin, bool p_end, RenderingMethod::RenderInfo *p_render_info) {
+void RenderForwardClustered::_render_shadow_append(RID p_framebuffer, const PagedArray<RenderGeometryInstance *> &p_instances, const Projection &p_projection, const Transform3D &p_transform, float p_zfar, float p_bias, float p_normal_bias, bool p_reverse_cull_face, bool p_use_dp, bool p_use_dp_flip, bool p_use_pancake, const Plane &p_camera_plane, float p_lod_distance_multiplier, float p_screen_mesh_lod_threshold, const Rect2i &p_rect, bool p_flip_y, bool p_clear_region, bool p_begin, bool p_end, RenderingMethod::RenderInfo *p_render_info) {
 	uint32_t shadow_pass_index = scene_state.shadow_passes.size();
 
 	SceneState::ShadowPass shadow_pass;
@@ -2357,6 +2370,10 @@ void RenderForwardClustered::_render_shadow_append(RID p_framebuffer, const Page
 		//regular forward for now
 		bool flip_cull = p_use_dp_flip;
 		if (p_flip_y) {
+			flip_cull = !flip_cull;
+		}
+
+		if (p_reverse_cull_face) {
 			flip_cull = !flip_cull;
 		}
 

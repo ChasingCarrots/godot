@@ -30,19 +30,23 @@
 
 #include "display_server_android.h"
 
-#include "core/config/project_settings.h"
 #include "java_godot_io_wrapper.h"
 #include "java_godot_wrapper.h"
 #include "os_android.h"
 #include "tts_android.h"
 
+#include "core/config/project_settings.h"
+
 #if defined(VULKAN_ENABLED)
+#include "vulkan_context_android.h"
+
 #include "drivers/vulkan/rendering_device_vulkan.h"
-#include "platform/android/vulkan/vulkan_context_android.h"
 #include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
 #endif
+
 #ifdef GLES3_ENABLED
 #include "drivers/gles3/rasterizer_gles3.h"
+
 #include <EGL/egl.h>
 #endif
 
@@ -449,6 +453,10 @@ void DisplayServerAndroid::window_move_to_foreground(DisplayServer::WindowID p_w
 	// Not supported on Android.
 }
 
+bool DisplayServerAndroid::window_is_focused(WindowID p_window) const {
+	return true;
+}
+
 bool DisplayServerAndroid::window_can_draw(DisplayServer::WindowID p_window) const {
 	return true;
 }
@@ -676,16 +684,19 @@ void DisplayServerAndroid::cursor_set_custom_image(const Ref<Resource> &p_cursor
 
 void DisplayServerAndroid::window_set_vsync_mode(DisplayServer::VSyncMode p_vsync_mode, WindowID p_window) {
 #if defined(VULKAN_ENABLED)
-	context_vulkan->set_vsync_mode(p_window, p_vsync_mode);
+	if (context_vulkan) {
+		context_vulkan->set_vsync_mode(p_window, p_vsync_mode);
+	}
 #endif
 }
 
 DisplayServer::VSyncMode DisplayServerAndroid::window_get_vsync_mode(WindowID p_window) const {
 #if defined(VULKAN_ENABLED)
-	return context_vulkan->get_vsync_mode(p_window);
-#else
-	return DisplayServer::VSYNC_ENABLED;
+	if (context_vulkan) {
+		return context_vulkan->get_vsync_mode(p_window);
+	}
 #endif
+	return DisplayServer::VSYNC_ENABLED;
 }
 
 void DisplayServerAndroid::reset_swap_buffers_flag() {

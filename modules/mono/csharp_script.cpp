@@ -30,7 +30,23 @@
 
 #include "csharp_script.h"
 
-#include <stdint.h>
+#include "godotsharp_dirs.h"
+#include "managed_callable.h"
+#include "mono_gd/gd_mono_cache.h"
+#include "signal_awaiter_utils.h"
+#include "utils/macros.h"
+#include "utils/naming_utils.h"
+#include "utils/path_utils.h"
+#include "utils/string_utils.h"
+
+#ifdef DEBUG_METHODS_ENABLED
+#include "class_db_api_json.h"
+#endif
+
+#ifdef TOOLS_ENABLED
+#include "editor/editor_internal_calls.h"
+#include "editor/script_templates/templates.gen.h"
+#endif
 
 #include "core/config/project_settings.h"
 #include "core/debugger/engine_debugger.h"
@@ -39,35 +55,24 @@
 #include "core/os/mutex.h"
 #include "core/os/os.h"
 #include "core/os/thread.h"
+#include "servers/text_server.h"
 
 #ifdef TOOLS_ENABLED
 #include "core/os/keyboard.h"
-#include "editor/bindings_generator.h"
-#include "editor/editor_internal_calls.h"
+#include "editor/editor_file_system.h"
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/inspector_dock.h"
 #include "editor/node_dock.h"
-#include "editor/script_templates/templates.gen.h"
 #endif
 
-#ifdef DEBUG_METHODS_ENABLED
-#include "class_db_api_json.h"
-#endif
-
-#ifdef USE_BREAKPAD
-#include "modules/breakpad/breakpad.h"
-#endif
-
-#include "godotsharp_dirs.h"
-#include "managed_callable.h"
-#include "mono_gd/gd_mono_cache.h"
-#include "signal_awaiter_utils.h"
-#include "utils/macros.h"
-#include "utils/naming_utils.h"
-#include "utils/string_utils.h"
+#include <stdint.h>
 
 #define CACHED_STRING_NAME(m_var) (CSharpLanguage::get_singleton()->get_string_names().m_var)
+
+// Types that will be skipped over (in favor of their base types) when setting up instance bindings.
+// This must be a superset of `ignored_types` in bindings_generator.cpp.
+const Vector<String> ignored_types = { "PhysicsServer2DExtension", "PhysicsServer3DExtension" };
 
 #ifdef TOOLS_ENABLED
 static bool _create_project_solution_if_needed() {
@@ -97,6 +102,12 @@ String CSharpLanguage::get_extension() const {
 }
 
 void CSharpLanguage::init() {
+#ifdef TOOLS_ENABLED
+	if (OS::get_singleton()->get_cmdline_args().find("--generate-mono-glue")) {
+		print_verbose(".NET: Skipping runtime initialization because glue generation is enabled.");
+		return;
+	}
+#endif
 #ifdef DEBUG_METHODS_ENABLED
 	if (OS::get_singleton()->get_cmdline_args().find("--class-db-json")) {
 		class_db_api_to_json("user://class_db_api.json", ClassDB::API_CORE);
@@ -104,17 +115,6 @@ void CSharpLanguage::init() {
 		class_db_api_to_json("user://class_db_api_editor.json", ClassDB::API_EDITOR);
 #endif
 	}
-#endif
-
-
-#ifdef USE_BREAKPAD
-	report_mono_loaded_to_breakpad();
-#endif
-#if defined(TOOLS_ENABLED) && defined(DEBUG_METHODS_ENABLED)
-	// Generate the bindings here, before loading assemblies. The Godot assemblies
-	// may be missing if the glue wasn't generated yet in order to build them.
-	List<String> cmdline_args = OS::get_singleton()->get_cmdline_args();
-	BindingsGenerator::handle_cmdline_args(cmdline_args);
 #endif
 
 	GLOBAL_DEF("dotnet/project/assembly_name", "");
@@ -349,8 +349,8 @@ bool CSharpLanguage::is_using_templates() {
 }
 
 Ref<Script> CSharpLanguage::make_template(const String &p_template, const String &p_class_name, const String &p_base_class_name) const {
-	Ref<CSharpScript> script;
-	script.instantiate();
+	Ref<CSharpScript> scr;
+	scr.instantiate();
 
 	String class_name_no_spaces = p_class_name.replace(" ", "_");
 	String base_class_name = get_base_class_name(p_base_class_name, class_name_no_spaces);
@@ -359,8 +359,8 @@ Ref<Script> CSharpLanguage::make_template(const String &p_template, const String
 								 .replace("_BASE_", base_class_name)
 								 .replace("_CLASS_", class_name_no_spaces)
 								 .replace("_TS_", _get_indentation());
-	script->set_source_code(processed_template);
-	return script;
+	scr->set_source_code(processed_template);
+	return scr;
 }
 
 Vector<ScriptLanguage::ScriptTemplate> CSharpLanguage::get_built_in_templates(StringName p_object) {
@@ -382,6 +382,10 @@ String CSharpLanguage::validate_path(const String &p_path) const {
 	if (keywords.find(class_name)) {
 		return RTR("Class name can't be a reserved keyword");
 	}
+	if (!TS->is_valid_identifier(class_name)) {
+		return RTR("Class name must be a valid identifier");
+	}
+
 	return "";
 }
 
@@ -533,16 +537,53 @@ String CSharpLanguage::_get_indentation() const {
 
 		if (use_space_indentation) {
 			int indent_size = EDITOR_GET("text_editor/behavior/indent/size");
-
-			String space_indent = "";
-			for (int i = 0; i < indent_size; i++) {
-				space_indent += " ";
-			}
-			return space_indent;
+			return String(" ").repeat(indent_size);
 		}
 	}
 #endif
 	return "\t";
+}
+
+bool CSharpLanguage::handles_global_class_type(const String &p_type) const {
+	return p_type == get_type();
+}
+
+String CSharpLanguage::get_global_class_name(const String &p_path, String *r_base_type, String *r_icon_path) const {
+	Ref<CSharpScript> scr = ResourceLoader::load(p_path, get_type());
+	if (!scr.is_valid() || !scr->valid || !scr->global_class) {
+		// Invalid script or the script is not a global class.
+		return String();
+	}
+
+	String name = scr->class_name;
+	if (unlikely(name.is_empty())) {
+		return String();
+	}
+
+	if (r_icon_path) {
+		if (scr->icon_path.is_empty() || scr->icon_path.is_absolute_path()) {
+			*r_icon_path = scr->icon_path.simplify_path();
+		} else if (scr->icon_path.is_relative_path()) {
+			*r_icon_path = p_path.get_base_dir().path_join(scr->icon_path).simplify_path();
+		}
+	}
+	if (r_base_type) {
+		bool found_global_base_script = false;
+		const CSharpScript *top = scr->base_script.ptr();
+		while (top != nullptr) {
+			if (top->global_class) {
+				*r_base_type = top->class_name;
+				found_global_base_script = true;
+				break;
+			}
+
+			top = top->base_script.ptr();
+		}
+		if (!found_global_base_script) {
+			*r_base_type = scr->get_instance_base_type();
+		}
+	}
+	return name;
 }
 
 String CSharpLanguage::debug_get_error() const {
@@ -597,7 +638,7 @@ Vector<ScriptLanguage::StackInfo> CSharpLanguage::debug_get_current_stack_info()
 		_recursion_flag_ = false;
 	};
 
-	if (!gdmono->is_runtime_initialized()) {
+	if (!gdmono || !gdmono->is_runtime_initialized()) {
 		return Vector<StackInfo>();
 	}
 
@@ -687,6 +728,7 @@ void CSharpLanguage::reload_tool_script(const Ref<Script> &p_script, bool p_soft
 
 #ifdef GD_MONO_HOT_RELOAD
 bool CSharpLanguage::is_assembly_reloading_needed() {
+	ERR_FAIL_NULL_V(gdmono, false);
 	if (!gdmono->is_runtime_initialized()) {
 		return false;
 	}
@@ -702,11 +744,7 @@ bool CSharpLanguage::is_assembly_reloading_needed() {
 			return false; // Already up to date
 		}
 	} else {
-		String assembly_name = GLOBAL_GET("dotnet/project/assembly_name");
-
-		if (assembly_name.is_empty()) {
-			assembly_name = ProjectSettings::get_singleton()->get_safe_project_name();
-		}
+		String assembly_name = path::get_csharp_project_name();
 
 		assembly_path = GodotSharpDirs::get_res_temp_assemblies_dir()
 								.path_join(assembly_name + ".dll");
@@ -721,6 +759,7 @@ bool CSharpLanguage::is_assembly_reloading_needed() {
 }
 
 void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
+	ERR_FAIL_NULL(gdmono);
 	if (!gdmono->is_runtime_initialized()) {
 		return;
 	}
@@ -789,28 +828,28 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 
 	// As scripts are going to be reloaded, must proceed without locking here
 
-	for (Ref<CSharpScript> &script : scripts) {
+	for (Ref<CSharpScript> &scr : scripts) {
 		// If someone removes a script from a node, deletes the script, builds, adds a script to the
 		// same node, then builds again, the script might have no path and also no script_class. In
 		// that case, we can't (and don't need to) reload it.
-		if (script->get_path().is_empty() && !script->valid) {
+		if (scr->get_path().is_empty() && !scr->valid) {
 			continue;
 		}
 
-		to_reload.push_back(script);
+		to_reload.push_back(scr);
 
 		// Script::instances are deleted during managed object disposal, which happens on domain finalize.
 		// Only placeholders are kept. Therefore we need to keep a copy before that happens.
 
-		for (Object *obj : script->instances) {
-			script->pending_reload_instances.insert(obj->get_instance_id());
+		for (Object *obj : scr->instances) {
+			scr->pending_reload_instances.insert(obj->get_instance_id());
 
 			// Since this script instance wasn't a placeholder, add it to the list of placeholders
 			// that will have to be eventually replaced with a script instance in case it turns into one.
 			// This list is not cleared after the reload and the collected instances only leave
 			// the list if the script is instantiated or if it was a tool script but becomes a
 			// non-tool script in a rebuild.
-			script->pending_replace_placeholders.insert(obj->get_instance_id());
+			scr->pending_replace_placeholders.insert(obj->get_instance_id());
 
 			RefCounted *rc = Object::cast_to<RefCounted>(obj);
 			if (rc) {
@@ -819,9 +858,9 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 		}
 
 #ifdef TOOLS_ENABLED
-		for (PlaceHolderScriptInstance *script_instance : script->placeholders) {
-			Object *obj = script_instance->get_owner();
-			script->pending_reload_instances.insert(obj->get_instance_id());
+		for (PlaceHolderScriptInstance *instance : scr->placeholders) {
+			Object *obj = instance->get_owner();
+			scr->pending_reload_instances.insert(obj->get_instance_id());
 
 			RefCounted *rc = Object::cast_to<RefCounted>(obj);
 			if (rc) {
@@ -831,9 +870,9 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 #endif
 
 		// Save state and remove script from instances
-		RBMap<ObjectID, CSharpScript::StateBackup> &owners_map = script->pending_reload_state;
+		RBMap<ObjectID, CSharpScript::StateBackup> &owners_map = scr->pending_reload_state;
 
-		for (Object *obj : script->instances) {
+		for (Object *obj : scr->instances) {
 			ERR_CONTINUE(!obj->get_script_instance());
 
 			CSharpInstance *csi = static_cast<CSharpInstance *>(obj->get_script_instance());
@@ -858,14 +897,14 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 	}
 
 	// After the state of all instances is saved, clear scripts and script instances
-	for (Ref<CSharpScript> &script : scripts) {
-		while (script->instances.begin()) {
-			Object *obj = *script->instances.begin();
+	for (Ref<CSharpScript> &scr : scripts) {
+		while (scr->instances.begin()) {
+			Object *obj = *scr->instances.begin();
 			obj->set_script(Ref<RefCounted>()); // Remove script and existing script instances (placeholder are not removed before domain reload)
 		}
 
-		script->was_tool_before_reload = script->tool;
-		script->_clear();
+		scr->was_tool_before_reload = scr->tool;
+		scr->_clear();
 	}
 
 	// Do domain reload
@@ -910,44 +949,44 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 
 	List<Ref<CSharpScript>> to_reload_state;
 
-	for (Ref<CSharpScript> &script : to_reload) {
+	for (Ref<CSharpScript> &scr : to_reload) {
 #ifdef TOOLS_ENABLED
-		script->exports_invalidated = true;
+		scr->exports_invalidated = true;
 #endif
 
-		if (!script->get_path().is_empty()) {
-			script->reload(p_soft_reload);
+		if (!scr->get_path().is_empty()) {
+			scr->reload(p_soft_reload);
 
-			if (!script->valid) {
-				script->pending_reload_instances.clear();
-				script->pending_reload_state.clear();
+			if (!scr->valid) {
+				scr->pending_reload_instances.clear();
+				scr->pending_reload_state.clear();
 				continue;
 			}
 		} else {
-			bool success = GDMonoCache::managed_callbacks.ScriptManagerBridge_TryReloadRegisteredScriptWithClass(script.ptr());
+			bool success = GDMonoCache::managed_callbacks.ScriptManagerBridge_TryReloadRegisteredScriptWithClass(scr.ptr());
 
 			if (!success) {
 				// Couldn't reload
-				script->pending_reload_instances.clear();
-				script->pending_reload_state.clear();
+				scr->pending_reload_instances.clear();
+				scr->pending_reload_state.clear();
 				continue;
 			}
 		}
 
-		StringName native_name = script->get_instance_base_type();
+		StringName native_name = scr->get_instance_base_type();
 
 		{
-			for (const ObjectID &obj_id : script->pending_reload_instances) {
+			for (const ObjectID &obj_id : scr->pending_reload_instances) {
 				Object *obj = ObjectDB::get_instance(obj_id);
 
 				if (!obj) {
-					script->pending_reload_state.erase(obj_id);
+					scr->pending_reload_state.erase(obj_id);
 					continue;
 				}
 
 				if (!ClassDB::is_parent_class(obj->get_class_name(), native_name)) {
 					// No longer inherits the same compatible type, can't reload
-					script->pending_reload_state.erase(obj_id);
+					scr->pending_reload_state.erase(obj_id);
 					continue;
 				}
 
@@ -955,11 +994,11 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 
 				// Check if the script must be instantiated or kept as a placeholder
 				// when the script may not be a tool (see #65266)
-				bool replace_placeholder = script->pending_replace_placeholders.has(obj->get_instance_id());
-				if (!script->is_tool() && script->was_tool_before_reload) {
+				bool replace_placeholder = scr->pending_replace_placeholders.has(obj->get_instance_id());
+				if (!scr->is_tool() && scr->was_tool_before_reload) {
 					// The script was a tool before the rebuild so the removal was intentional.
 					replace_placeholder = false;
-					script->pending_replace_placeholders.erase(obj->get_instance_id());
+					scr->pending_replace_placeholders.erase(obj->get_instance_id());
 				}
 
 #ifdef TOOLS_ENABLED
@@ -968,20 +1007,20 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 					// Non-placeholder script instances are removed in godot_icall_Object_Disposed.
 					CRASH_COND(!si->is_placeholder());
 
-					if (replace_placeholder || script->is_tool() || ScriptServer::is_scripting_enabled()) {
+					if (replace_placeholder || scr->is_tool() || ScriptServer::is_scripting_enabled()) {
 						// Replace placeholder with a script instance.
 
-						CSharpScript::StateBackup &state_backup = script->pending_reload_state[obj_id];
+						CSharpScript::StateBackup &state_backup = scr->pending_reload_state[obj_id];
 
 						// Backup placeholder script instance state before replacing it with a script instance.
 						si->get_property_state(state_backup.properties);
 
-						ScriptInstance *script_instance = script->instance_create(obj);
+						ScriptInstance *instance = scr->instance_create(obj);
 
-						if (script_instance) {
-							script->placeholders.erase(static_cast<PlaceHolderScriptInstance *>(si));
-							script->pending_replace_placeholders.erase(obj->get_instance_id());
-							obj->set_script_instance(script_instance);
+						if (instance) {
+							scr->placeholders.erase(static_cast<PlaceHolderScriptInstance *>(si));
+							scr->pending_replace_placeholders.erase(obj->get_instance_id());
+							obj->set_script_instance(instance);
 						}
 					}
 
@@ -992,18 +1031,18 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 #endif
 
 				// Re-create the script instance.
-				if (replace_placeholder || script->is_tool() || ScriptServer::is_scripting_enabled()) {
+				if (replace_placeholder || scr->is_tool() || ScriptServer::is_scripting_enabled()) {
 					// Create script instance or replace placeholder with a script instance.
-					ScriptInstance *script_instance = script->instance_create(obj);
+					ScriptInstance *instance = scr->instance_create(obj);
 
-					if (script_instance) {
-						script->pending_replace_placeholders.erase(obj->get_instance_id());
-						obj->set_script_instance(script_instance);
+					if (instance) {
+						scr->pending_replace_placeholders.erase(obj->get_instance_id());
+						obj->set_script_instance(instance);
 						continue;
 					}
 				}
 				// The script instance could not be instantiated or wasn't in the list of placeholders to replace.
-				obj->set_script(script);
+				obj->set_script(scr);
 #if DEBUG_ENABLED
 				// If we reached here, the instantiated script must be a placeholder.
 				CRASH_COND(!obj->get_script_instance()->is_placeholder());
@@ -1011,21 +1050,21 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 			}
 		}
 
-		to_reload_state.push_back(script);
+		to_reload_state.push_back(scr);
 	}
 
-	for (Ref<CSharpScript> &script : to_reload_state) {
-		for (const ObjectID &obj_id : script->pending_reload_instances) {
+	for (Ref<CSharpScript> &scr : to_reload_state) {
+		for (const ObjectID &obj_id : scr->pending_reload_instances) {
 			Object *obj = ObjectDB::get_instance(obj_id);
 
 			if (!obj) {
-				script->pending_reload_state.erase(obj_id);
+				scr->pending_reload_state.erase(obj_id);
 				continue;
 			}
 
 			ERR_CONTINUE(!obj->get_script_instance());
 
-			CSharpScript::StateBackup &state_backup = script->pending_reload_state[obj_id];
+			CSharpScript::StateBackup &state_backup = scr->pending_reload_state[obj_id];
 
 			CSharpInstance *csi = CAST_CSHARP_INSTANCE(obj->get_script_instance());
 
@@ -1042,8 +1081,8 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 			}
 		}
 
-		script->pending_reload_instances.clear();
-		script->pending_reload_state.clear();
+		scr->pending_reload_instances.clear();
+		scr->pending_reload_state.clear();
 	}
 
 	// Deserialize managed callables
@@ -1210,11 +1249,16 @@ bool CSharpLanguage::setup_csharp_script_binding(CSharpScriptBinding &r_script_b
 
 	StringName type_name = p_object->get_class_name();
 
-	// ¯\_(ツ)_/¯
 	const ClassDB::ClassInfo *classinfo = ClassDB::classes.getptr(type_name);
-	while (classinfo && !classinfo->exposed) {
+
+	// This skipping of GDExtension classes, as well as whatever classes are in this list of ignored types, is a
+	// workaround to allow GDExtension classes to be used from C# so long as they're only used through base classes that
+	// are registered from the engine. This will likely need to be removed whenever proper support for GDExtension
+	// classes is added to C#. See #75955 for more details.
+	while (classinfo && (!classinfo->exposed || classinfo->gdextension || ignored_types.has(classinfo->name))) {
 		classinfo = classinfo->inherits_ptr;
 	}
+
 	ERR_FAIL_NULL_V(classinfo, false);
 	type_name = classinfo->name;
 
@@ -1541,7 +1585,10 @@ CSharpInstance *CSharpInstance::create_for_managed_type(Object *p_owner, CSharpS
 		instance->_reference_owner_unsafe();
 	}
 
-	p_script->instances.insert(p_owner);
+	{
+		MutexLock lock(CSharpLanguage::get_singleton()->get_script_instances_mutex());
+		p_script->instances.insert(p_owner);
+	}
 
 	return instance;
 }
@@ -2153,8 +2200,8 @@ bool CSharpScript::_update_exports(PlaceHolderScriptInstance *p_instance_to_upda
 			_update_exports_values(values, propnames);
 
 			if (changed) {
-				for (PlaceHolderScriptInstance *script_instance : placeholders) {
-					script_instance->update(propnames, values);
+				for (PlaceHolderScriptInstance *instance : placeholders) {
+					instance->update(propnames, values);
 				}
 			} else {
 				p_instance_to_update->update(propnames, values);
@@ -2211,11 +2258,21 @@ void CSharpScript::reload_registered_script(Ref<CSharpScript> p_script) {
 	update_script_class_info(p_script);
 
 	p_script->_update_exports();
+
+#if TOOLS_ENABLED
+	// If the EditorFileSystem singleton is available, update the file;
+	// otherwise, the file will be updated when the singleton becomes available.
+	EditorFileSystem *efs = EditorFileSystem::get_singleton();
+	if (efs) {
+		efs->update_file(p_script->get_path());
+	}
+#endif
 }
 
 // Extract information about the script using the mono class.
 void CSharpScript::update_script_class_info(Ref<CSharpScript> p_script) {
 	bool tool = false;
+	bool global_class = false;
 
 	// TODO: Use GDExtension godot_dictionary
 	Array methods_array;
@@ -2225,11 +2282,17 @@ void CSharpScript::update_script_class_info(Ref<CSharpScript> p_script) {
 	Dictionary signals_dict;
 	signals_dict.~Dictionary();
 
+	String class_name;
+	String icon_path;
 	Ref<CSharpScript> base_script;
 	GDMonoCache::managed_callbacks.ScriptManagerBridge_UpdateScriptClassInfo(
-			p_script.ptr(), &tool, &methods_array, &rpc_functions_dict, &signals_dict, &base_script);
+			p_script.ptr(), &class_name, &tool, &global_class, &icon_path,
+			&methods_array, &rpc_functions_dict, &signals_dict, &base_script);
 
+	p_script->class_name = class_name;
 	p_script->tool = tool;
+	p_script->global_class = global_class;
+	p_script->icon_path = icon_path;
 
 	p_script->rpc_config.clear();
 	p_script->rpc_config = rpc_functions_dict;
@@ -2257,6 +2320,9 @@ void CSharpScript::update_script_class_info(Ref<CSharpScript> p_script) {
 			Variant::Type param_type = (Variant::Type)(int)param["type"];
 			PropertyInfo arg_info = PropertyInfo(param_type, (String)param["name"]);
 			arg_info.usage = (uint32_t)param["usage"];
+			if (param.has("class_name")) {
+				arg_info.class_name = (StringName)param["class_name"];
+			}
 			mi.arguments.push_back(arg_info);
 		}
 
@@ -2287,6 +2353,9 @@ void CSharpScript::update_script_class_info(Ref<CSharpScript> p_script) {
 			Variant::Type param_type = (Variant::Type)(int)param["type"];
 			PropertyInfo arg_info = PropertyInfo(param_type, (String)param["name"]);
 			arg_info.usage = (uint32_t)param["usage"];
+			if (param.has("class_name")) {
+				arg_info.class_name = (StringName)param["class_name"];
+			}
 			mi.arguments.push_back(arg_info);
 		}
 
@@ -2527,6 +2596,15 @@ Error CSharpScript::reload(bool p_keep_state) {
 		update_script_class_info(this);
 
 		_update_exports();
+
+#if TOOLS_ENABLED
+		// If the EditorFileSystem singleton is available, update the file;
+		// otherwise, the file will be updated when the singleton becomes available.
+		EditorFileSystem *efs = EditorFileSystem::get_singleton();
+		if (efs) {
+			efs->update_file(script_path);
+		}
+#endif
 	}
 
 	return OK;
@@ -2613,11 +2691,11 @@ bool CSharpScript::inherits_script(const Ref<Script> &p_script) const {
 }
 
 Ref<Script> CSharpScript::get_base_script() const {
-	return base_script;
+	return base_script.is_valid() && !base_script->get_path().is_empty() ? base_script : nullptr;
 }
 
 StringName CSharpScript::get_global_name() const {
-	return StringName();
+	return global_class ? StringName(class_name) : StringName();
 }
 
 void CSharpScript::get_script_property_list(List<PropertyInfo> *r_list) const {
@@ -2720,28 +2798,28 @@ Ref<Resource> ResourceFormatLoaderCSharpScript::load(const String &p_path, const
 
 	// TODO ignore anything inside bin/ and obj/ in tools builds?
 
-	Ref<CSharpScript> script;
+	Ref<CSharpScript> scr;
 
 	if (GDMonoCache::godot_api_cache_updated) {
-		GDMonoCache::managed_callbacks.ScriptManagerBridge_GetOrCreateScriptBridgeForPath(&p_path, &script);
+		GDMonoCache::managed_callbacks.ScriptManagerBridge_GetOrCreateScriptBridgeForPath(&p_path, &scr);
 	} else {
-		script = Ref<CSharpScript>(memnew(CSharpScript));
+		scr = Ref<CSharpScript>(memnew(CSharpScript));
 	}
 
 #if defined(DEBUG_ENABLED) || defined(TOOLS_ENABLED)
-	Error err = script->load_source_code(p_path);
+	Error err = scr->load_source_code(p_path);
 	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Cannot load C# script file '" + p_path + "'.");
 #endif
 
-	script->set_path(p_original_path);
+	scr->set_path(p_original_path);
 
-	script->reload();
+	scr->reload();
 
 	if (r_error) {
 		*r_error = OK;
 	}
 
-	return script;
+	return scr;
 }
 
 void ResourceFormatLoaderCSharpScript::get_recognized_extensions(List<String> *p_extensions) const {

@@ -178,6 +178,7 @@ void OpenXRActionMap::create_default_action_sets() {
 	Ref<OpenXRAction> grip = action_set->add_new_action("grip", "Grip", OpenXRAction::OPENXR_ACTION_FLOAT, "/user/hand/left,/user/hand/right");
 	Ref<OpenXRAction> grip_click = action_set->add_new_action("grip_click", "Grip click", OpenXRAction::OPENXR_ACTION_BOOL, "/user/hand/left,/user/hand/right");
 	Ref<OpenXRAction> grip_touch = action_set->add_new_action("grip_touch", "Grip touching", OpenXRAction::OPENXR_ACTION_BOOL, "/user/hand/left,/user/hand/right");
+	Ref<OpenXRAction> grip_force = action_set->add_new_action("grip_force", "Grip force", OpenXRAction::OPENXR_ACTION_FLOAT, "/user/hand/left,/user/hand/right");
 	Ref<OpenXRAction> primary = action_set->add_new_action("primary", "Primary joystick/thumbstick/trackpad", OpenXRAction::OPENXR_ACTION_VECTOR2, "/user/hand/left,/user/hand/right");
 	Ref<OpenXRAction> primary_click = action_set->add_new_action("primary_click", "Primary joystick/thumbstick/trackpad click", OpenXRAction::OPENXR_ACTION_BOOL, "/user/hand/left,/user/hand/right");
 	Ref<OpenXRAction> primary_touch = action_set->add_new_action("primary_touch", "Primary joystick/thumbstick/trackpad touching", OpenXRAction::OPENXR_ACTION_BOOL, "/user/hand/left,/user/hand/right");
@@ -349,6 +350,7 @@ void OpenXRActionMap::create_default_action_sets() {
 	profile->add_new_binding(trigger_touch, "/user/hand/left/input/trigger/touch,/user/hand/right/input/trigger/touch");
 	profile->add_new_binding(grip, "/user/hand/left/input/squeeze/value,/user/hand/right/input/squeeze/value");
 	profile->add_new_binding(grip_click, "/user/hand/left/input/squeeze/value,/user/hand/right/input/squeeze/value"); // this should do a float to bool conversion
+	profile->add_new_binding(grip_force, "/user/hand/left/input/squeeze/force,/user/hand/right/input/squeeze/force"); // grip force seems to be unique to the Valve Index
 	// primary on our index controller is our thumbstick
 	profile->add_new_binding(primary, "/user/hand/left/input/thumbstick,/user/hand/right/input/thumbstick");
 	profile->add_new_binding(primary_click, "/user/hand/left/input/thumbstick/click,/user/hand/right/input/thumbstick/click");
@@ -413,7 +415,7 @@ void OpenXRActionMap::create_default_action_sets() {
 	profile->add_new_binding(grip_pose, "/user/hand/left/input/grip/pose,/user/hand/right/input/grip/pose");
 	profile->add_new_binding(palm_pose, "/user/hand/left/input/palm_ext/pose,/user/hand/right/input/palm_ext/pose");
 	profile->add_new_binding(menu_button, "/user/hand/left/input/menu/click");
-	profile->add_new_binding(select_button, "/user/hand/left/input/system/click"); // we'll map system to select
+	profile->add_new_binding(select_button, "/user/hand/right/input/system/click"); // we'll map system to select
 	profile->add_new_binding(ax_button, "/user/hand/left/input/x/click,/user/hand/right/input/a/click"); // x on left hand, a on right hand
 	profile->add_new_binding(by_button, "/user/hand/left/input/y/click,/user/hand/right/input/b/click"); // y on left hand, b on right hand
 	profile->add_new_binding(trigger, "/user/hand/left/input/trigger/value,/user/hand/right/input/trigger/value");
@@ -437,7 +439,7 @@ void OpenXRActionMap::create_default_action_sets() {
 	profile->add_new_binding(grip_pose, "/user/hand/left/input/grip/pose,/user/hand/right/input/grip/pose");
 	profile->add_new_binding(palm_pose, "/user/hand/left/input/palm_ext/pose,/user/hand/right/input/palm_ext/pose");
 	profile->add_new_binding(menu_button, "/user/hand/left/input/menu/click");
-	profile->add_new_binding(select_button, "/user/hand/left/input/system/click"); // we'll map system to select
+	profile->add_new_binding(select_button, "/user/hand/right/input/system/click"); // we'll map system to select
 	profile->add_new_binding(ax_button, "/user/hand/left/input/x/click,/user/hand/right/input/a/click"); // x on left hand, a on right hand
 	profile->add_new_binding(by_button, "/user/hand/left/input/y/click,/user/hand/right/input/b/click"); // y on left hand, b on right hand
 	profile->add_new_binding(trigger, "/user/hand/left/input/trigger/value,/user/hand/right/input/trigger/value");

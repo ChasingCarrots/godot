@@ -39,7 +39,10 @@
 #include "editor/plugins/canvas_item_editor_plugin.h"
 #include "scene/2d/skeleton_2d.h"
 #include "scene/gui/check_box.h"
+#include "scene/gui/dialogs.h"
+#include "scene/gui/label.h"
 #include "scene/gui/menu_button.h"
+#include "scene/gui/panel.h"
 #include "scene/gui/scroll_container.h"
 #include "scene/gui/separator.h"
 #include "scene/gui/slider.h"
@@ -294,6 +297,8 @@ void Polygon2DEditor::_menu_option(int p_option) {
 				error->popup_centered();
 				return;
 			}
+
+			uv_edit_draw->set_texture_filter(node->get_texture_filter_in_tree());
 
 			Vector<Vector2> points = node->get_polygon();
 			Vector<Vector2> uvs = node->get_uv();
@@ -1232,7 +1237,8 @@ Vector2 Polygon2DEditor::snap_point(Vector2 p_target) const {
 
 Polygon2DEditor::Polygon2DEditor() {
 	snap_offset = EditorSettings::get_singleton()->get_project_metadata("polygon_2d_uv_editor", "snap_offset", Vector2());
-	snap_step = EditorSettings::get_singleton()->get_project_metadata("polygon_2d_uv_editor", "snap_step", Vector2(10, 10));
+	// A power-of-two value works better as a default grid size.
+	snap_step = EditorSettings::get_singleton()->get_project_metadata("polygon_2d_uv_editor", "snap_step", Vector2(8, 8));
 	use_snap = EditorSettings::get_singleton()->get_project_metadata("polygon_2d_uv_editor", "snap_enabled", false);
 	snap_show_grid = EditorSettings::get_singleton()->get_project_metadata("polygon_2d_uv_editor", "show_grid", false);
 
