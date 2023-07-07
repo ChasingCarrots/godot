@@ -59,7 +59,7 @@ void AudioStreamPlayer::_notification(int p_what) {
 			if (!playbacks_to_remove.is_empty() && stream_playbacks.is_empty()) {
 				// This node is no longer actively playing audio.
 				active.clear();
-				set_process_internal(false);
+				call_deferred("set_process_internal", false);
 			}
 			if (!playbacks_to_remove.is_empty()) {
 				emit_signal(SNAME("finished"));
@@ -150,7 +150,7 @@ void AudioStreamPlayer::play(float p_from_pos) {
 	AudioServer::get_singleton()->start_playback_stream(stream_playback, bus, _get_volume_vector(), p_from_pos, pitch_scale);
 	stream_playbacks.push_back(stream_playback);
 	active.set();
-	set_process_internal(true);
+	call_deferred("set_process_internal", true);
 	while (stream_playbacks.size() > max_polyphony) {
 		AudioServer::get_singleton()->stop_playback_stream(stream_playbacks[0]);
 		stream_playbacks.remove_at(0);
@@ -170,7 +170,7 @@ void AudioStreamPlayer::stop() {
 	}
 	stream_playbacks.clear();
 	active.clear();
-	set_process_internal(false);
+	call_deferred("set_process_internal", false);
 }
 
 bool AudioStreamPlayer::is_playing() const {

@@ -97,7 +97,7 @@ void AudioStreamPlayer2D::_notification(int p_what) {
 				if (!playbacks_to_remove.is_empty() && stream_playbacks.is_empty()) {
 					// This node is no longer actively playing audio.
 					active.clear();
-					set_physics_process_internal(false);
+					call_deferred("set_physics_process_internal", false);
 				}
 				if (!playbacks_to_remove.is_empty()) {
 					emit_signal(SNAME("finished"));
@@ -270,7 +270,7 @@ void AudioStreamPlayer2D::play(float p_from_pos) {
 	setplayback = stream_playback;
 	setplay.set(p_from_pos);
 	active.set();
-	set_physics_process_internal(true);
+	call_deferred("set_physics_process_internal", true);
 }
 
 void AudioStreamPlayer2D::seek(float p_seconds) {
@@ -287,7 +287,7 @@ void AudioStreamPlayer2D::stop() {
 	}
 	stream_playbacks.clear();
 	active.clear();
-	set_physics_process_internal(false);
+	call_deferred("set_physics_process_internal", false);
 }
 
 bool AudioStreamPlayer2D::is_playing() const {
