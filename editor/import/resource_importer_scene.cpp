@@ -313,8 +313,9 @@ String ResourceImporterScene::get_preset_name(int p_idx) const {
 static bool _teststr(const String &p_what, const String &p_str) {
 	String what = p_what;
 
-	//remove trailing spaces and numbers, some apps like blender add ".number" to duplicates so also compensate for this
-	while (what.length() && (is_digit(what[what.length() - 1]) || what[what.length() - 1] <= 32 || what[what.length() - 1] == '.')) {
+	// Remove trailing spaces and numbers, some apps like blender add ".number" to duplicates
+	// (dot is replaced with _ as invalid character) so also compensate for this.
+	while (what.length() && (is_digit(what[what.length() - 1]) || what[what.length() - 1] <= 32 || what[what.length() - 1] == '_')) {
 		what = what.substr(0, what.length() - 1);
 	}
 
@@ -333,8 +334,9 @@ static bool _teststr(const String &p_what, const String &p_str) {
 static String _fixstr(const String &p_what, const String &p_str) {
 	String what = p_what;
 
-	//remove trailing spaces and numbers, some apps like blender add ".number" to duplicates so also compensate for this
-	while (what.length() && (is_digit(what[what.length() - 1]) || what[what.length() - 1] <= 32 || what[what.length() - 1] == '.')) {
+	// Remove trailing spaces and numbers, some apps like blender add ".number" to duplicates
+	// (dot is replaced with _ as invalid character) so also compensate for this.
+	while (what.length() && (is_digit(what[what.length() - 1]) || what[what.length() - 1] <= 32 || what[what.length() - 1] == '_')) {
 		what = what.substr(0, what.length() - 1);
 	}
 
@@ -995,7 +997,7 @@ Node *ResourceImporterScene::_pre_fix_animations(Node *p_node, Node *p_root, con
 			AnimationImportTracks(int(node_settings["import_tracks/scale"]))
 		};
 
-		if (anims.size() > 1 && (import_tracks_mode[0] != ANIMATION_IMPORT_TRACKS_IF_PRESENT || import_tracks_mode[1] != ANIMATION_IMPORT_TRACKS_IF_PRESENT || import_tracks_mode[2] != ANIMATION_IMPORT_TRACKS_IF_PRESENT)) {
+		if (!anims.is_empty() && (import_tracks_mode[0] != ANIMATION_IMPORT_TRACKS_IF_PRESENT || import_tracks_mode[1] != ANIMATION_IMPORT_TRACKS_IF_PRESENT || import_tracks_mode[2] != ANIMATION_IMPORT_TRACKS_IF_PRESENT)) {
 			_optimize_track_usage(ap, import_tracks_mode);
 		}
 	}

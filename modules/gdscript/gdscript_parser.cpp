@@ -1536,6 +1536,11 @@ GDScriptParser::SuiteNode *GDScriptParser::parse_suite(const String &p_context, 
 	suite->parent_function = current_function;
 	current_suite = suite;
 
+	if (!p_for_lambda && suite->parent_block != nullptr && suite->parent_block->is_in_loop) {
+		// Do not reset to false if true is set before calling parse_suite().
+		suite->is_in_loop = true;
+	}
+
 	bool multiline = false;
 
 	if (match(GDScriptTokenizer::Token::NEWLINE)) {
@@ -1871,9 +1876,8 @@ GDScriptParser::ForNode *GDScriptParser::parse_for() {
 		}
 		suite->add_local(SuiteNode::Local(n_for->variable, current_function));
 	}
-
+	suite->is_in_loop = true;
 	n_for->loop = parse_suite(R"("for" block)", suite);
-	n_for->loop->is_loop = true;
 	complete_extents(n_for);
 
 	// Reset break/continue state.
@@ -2186,8 +2190,9 @@ GDScriptParser::WhileNode *GDScriptParser::parse_while() {
 	can_break = true;
 	can_continue = true;
 
-	n_while->loop = parse_suite(R"("while" block)");
-	n_while->loop->is_loop = true;
+	SuiteNode *suite = alloc_node<SuiteNode>();
+	suite->is_in_loop = true;
+	n_while->loop = parse_suite(R"("while" block)", suite);
 	complete_extents(n_while);
 
 	// Reset break/continue state.
@@ -2231,7 +2236,7 @@ GDScriptParser::ExpressionNode *GDScriptParser::parse_precedence(Precedence p_pr
 	ExpressionNode *previous_operand = (this->*prefix_rule)(nullptr, p_can_assign);
 
 	while (p_precedence <= get_rule(current.type)->precedence) {
-		if (previous_operand == nullptr || (p_stop_on_assign && current.type == GDScriptTokenizer::Token::EQUAL) || (previous_operand->type == Node::LAMBDA && lambda_ended)) {
+		if (previous_operand == nullptr || (p_stop_on_assign && current.type == GDScriptTokenizer::Token::EQUAL) || lambda_ended) {
 			return previous_operand;
 		}
 		// Also switch multiline mode on here for infix operators.

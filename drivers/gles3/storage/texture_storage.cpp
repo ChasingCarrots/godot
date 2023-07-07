@@ -644,7 +644,7 @@ Ref<Image> TextureStorage::_get_gl_image_and_format(const Ref<Image> &p_image, I
 			}
 		} break;
 		default: {
-			ERR_FAIL_V_MSG(Ref<Image>(), "Image Format: " + itos(p_format) + " is not supported by the OpenGL3 Renderer");
+			ERR_FAIL_V_MSG(Ref<Image>(), "The image format " + itos(p_format) + " is not supported by the GL Compatibility rendering backend.");
 		}
 	}
 
@@ -1249,10 +1249,6 @@ void TextureStorage::_texture_set_data(RID p_texture, const Ref<Image> &p_image,
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(texture->target, texture->tex_id);
 
-	// set filtering and repeat state to default
-	texture->gl_set_filter(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
-	texture->gl_set_repeat(RS::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED);
-
 #ifndef WEB_ENABLED
 	switch (texture->format) {
 #ifdef GLES_OVER_GL
@@ -1293,6 +1289,15 @@ void TextureStorage::_texture_set_data(RID p_texture, const Ref<Image> &p_image,
 #endif // WEB_ENABLED
 
 	int mipmaps = img->has_mipmaps() ? img->get_mipmap_count() + 1 : 1;
+
+	// Set filtering and repeat state to default.
+	if (mipmaps > 1) {
+		texture->gl_set_filter(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS);
+	} else {
+		texture->gl_set_filter(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+	}
+
+	texture->gl_set_repeat(RS::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED);
 
 	int w = img->get_width();
 	int h = img->get_height();
@@ -1744,7 +1749,12 @@ void TextureStorage::_update_render_target(RenderTarget *rt) {
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (status != GL_FRAMEBUFFER_COMPLETE) {
 			glDeleteFramebuffers(1, &rt->fbo);
-			GLES3::Utilities::get_singleton()->texture_free_data(rt->color);
+			if (rt->overridden.color.is_null()) {
+				GLES3::Utilities::get_singleton()->texture_free_data(rt->color);
+			}
+			if (rt->overridden.depth.is_null()) {
+				GLES3::Utilities::get_singleton()->texture_free_data(rt->depth);
+			}
 			rt->fbo = 0;
 			rt->size.x = 0;
 			rt->size.y = 0;
@@ -1933,6 +1943,8 @@ void TextureStorage::_clear_render_target(RenderTarget *rt) {
 			tex->active = false;
 			tex->render_target = nullptr;
 			tex->is_render_target = false;
+			tex->gl_set_filter(RS::CANVAS_ITEM_TEXTURE_FILTER_MAX);
+			tex->gl_set_repeat(RS::CANVAS_ITEM_TEXTURE_REPEAT_MAX);
 		}
 	} else {
 		Texture *tex = get_texture(rt->overridden.color);

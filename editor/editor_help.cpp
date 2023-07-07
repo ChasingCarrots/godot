@@ -2309,6 +2309,9 @@ void EditorHelp::_gen_doc_thread(void *p_udata) {
 static bool doc_gen_use_threads = true;
 
 void EditorHelp::generate_doc(bool p_use_cache) {
+	// Temporarily disable use of cache for pre-RC stabilization.
+	p_use_cache = false;
+
 	OS::get_singleton()->benchmark_begin_measure("EditorHelp::generate_doc");
 	if (doc_gen_use_threads) {
 		// In case not the first attempt.
@@ -2318,7 +2321,6 @@ void EditorHelp::generate_doc(bool p_use_cache) {
 	DEV_ASSERT(first_attempt == (doc == nullptr));
 
 	if (!doc) {
-		GDREGISTER_CLASS(DocCache);
 		doc = memnew(DocTools);
 	}
 

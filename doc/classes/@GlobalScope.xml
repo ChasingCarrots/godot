@@ -1379,6 +1379,7 @@
 				    "b": 2
 				}
 				[/codeblock]
+				[b]Note:[/b] Converting [Signal] or [Callable] is not supported and will result in an empty value for these types, regardless of their data.
 			</description>
 		</method>
 		<method name="weakref">
@@ -1508,7 +1509,7 @@
 			The [NavigationServer2D] singleton.
 		</member>
 		<member name="NavigationServer3D" type="NavigationServer3D" setter="" getter="">
-			The [NavigationServer2D] singleton.
+			The [NavigationServer3D] singleton.
 		</member>
 		<member name="OS" type="OS" setter="" getter="">
 			The [OS] singleton.
