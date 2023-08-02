@@ -54,11 +54,13 @@ void GameObject::_notification(int p_notification) {
 }
 
 void GameObject::_connect_child_entered_tree() {
-	connect("child_entered_tree", callable_mp(this, &GameObject::_child_entered_tree));
+	if (is_inside_tree() && !Node::is_connected("child_entered_tree", callable_mp(this, &GameObject::_child_entered_tree)))
+		connect("child_entered_tree", callable_mp(this, &GameObject::_child_entered_tree));
 }
 
 void GameObject::_exit_tree() {
-	disconnect("child_entered_tree", callable_mp(this, &GameObject::_child_entered_tree));
+	if (Node::is_connected("child_entered_tree", callable_mp(this, &GameObject::_child_entered_tree)))
+		disconnect("child_entered_tree", callable_mp(this, &GameObject::_child_entered_tree));
 	emit_signal("Removed", this);
 }
 
