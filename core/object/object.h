@@ -315,13 +315,18 @@ struct ObjectGDExtension {
 	bool editor_class = false;
 	bool is_virtual = false;
 	bool is_abstract = false;
+	bool is_exposed = true;
 	GDExtensionClassSet set;
 	GDExtensionClassGet get;
 	GDExtensionClassGetPropertyList get_property_list;
 	GDExtensionClassFreePropertyList free_property_list;
 	GDExtensionClassPropertyCanRevert property_can_revert;
 	GDExtensionClassPropertyGetRevert property_get_revert;
+	GDExtensionClassValidateProperty validate_property;
+#ifndef DISABLE_DEPRECATED
 	GDExtensionClassNotification notification;
+#endif // DISABLE_DEPRECATED
+	GDExtensionClassNotification2 notification2;
 	GDExtensionClassToString to_string;
 	GDExtensionClassReference reference;
 	GDExtensionClassReference unreference;
@@ -382,6 +387,7 @@ private:                                                                        
 	friend class ::ClassDB;                                                                                                                      \
                                                                                                                                                  \
 public:                                                                                                                                          \
+	typedef m_class self_type;                                                                                                                   \
 	static constexpr bool _class_is_enabled = !bool(GD_IS_DEFINED(ClassDB_Disable_##m_class)) && m_inherits::_class_is_enabled;                  \
 	virtual String get_class() const override {                                                                                                  \
 		if (_get_extension()) {                                                                                                                  \
@@ -430,6 +436,9 @@ protected:                                                                      
 	_FORCE_INLINE_ static void (*_get_bind_methods())() {                                                                                        \
 		return &m_class::_bind_methods;                                                                                                          \
 	}                                                                                                                                            \
+	_FORCE_INLINE_ static void (*_get_bind_compatibility_methods())() {                                                                          \
+		return &m_class::_bind_compatibility_methods;                                                                                            \
+	}                                                                                                                                            \
                                                                                                                                                  \
 public:                                                                                                                                          \
 	static void initialize_class() {                                                                                                             \
@@ -441,6 +450,9 @@ public:                                                                         
 		::ClassDB::_add_class<m_class>();                                                                                                        \
 		if (m_class::_get_bind_methods() != m_inherits::_get_bind_methods()) {                                                                   \
 			_bind_methods();                                                                                                                     \
+		}                                                                                                                                        \
+		if (m_class::_get_bind_compatibility_methods() != m_inherits::_get_bind_compatibility_methods()) {                                       \
+			_bind_compatibility_methods();                                                                                                       \
 		}                                                                                                                                        \
 		initialized = true;                                                                                                                      \
 	}                                                                                                                                            \
@@ -479,7 +491,7 @@ protected:                                                                      
 		if (!p_reversed) {                                                                                                                       \
 			m_inherits::_get_property_listv(p_list, p_reversed);                                                                                 \
 		}                                                                                                                                        \
-		p_list->push_back(PropertyInfo(Variant::NIL, get_class_static(), PROPERTY_HINT_NONE, String(), PROPERTY_USAGE_CATEGORY));                \
+		p_list->push_back(PropertyInfo(Variant::NIL, get_class_static(), PROPERTY_HINT_NONE, get_class_static(), PROPERTY_USAGE_CATEGORY));      \
 		if (!_is_gpl_reversed()) {                                                                                                               \
 			::ClassDB::get_property_list(#m_class, p_list, true, this);                                                                          \
 		}                                                                                                                                        \
@@ -551,6 +563,8 @@ class ScriptInstance;
 
 class Object {
 public:
+	typedef Object self_type;
+
 	enum ConnectFlags {
 		CONNECT_DEFERRED = 1,
 		CONNECT_PERSIST = 2, // hint for scene to save this connection
@@ -674,6 +688,7 @@ protected:
 	virtual void _notificationv(int p_notification, bool p_reversed) {}
 
 	static void _bind_methods();
+	static void _bind_compatibility_methods() {}
 	bool _set(const StringName &p_name, const Variant &p_property) { return false; };
 	bool _get(const StringName &p_name, Variant &r_property) const { return false; };
 	void _get_property_list(List<PropertyInfo> *p_list) const {};
@@ -684,6 +699,9 @@ protected:
 
 	_FORCE_INLINE_ static void (*_get_bind_methods())() {
 		return &Object::_bind_methods;
+	}
+	_FORCE_INLINE_ static void (*_get_bind_compatibility_methods())() {
+		return &Object::_bind_compatibility_methods;
 	}
 	_FORCE_INLINE_ bool (Object::*_get_get() const)(const StringName &p_name, Variant &r_ret) const {
 		return &Object::_get;

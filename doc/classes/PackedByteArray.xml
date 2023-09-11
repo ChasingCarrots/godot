@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="PackedByteArray" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="PackedByteArray" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		A packed array of bytes.
 	</brief_description>
@@ -346,7 +346,7 @@
 			<param index="0" name="byte_offset" type="int" />
 			<param index="1" name="allow_objects" type="bool" default="false" />
 			<description>
-				Returns [code]true[/code] if a valid [Variant] value can be decoded at the [param byte_offset]. Returns [code]false[/code] othewrise or when the value is [Object]-derived and [param allow_objects] is [code]false[/code].
+				Returns [code]true[/code] if a valid [Variant] value can be decoded at the [param byte_offset]. Returns [code]false[/code] otherwise or when the value is [Object]-derived and [param allow_objects] is [code]false[/code].
 			</description>
 		</method>
 		<method name="hex_encode" qualifiers="const">

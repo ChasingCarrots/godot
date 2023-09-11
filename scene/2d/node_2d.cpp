@@ -140,10 +140,6 @@ void Node2D::_update_transform() {
 
 	RenderingServer::get_singleton()->canvas_item_set_transform(get_canvas_item(), transform);
 
-	if (!is_inside_tree()) {
-		return;
-	}
-
 	_notify_transform();
 }
 
@@ -382,10 +378,6 @@ void Node2D::set_transform(const Transform2D &p_transform) {
 	_set_xform_dirty(true);
 
 	RenderingServer::get_singleton()->canvas_item_set_transform(get_canvas_item(), transform);
-
-	if (!is_inside_tree()) {
-		return;
-	}
 
 	_notify_transform();
 }

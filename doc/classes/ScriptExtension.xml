@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="ScriptExtension" inherits="Script" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="ScriptExtension" inherits="Script" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
@@ -19,6 +19,11 @@
 		</method>
 		<method name="_get_base_script" qualifiers="virtual const">
 			<return type="Script" />
+			<description>
+			</description>
+		</method>
+		<method name="_get_class_icon_path" qualifiers="virtual const">
+			<return type="String" />
 			<description>
 			</description>
 		</method>

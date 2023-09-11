@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="HTTPClient" inherits="RefCounted" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="HTTPClient" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Low-level hyper-text transfer protocol client.
 	</brief_description>
@@ -41,6 +41,7 @@
 			<description>
 				Returns the response's body length.
 				[b]Note:[/b] Some Web servers may not send a body length. In this case, the value returned will be [code]-1[/code]. If using chunked transfer encoding, the body length will also be [code]-1[/code].
+				[b]Note:[/b] This function always returns [code]-1[/code] on the Web platform due to browsers limitations.
 			</description>
 		</method>
 		<method name="get_response_code" qualifiers="const">

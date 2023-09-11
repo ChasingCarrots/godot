@@ -36,13 +36,15 @@
 #include "core/os/os.h"
 #include "core/string/print_string.h"
 #include "core/string/translation.h"
-#include "label.h"
+#include "scene/gui/label.h"
+#include "scene/main/window.h"
+#include "scene/theme/theme_db.h"
 #include "servers/display_server.h"
 #include "servers/text_server.h"
+
 #ifdef TOOLS_ENABLED
 #include "editor/editor_settings.h"
 #endif
-#include "scene/main/window.h"
 
 void LineEdit::_swap_current_input_direction() {
 	if (input_direction == TEXT_DIRECTION_LTR) {
@@ -79,7 +81,7 @@ void LineEdit::_move_caret_left(bool p_select, bool p_move_by_word) {
 		if (caret_mid_grapheme_enabled) {
 			set_caret_column(get_caret_column() - 1);
 		} else {
-			set_caret_column(TS->shaped_text_prev_grapheme_pos(text_rid, get_caret_column()));
+			set_caret_column(TS->shaped_text_prev_character_pos(text_rid, get_caret_column()));
 		}
 	}
 
@@ -112,7 +114,7 @@ void LineEdit::_move_caret_right(bool p_select, bool p_move_by_word) {
 		if (caret_mid_grapheme_enabled) {
 			set_caret_column(get_caret_column() + 1);
 		} else {
-			set_caret_column(TS->shaped_text_next_grapheme_pos(text_rid, get_caret_column()));
+			set_caret_column(TS->shaped_text_next_character_pos(text_rid, get_caret_column()));
 		}
 	}
 
@@ -211,7 +213,7 @@ void LineEdit::_delete(bool p_word, bool p_all_to_right) {
 			delete_char();
 		} else {
 			int cc = caret_column;
-			set_caret_column(TS->shaped_text_next_grapheme_pos(text_rid, caret_column));
+			set_caret_column(TS->shaped_text_next_character_pos(text_rid, caret_column));
 			delete_text(cc, caret_column);
 		}
 	}
@@ -341,13 +343,15 @@ void LineEdit::gui_input(const Ref<InputEvent> &p_event) {
 				}
 
 				selection.drag_attempt = false;
-
-				if ((caret_column < selection.begin) || (caret_column > selection.end) || !selection.enabled) {
-					deselect();
-					selection.start_column = caret_column;
-					selection.creating = true;
-				} else if (selection.enabled && !selection.double_click) {
-					selection.drag_attempt = true;
+				if (!selection.double_click) {
+					bool is_inside_sel = selection.enabled && caret_column >= selection.begin && caret_column <= selection.end;
+					if (drag_and_drop_selection_enabled && is_inside_sel) {
+						selection.drag_attempt = true;
+					} else {
+						deselect();
+						selection.start_column = caret_column;
+						selection.creating = true;
+					}
 				}
 			}
 
@@ -477,6 +481,11 @@ void LineEdit::gui_input(const Ref<InputEvent> &p_event) {
 				DisplayServer::get_singleton()->virtual_keyboard_hide();
 			}
 			accept_event();
+			return;
+		}
+
+		if (k->is_action("ui_cancel")) {
+			callable_mp((Control *)this, &Control::release_focus).call_deferred();
 			return;
 		}
 
@@ -725,27 +734,6 @@ bool LineEdit::_is_over_clear_button(const Point2 &p_pos) const {
 
 void LineEdit::_update_theme_item_cache() {
 	Control::_update_theme_item_cache();
-
-	theme_cache.normal = get_theme_stylebox(SNAME("normal"));
-	theme_cache.read_only = get_theme_stylebox(SNAME("read_only"));
-	theme_cache.focus = get_theme_stylebox(SNAME("focus"));
-
-	theme_cache.font = get_theme_font(SNAME("font"));
-	theme_cache.font_size = get_theme_font_size(SNAME("font_size"));
-	theme_cache.font_color = get_theme_color(SNAME("font_color"));
-	theme_cache.font_uneditable_color = get_theme_color(SNAME("font_uneditable_color"));
-	theme_cache.font_selected_color = get_theme_color(SNAME("font_selected_color"));
-	theme_cache.font_outline_size = get_theme_constant(SNAME("outline_size"));
-	theme_cache.font_outline_color = get_theme_color(SNAME("font_outline_color"));
-	theme_cache.font_placeholder_color = get_theme_color(SNAME("font_placeholder_color"));
-	theme_cache.caret_width = get_theme_constant(SNAME("caret_width"));
-	theme_cache.caret_color = get_theme_color(SNAME("caret_color"));
-	theme_cache.minimum_character_width = get_theme_constant(SNAME("minimum_character_width"));
-	theme_cache.selection_color = get_theme_color(SNAME("selection_color"));
-
-	theme_cache.clear_icon = get_theme_icon(SNAME("clear"));
-	theme_cache.clear_button_color = get_theme_color(SNAME("clear_button_color"));
-	theme_cache.clear_button_color_pressed = get_theme_color(SNAME("clear_button_color_pressed"));
 
 	theme_cache.base_scale = get_theme_default_base_scale();
 }
@@ -1324,6 +1312,9 @@ void LineEdit::set_caret_at_pixel_pos(int p_x) {
 	}
 
 	int ofs = ceil(TS->shaped_text_hit_test_position(text_rid, p_x - x_ofs - scroll_offset));
+	if (!caret_mid_grapheme_enabled) {
+		ofs = TS->shaped_text_closest_character_pos(text_rid, ofs);
+	}
 	set_caret_column(ofs);
 }
 
@@ -1503,11 +1494,7 @@ void LineEdit::delete_text(int p_from_column, int p_to_column) {
 	text = text.left(p_from_column) + text.substr(p_to_column);
 	_shape();
 
-	caret_column -= CLAMP(caret_column - p_from_column, 0, p_to_column - p_from_column);
-
-	if (caret_column >= text.length()) {
-		caret_column = text.length();
-	}
+	set_caret_column(caret_column - CLAMP(caret_column - p_from_column, 0, p_to_column - p_from_column));
 
 	if (!text_changed_dirty) {
 		if (is_inside_tree()) {
@@ -2224,6 +2211,14 @@ bool LineEdit::is_deselect_on_focus_loss_enabled() const {
 	return deselect_on_focus_loss_enabled;
 }
 
+void LineEdit::set_drag_and_drop_selection_enabled(const bool p_enabled) {
+	drag_and_drop_selection_enabled = p_enabled;
+}
+
+bool LineEdit::is_drag_and_drop_selection_enabled() const {
+	return drag_and_drop_selection_enabled;
+}
+
 void LineEdit::set_right_icon(const Ref<Texture2D> &p_icon) {
 	if (right_icon == p_icon) {
 		return;
@@ -2301,9 +2296,6 @@ void LineEdit::_shape() {
 	TS->shaped_text_set_preserve_control(text_rid, draw_control_chars);
 
 	TS->shaped_text_add_string(text_rid, t, font->get_rids(), font_size, font->get_opentype_features(), language);
-	for (int i = 0; i < TextServer::SPACING_MAX; i++) {
-		TS->shaped_text_set_spacing(text_rid, TextServer::SpacingType(i), font->get_spacing(TextServer::SpacingType(i)));
-	}
 	TS->shaped_text_set_bidi_override(text_rid, structured_text_parser(st_parser, st_args, t));
 
 	full_width = TS->shaped_text_get_size(text_rid).x;
@@ -2570,6 +2562,8 @@ void LineEdit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_selecting_enabled"), &LineEdit::is_selecting_enabled);
 	ClassDB::bind_method(D_METHOD("set_deselect_on_focus_loss_enabled", "enable"), &LineEdit::set_deselect_on_focus_loss_enabled);
 	ClassDB::bind_method(D_METHOD("is_deselect_on_focus_loss_enabled"), &LineEdit::is_deselect_on_focus_loss_enabled);
+	ClassDB::bind_method(D_METHOD("set_drag_and_drop_selection_enabled", "enable"), &LineEdit::set_drag_and_drop_selection_enabled);
+	ClassDB::bind_method(D_METHOD("is_drag_and_drop_selection_enabled"), &LineEdit::is_drag_and_drop_selection_enabled);
 	ClassDB::bind_method(D_METHOD("set_right_icon", "icon"), &LineEdit::set_right_icon);
 	ClassDB::bind_method(D_METHOD("get_right_icon"), &LineEdit::get_right_icon);
 	ClassDB::bind_method(D_METHOD("set_flat", "enabled"), &LineEdit::set_flat);
@@ -2638,6 +2632,7 @@ void LineEdit::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "middle_mouse_paste_enabled"), "set_middle_mouse_paste_enabled", "is_middle_mouse_paste_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "selecting_enabled"), "set_selecting_enabled", "is_selecting_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "deselect_on_focus_loss_enabled"), "set_deselect_on_focus_loss_enabled", "is_deselect_on_focus_loss_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "drag_and_drop_selection_enabled"), "set_drag_and_drop_selection_enabled", "is_drag_and_drop_selection_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "right_icon", PROPERTY_HINT_RESOURCE_TYPE, "Texture"), "set_right_icon", "get_right_icon");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "flat"), "set_flat", "is_flat");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "draw_control_chars"), "set_draw_control_chars", "get_draw_control_chars");
@@ -2655,6 +2650,27 @@ void LineEdit::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "language", PROPERTY_HINT_LOCALE_ID, ""), "set_language", "get_language");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "structured_text_bidi_override", PROPERTY_HINT_ENUM, "Default,URI,File,Email,List,None,Custom"), "set_structured_text_bidi_override", "get_structured_text_bidi_override");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "structured_text_bidi_override_options"), "set_structured_text_bidi_override_options", "get_structured_text_bidi_override_options");
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_STYLEBOX, LineEdit, normal);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_STYLEBOX, LineEdit, read_only);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_STYLEBOX, LineEdit, focus);
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT, LineEdit, font);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT_SIZE, LineEdit, font_size);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, font_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, font_uneditable_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, font_selected_color);
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_CONSTANT, LineEdit, font_outline_size, "outline_size");
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, font_outline_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, font_placeholder_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, LineEdit, caret_width);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, caret_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, LineEdit, minimum_character_width);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, selection_color);
+
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, LineEdit, clear_icon, "clear");
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, clear_button_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, LineEdit, clear_button_color_pressed);
 }
 
 LineEdit::LineEdit(const String &p_placeholder) {

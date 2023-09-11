@@ -30,7 +30,6 @@
 
 #include "polygon_3d_editor_plugin.h"
 
-#include "core/core_string_names.h"
 #include "core/input/input.h"
 #include "core/io/file_access.h"
 #include "core/math/geometry_2d.h"
@@ -46,8 +45,8 @@
 void Polygon3DEditor::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
-			button_create->set_icon(get_theme_icon(SNAME("Edit"), SNAME("EditorIcons")));
-			button_edit->set_icon(get_theme_icon(SNAME("MovePoint"), SNAME("EditorIcons")));
+			button_create->set_icon(get_editor_theme_icon(SNAME("Edit")));
+			button_edit->set_icon(get_editor_theme_icon(SNAME("MovePoint")));
 			button_edit->set_pressed(true);
 			get_tree()->connect("node_removed", callable_mp(this, &Polygon3DEditor::_node_removed));
 
@@ -497,7 +496,7 @@ void Polygon3DEditor::edit(Node *p_node) {
 		node_resource = node->call("_get_editable_3d_polygon_resource");
 
 		if (node_resource.is_valid()) {
-			node_resource->connect(CoreStringNames::get_singleton()->changed, callable_mp(this, &Polygon3DEditor::_polygon_draw));
+			node_resource->connect_changed(callable_mp(this, &Polygon3DEditor::_polygon_draw));
 		}
 		//Enable the pencil tool if the polygon is empty
 		if (_get_polygon().is_empty()) {
@@ -518,7 +517,7 @@ void Polygon3DEditor::edit(Node *p_node) {
 	} else {
 		node = nullptr;
 		if (node_resource.is_valid()) {
-			node_resource->disconnect(CoreStringNames::get_singleton()->changed, callable_mp(this, &Polygon3DEditor::_polygon_draw));
+			node_resource->disconnect_changed(callable_mp(this, &Polygon3DEditor::_polygon_draw));
 		}
 		node_resource.unref();
 
@@ -570,7 +569,7 @@ Polygon3DEditor::Polygon3DEditor() {
 	handle_material->set_transparency(StandardMaterial3D::TRANSPARENCY_ALPHA);
 	handle_material->set_flag(StandardMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
 	handle_material->set_flag(StandardMaterial3D::FLAG_SRGB_VERTEX_COLOR, true);
-	Ref<Texture2D> handle = EditorNode::get_singleton()->get_gui_base()->get_theme_icon(SNAME("Editor3DHandle"), SNAME("EditorIcons"));
+	Ref<Texture2D> handle = EditorNode::get_singleton()->get_gui_base()->get_editor_theme_icon(SNAME("Editor3DHandle"));
 	handle_material->set_point_size(handle->get_width());
 	handle_material->set_texture(StandardMaterial3D::TEXTURE_ALBEDO, handle);
 

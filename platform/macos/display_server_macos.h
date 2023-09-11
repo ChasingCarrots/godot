@@ -171,6 +171,7 @@ private:
 	int current_layout = 0;
 	bool keyboard_layout_dirty = true;
 
+	WindowID window_mouseover_id = INVALID_WINDOW_ID;
 	WindowID last_focused_window = INVALID_WINDOW_ID;
 	WindowID window_id_counter = MAIN_WINDOW_ID;
 	float display_max_scale = 1.f;
@@ -240,6 +241,8 @@ public:
 	bool get_is_resizing() const;
 	void reparent_check(WindowID p_window);
 	WindowID _get_focused_window_or_popup() const;
+	void mouse_enter_window(WindowID p_window);
+	void mouse_exit_window(WindowID p_window);
 
 	void window_update(WindowID p_window);
 	void window_destroy(WindowID p_window);
@@ -315,6 +318,8 @@ public:
 	virtual Error dialog_show(String p_title, String p_description, Vector<String> p_buttons, const Callable &p_callback) override;
 	virtual Error dialog_input_text(String p_title, String p_description, String p_partial, const Callable &p_callback) override;
 
+	virtual Error file_dialog_show(const String &p_title, const String &p_current_directory, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const Callable &p_callback) override;
+
 	virtual void mouse_set_mode(MouseMode p_mode) override;
 	virtual MouseMode mouse_get_mode() const override;
 
@@ -326,6 +331,9 @@ public:
 
 	virtual void clipboard_set(const String &p_text) override;
 	virtual String clipboard_get() const override;
+	virtual Ref<Image> clipboard_get_image() const override;
+	virtual bool clipboard_has() const override;
+	virtual bool clipboard_has_image() const override;
 
 	virtual int get_screen_count() const override;
 	virtual int get_primary_screen() const override;
@@ -433,6 +441,7 @@ public:
 	virtual String keyboard_get_layout_language(int p_index) const override;
 	virtual String keyboard_get_layout_name(int p_index) const override;
 	virtual Key keyboard_get_keycode_from_physical(Key p_keycode) const override;
+	virtual Key keyboard_get_label_from_physical(Key p_keycode) const override;
 
 	virtual void process_events() override;
 	virtual void force_process_and_drop_events() override;

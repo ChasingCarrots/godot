@@ -48,8 +48,6 @@
 #include "core/templates/vector.h"
 #include "servers/xr/xr_pose.h"
 
-#include "thirdparty/openxr/src/common/xr_linear.h"
-
 #include <openxr/openxr.h>
 
 // Note, OpenXR code that we wrote for our plugin makes use of C++20 notation for initializing structs which ensures zeroing out unspecified members.
@@ -382,7 +380,7 @@ public:
 
 	RID action_set_create(const String p_name, const String p_localized_name, const int p_priority);
 	String action_set_get_name(RID p_action_set);
-	bool action_set_attach(RID p_action_set);
+	bool attach_action_sets(const Vector<RID> &p_action_sets);
 	void action_set_free(RID p_action_set);
 
 	RID action_create(RID p_action_set, const String p_name, const String p_localized_name, OpenXRAction::ActionType p_action_type, const Vector<RID> &p_trackers);

@@ -44,8 +44,10 @@
 #include "core/io/marshalls.h"
 #include "core/math/geometry_2d.h"
 #include "core/os/keyboard.h"
+#include "drivers/png/png_driver_common.h"
 #include "main/main.h"
-#include "scene/resources/texture.h"
+#include "scene/resources/atlas_texture.h"
+#include "scene/resources/image_texture.h"
 
 #if defined(GLES3_ENABLED)
 #include "drivers/gles3/rasterizer_gles3.h"
@@ -362,6 +364,25 @@ DisplayServer::WindowID DisplayServerMacOS::_get_focused_window_or_popup() const
 	}
 
 	return last_focused_window;
+}
+
+void DisplayServerMacOS::mouse_enter_window(WindowID p_window) {
+	if (window_mouseover_id != p_window) {
+		if (window_mouseover_id != INVALID_WINDOW_ID) {
+			send_window_event(windows[window_mouseover_id], WINDOW_EVENT_MOUSE_EXIT);
+		}
+		window_mouseover_id = p_window;
+		if (p_window != INVALID_WINDOW_ID) {
+			send_window_event(windows[p_window], WINDOW_EVENT_MOUSE_ENTER);
+		}
+	}
+}
+
+void DisplayServerMacOS::mouse_exit_window(WindowID p_window) {
+	if (window_mouseover_id == p_window && p_window != INVALID_WINDOW_ID) {
+		send_window_event(windows[p_window], WINDOW_EVENT_MOUSE_EXIT);
+	}
+	window_mouseover_id = INVALID_WINDOW_ID;
 }
 
 void DisplayServerMacOS::_dispatch_input_events(const Ref<InputEvent> &p_event) {
@@ -1847,6 +1868,176 @@ Error DisplayServerMacOS::dialog_show(String p_title, String p_description, Vect
 	return OK;
 }
 
+Error DisplayServerMacOS::file_dialog_show(const String &p_title, const String &p_current_directory, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const Callable &p_callback) {
+	_THREAD_SAFE_METHOD_
+
+	NSString *url = [NSString stringWithUTF8String:p_current_directory.utf8().get_data()];
+	NSMutableArray *allowed_types = [[NSMutableArray alloc] init];
+	bool allow_other = false;
+	for (int i = 0; i < p_filters.size(); i++) {
+		Vector<String> tokens = p_filters[i].split(";");
+		if (tokens.size() > 0) {
+			if (tokens[0].strip_edges() == "*.*") {
+				allow_other = true;
+			} else {
+				[allowed_types addObject:[NSString stringWithUTF8String:tokens[0].replace("*.", "").strip_edges().utf8().get_data()]];
+			}
+		}
+	}
+
+	Callable callback = p_callback; // Make a copy for async completion handler.
+	switch (p_mode) {
+		case FILE_DIALOG_MODE_SAVE_FILE: {
+			NSSavePanel *panel = [NSSavePanel savePanel];
+
+			[panel setDirectoryURL:[NSURL fileURLWithPath:url]];
+			if ([allowed_types count]) {
+				[panel setAllowedFileTypes:allowed_types];
+			}
+			[panel setAllowsOtherFileTypes:allow_other];
+			[panel setExtensionHidden:YES];
+			[panel setCanSelectHiddenExtension:YES];
+			[panel setCanCreateDirectories:YES];
+			[panel setShowsHiddenFiles:p_show_hidden];
+			if (p_filename != "") {
+				NSString *fileurl = [NSString stringWithUTF8String:p_filename.utf8().get_data()];
+				[panel setNameFieldStringValue:fileurl];
+			}
+
+			[panel beginSheetModalForWindow:[[NSApplication sharedApplication] mainWindow]
+						  completionHandler:^(NSInteger ret) {
+							  if (ret == NSModalResponseOK) {
+								  // Save bookmark for folder.
+								  if (OS::get_singleton()->is_sandboxed()) {
+									  NSArray *bookmarks = [[NSUserDefaults standardUserDefaults] arrayForKey:@"sec_bookmarks"];
+									  bool skip = false;
+									  for (id bookmark in bookmarks) {
+										  NSError *error = nil;
+										  BOOL isStale = NO;
+										  NSURL *exurl = [NSURL URLByResolvingBookmarkData:bookmark options:NSURLBookmarkResolutionWithSecurityScope relativeToURL:nil bookmarkDataIsStale:&isStale error:&error];
+										  if (!error && !isStale && ([[exurl path] compare:[[panel directoryURL] path]] == NSOrderedSame)) {
+											  skip = true;
+											  break;
+										  }
+									  }
+									  if (!skip) {
+										  NSError *error = nil;
+										  NSData *bookmark = [[panel directoryURL] bookmarkDataWithOptions:NSURLBookmarkCreationWithSecurityScope includingResourceValuesForKeys:nil relativeToURL:nil error:&error];
+										  if (!error) {
+											  NSArray *new_bookmarks = [bookmarks arrayByAddingObject:bookmark];
+											  [[NSUserDefaults standardUserDefaults] setObject:new_bookmarks forKey:@"sec_bookmarks"];
+										  }
+									  }
+								  }
+								  // Callback.
+								  Vector<String> files;
+								  String url;
+								  url.parse_utf8([[[panel URL] path] UTF8String]);
+								  files.push_back(url);
+								  if (!callback.is_null()) {
+									  Variant v_status = true;
+									  Variant v_files = files;
+									  Variant *v_args[2] = { &v_status, &v_files };
+									  Variant ret;
+									  Callable::CallError ce;
+									  callback.callp((const Variant **)&v_args, 2, ret, ce);
+								  }
+							  } else {
+								  if (!callback.is_null()) {
+									  Variant v_status = false;
+									  Variant v_files = Vector<String>();
+									  Variant *v_args[2] = { &v_status, &v_files };
+									  Variant ret;
+									  Callable::CallError ce;
+									  callback.callp((const Variant **)&v_args, 2, ret, ce);
+								  }
+							  }
+						  }];
+		} break;
+		case FILE_DIALOG_MODE_OPEN_ANY:
+		case FILE_DIALOG_MODE_OPEN_FILE:
+		case FILE_DIALOG_MODE_OPEN_FILES:
+		case FILE_DIALOG_MODE_OPEN_DIR: {
+			NSOpenPanel *panel = [NSOpenPanel openPanel];
+
+			[panel setDirectoryURL:[NSURL fileURLWithPath:url]];
+			if ([allowed_types count]) {
+				[panel setAllowedFileTypes:allowed_types];
+			}
+			[panel setAllowsOtherFileTypes:allow_other];
+			[panel setExtensionHidden:YES];
+			[panel setCanSelectHiddenExtension:YES];
+			[panel setCanCreateDirectories:YES];
+			[panel setCanChooseFiles:(p_mode != FILE_DIALOG_MODE_OPEN_DIR)];
+			[panel setCanChooseDirectories:(p_mode == FILE_DIALOG_MODE_OPEN_DIR || p_mode == FILE_DIALOG_MODE_OPEN_ANY)];
+			[panel setShowsHiddenFiles:p_show_hidden];
+			if (p_filename != "") {
+				NSString *fileurl = [NSString stringWithUTF8String:p_filename.utf8().get_data()];
+				[panel setNameFieldStringValue:fileurl];
+			}
+			[panel setAllowsMultipleSelection:(p_mode == FILE_DIALOG_MODE_OPEN_FILES)];
+
+			[panel beginSheetModalForWindow:[[NSApplication sharedApplication] mainWindow]
+						  completionHandler:^(NSInteger ret) {
+							  if (ret == NSModalResponseOK) {
+								  // Save bookmark for folder.
+								  NSArray *urls = [(NSOpenPanel *)panel URLs];
+								  if (OS::get_singleton()->is_sandboxed()) {
+									  NSArray *bookmarks = [[NSUserDefaults standardUserDefaults] arrayForKey:@"sec_bookmarks"];
+									  NSMutableArray *new_bookmarks = [bookmarks mutableCopy];
+									  for (NSUInteger i = 0; i != [urls count]; ++i) {
+										  bool skip = false;
+										  for (id bookmark in bookmarks) {
+											  NSError *error = nil;
+											  BOOL isStale = NO;
+											  NSURL *exurl = [NSURL URLByResolvingBookmarkData:bookmark options:NSURLBookmarkResolutionWithSecurityScope relativeToURL:nil bookmarkDataIsStale:&isStale error:&error];
+											  if (!error && !isStale && ([[exurl path] compare:[[urls objectAtIndex:i] path]] == NSOrderedSame)) {
+												  skip = true;
+												  break;
+											  }
+										  }
+										  if (!skip) {
+											  NSError *error = nil;
+											  NSData *bookmark = [[urls objectAtIndex:i] bookmarkDataWithOptions:NSURLBookmarkCreationWithSecurityScope includingResourceValuesForKeys:nil relativeToURL:nil error:&error];
+											  if (!error) {
+												  [new_bookmarks addObject:bookmark];
+											  }
+										  }
+									  }
+									  [[NSUserDefaults standardUserDefaults] setObject:new_bookmarks forKey:@"sec_bookmarks"];
+								  }
+								  // Callback.
+								  Vector<String> files;
+								  for (NSUInteger i = 0; i != [urls count]; ++i) {
+									  String url;
+									  url.parse_utf8([[[urls objectAtIndex:i] path] UTF8String]);
+									  files.push_back(url);
+								  }
+								  if (!callback.is_null()) {
+									  Variant v_status = true;
+									  Variant v_files = files;
+									  Variant *v_args[2] = { &v_status, &v_files };
+									  Variant ret;
+									  Callable::CallError ce;
+									  callback.callp((const Variant **)&v_args, 2, ret, ce);
+								  }
+							  } else {
+								  if (!callback.is_null()) {
+									  Variant v_status = false;
+									  Variant v_files = Vector<String>();
+									  Variant *v_args[2] = { &v_status, &v_files };
+									  Variant ret;
+									  Callable::CallError ce;
+									  callback.callp((const Variant **)&v_args, 2, ret, ce);
+								  }
+							  }
+						  }];
+		} break;
+	}
+
+	return OK;
+}
+
 Error DisplayServerMacOS::dialog_input_text(String p_title, String p_description, String p_partial, const Callable &p_callback) {
 	_THREAD_SAFE_METHOD_
 
@@ -1897,9 +2088,7 @@ void DisplayServerMacOS::mouse_set_mode(MouseMode p_mode) {
 
 	if (show_cursor && !previously_shown) {
 		window_id = get_window_at_screen_position(mouse_get_position());
-		if (window_id != INVALID_WINDOW_ID) {
-			send_window_event(windows[window_id], WINDOW_EVENT_MOUSE_ENTER);
-		}
+		mouse_enter_window(window_id);
 	}
 
 	if (p_mode == MOUSE_MODE_CAPTURED) {
@@ -2098,6 +2287,37 @@ String DisplayServerMacOS::clipboard_get() const {
 	String ret;
 	ret.parse_utf8([string UTF8String]);
 	return ret;
+}
+
+Ref<Image> DisplayServerMacOS::clipboard_get_image() const {
+	Ref<Image> image;
+	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+	NSString *result = [pasteboard availableTypeFromArray:[NSArray arrayWithObjects:NSPasteboardTypeTIFF, NSPasteboardTypePNG, nil]];
+	if (!result) {
+		return image;
+	}
+	NSData *data = [pasteboard dataForType:result];
+	if (!data) {
+		return image;
+	}
+	NSBitmapImageRep *bitmap = [NSBitmapImageRep imageRepWithData:data];
+	NSData *pngData = [bitmap representationUsingType:NSPNGFileType properties:@{}];
+	image.instantiate();
+	PNGDriverCommon::png_to_image((const uint8_t *)pngData.bytes, pngData.length, false, image);
+	return image;
+}
+
+bool DisplayServerMacOS::clipboard_has() const {
+	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+	NSArray *classArray = [NSArray arrayWithObject:[NSString class]];
+	NSDictionary *options = [NSDictionary dictionary];
+	return [pasteboard canReadObjectForClasses:classArray options:options];
+}
+
+bool DisplayServerMacOS::clipboard_has_image() const {
+	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+	NSString *result = [pasteboard availableTypeFromArray:[NSArray arrayWithObjects:NSPasteboardTypeTIFF, NSPasteboardTypePNG, nil]];
+	return result;
 }
 
 int DisplayServerMacOS::get_screen_count() const {
@@ -3085,14 +3305,14 @@ bool DisplayServerMacOS::window_is_focused(WindowID p_window) const {
 }
 
 bool DisplayServerMacOS::window_can_draw(WindowID p_window) const {
-	return window_get_mode(p_window) != WINDOW_MODE_MINIMIZED;
+	return (window_get_mode(p_window) != WINDOW_MODE_MINIMIZED) && [windows[p_window].window_object isOnActiveSpace];
 }
 
 bool DisplayServerMacOS::can_any_window_draw() const {
 	_THREAD_SAFE_METHOD_
 
 	for (const KeyValue<WindowID, WindowData> &E : windows) {
-		if (window_get_mode(E.key) != WINDOW_MODE_MINIMIZED) {
+		if ((window_get_mode(E.key) != WINDOW_MODE_MINIMIZED) && [E.value.window_object isOnActiveSpace]) {
 			return true;
 		}
 	}
@@ -3499,6 +3719,17 @@ Key DisplayServerMacOS::keyboard_get_keycode_from_physical(Key p_keycode) const 
 	return (Key)(KeyMappingMacOS::remap_key(macos_keycode, 0, false) | modifiers);
 }
 
+Key DisplayServerMacOS::keyboard_get_label_from_physical(Key p_keycode) const {
+	if (p_keycode == Key::PAUSE || p_keycode == Key::NONE) {
+		return p_keycode;
+	}
+
+	Key modifiers = p_keycode & KeyModifierMask::MODIFIER_MASK;
+	Key keycode_no_mod = p_keycode & KeyModifierMask::CODE_MASK;
+	unsigned int macos_keycode = KeyMappingMacOS::unmap_key(keycode_no_mod);
+	return (Key)(KeyMappingMacOS::remap_key(macos_keycode, 0, true) | modifiers);
+}
+
 void DisplayServerMacOS::process_events() {
 	_THREAD_SAFE_METHOD_
 
@@ -3588,55 +3819,67 @@ void DisplayServerMacOS::set_native_icon(const String &p_filename) {
 
 	Vector<uint8_t> data;
 	uint64_t len = f->get_length();
+	ERR_FAIL_COND_MSG(len < 8, "Error reading icon data."); // "icns" + 32-bit length
+
 	data.resize(len);
 	f->get_buffer((uint8_t *)&data.write[0], len);
 
-	NSData *icon_data = [[NSData alloc] initWithBytes:&data.write[0] length:len];
-	ERR_FAIL_COND_MSG(!icon_data, "Error reading icon data.");
+	@try {
+		NSData *icon_data = [[NSData alloc] initWithBytes:&data.write[0] length:len];
+		ERR_FAIL_COND_MSG(!icon_data, "Error reading icon data.");
 
-	NSImage *icon = [[NSImage alloc] initWithData:icon_data];
-	ERR_FAIL_COND_MSG(!icon, "Error loading icon.");
+		NSImage *icon = [[NSImage alloc] initWithData:icon_data];
+		ERR_FAIL_COND_MSG(!icon, "Error loading icon.");
 
-	[NSApp setApplicationIconImage:icon];
+		[NSApp setApplicationIconImage:icon];
+	} @catch (NSException *exception) {
+		ERR_FAIL_MSG("NSException: " + String::utf8([exception reason].UTF8String));
+	}
 }
 
 void DisplayServerMacOS::set_icon(const Ref<Image> &p_icon) {
 	_THREAD_SAFE_METHOD_
 
-	Ref<Image> img = p_icon;
-	img = img->duplicate();
-	img->convert(Image::FORMAT_RGBA8);
-	NSBitmapImageRep *imgrep = [[NSBitmapImageRep alloc]
-			initWithBitmapDataPlanes:nullptr
-						  pixelsWide:img->get_width()
-						  pixelsHigh:img->get_height()
-					   bitsPerSample:8
-					 samplesPerPixel:4
-							hasAlpha:YES
-							isPlanar:NO
-					  colorSpaceName:NSDeviceRGBColorSpace
-						 bytesPerRow:img->get_width() * 4
-						bitsPerPixel:32];
-	ERR_FAIL_COND(imgrep == nil);
-	uint8_t *pixels = [imgrep bitmapData];
+	if (p_icon.is_valid()) {
+		ERR_FAIL_COND(p_icon->get_width() <= 0 || p_icon->get_height() <= 0);
 
-	int len = img->get_width() * img->get_height();
-	const uint8_t *r = img->get_data().ptr();
+		Ref<Image> img = p_icon->duplicate();
+		img->convert(Image::FORMAT_RGBA8);
 
-	/* Premultiply the alpha channel */
-	for (int i = 0; i < len; i++) {
-		uint8_t alpha = r[i * 4 + 3];
-		pixels[i * 4 + 0] = (uint8_t)(((uint16_t)r[i * 4 + 0] * alpha) / 255);
-		pixels[i * 4 + 1] = (uint8_t)(((uint16_t)r[i * 4 + 1] * alpha) / 255);
-		pixels[i * 4 + 2] = (uint8_t)(((uint16_t)r[i * 4 + 2] * alpha) / 255);
-		pixels[i * 4 + 3] = alpha;
+		NSBitmapImageRep *imgrep = [[NSBitmapImageRep alloc]
+				initWithBitmapDataPlanes:nullptr
+							  pixelsWide:img->get_width()
+							  pixelsHigh:img->get_height()
+						   bitsPerSample:8
+						 samplesPerPixel:4
+								hasAlpha:YES
+								isPlanar:NO
+						  colorSpaceName:NSDeviceRGBColorSpace
+							 bytesPerRow:img->get_width() * 4
+							bitsPerPixel:32];
+		ERR_FAIL_COND(imgrep == nil);
+		uint8_t *pixels = [imgrep bitmapData];
+
+		int len = img->get_width() * img->get_height();
+		const uint8_t *r = img->get_data().ptr();
+
+		/* Premultiply the alpha channel */
+		for (int i = 0; i < len; i++) {
+			uint8_t alpha = r[i * 4 + 3];
+			pixels[i * 4 + 0] = (uint8_t)(((uint16_t)r[i * 4 + 0] * alpha) / 255);
+			pixels[i * 4 + 1] = (uint8_t)(((uint16_t)r[i * 4 + 1] * alpha) / 255);
+			pixels[i * 4 + 2] = (uint8_t)(((uint16_t)r[i * 4 + 2] * alpha) / 255);
+			pixels[i * 4 + 3] = alpha;
+		}
+
+		NSImage *nsimg = [[NSImage alloc] initWithSize:NSMakeSize(img->get_width(), img->get_height())];
+		ERR_FAIL_COND(nsimg == nil);
+
+		[nsimg addRepresentation:imgrep];
+		[NSApp setApplicationIconImage:nsimg];
+	} else {
+		[NSApp setApplicationIconImage:nil];
 	}
-
-	NSImage *nsimg = [[NSImage alloc] initWithSize:NSMakeSize(img->get_width(), img->get_height())];
-	ERR_FAIL_COND(nsimg == nil);
-
-	[nsimg addRepresentation:imgrep];
-	[NSApp setApplicationIconImage:nsimg];
 }
 
 DisplayServer *DisplayServerMacOS::create_func(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, int p_screen, Error &r_error) {
@@ -3800,7 +4043,7 @@ bool DisplayServerMacOS::mouse_process_popups(bool p_close) {
 		// Find top popup to close.
 		while (E) {
 			// Popup window area.
-			Rect2i win_rect = Rect2i(window_get_position(E->get()), window_get_size(E->get()));
+			Rect2i win_rect = Rect2i(window_get_position_with_decorations(E->get()), window_get_size_with_decorations(E->get()));
 			// Area of the parent window, which responsible for opening sub-menu.
 			Rect2i safe_rect = window_get_popup_safe_rect(E->get());
 			if (win_rect.has_point(pos)) {

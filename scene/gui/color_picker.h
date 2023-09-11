@@ -46,6 +46,7 @@
 #include "scene/gui/slider.h"
 #include "scene/gui/spin_box.h"
 #include "scene/gui/texture_rect.h"
+#include "scene/resources/style_box_flat.h"
 
 class ColorMode;
 class ColorModeRGB;
@@ -66,9 +67,8 @@ class ColorPresetButton : public BaseButton {
 	} theme_cache;
 
 protected:
-	virtual void _update_theme_item_cache() override;
-
 	void _notification(int);
+	static void _bind_methods();
 
 public:
 	void set_preset_color(const Color &p_color);
@@ -129,6 +129,7 @@ private:
 	Ref<StyleBoxFlat> picker_preview_style_box;
 	Color picker_color;
 
+	MarginContainer *internal_margin = nullptr;
 	Control *uv_edit = nullptr;
 	Control *w_edit = nullptr;
 	AspectRatioContainer *wheel_edit = nullptr;
@@ -204,8 +205,6 @@ private:
 	float h = 0.0;
 	float s = 0.0;
 	float v = 0.0;
-	float cached_hue = 0.0;
-	float cached_saturation = 0.0;
 	Color last_color;
 
 	struct ThemeCache {
@@ -296,9 +295,6 @@ public:
 #ifdef TOOLS_ENABLED
 	void set_editor_settings(Object *p_editor_settings);
 #endif
-	float get_cached_hue() { return cached_hue; };
-	float get_cached_saturation() { return cached_saturation; };
-
 	HSlider *get_slider(int idx);
 	Vector<float> get_active_slider_values();
 
@@ -396,8 +392,6 @@ class ColorPickerButton : public Button {
 	void _update_picker();
 
 protected:
-	virtual void _update_theme_item_cache() override;
-
 	void _notification(int);
 	static void _bind_methods();
 

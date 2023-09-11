@@ -53,8 +53,9 @@ public:
 		SKY_SET_MATERIAL,
 		SKY_SET_TEXTURES,
 		SKY_SET_FOG,
-		SKY_SET_MAX
 	};
+
+	const int SAMPLERS_BINDING_FIRST_INDEX = 4;
 
 	// Skys need less info from Directional Lights than the normal shaders
 	struct SkyDirectionalLightData {
@@ -68,9 +69,6 @@ public:
 
 private:
 	RD::DataFormat texture_format = RD::DATA_FORMAT_R16G16B16A16_SFLOAT;
-
-	RID index_buffer;
-	RID index_array;
 
 	enum SkyTextureSetVersion {
 		SKY_TEXTURE_SET_BACKGROUND,

@@ -29,10 +29,12 @@
 /**************************************************************************/
 
 #include "code_edit.h"
+#include "code_edit.compat.inc"
 
 #include "core/os/keyboard.h"
 #include "core/string/string_builder.h"
 #include "core/string/ustring.h"
+#include "scene/theme/theme_db.h"
 
 void CodeEdit::_notification(int p_what) {
 	switch (p_what) {
@@ -225,55 +227,6 @@ void CodeEdit::_notification(int p_what) {
 			queue_redraw();
 		} break;
 	}
-}
-
-void CodeEdit::_update_theme_item_cache() {
-	TextEdit::_update_theme_item_cache();
-
-	/* Gutters */
-	theme_cache.code_folding_color = get_theme_color(SNAME("code_folding_color"));
-	theme_cache.can_fold_icon = get_theme_icon(SNAME("can_fold"));
-	theme_cache.folded_icon = get_theme_icon(SNAME("folded"));
-	theme_cache.folded_eol_icon = get_theme_icon(SNAME("folded_eol_icon"));
-
-	theme_cache.breakpoint_color = get_theme_color(SNAME("breakpoint_color"));
-	theme_cache.breakpoint_icon = get_theme_icon(SNAME("breakpoint"));
-
-	theme_cache.bookmark_color = get_theme_color(SNAME("bookmark_color"));
-	theme_cache.bookmark_icon = get_theme_icon(SNAME("bookmark"));
-
-	theme_cache.executing_line_color = get_theme_color(SNAME("executing_line_color"));
-	theme_cache.executing_line_icon = get_theme_icon(SNAME("executing_line"));
-
-	theme_cache.line_number_color = get_theme_color(SNAME("line_number_color"));
-
-	/* Code Completion */
-	theme_cache.code_completion_style = get_theme_stylebox(SNAME("completion"));
-	theme_cache.code_completion_icon_separation = get_theme_constant(SNAME("h_separation"), SNAME("ItemList"));
-
-	theme_cache.code_completion_max_width = get_theme_constant(SNAME("completion_max_width"));
-	theme_cache.code_completion_max_lines = get_theme_constant(SNAME("completion_lines"));
-	theme_cache.code_completion_scroll_width = get_theme_constant(SNAME("completion_scroll_width"));
-	theme_cache.code_completion_scroll_color = get_theme_color(SNAME("completion_scroll_color"));
-	theme_cache.code_completion_scroll_hovered_color = get_theme_color(SNAME("completion_scroll_hovered_color"));
-	theme_cache.code_completion_background_color = get_theme_color(SNAME("completion_background_color"));
-	theme_cache.code_completion_selected_color = get_theme_color(SNAME("completion_selected_color"));
-	theme_cache.code_completion_existing_color = get_theme_color(SNAME("completion_existing_color"));
-
-	/* Code hint */
-	theme_cache.code_hint_style = get_theme_stylebox(SNAME("panel"), SNAME("TooltipPanel"));
-	theme_cache.code_hint_color = get_theme_color(SNAME("font_color"), SNAME("TooltipLabel"));
-
-	/* Line length guideline */
-	theme_cache.line_length_guideline_color = get_theme_color(SNAME("line_length_guideline_color"));
-
-	/* Other visuals */
-	theme_cache.style_normal = get_theme_stylebox(SNAME("normal"));
-
-	theme_cache.font = get_theme_font(SNAME("font"));
-	theme_cache.font_size = get_theme_font_size(SNAME("font_size"));
-
-	theme_cache.line_spacing = get_theme_constant(SNAME("line_spacing"));
 }
 
 void CodeEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
@@ -2258,9 +2211,8 @@ bool CodeEdit::is_symbol_lookup_on_click_enabled() const {
 	return symbol_lookup_on_click_enabled;
 }
 
-String CodeEdit::get_text_for_symbol_lookup() {
+String CodeEdit::get_text_for_symbol_lookup() const {
 	Point2i mp = get_local_mouse_pos();
-
 	Point2i pos = get_line_column_at_pos(mp, false);
 	int line = pos.y;
 	int col = pos.x;
@@ -2269,25 +2221,29 @@ String CodeEdit::get_text_for_symbol_lookup() {
 		return String();
 	}
 
-	StringBuilder lookup_text;
+	return get_text_with_cursor_char(line, col);
+}
+
+String CodeEdit::get_text_with_cursor_char(int p_line, int p_column) const {
 	const int text_size = get_line_count();
+	StringBuilder result;
 	for (int i = 0; i < text_size; i++) {
 		String line_text = get_line(i);
-
-		if (i == line) {
-			lookup_text += line_text.substr(0, col);
+		if (i == p_line && p_column >= 0 && p_column <= line_text.size()) {
+			result += line_text.substr(0, p_column);
 			/* Not unicode, represents the cursor. */
-			lookup_text += String::chr(0xFFFF);
-			lookup_text += line_text.substr(col, line_text.size());
+			result += String::chr(0xFFFF);
+			result += line_text.substr(p_column, line_text.size());
 		} else {
-			lookup_text += line_text;
+			result += line_text;
 		}
 
 		if (i != text_size - 1) {
-			lookup_text += "\n";
+			result += "\n";
 		}
 	}
-	return lookup_text.as_string();
+
+	return result.as_string();
 }
 
 void CodeEdit::set_symbol_lookup_word_as_valid(bool p_valid) {
@@ -2472,6 +2428,7 @@ void CodeEdit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_symbol_lookup_on_click_enabled"), &CodeEdit::is_symbol_lookup_on_click_enabled);
 
 	ClassDB::bind_method(D_METHOD("get_text_for_symbol_lookup"), &CodeEdit::get_text_for_symbol_lookup);
+	ClassDB::bind_method(D_METHOD("get_text_with_cursor_char", "line", "column"), &CodeEdit::get_text_with_cursor_char);
 
 	ClassDB::bind_method(D_METHOD("set_symbol_lookup_word_as_valid", "valid"), &CodeEdit::set_symbol_lookup_word_as_valid);
 
@@ -2522,6 +2479,52 @@ void CodeEdit::_bind_methods() {
 	/* Symbol lookup */
 	ADD_SIGNAL(MethodInfo("symbol_lookup", PropertyInfo(Variant::STRING, "symbol"), PropertyInfo(Variant::INT, "line"), PropertyInfo(Variant::INT, "column")));
 	ADD_SIGNAL(MethodInfo("symbol_validate", PropertyInfo(Variant::STRING, "symbol")));
+
+	/* Theme items */
+	/* Gutters */
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, CodeEdit, code_folding_color);
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, CodeEdit, can_fold_icon, "can_fold");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, CodeEdit, folded_icon, "folded");
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CodeEdit, folded_eol_icon);
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, CodeEdit, breakpoint_color);
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_COLOR, CodeEdit, breakpoint_icon, "breakpoint");
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, CodeEdit, bookmark_color);
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, CodeEdit, bookmark_icon, "bookmark");
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, CodeEdit, executing_line_color);
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, CodeEdit, executing_line_icon, "executing_line");
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, CodeEdit, line_number_color);
+
+	/* Code Completion */
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, CodeEdit, code_completion_style, "completion");
+	BIND_THEME_ITEM_EXT(Theme::DATA_TYPE_CONSTANT, CodeEdit, code_completion_icon_separation, "h_separation", "ItemList");
+
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_CONSTANT, CodeEdit, code_completion_max_width, "completion_max_width");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_CONSTANT, CodeEdit, code_completion_max_lines, "completion_lines");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_CONSTANT, CodeEdit, code_completion_scroll_width, "completion_scroll_width");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_COLOR, CodeEdit, code_completion_scroll_color, "completion_scroll_color");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_COLOR, CodeEdit, code_completion_scroll_hovered_color, "completion_scroll_hovered_color");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_COLOR, CodeEdit, code_completion_background_color, "completion_background_color");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_COLOR, CodeEdit, code_completion_selected_color, "completion_selected_color");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_COLOR, CodeEdit, code_completion_existing_color, "completion_existing_color");
+
+	/* Code hint */
+	BIND_THEME_ITEM_EXT(Theme::DATA_TYPE_STYLEBOX, CodeEdit, code_hint_style, "panel", "TooltipPanel");
+	BIND_THEME_ITEM_EXT(Theme::DATA_TYPE_COLOR, CodeEdit, code_hint_color, "font_color", "TooltipLabel");
+
+	/* Line length guideline */
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, CodeEdit, line_length_guideline_color);
+
+	/* Other visuals */
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, CodeEdit, style_normal, "normal");
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT, CodeEdit, font);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT_SIZE, CodeEdit, font_size);
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, CodeEdit, line_spacing);
 }
 
 /* Auto brace completion */
@@ -3123,6 +3126,7 @@ void CodeEdit::_filter_code_completion_candidates_impl() {
 		}
 
 		String target_lower = option.display.to_lower();
+		int long_option = target_lower.size() > 50;
 		const char32_t *string_to_complete_char_lower = &string_to_complete_lower[0];
 		const char32_t *target_char_lower = &target_lower[0];
 
@@ -3137,27 +3141,34 @@ void CodeEdit::_filter_code_completion_candidates_impl() {
 		for (int i = 1; *string_to_complete_char_lower && (all_possible_subsequence_matches.size() > 0); i++, string_to_complete_char_lower++) {
 			// find all occurrences of ssq_lower to avoid looking everywhere each time
 			Vector<int> all_ocurence;
-			for (int j = i; j < target_lower.length(); j++) {
-				if (target_lower[j] == *string_to_complete_char_lower) {
-					all_ocurence.push_back(j);
+			if (long_option) {
+				all_ocurence.push_back(target_lower.find_char(*string_to_complete_char_lower));
+			} else {
+				for (int j = i; j < target_lower.length(); j++) {
+					if (target_lower[j] == *string_to_complete_char_lower) {
+						all_ocurence.push_back(j);
+					}
 				}
 			}
 			Vector<Vector<Pair<int, int>>> next_subsequence_matches;
-			for (Vector<Pair<int, int>> &subsequence_matches : all_possible_subsequence_matches) {
-				Pair<int, int> match_last_segment = subsequence_matches[subsequence_matches.size() - 1];
+			for (Vector<Pair<int, int>> &subsequence_match : all_possible_subsequence_matches) {
+				Pair<int, int> match_last_segment = subsequence_match[subsequence_match.size() - 1];
 				int next_index = match_last_segment.first + match_last_segment.second;
 				// get the last index from current sequence
 				// and look for next char starting from that index
 				if (target_lower[next_index] == *string_to_complete_char_lower) {
-					Vector<Pair<int, int>> new_matches = subsequence_matches;
-					new_matches.write[new_matches.size() - 1].second++;
-					next_subsequence_matches.push_back(new_matches);
+					Vector<Pair<int, int>> new_match = subsequence_match;
+					new_match.write[new_match.size() - 1].second++;
+					next_subsequence_matches.push_back(new_match);
+					if (long_option) {
+						continue;
+					}
 				}
 				for (int index : all_ocurence) {
 					if (index > next_index) {
-						Vector<Pair<int, int>> new_matches = subsequence_matches;
-						new_matches.push_back({ index, 1 });
-						next_subsequence_matches.push_back(new_matches);
+						Vector<Pair<int, int>> new_match = subsequence_match;
+						new_match.push_back({ index, 1 });
+						next_subsequence_matches.push_back(new_match);
 					}
 				}
 			}

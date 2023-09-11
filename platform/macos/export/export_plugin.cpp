@@ -41,6 +41,9 @@
 #include "editor/editor_node.h"
 #include "editor/editor_paths.h"
 #include "editor/editor_scale.h"
+#include "editor/editor_string_names.h"
+#include "editor/import/resource_importer_texture_settings.h"
+#include "scene/resources/image_texture.h"
 
 #include "modules/modules_enabled.gen.h" // For svg and regex.
 #ifdef MODULE_SVG_ENABLED
@@ -341,7 +344,9 @@ List<String> EditorExportPlatformMacOS::get_binary_extensions(const Ref<EditorEx
 			list.push_back("dmg");
 #endif
 			list.push_back("zip");
+#ifndef WINDOWS_ENABLED
 			list.push_back("app");
+#endif
 		} else if (dist_type == 1) {
 #ifdef MACOS_ENABLED
 			list.push_back("dmg");
@@ -375,7 +380,7 @@ void EditorExportPlatformMacOS::get_export_options(List<ExportOption> *r_options
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/signature"), ""));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/app_category", PROPERTY_HINT_ENUM, "Business,Developer-tools,Education,Entertainment,Finance,Games,Action-games,Adventure-games,Arcade-games,Board-games,Card-games,Casino-games,Dice-games,Educational-games,Family-games,Kids-games,Music-games,Puzzle-games,Racing-games,Role-playing-games,Simulation-games,Sports-games,Strategy-games,Trivia-games,Word-games,Graphics-design,Healthcare-fitness,Lifestyle,Medical,Music,News,Photography,Productivity,Reference,Social-networking,Sports,Travel,Utilities,Video,Weather"), "Games"));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/short_version"), "1.0"));
-	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/version"), "1.0"));
+	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/version", PROPERTY_HINT_PLACEHOLDER_TEXT, "Leave empty to use project version"), ""));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/copyright"), ""));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::DICTIONARY, "application/copyright_localized", PROPERTY_HINT_LOCALIZABLE_STRING), Dictionary()));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/min_macos_version"), "10.12"));
@@ -425,6 +430,7 @@ void EditorExportPlatformMacOS::get_export_options(List<ExportOption> *r_options
 	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "codesign/entitlements/app_sandbox/files_pictures", PROPERTY_HINT_ENUM, "No,Read-only,Read-write"), 0));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "codesign/entitlements/app_sandbox/files_music", PROPERTY_HINT_ENUM, "No,Read-only,Read-write"), 0));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "codesign/entitlements/app_sandbox/files_movies", PROPERTY_HINT_ENUM, "No,Read-only,Read-write"), 0));
+	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "codesign/entitlements/app_sandbox/files_user_selected", PROPERTY_HINT_ENUM, "No,Read-only,Read-write"), 0));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::ARRAY, "codesign/entitlements/app_sandbox/helper_executables", PROPERTY_HINT_ARRAY_TYPE, itos(Variant::STRING) + "/" + itos(PROPERTY_HINT_GLOBAL_FILE) + ":"), Array()));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::PACKED_STRING_ARRAY, "codesign/custom_options"), PackedStringArray()));
 
@@ -668,7 +674,7 @@ void EditorExportPlatformMacOS::_fix_plist(const Ref<EditorExportPreset> &p_pres
 		} else if (lines[i].find("$short_version") != -1) {
 			strnew += lines[i].replace("$short_version", p_preset->get("application/short_version")) + "\n";
 		} else if (lines[i].find("$version") != -1) {
-			strnew += lines[i].replace("$version", p_preset->get("application/version")) + "\n";
+			strnew += lines[i].replace("$version", p_preset->get_version("application/version")) + "\n";
 		} else if (lines[i].find("$signature") != -1) {
 			strnew += lines[i].replace("$signature", p_preset->get("application/signature")) + "\n";
 		} else if (lines[i].find("$app_category") != -1) {
@@ -1359,7 +1365,7 @@ Error EditorExportPlatformMacOS::export_project(const Ref<EditorExportPreset> &p
 
 	String src_pkg_name;
 
-	EditorProgress ep("export", "Exporting for macOS", 3, true);
+	EditorProgress ep("export", TTR("Exporting for macOS"), 3, true);
 
 	if (p_debug) {
 		src_pkg_name = p_preset->get("custom_template/debug");
@@ -1922,6 +1928,14 @@ Error EditorExportPlatformMacOS::export_project(const Ref<EditorExportPreset> &p
 						ent_f->store_line("<key>com.apple.security.files.movies.read-write</key>");
 						ent_f->store_line("<true/>");
 					}
+					if ((int)p_preset->get("codesign/entitlements/app_sandbox/files_user_selected") == 1) {
+						ent_f->store_line("<key>com.apple.security.files.user-selected.read-only</key>");
+						ent_f->store_line("<true/>");
+					}
+					if ((int)p_preset->get("codesign/entitlements/app_sandbox/files_user_selected") == 2) {
+						ent_f->store_line("<key>com.apple.security.files.user-selected.read-write</key>");
+						ent_f->store_line("<true/>");
+					}
 				}
 
 				ent_f->store_line("</dict>");
@@ -2112,16 +2126,12 @@ bool EditorExportPlatformMacOS::has_valid_export_configuration(const Ref<EditorE
 	// Check the texture formats, which vary depending on the target architecture.
 	String architecture = p_preset->get("binary_format/architecture");
 	if (architecture == "universal" || architecture == "x86_64") {
-		const String bc_error = test_bc();
-		if (!bc_error.is_empty()) {
+		if (!ResourceImporterTextureSettings::should_import_s3tc_bptc()) {
 			valid = false;
-			err += bc_error;
 		}
 	} else if (architecture == "arm64") {
-		const String etc_error = test_etc2();
-		if (!etc_error.is_empty()) {
+		if (!ResourceImporterTextureSettings::should_import_etc2_astc()) {
 			valid = false;
-			err += etc_error;
 		}
 	} else {
 		ERR_PRINT("Invalid architecture");
@@ -2442,17 +2452,16 @@ EditorExportPlatformMacOS::EditorExportPlatformMacOS() {
 		Ref<Image> img = memnew(Image);
 		const bool upsample = !Math::is_equal_approx(Math::round(EDSCALE), EDSCALE);
 
-		ImageLoaderSVG img_loader;
-		img_loader.create_image_from_string(img, _macos_logo_svg, EDSCALE, upsample, false);
+		ImageLoaderSVG::create_image_from_string(img, _macos_logo_svg, EDSCALE, upsample, false);
 		logo = ImageTexture::create_from_image(img);
 
-		img_loader.create_image_from_string(img, _macos_run_icon_svg, EDSCALE, upsample, false);
+		ImageLoaderSVG::create_image_from_string(img, _macos_run_icon_svg, EDSCALE, upsample, false);
 		run_icon = ImageTexture::create_from_image(img);
 #endif
 
 		Ref<Theme> theme = EditorNode::get_singleton()->get_editor_theme();
 		if (theme.is_valid()) {
-			stop_icon = theme->get_icon(SNAME("Stop"), SNAME("EditorIcons"));
+			stop_icon = theme->get_icon(SNAME("Stop"), EditorStringName(EditorIcons));
 		} else {
 			stop_icon.instantiate();
 		}

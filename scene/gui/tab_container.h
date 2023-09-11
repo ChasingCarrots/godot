@@ -75,6 +75,7 @@ class TabContainer : public Container {
 		Color drop_mark_color;
 
 		Color font_selected_color;
+		Color font_hovered_color;
 		Color font_unselected_color;
 		Color font_disabled_color;
 		Color font_outline_color;
@@ -102,7 +103,6 @@ class TabContainer : public Container {
 
 protected:
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
-	virtual void _update_theme_item_cache() override;
 
 	void _notification(int p_what);
 	virtual void add_child_notify(Node *p_child) override;

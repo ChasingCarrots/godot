@@ -69,6 +69,7 @@ class GDScript : public Script {
 		StringName setter;
 		StringName getter;
 		GDScriptDataType data_type;
+		PropertyInfo property_info;
 	};
 
 	struct ClearData {
@@ -100,7 +101,7 @@ class GDScript : public Script {
 	HashMap<StringName, GDScriptFunction *> member_functions;
 	HashMap<StringName, MemberInfo> member_indices; //members are just indices to the instantiated script.
 	HashMap<StringName, Ref<GDScript>> subclasses;
-	HashMap<StringName, Vector<StringName>> _signals;
+	HashMap<StringName, MethodInfo> _signals;
 	Dictionary rpc_config;
 
 #ifdef TOOLS_ENABLED
@@ -126,8 +127,6 @@ class GDScript : public Script {
 	void _add_doc(const DocData::ClassDoc &p_inner_class);
 #endif
 
-	HashMap<StringName, PropertyInfo> member_info;
-
 	GDScriptFunction *implicit_initializer = nullptr;
 	GDScriptFunction *initializer = nullptr; //direct pointer to new , faster to locate
 	GDScriptFunction *implicit_ready = nullptr;
@@ -142,8 +141,10 @@ class GDScript : public Script {
 	//exported members
 	String source;
 	String path;
-	String name;
+	StringName local_name; // Inner class identifier or `class_name`.
+	StringName global_name; // `class_name`.
 	String fully_qualified_name;
+	String simplified_icon_path;
 	SelfList<GDScript> script_list;
 
 	SelfList<GDScriptFunctionState>::List pending_func_states;
@@ -173,9 +174,6 @@ class GDScript : public Script {
 	void _get_script_method_list(List<MethodInfo> *r_list, bool p_include_base) const;
 	void _get_script_signal_list(List<MethodInfo> *r_list, bool p_include_base) const;
 
-	// This method will map the class name from "RefCounted" to "MyClass.InnerClass".
-	static String _get_gdscript_reference_class_name(const GDScript *p_gdscript);
-
 	GDScript *_get_gdscript_from_variant(const Variant &p_variant);
 	void _get_dependencies(RBSet<GDScript *> &p_dependencies, const GDScript *p_except);
 
@@ -192,6 +190,8 @@ public:
 #ifdef DEBUG_ENABLED
 	static String debug_get_script_name(const Ref<Script> &p_script);
 #endif
+
+	_FORCE_INLINE_ StringName get_local_name() const { return local_name; }
 
 	void clear(GDScript::ClearData *p_clear_data = nullptr);
 
@@ -213,7 +213,6 @@ public:
 	}
 	const HashMap<StringName, GDScriptFunction *> &get_member_functions() const { return member_functions; }
 	const Ref<GDScriptNativeClass> &get_native() const { return native; }
-	const String &get_script_class_name() const { return name; }
 
 	RBSet<GDScript *> get_dependencies();
 	RBSet<GDScript *> get_inverted_dependencies();
@@ -250,6 +249,7 @@ public:
 	virtual Vector<DocData::ClassDoc> get_documentation() const override {
 		return docs;
 	}
+	virtual String get_class_icon_path() const override;
 #endif // TOOLS_ENABLED
 
 	virtual Error reload(bool p_keep_state = false) override;
@@ -319,6 +319,7 @@ public:
 	virtual bool get(const StringName &p_name, Variant &r_ret) const;
 	virtual void get_property_list(List<PropertyInfo> *p_properties) const;
 	virtual Variant::Type get_property_type(const StringName &p_name, bool *r_is_valid = nullptr) const;
+	virtual void validate_property(PropertyInfo &p_property) const;
 
 	virtual bool property_can_revert(const StringName &p_name) const;
 	virtual bool property_get_revert(const StringName &p_name, Variant &r_ret) const;
@@ -329,7 +330,7 @@ public:
 
 	Variant debug_get_member_by_index(int p_idx) const { return members[p_idx]; }
 
-	virtual void notification(int p_notification);
+	virtual void notification(int p_notification, bool p_reversed = false);
 	String to_string(bool *r_valid);
 
 	virtual Ref<Script> get_script() const;
@@ -364,12 +365,26 @@ class GDScriptLanguage : public ScriptLanguage {
 		int *line = nullptr;
 	};
 
-	int _debug_parse_err_line;
-	String _debug_parse_err_file;
-	String _debug_error;
-	int _debug_call_stack_pos;
-	int _debug_max_call_stack;
-	CallLevel *_call_stack = nullptr;
+	static thread_local int _debug_parse_err_line;
+	static thread_local String _debug_parse_err_file;
+	static thread_local String _debug_error;
+	struct CallStack {
+		CallLevel *levels = nullptr;
+		int stack_pos = 0;
+
+		void free() {
+			if (levels) {
+				memdelete(levels);
+				levels = nullptr;
+			}
+		}
+		~CallStack() {
+			free();
+		}
+	};
+
+	static thread_local CallStack _call_stack;
+	int _debug_max_call_stack = 0;
 
 	void _add_global(const StringName &p_name, const Variant &p_value);
 
@@ -395,59 +410,51 @@ public:
 	bool debug_break_parse(const String &p_file, int p_line, const String &p_error);
 
 	_FORCE_INLINE_ void enter_function(GDScriptInstance *p_instance, GDScriptFunction *p_function, Variant *p_stack, int *p_ip, int *p_line) {
-		if (Thread::get_main_id() != Thread::get_caller_id()) {
-			return; //no support for other threads than main for now
+		if (unlikely(_call_stack.levels == nullptr)) {
+			_call_stack.levels = memnew_arr(CallLevel, _debug_max_call_stack + 1);
 		}
 
 		if (EngineDebugger::get_script_debugger()->get_lines_left() > 0 && EngineDebugger::get_script_debugger()->get_depth() >= 0) {
 			EngineDebugger::get_script_debugger()->set_depth(EngineDebugger::get_script_debugger()->get_depth() + 1);
 		}
 
-		if (_debug_call_stack_pos >= _debug_max_call_stack) {
+		if (_call_stack.stack_pos >= _debug_max_call_stack) {
 			//stack overflow
 			_debug_error = vformat("Stack overflow (stack size: %s). Check for infinite recursion in your script.", _debug_max_call_stack);
 			EngineDebugger::get_script_debugger()->debug(this);
 			return;
 		}
 
-		_call_stack[_debug_call_stack_pos].stack = p_stack;
-		_call_stack[_debug_call_stack_pos].instance = p_instance;
-		_call_stack[_debug_call_stack_pos].function = p_function;
-		_call_stack[_debug_call_stack_pos].ip = p_ip;
-		_call_stack[_debug_call_stack_pos].line = p_line;
-		_debug_call_stack_pos++;
+		_call_stack.levels[_call_stack.stack_pos].stack = p_stack;
+		_call_stack.levels[_call_stack.stack_pos].instance = p_instance;
+		_call_stack.levels[_call_stack.stack_pos].function = p_function;
+		_call_stack.levels[_call_stack.stack_pos].ip = p_ip;
+		_call_stack.levels[_call_stack.stack_pos].line = p_line;
+		_call_stack.stack_pos++;
 	}
 
 	_FORCE_INLINE_ void exit_function() {
-		if (Thread::get_main_id() != Thread::get_caller_id()) {
-			return; //no support for other threads than main for now
-		}
-
 		if (EngineDebugger::get_script_debugger()->get_lines_left() > 0 && EngineDebugger::get_script_debugger()->get_depth() >= 0) {
 			EngineDebugger::get_script_debugger()->set_depth(EngineDebugger::get_script_debugger()->get_depth() - 1);
 		}
 
-		if (_debug_call_stack_pos == 0) {
+		if (_call_stack.stack_pos == 0) {
 			_debug_error = "Stack Underflow (Engine Bug)";
 			EngineDebugger::get_script_debugger()->debug(this);
 			return;
 		}
 
-		_debug_call_stack_pos--;
+		_call_stack.stack_pos--;
 	}
 
 	virtual Vector<StackInfo> debug_get_current_stack_info() override {
-		if (Thread::get_main_id() != Thread::get_caller_id()) {
-			return Vector<StackInfo>();
-		}
-
 		Vector<StackInfo> csi;
-		csi.resize(_debug_call_stack_pos);
-		for (int i = 0; i < _debug_call_stack_pos; i++) {
-			csi.write[_debug_call_stack_pos - i - 1].line = _call_stack[i].line ? *_call_stack[i].line : 0;
-			if (_call_stack[i].function) {
-				csi.write[_debug_call_stack_pos - i - 1].func = _call_stack[i].function->get_name();
-				csi.write[_debug_call_stack_pos - i - 1].file = _call_stack[i].function->get_script()->get_script_path();
+		csi.resize(_call_stack.stack_pos);
+		for (int i = 0; i < _call_stack.stack_pos; i++) {
+			csi.write[_call_stack.stack_pos - i - 1].line = _call_stack.levels[i].line ? *_call_stack.levels[i].line : 0;
+			if (_call_stack.levels[i].function) {
+				csi.write[_call_stack.stack_pos - i - 1].func = _call_stack.levels[i].function->get_name();
+				csi.write[_call_stack.stack_pos - i - 1].file = _call_stack.levels[i].function->get_script()->get_script_path();
 			}
 		}
 		return csi;
@@ -460,6 +467,7 @@ public:
 		StringName _set;
 		StringName _get;
 		StringName _get_property_list;
+		StringName _validate_property;
 		StringName _property_can_revert;
 		StringName _property_get_revert;
 		StringName _script_source;
