@@ -40,7 +40,7 @@ public:
 	void _init(int baseVal, String modifierName, Variant gameObject, Callable rankModifier);
 	void _initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier);
 	void setModifierCategories(TypedArray<String> categories);
-	TypedArray<String> getModifierCategories() { return _modifierCategories; }
+	TypedArray<String> getModifierCategories() { return _modifierCategories.duplicate(); }
 	void updateManually();
 	void updateModifier(String mod);
 	int Value();
@@ -79,7 +79,7 @@ public:
 	void _initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier);
 	void _initAsMultiplicativeOnly(String modifierName, Variant gameObject, Callable rankModifier);
 	void setModifierCategories(TypedArray<String> categories);
-	TypedArray<String> getModifierCategories() { return _modifierCategories; }
+	TypedArray<String> getModifierCategories() { return _modifierCategories.duplicate(); }
 	void updateManually();
 	void updateModifier(String mod);
 	float Value();
