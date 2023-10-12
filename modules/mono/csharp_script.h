@@ -63,6 +63,7 @@ class CSharpScript : public Script {
 
 	bool tool = false;
 	bool global_class = false;
+	bool abstract_class = false;
 	bool valid = false;
 	bool reload_invalidated = false;
 
@@ -188,6 +189,9 @@ public:
 	bool is_valid() const override {
 		return valid;
 	}
+	bool is_abstract() const override {
+		return abstract_class;
+	}
 
 	bool inherits_script(const Ref<Script> &p_script) const override;
 
@@ -199,6 +203,7 @@ public:
 	void get_script_method_list(List<MethodInfo> *p_list) const override;
 	bool has_method(const StringName &p_method) const override;
 	MethodInfo get_method_info(const StringName &p_method) const override;
+	Variant callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) override;
 
 	int get_member_line(const StringName &p_member) const override;
 
@@ -414,6 +419,7 @@ public:
 	void get_reserved_words(List<String> *p_words) const override;
 	bool is_control_flow_keyword(String p_keyword) const override;
 	void get_comment_delimiters(List<String> *p_delimiters) const override;
+	void get_doc_comment_delimiters(List<String> *p_delimiters) const override;
 	void get_string_delimiters(List<String> *p_delimiters) const override;
 	bool is_using_templates() override;
 	virtual Ref<Script> make_template(const String &p_template, const String &p_class_name, const String &p_base_class_name) const override;
@@ -424,7 +430,9 @@ public:
 	}
 	String validate_path(const String &p_path) const override;
 	Script *create_script() const override;
-	bool has_named_classes() const override;
+#ifndef DISABLE_DEPRECATED
+	virtual bool has_named_classes() const override { return false; }
+#endif
 	bool supports_builtin_mode() const override;
 	/* TODO? */ int find_function(const String &p_function, const String &p_code) const override {
 		return -1;

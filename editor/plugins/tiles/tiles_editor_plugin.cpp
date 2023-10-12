@@ -38,6 +38,7 @@
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/editor_string_names.h"
 #include "editor/plugins/canvas_item_editor_plugin.h"
 
 #include "scene/2d/tile_map.h"
@@ -133,11 +134,7 @@ void TilesEditorUtils::_thread() {
 				Ref<Image> image = viewport->get_texture()->get_image();
 
 				// Find the index for the given pattern. TODO: optimize.
-				Variant args[] = { item.pattern, ImageTexture::create_from_image(image) };
-				const Variant *args_ptr[] = { &args[0], &args[1] };
-				Variant r;
-				Callable::CallError error;
-				item.callback.callp(args_ptr, 2, r, error);
+				item.callback.call(item.pattern, ImageTexture::create_from_image(image));
 
 				viewport->queue_free();
 			}
@@ -163,8 +160,8 @@ void TilesEditorUtils::set_sources_lists_current(int p_current) {
 void TilesEditorUtils::synchronize_sources_list(Object *p_current_list, Object *p_current_sort_button) {
 	ItemList *item_list = Object::cast_to<ItemList>(p_current_list);
 	MenuButton *sorting_button = Object::cast_to<MenuButton>(p_current_sort_button);
-	ERR_FAIL_COND(!item_list);
-	ERR_FAIL_COND(!sorting_button);
+	ERR_FAIL_NULL(item_list);
+	ERR_FAIL_NULL(sorting_button);
 
 	if (sorting_button->is_visible_in_tree()) {
 		for (int i = 0; i != SOURCE_SORT_MAX; i++) {
@@ -195,7 +192,7 @@ void TilesEditorUtils::set_atlas_view_transform(float p_zoom, Vector2 p_scroll) 
 
 void TilesEditorUtils::synchronize_atlas_view(Object *p_current) {
 	TileAtlasView *tile_atlas_view = Object::cast_to<TileAtlasView>(p_current);
-	ERR_FAIL_COND(!tile_atlas_view);
+	ERR_FAIL_NULL(tile_atlas_view);
 
 	if (tile_atlas_view->is_visible_in_tree()) {
 		tile_atlas_view->set_transform(atlas_view_zoom, atlas_view_scroll);
@@ -289,10 +286,12 @@ void TilesEditorUtils::display_tile_set_editor_panel() {
 }
 
 void TilesEditorUtils::draw_selection_rect(CanvasItem *p_ci, const Rect2 &p_rect, const Color &p_color) {
+	Ref<Texture2D> selection_texture = EditorNode::get_singleton()->get_editor_theme()->get_icon(SNAME("TileSelection"), EditorStringName(EditorIcons));
+
 	real_t scale = p_ci->get_global_transform().get_scale().x * 0.5;
 	p_ci->draw_set_transform(p_rect.position, 0, Vector2(1, 1) / scale);
 	RS::get_singleton()->canvas_item_add_nine_patch(
-			p_ci->get_canvas_item(), Rect2(Vector2(), p_rect.size * scale), Rect2(), EditorNode::get_singleton()->get_gui_base()->get_editor_theme_icon(SNAME("TileSelection"))->get_rid(),
+			p_ci->get_canvas_item(), Rect2(Vector2(), p_rect.size * scale), Rect2(), selection_texture->get_rid(),
 			Vector2(2, 2), Vector2(2, 2), RS::NINE_PATCH_STRETCH, RS::NINE_PATCH_STRETCH, false, p_color);
 	p_ci->draw_set_transform_matrix(Transform2D());
 }

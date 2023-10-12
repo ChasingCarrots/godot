@@ -1184,6 +1184,7 @@ MaterialStorage::MaterialStorage() {
 		actions.render_mode_defines["skip_vertex_transform"] = "#define SKIP_TRANSFORM_USED\n";
 		actions.render_mode_defines["unshaded"] = "#define MODE_UNSHADED\n";
 		actions.render_mode_defines["light_only"] = "#define MODE_LIGHT_ONLY\n";
+		actions.render_mode_defines["world_vertex_coords"] = "#define USE_WORLD_VERTEX_COORDS\n";
 
 		actions.global_buffer_array_variable = "global_shader_uniforms";
 
@@ -1394,6 +1395,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["DELTA"] = "local_delta";
 		actions.renames["NUMBER"] = "particle_number";
 		actions.renames["INDEX"] = "index";
+		actions.renames["AMOUNT_RATIO"] = "amount_ratio";
 		//actions.renames["GRAVITY"] = "current_gravity";
 		actions.renames["EMISSION_TRANSFORM"] = "emission_transform";
 		actions.renames["RANDOM_SEED"] = "random_seed";
@@ -1406,6 +1408,8 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["COLLISION_NORMAL"] = "collision_normal";
 		actions.renames["COLLISION_DEPTH"] = "collision_depth";
 		actions.renames["ATTRACTOR_FORCE"] = "attractor_force";
+		actions.renames["EMITTER_VELOCITY"] = "emitter_velocity";
+		actions.renames["INTERPOLATE_TO_END"] = "interp_to_end";
 
 		// These are unsupported, but may be used by users. To avoid compile time overhead, we add the stub only when used.
 		actions.renames["FLAG_EMIT_POSITION"] = "uint(1)";
@@ -2137,7 +2141,7 @@ void MaterialStorage::shader_initialize(RID p_rid) {
 
 void MaterialStorage::shader_free(RID p_rid) {
 	GLES3::Shader *shader = shader_owner.get_or_null(p_rid);
-	ERR_FAIL_COND(!shader);
+	ERR_FAIL_NULL(shader);
 
 	//make material unreference this
 	while (shader->owners.size()) {
@@ -2153,7 +2157,7 @@ void MaterialStorage::shader_free(RID p_rid) {
 
 void MaterialStorage::shader_set_code(RID p_shader, const String &p_code) {
 	GLES3::Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND(!shader);
+	ERR_FAIL_NULL(shader);
 
 	shader->code = p_code;
 
@@ -2231,7 +2235,7 @@ void MaterialStorage::shader_set_code(RID p_shader, const String &p_code) {
 
 void MaterialStorage::shader_set_path_hint(RID p_shader, const String &p_path) {
 	GLES3::Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND(!shader);
+	ERR_FAIL_NULL(shader);
 
 	shader->path_hint = p_path;
 	if (shader->data) {
@@ -2241,13 +2245,13 @@ void MaterialStorage::shader_set_path_hint(RID p_shader, const String &p_path) {
 
 String MaterialStorage::shader_get_code(RID p_shader) const {
 	const GLES3::Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND_V(!shader, String());
+	ERR_FAIL_NULL_V(shader, String());
 	return shader->code;
 }
 
 void MaterialStorage::get_shader_parameter_list(RID p_shader, List<PropertyInfo> *p_param_list) const {
 	GLES3::Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND(!shader);
+	ERR_FAIL_NULL(shader);
 	if (shader->data) {
 		return shader->data->get_shader_uniform_list(p_param_list);
 	}
@@ -2255,7 +2259,7 @@ void MaterialStorage::get_shader_parameter_list(RID p_shader, List<PropertyInfo>
 
 void MaterialStorage::shader_set_default_texture_parameter(RID p_shader, const StringName &p_name, RID p_texture, int p_index) {
 	GLES3::Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND(!shader);
+	ERR_FAIL_NULL(shader);
 
 	if (p_texture.is_valid() && TextureStorage::get_singleton()->owns_texture(p_texture)) {
 		if (!shader->default_texture_parameter.has(p_name)) {
@@ -2282,7 +2286,7 @@ void MaterialStorage::shader_set_default_texture_parameter(RID p_shader, const S
 
 RID MaterialStorage::shader_get_default_texture_parameter(RID p_shader, const StringName &p_name, int p_index) const {
 	const GLES3::Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND_V(!shader, RID());
+	ERR_FAIL_NULL_V(shader, RID());
 	if (shader->default_texture_parameter.has(p_name) && shader->default_texture_parameter[p_name].has(p_index)) {
 		return shader->default_texture_parameter[p_name][p_index];
 	}
@@ -2292,7 +2296,7 @@ RID MaterialStorage::shader_get_default_texture_parameter(RID p_shader, const St
 
 Variant MaterialStorage::shader_get_parameter_default(RID p_shader, const StringName &p_param) const {
 	Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND_V(!shader, Variant());
+	ERR_FAIL_NULL_V(shader, Variant());
 	if (shader->data) {
 		return shader->data->get_default_parameter(p_param);
 	}
@@ -2301,7 +2305,7 @@ Variant MaterialStorage::shader_get_parameter_default(RID p_shader, const String
 
 RS::ShaderNativeSourceCode MaterialStorage::shader_get_native_source_code(RID p_shader) const {
 	Shader *shader = shader_owner.get_or_null(p_shader);
-	ERR_FAIL_COND_V(!shader, RS::ShaderNativeSourceCode());
+	ERR_FAIL_NULL_V(shader, RS::ShaderNativeSourceCode());
 	if (shader->data) {
 		return shader->data->get_native_source_code();
 	}
@@ -2347,7 +2351,7 @@ void MaterialStorage::material_initialize(RID p_rid) {
 
 void MaterialStorage::material_free(RID p_rid) {
 	Material *material = material_owner.get_or_null(p_rid);
-	ERR_FAIL_COND(!material);
+	ERR_FAIL_NULL(material);
 
 	// Need to clear texture arrays to prevent spin locking of their RID's.
 	// This happens when the app is being closed.
@@ -2365,7 +2369,7 @@ void MaterialStorage::material_free(RID p_rid) {
 
 void MaterialStorage::material_set_shader(RID p_material, RID p_shader) {
 	GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND(!material);
+	ERR_FAIL_NULL(material);
 
 	if (material->data) {
 		memdelete(material->data);
@@ -2385,7 +2389,7 @@ void MaterialStorage::material_set_shader(RID p_material, RID p_shader) {
 	}
 
 	Shader *shader = get_shader(p_shader);
-	ERR_FAIL_COND(!shader);
+	ERR_FAIL_NULL(shader);
 	material->shader = shader;
 	material->shader_mode = shader->mode;
 	material->shader_id = p_shader.get_local_index();
@@ -2395,7 +2399,7 @@ void MaterialStorage::material_set_shader(RID p_material, RID p_shader) {
 		return;
 	}
 
-	ERR_FAIL_COND(shader->data == nullptr);
+	ERR_FAIL_NULL(shader->data);
 
 	material->data = material_data_request_func[shader->mode](shader->data);
 	material->data->self = p_material;
@@ -2408,7 +2412,7 @@ void MaterialStorage::material_set_shader(RID p_material, RID p_shader) {
 
 void MaterialStorage::material_set_param(RID p_material, const StringName &p_param, const Variant &p_value) {
 	GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND(!material);
+	ERR_FAIL_NULL(material);
 
 	if (p_value.get_type() == Variant::NIL) {
 		material->params.erase(p_param);
@@ -2427,7 +2431,7 @@ void MaterialStorage::material_set_param(RID p_material, const StringName &p_par
 
 Variant MaterialStorage::material_get_param(RID p_material, const StringName &p_param) const {
 	const GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND_V(!material, Variant());
+	ERR_FAIL_NULL_V(material, Variant());
 	if (material->params.has(p_param)) {
 		return material->params[p_param];
 	} else {
@@ -2437,7 +2441,7 @@ Variant MaterialStorage::material_get_param(RID p_material, const StringName &p_
 
 void MaterialStorage::material_set_next_pass(RID p_material, RID p_next_material) {
 	GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND(!material);
+	ERR_FAIL_NULL(material);
 
 	if (material->next_pass == p_next_material) {
 		return;
@@ -2456,7 +2460,7 @@ void MaterialStorage::material_set_render_priority(RID p_material, int priority)
 	ERR_FAIL_COND(priority > RS::MATERIAL_RENDER_PRIORITY_MAX);
 
 	GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND(!material);
+	ERR_FAIL_NULL(material);
 	material->priority = priority;
 	if (material->data) {
 		material->data->set_render_priority(priority);
@@ -2466,7 +2470,7 @@ void MaterialStorage::material_set_render_priority(RID p_material, int priority)
 
 bool MaterialStorage::material_is_animated(RID p_material) {
 	GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND_V(!material, false);
+	ERR_FAIL_NULL_V(material, false);
 	if (material->shader && material->shader->data) {
 		if (material->shader->data->is_animated()) {
 			return true;
@@ -2479,7 +2483,7 @@ bool MaterialStorage::material_is_animated(RID p_material) {
 
 bool MaterialStorage::material_casts_shadows(RID p_material) {
 	GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND_V(!material, true);
+	ERR_FAIL_NULL_V(material, true);
 	if (material->shader && material->shader->data) {
 		if (material->shader->data->casts_shadows()) {
 			return true;
@@ -2492,7 +2496,7 @@ bool MaterialStorage::material_casts_shadows(RID p_material) {
 
 void MaterialStorage::material_get_instance_shader_parameters(RID p_material, List<InstanceShaderParam> *r_parameters) {
 	GLES3::Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND(!material);
+	ERR_FAIL_NULL(material);
 	if (material->shader && material->shader->data) {
 		material->shader->data->get_instance_param_list(r_parameters);
 
@@ -2504,7 +2508,7 @@ void MaterialStorage::material_get_instance_shader_parameters(RID p_material, Li
 
 void MaterialStorage::material_update_dependency(RID p_material, DependencyTracker *p_instance) {
 	Material *material = material_owner.get_or_null(p_material);
-	ERR_FAIL_COND(!material);
+	ERR_FAIL_NULL(material);
 	p_instance->update_dependency(&material->dependency);
 	if (material->next_pass.is_valid()) {
 		material_update_dependency(material->next_pass, p_instance);
@@ -2892,6 +2896,7 @@ void SceneShaderData::set_code(const String &p_code) {
 	actions.render_mode_flags["unshaded"] = &unshaded;
 	actions.render_mode_flags["wireframe"] = &wireframe;
 	actions.render_mode_flags["particle_trails"] = &uses_particle_trails;
+	actions.render_mode_flags["world_vertex_coords"] = &uses_world_coordinates;
 
 	actions.usage_flag_pointers["ALPHA"] = &uses_alpha;
 	actions.usage_flag_pointers["ALPHA_SCISSOR_THRESHOLD"] = &uses_alpha_clip;
@@ -2943,7 +2948,7 @@ void SceneShaderData::set_code(const String &p_code) {
 	cull_mode = Cull(cull_modei);
 	blend_mode = BlendMode(blend_modei);
 	alpha_antialiasing_mode = AlphaAntiAliasing(alpha_antialiasing_modei);
-	vertex_input_mask = uint32_t(uses_normal);
+	vertex_input_mask = uint64_t(uses_normal);
 	vertex_input_mask |= uses_tangent << 1;
 	vertex_input_mask |= uses_color << 2;
 	vertex_input_mask |= uses_uv << 3;

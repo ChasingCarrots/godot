@@ -149,7 +149,7 @@ void EditorToaster::_notification(int p_what) {
 void EditorToaster::_error_handler(void *p_self, const char *p_func, const char *p_file, int p_line, const char *p_error, const char *p_errorexp, bool p_editor_notify, ErrorHandlerType p_type) {
 	// This may be called from a thread. Since we will deal with non-thread-safe elements,
 	// we have to put it in the queue for safety.
-	callable_mp_static(&EditorToaster::_error_handler_impl).bind(p_file, p_line, p_error, p_errorexp, p_editor_notify, p_type).call_deferred();
+	callable_mp_static(&EditorToaster::_error_handler_impl).bind(String::utf8(p_file), p_line, String::utf8(p_error), String::utf8(p_errorexp), p_editor_notify, p_type).call_deferred();
 }
 
 void EditorToaster::_error_handler_impl(const String &p_file, int p_line, const String &p_error, const String &p_errorexp, bool p_editor_notify, int p_type) {
@@ -456,7 +456,7 @@ void EditorToaster::_popup_str(String p_message, Severity p_severity, String p_t
 
 	// Retrieve the label back, then update the text.
 	Label *message_label = toasts[control].message_label;
-	ERR_FAIL_COND(!message_label);
+	ERR_FAIL_NULL(message_label);
 	message_label->set_text(p_message);
 	message_label->set_text_overrun_behavior(TextServer::OVERRUN_NO_TRIMMING);
 	message_label->set_custom_minimum_size(Size2());

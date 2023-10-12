@@ -486,6 +486,7 @@ void LineEdit::gui_input(const Ref<InputEvent> &p_event) {
 
 		if (k->is_action("ui_cancel")) {
 			callable_mp((Control *)this, &Control::release_focus).call_deferred();
+			accept_event();
 			return;
 		}
 
@@ -614,7 +615,7 @@ void LineEdit::gui_input(const Ref<InputEvent> &p_event) {
 
 		// Allow unicode handling if:
 		// * No Modifiers are pressed (except shift)
-		bool allow_unicode_handling = !(k->is_command_or_control_pressed() || k->is_ctrl_pressed() || k->is_alt_pressed() || k->is_meta_pressed());
+		bool allow_unicode_handling = !(k->is_ctrl_pressed() || k->is_alt_pressed() || k->is_meta_pressed());
 
 		if (allow_unicode_handling && editable && k->get_unicode() >= 32) {
 			// Handle Unicode if no modifiers are active.
@@ -679,13 +680,13 @@ void LineEdit::drop_data(const Point2 &p_point, const Variant &p_data) {
 		set_caret_at_pixel_pos(p_point.x);
 		int caret_column_tmp = caret_column;
 		bool is_inside_sel = selection.enabled && caret_column >= selection.begin && caret_column <= selection.end;
-		if (Input::get_singleton()->is_key_pressed(Key::CTRL)) {
+		if (Input::get_singleton()->is_key_pressed(Key::CMD_OR_CTRL)) {
 			is_inside_sel = selection.enabled && caret_column > selection.begin && caret_column < selection.end;
 		}
 		if (selection.drag_attempt) {
 			selection.drag_attempt = false;
 			if (!is_inside_sel) {
-				if (!Input::get_singleton()->is_key_pressed(Key::CTRL)) {
+				if (!Input::get_singleton()->is_key_pressed(Key::CMD_OR_CTRL)) {
 					if (caret_column_tmp > selection.end) {
 						caret_column_tmp = caret_column_tmp - (selection.end - selection.begin);
 					}
@@ -1139,7 +1140,7 @@ void LineEdit::_notification(int p_what) {
 			if (is_drag_successful()) {
 				if (selection.drag_attempt) {
 					selection.drag_attempt = false;
-					if (is_editable() && !Input::get_singleton()->is_key_pressed(Key::CTRL)) {
+					if (is_editable() && !Input::get_singleton()->is_key_pressed(Key::CMD_OR_CTRL)) {
 						selection_delete();
 					} else if (deselect_on_focus_loss_enabled) {
 						deselect();
@@ -2621,8 +2622,6 @@ void LineEdit::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "alignment", PROPERTY_HINT_ENUM, "Left,Center,Right,Fill"), "set_horizontal_alignment", "get_horizontal_alignment");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_length", PROPERTY_HINT_RANGE, "0,1000,1,or_greater"), "set_max_length", "get_max_length");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "editable"), "set_editable", "is_editable");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "secret"), "set_secret", "is_secret");
-	ADD_PROPERTY(PropertyInfo(Variant::STRING, "secret_character"), "set_secret_character", "get_secret_character");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "expand_to_text_length"), "set_expand_to_text_length_enabled", "is_expand_to_text_length_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "context_menu_enabled"), "set_context_menu_enabled", "is_context_menu_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "virtual_keyboard_enabled"), "set_virtual_keyboard_enabled", "is_virtual_keyboard_enabled");
@@ -2644,6 +2643,10 @@ void LineEdit::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "caret_column", PROPERTY_HINT_RANGE, "0,1000,1,or_greater"), "set_caret_column", "get_caret_column");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "caret_force_displayed"), "set_caret_force_displayed", "is_caret_force_displayed");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "caret_mid_grapheme"), "set_caret_mid_grapheme_enabled", "is_caret_mid_grapheme_enabled");
+
+	ADD_GROUP("Secret", "");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "secret"), "set_secret", "is_secret");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "secret_character"), "set_secret_character", "get_secret_character");
 
 	ADD_GROUP("BiDi", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "text_direction", PROPERTY_HINT_ENUM, "Auto,Left-to-Right,Right-to-Left,Inherited"), "set_text_direction", "get_text_direction");

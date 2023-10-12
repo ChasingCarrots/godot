@@ -37,7 +37,7 @@
 #include "godot_space_2d.h"
 
 void GodotBody2D::_mass_properties_changed() {
-	if (get_space() && !mass_properties_update_list.in_list() && (calculate_inertia || calculate_center_of_mass)) {
+	if (get_space() && !mass_properties_update_list.in_list()) {
 		get_space()->body_add_to_mass_properties_update_list(&mass_properties_update_list);
 	}
 }
@@ -427,7 +427,7 @@ void GodotBody2D::integrate_forces(real_t p_step) {
 
 	PROFILE_FUNCTION()
 
-	ERR_FAIL_COND(!get_space());
+	ERR_FAIL_NULL(get_space());
 
 	int ac = areas.size();
 
@@ -515,7 +515,7 @@ void GodotBody2D::integrate_forces(real_t p_step) {
 	// Add default gravity and damping from space area.
 	if (!stopped) {
 		GodotArea2D *default_area = get_space()->get_default_area();
-		ERR_FAIL_COND(!default_area);
+		ERR_FAIL_NULL(default_area);
 
 		if (!gravity_done) {
 			Vector2 default_gravity;
@@ -622,7 +622,7 @@ void GodotBody2D::integrate_velocities(real_t p_step) {
 
 	PROFILE_FUNCTION()
 
-	if (fi_callback_data || body_state_callback.get_object()) {
+	if (fi_callback_data || body_state_callback.is_valid()) {
 		get_space()->body_add_to_state_query_list(&direct_state_query_list);
 	}
 
@@ -683,7 +683,7 @@ void GodotBody2D::call_queries() {
 	Variant direct_state_variant = get_direct_state();
 
 	if (fi_callback_data) {
-		if (!fi_callback_data->callable.get_object()) {
+		if (!fi_callback_data->callable.is_valid()) {
 			set_force_integration_callback(Callable());
 		} else {
 			const Variant *vp[2] = { &direct_state_variant, &fi_callback_data->udata };
@@ -699,11 +699,8 @@ void GodotBody2D::call_queries() {
 		}
 	}
 
-	if (body_state_callback.get_object()) {
-		const Variant *vp[1] = { &direct_state_variant };
-		Callable::CallError ce;
-		Variant rv;
-		body_state_callback.callp(vp, 1, rv, ce);
+	if (body_state_callback.is_valid()) {
+		body_state_callback.call(direct_state_variant);
 	}
 }
 
@@ -729,7 +726,7 @@ void GodotBody2D::set_state_sync_callback(const Callable &p_callable) {
 }
 
 void GodotBody2D::set_force_integration_callback(const Callable &p_callable, const Variant &p_udata) {
-	if (p_callable.get_object()) {
+	if (p_callable.is_valid()) {
 		if (!fi_callback_data) {
 			fi_callback_data = memnew(ForceIntegrationCallbackData);
 		}

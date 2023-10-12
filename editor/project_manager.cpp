@@ -397,7 +397,7 @@ void ProjectDialog::_nonempty_confirmation_ok_pressed() {
 }
 
 void ProjectDialog::_renderer_selected() {
-	ERR_FAIL_COND(!renderer_button_group->get_pressed_button());
+	ERR_FAIL_NULL(renderer_button_group->get_pressed_button());
 
 	String renderer_type = renderer_button_group->get_pressed_button()->get_meta(SNAME("rendering_method"));
 
@@ -1863,7 +1863,7 @@ void ProjectList::_panel_input(const Ref<InputEvent> &p_ev, Node *p_hb) {
 			CRASH_COND(anchor_index == -1);
 			_select_project_range(anchor_index, clicked_index);
 
-		} else if (mb->is_ctrl_pressed()) {
+		} else if (mb->is_command_or_control_pressed()) {
 			_toggle_project(clicked_index);
 
 		} else {
@@ -1875,7 +1875,7 @@ void ProjectList::_panel_input(const Ref<InputEvent> &p_ev, Node *p_hb) {
 
 		// Do not allow opening a project more than once using a single project manager instance.
 		// Opening the same project in several editor instances at once can lead to various issues.
-		if (!mb->is_ctrl_pressed() && mb->is_double_click() && !project_opening_initiated) {
+		if (!mb->is_command_or_control_pressed() && mb->is_double_click() && !project_opening_initiated) {
 			emit_signal(SNAME(SIGNAL_PROJECT_ASK_OPEN));
 		}
 	}

@@ -73,12 +73,12 @@ bool EditorExportPlatform::fill_log_messages(RichTextLabel *p_log, Error p_err) 
 	p_log->add_text(" - ");
 	if (p_err == OK) {
 		if (get_worst_message_type() >= EditorExportPlatform::EXPORT_MESSAGE_WARNING) {
-			p_log->add_image(EditorNode::get_singleton()->get_gui_base()->get_editor_theme_icon(SNAME("StatusWarning")), 16 * EDSCALE, 16 * EDSCALE, Color(1.0, 1.0, 1.0), INLINE_ALIGNMENT_CENTER);
+			p_log->add_image(p_log->get_editor_theme_icon(SNAME("StatusWarning")), 16 * EDSCALE, 16 * EDSCALE, Color(1.0, 1.0, 1.0), INLINE_ALIGNMENT_CENTER);
 			p_log->add_text(" ");
 			p_log->add_text(TTR("Completed with warnings."));
 			has_messages = true;
 		} else {
-			p_log->add_image(EditorNode::get_singleton()->get_gui_base()->get_editor_theme_icon(SNAME("StatusSuccess")), 16 * EDSCALE, 16 * EDSCALE, Color(1.0, 1.0, 1.0), INLINE_ALIGNMENT_CENTER);
+			p_log->add_image(p_log->get_editor_theme_icon(SNAME("StatusSuccess")), 16 * EDSCALE, 16 * EDSCALE, Color(1.0, 1.0, 1.0), INLINE_ALIGNMENT_CENTER);
 			p_log->add_text(" ");
 			p_log->add_text(TTR("Completed successfully."));
 			if (msg_count > 0) {
@@ -86,7 +86,7 @@ bool EditorExportPlatform::fill_log_messages(RichTextLabel *p_log, Error p_err) 
 			}
 		}
 	} else {
-		p_log->add_image(EditorNode::get_singleton()->get_gui_base()->get_editor_theme_icon(SNAME("StatusError")), 16 * EDSCALE, 16 * EDSCALE, Color(1.0, 1.0, 1.0), INLINE_ALIGNMENT_CENTER);
+		p_log->add_image(p_log->get_editor_theme_icon(SNAME("StatusError")), 16 * EDSCALE, 16 * EDSCALE, Color(1.0, 1.0, 1.0), INLINE_ALIGNMENT_CENTER);
 		p_log->add_text(" ");
 		p_log->add_text(TTR("Failed."));
 		has_messages = true;
@@ -99,20 +99,20 @@ bool EditorExportPlatform::fill_log_messages(RichTextLabel *p_log, Error p_err) 
 		p_log->set_table_column_expand(1, true);
 		for (int m = 0; m < msg_count; m++) {
 			EditorExportPlatform::ExportMessage msg = get_message(m);
-			Color color = EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("font_color"), SNAME("Label"));
+			Color color = p_log->get_theme_color(SNAME("font_color"), SNAME("Label"));
 			Ref<Texture> icon;
 
 			switch (msg.msg_type) {
 				case EditorExportPlatform::EXPORT_MESSAGE_INFO: {
-					color = EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("font_color"), EditorStringName(Editor)) * Color(1, 1, 1, 0.6);
+					color = p_log->get_theme_color(SNAME("font_color"), EditorStringName(Editor)) * Color(1, 1, 1, 0.6);
 				} break;
 				case EditorExportPlatform::EXPORT_MESSAGE_WARNING: {
-					icon = EditorNode::get_singleton()->get_gui_base()->get_editor_theme_icon(SNAME("Warning"));
-					color = EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("warning_color"), EditorStringName(Editor));
+					icon = p_log->get_editor_theme_icon(SNAME("Warning"));
+					color = p_log->get_theme_color(SNAME("warning_color"), EditorStringName(Editor));
 				} break;
 				case EditorExportPlatform::EXPORT_MESSAGE_ERROR: {
-					icon = EditorNode::get_singleton()->get_gui_base()->get_editor_theme_icon(SNAME("Error"));
-					color = EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("error_color"), EditorStringName(Editor));
+					icon = p_log->get_editor_theme_icon(SNAME("Error"));
+					color = p_log->get_theme_color(SNAME("error_color"), EditorStringName(Editor));
 				} break;
 				default:
 					break;
@@ -756,7 +756,7 @@ String EditorExportPlatform::_export_customize(const String &p_path, LocalVector
 		Ref<PackedScene> ps = ResourceLoader::load(p_path, "PackedScene", ResourceFormatLoader::CACHE_MODE_IGNORE);
 		ERR_FAIL_COND_V(ps.is_null(), p_path);
 		Node *node = ps->instantiate(PackedScene::GEN_EDIT_STATE_INSTANCE); // Make sure the child scene root gets the correct inheritance chain.
-		ERR_FAIL_COND_V(node == nullptr, p_path);
+		ERR_FAIL_NULL_V(node, p_path);
 		if (!customize_scenes_plugins.is_empty()) {
 			for (Ref<EditorExportPlugin> &plugin : customize_scenes_plugins) {
 				Node *customized = plugin->_customize_scene(node, p_path);
@@ -859,16 +859,20 @@ Vector<String> EditorExportPlatform::get_forced_export_files() {
 		bool use_data = GLOBAL_GET("internationalization/locale/include_text_server_data");
 		if (use_data) {
 			// Try using user provided data file.
-			String ts_data = "res://" + TS->get_support_data_filename();
-			if (FileAccess::exists(ts_data)) {
-				files.push_back(ts_data);
-			} else {
-				// Use default text server data.
-				String icu_data_file = EditorPaths::get_singleton()->get_cache_dir().path_join("tmp_icu_data");
-				ERR_FAIL_COND_V(!TS->save_support_data(icu_data_file), files);
-				files.push_back(icu_data_file);
-				// Remove the file later.
-				MessageQueue::get_singleton()->push_callable(callable_mp_static(DirAccess::remove_absolute), icu_data_file);
+			if (!TS->get_support_data_filename().is_empty()) {
+				String ts_data = "res://" + TS->get_support_data_filename();
+				if (FileAccess::exists(ts_data)) {
+					files.push_back(ts_data);
+				} else {
+					// Use default text server data.
+					String abs_path = ProjectSettings::get_singleton()->globalize_path(ts_data);
+					ERR_FAIL_COND_V(!TS->save_support_data(abs_path), files);
+					if (FileAccess::exists(abs_path)) {
+						files.push_back(ts_data);
+						// Remove the file later.
+						MessageQueue::get_singleton()->push_callable(callable_mp_static(DirAccess::remove_absolute), abs_path);
+					}
+				}
 			}
 		}
 	}
@@ -1383,6 +1387,8 @@ void EditorExportPlatform::zip_folder_recursive(zipFile &p_zip, const String &p_
 	String dir = p_folder.is_empty() ? p_root_path : p_root_path.path_join(p_folder);
 
 	Ref<DirAccess> da = DirAccess::open(dir);
+	ERR_FAIL_COND(da.is_null());
+
 	da->list_dir_begin();
 	String f = da->get_next();
 	while (!f.is_empty()) {

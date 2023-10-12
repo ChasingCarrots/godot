@@ -139,12 +139,6 @@
 	return [[CAMetalLayer class] layer];
 }
 
-- (void)updateLayer {
-	DisplayServerMacOS *ds = (DisplayServerMacOS *)DisplayServer::get_singleton();
-	ds->window_update(window_id);
-	[super updateLayer];
-}
-
 - (BOOL)wantsUpdateLayer {
 	return YES;
 }
@@ -329,12 +323,7 @@
 			NSString *file = [NSURL URLWithString:url].path;
 			files.push_back(String::utf8([file UTF8String]));
 		}
-
-		Variant v = files;
-		Variant *vp = &v;
-		Variant ret;
-		Callable::CallError ce;
-		wd.drop_files_callback.callp((const Variant **)&vp, 1, ret, ce);
+		wd.drop_files_callback.call(files);
 	}
 
 	return NO;

@@ -499,9 +499,12 @@ void ImportDock::_reimport_attempt() {
 
 		String imported_with = config->get_value("remap", "importer");
 		if (imported_with != importer_name) {
-			need_cleanup.push_back(params->paths[i]);
-			if (_find_owners(EditorFileSystem::get_singleton()->get_filesystem(), params->paths[i])) {
-				used_in_resources = true;
+			Ref<Resource> resource = ResourceLoader::load(params->paths[i]);
+			if (resource.is_valid()) {
+				need_cleanup.push_back(params->paths[i]);
+				if (_find_owners(EditorFileSystem::get_singleton()->get_filesystem(), params->paths[i])) {
+					used_in_resources = true;
+				}
 			}
 		}
 	}
@@ -709,7 +712,7 @@ ImportDock::ImportDock() {
 	content->hide();
 
 	imported = memnew(Label);
-	imported->add_theme_style_override("normal", EditorNode::get_singleton()->get_gui_base()->get_theme_stylebox(SNAME("normal"), SNAME("LineEdit")));
+	imported->add_theme_style_override("normal", EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("normal"), SNAME("LineEdit")));
 	imported->set_clip_text(true);
 	content->add_child(imported);
 	HBoxContainer *hb = memnew(HBoxContainer);

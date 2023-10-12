@@ -131,6 +131,7 @@ public:
 		StringName name;
 		bool disabled = false;
 		bool exposed = false;
+		bool reloadable = false;
 		bool is_virtual = false;
 		Object *(*creation_func)() = nullptr;
 
@@ -190,7 +191,7 @@ public:
 		static_assert(TypesAreSame<typename T::self_type, T>::value, "Class not declared properly, please use GDCLASS.");
 		T::initialize_class();
 		ClassInfo *t = classes.getptr(T::get_class_static());
-		ERR_FAIL_COND(!t);
+		ERR_FAIL_NULL(t);
 		t->creation_func = &creator<T>;
 		t->exposed = true;
 		t->is_virtual = p_virtual;
@@ -205,7 +206,7 @@ public:
 		static_assert(TypesAreSame<typename T::self_type, T>::value, "Class not declared properly, please use GDCLASS.");
 		T::initialize_class();
 		ClassInfo *t = classes.getptr(T::get_class_static());
-		ERR_FAIL_COND(!t);
+		ERR_FAIL_NULL(t);
 		t->exposed = true;
 		t->class_ptr = T::get_class_ptr_static();
 		t->api = current_api;
@@ -218,7 +219,7 @@ public:
 		static_assert(TypesAreSame<typename T::self_type, T>::value, "Class not declared properly, please use GDCLASS.");
 		T::initialize_class();
 		ClassInfo *t = classes.getptr(T::get_class_static());
-		ERR_FAIL_COND(!t);
+		ERR_FAIL_NULL(t);
 		t->creation_func = &creator<T>;
 		t->exposed = false;
 		t->is_virtual = false;
@@ -228,7 +229,7 @@ public:
 	}
 
 	static void register_extension_class(ObjectGDExtension *p_extension);
-	static void unregister_extension_class(const StringName &p_class);
+	static void unregister_extension_class(const StringName &p_class, bool p_free_method_binds = true);
 
 	template <class T>
 	static Object *_create_ptr_func() {
@@ -241,7 +242,7 @@ public:
 		static_assert(TypesAreSame<typename T::self_type, T>::value, "Class not declared properly, please use GDCLASS.");
 		T::initialize_class();
 		ClassInfo *t = classes.getptr(T::get_class_static());
-		ERR_FAIL_COND(!t);
+		ERR_FAIL_NULL(t);
 		t->creation_func = &_create_ptr_func<T>;
 		t->exposed = true;
 		t->class_ptr = T::get_class_ptr_static();
@@ -347,7 +348,7 @@ public:
 		GLOBAL_LOCK_FUNCTION;
 
 		MethodBind *bind = create_vararg_method_bind(p_method, p_info, p_return_nil_is_variant);
-		ERR_FAIL_COND_V(!bind, nullptr);
+		ERR_FAIL_NULL_V(bind, nullptr);
 
 		if constexpr (std::is_same<typename member_function_traits<M>::return_type, Object *>::value) {
 			bind->set_return_type_is_raw_object_ptr(true);
@@ -360,7 +361,7 @@ public:
 		GLOBAL_LOCK_FUNCTION;
 
 		MethodBind *bind = create_vararg_method_bind(p_method, p_info, p_return_nil_is_variant);
-		ERR_FAIL_COND_V(!bind, nullptr);
+		ERR_FAIL_NULL_V(bind, nullptr);
 
 		if constexpr (std::is_same<typename member_function_traits<M>::return_type, Object *>::value) {
 			bind->set_return_type_is_raw_object_ptr(true);
@@ -398,6 +399,7 @@ public:
 	static void set_method_flags(const StringName &p_class, const StringName &p_method, int p_flags);
 
 	static void get_method_list(const StringName &p_class, List<MethodInfo> *p_methods, bool p_no_inheritance = false, bool p_exclude_from_properties = false);
+	static void get_method_list_with_compatibility(const StringName &p_class, List<Pair<MethodInfo, uint32_t>> *p_methods_with_hash, bool p_no_inheritance = false, bool p_exclude_from_properties = false);
 	static bool get_method_info(const StringName &p_class, const StringName &p_method, MethodInfo *r_info, bool p_no_inheritance = false, bool p_exclude_from_properties = false);
 	static MethodBind *get_method(const StringName &p_class, const StringName &p_name);
 	static MethodBind *get_method_with_compatibility(const StringName &p_class, const StringName &p_name, uint64_t p_hash, bool *r_method_exists = nullptr, bool *r_is_deprecated = nullptr);
@@ -426,6 +428,7 @@ public:
 	static bool is_class_enabled(const StringName &p_class);
 
 	static bool is_class_exposed(const StringName &p_class);
+	static bool is_class_reloadable(const StringName &p_class);
 
 	static void add_resource_base_extension(const StringName &p_extension, const StringName &p_class);
 	static void get_resource_base_extensions(List<String> *p_extensions);

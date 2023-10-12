@@ -53,6 +53,9 @@
 #include <stdlib.h>
 
 static void handle_crash(int sig) {
+	signal(SIGSEGV, SIG_DFL);
+	signal(SIGFPE, SIG_DFL);
+	signal(SIGILL, SIG_DFL);
 #ifdef USE_BREAKPAD
 	breakpad_handle_signal(sig);
 #endif
@@ -164,9 +167,9 @@ void CrashHandler::disable() {
 	}
 
 #ifdef CRASH_HANDLER_ENABLED
-	signal(SIGSEGV, nullptr);
-	signal(SIGFPE, nullptr);
-	signal(SIGILL, nullptr);
+	signal(SIGSEGV, SIG_DFL);
+	signal(SIGFPE, SIG_DFL);
+	signal(SIGILL, SIG_DFL);
 #endif
 
 #ifdef USE_BREAKPAD
