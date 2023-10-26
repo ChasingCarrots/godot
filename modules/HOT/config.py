@@ -16,5 +16,6 @@ def get_doc_classes():
         "ModifiedFloatValue",
         "LocatorSystem",
         "Modifier",
-        "Stats"
+        "Stats",
+        "LocatorbasedColliderHelper"
     ]
