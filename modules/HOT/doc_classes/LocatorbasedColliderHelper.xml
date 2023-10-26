@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="LocatorbasedColliderHelper" inherits="RefCounted" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Is used by the LocatorbasedCollider.gd (as an optimization)
+	</brief_description>
+	<description>
+
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="InitializeAsCircle">
+			<return type="void" />
+			<param index="0" name="owner" type="Node2D" />
+			<param index="1" name="locatorPools" type="String[]" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="resetCollisionEverySeconds" type="float" />
+			<description>
+				Initializes the Locatorbased Collider as a Circle collider.
+			</description>
+		</method>
+		<method name="InitializeAsRectangle">
+			<return type="void" />
+			<param index="0" name="owner" type="Node2D" />
+			<param index="1" name="locatorPools" type="String[]" />
+			<param index="2" name="width" type="float" />
+			<param index="3" name="height" type="float" />
+			<param index="4" name="resetCollisionEverySeconds" type="float" />
+			<description>
+				Initializes the Locatorbased Collider as a Rectangle collider.
+			</description>
+		</method>
+		<method name="InitializeAsCircleMotion">
+			<return type="void" />
+			<param index="0" name="owner" type="Node2D" />
+			<param index="1" name="locatorPools" type="String[]" />
+			<param index="2" name="radius" type="float" />
+			<param index="3" name="motionDist" type="float" />
+			<param index="4" name="resetCollisionEverySeconds" type="float" />
+			<param index="5" name="motionDirectionCallable" type="Callable" />
+			<description>
+				Initializes the Locatorbased Collider as a Circle Motion collider.
+			</description>
+		</method>
+		<method name="SetHelperActive">
+			<return type="void" />
+			<param index="0" name="active" type="bool" />
+			<description>
+				The collider will only be updated, when it is set to active (default is true!)
+			</description>
+		</method>
+		<method name="GetCurrentCollidingObjects">
+			<return type="GameObject[]" />
+			<description>
+				Simply returns the current colliding objects array (can contain invalid or queue-freed objects, so please check for that!)
+			</description>
+		</method>
+		<method name="UpdateAllHelpers" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="locatorSystem" type="LocatorSystem" />
+			<param index="1" name="delta" type="float" />
+			<description>
+				Updates all the LocatorbasedColliderHelpers that were created. Has to be called exactly once per frame.
+			</description>
+		</method>
+	</methods>
+	<signals>
+		<signal name="CollisionStarted">
+			<param index="0" name="gameObject" type="GameObject" />
+			<description>
+				This Signal is triggered whenever a Game Object first the collider. (can be reset by the ResetEverySeconds, so that it is triggered again)
+			</description>
+		</signal>
+		<signal name="CollisionEnded">
+			<param index="0" name="gameObject" type="GameObject" />
+			<description>
+				This Signal is triggered whenever a Game Object leaves the collider.
+			</description>
+		</signal>
+	</signals>
+</class>
