@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Modifier.h"
+#include <core/templates/oa_hash_map.h>
 
 struct SignalCallable {
 	String SignalName;
@@ -34,6 +35,8 @@ class GameObject : public Node2D {
 	std::vector<Node*> _tempNodeArray;
 	void populateTempNodesWithAllChildren();
 
+	OAHashMap<StringName, ObjectID> _childNodeWithMethodOrPropertyCache;
+
 protected:
     // Required entry point that the API calls to bind our class to Godot.
     static void _bind_methods();
@@ -51,11 +54,11 @@ public:
     void injectEmitSignal(String signalName, Array parameters);
 
     // collective child nodes system
-    Node* getChildNodeWithMethod(String methodName);
-    Node* getChildNodeWithSignal(String signalName);
-	Node* getChildNodeWithProperty(String propertyName);
-    void getChildNodesWithMethod(String methodName, Array fillArray);
-	Node* getChildNodeInGroup(String groupName);
+    Node* getChildNodeWithMethod(const StringName& methodName);
+    Node* getChildNodeWithSignal(const StringName& signalName);
+	Node* getChildNodeWithProperty(const StringName& propertyName);
+    void getChildNodesWithMethod(const StringName& methodName, Array fillArray);
+	Node* getChildNodeInGroup(const StringName& groupName);
 
 	// modifier system
 	void setInheritModifierFrom(GameObject* otherGameObject, bool automaticallyKeepUpdated = false);

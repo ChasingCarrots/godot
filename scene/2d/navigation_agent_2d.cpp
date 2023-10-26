@@ -31,6 +31,7 @@
 #include "navigation_agent_2d.h"
 
 #include "core/math/geometry_2d.h"
+#include "core/profiling.h"
 #include "scene/2d/navigation_link_2d.h"
 #include "scene/resources/world_2d.h"
 #include "servers/navigation_server_2d.h"
@@ -626,6 +627,7 @@ PackedStringArray NavigationAgent2D::get_configuration_warnings() const {
 }
 
 void NavigationAgent2D::update_navigation() {
+	PROFILE_FUNCTION()
 	if (agent_parent == nullptr) {
 		return;
 	}

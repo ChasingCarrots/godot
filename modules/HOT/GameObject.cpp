@@ -144,26 +144,40 @@ void GameObject::injectEmitSignal(String signalName, Array parameters) {
 	}
 }
 
-Node* GameObject::getChildNodeWithMethod(String methodName) {
+Node* GameObject::getChildNodeWithMethod(const StringName& methodName) {
 	PROFILE_FUNCTION()
+
+	ObjectID foundObjectID;
+	if (_childNodeWithMethodOrPropertyCache.lookup(methodName, foundObjectID)) {
+		auto cachedObject = ObjectDB::get_instance(foundObjectID);
+		if (cachedObject != nullptr) {
+			auto cachedNode = Object::cast_to<Node>(cachedObject);
+			if (cachedNode != nullptr && !cachedNode->is_queued_for_deletion())
+				return cachedNode;
+		}
+		// this cached method's object is not valid anymore...
+		_childNodeWithMethodOrPropertyCache.remove(methodName);
+	}
+
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	int currentIndex = 0;
-	while(currentIndex < _tempNodeArray.size()) {
-		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
-		{
+	while (currentIndex < _tempNodeArray.size()) {
+		if (_tempNodeArray[currentIndex]->is_queued_for_deletion()) {
 			currentIndex += 1;
 			continue;
 		}
-		if(_tempNodeArray[currentIndex]->has_method(methodName))
+		if (_tempNodeArray[currentIndex]->has_method(methodName)) {
+			_childNodeWithMethodOrPropertyCache.insert(methodName, _tempNodeArray[currentIndex]->get_instance_id());
 			return _tempNodeArray[currentIndex];
+		}
 		fillArrayWithChildrenOfNode(_tempNodeArray[currentIndex], _tempNodeArray);
 		currentIndex += 1;
 	}
 	return nullptr;
 }
 
-Node* GameObject::getChildNodeWithSignal(String signalName) {
+Node* GameObject::getChildNodeWithSignal(const StringName& signalName) {
 	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
@@ -182,8 +196,20 @@ Node* GameObject::getChildNodeWithSignal(String signalName) {
 	return nullptr;
 }
 
-Node* GameObject::getChildNodeWithProperty(String propertyName) {
+Node* GameObject::getChildNodeWithProperty(const StringName& propertyName) {
 	PROFILE_FUNCTION()
+	ObjectID foundObjectID;
+	if (_childNodeWithMethodOrPropertyCache.lookup(propertyName, foundObjectID)) {
+		auto cachedObject = ObjectDB::get_instance(foundObjectID);
+		if (cachedObject != nullptr) {
+			auto cachedNode = Object::cast_to<Node>(cachedObject);
+			if (cachedNode != nullptr && !cachedNode->is_queued_for_deletion())
+				return cachedNode;
+		}
+		// this cached method's object is not valid anymore...
+		_childNodeWithMethodOrPropertyCache.remove(propertyName);
+	}
+
 	List<PropertyInfo> _tempPropertyList;
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
@@ -197,8 +223,10 @@ Node* GameObject::getChildNodeWithProperty(String propertyName) {
 		_tempPropertyList.clear();
 		_tempNodeArray[currentIndex]->get_property_list(&_tempPropertyList);
 		for (int i = 0; i < _tempPropertyList.size(); ++i) {
-			if(_tempPropertyList[i].name == propertyName)
+			if(_tempPropertyList[i].name == propertyName) {
+				_childNodeWithMethodOrPropertyCache.insert(propertyName, _tempNodeArray[currentIndex]->get_instance_id());
 				return _tempNodeArray[currentIndex];
+			}
 		}
 		fillArrayWithChildrenOfNode(_tempNodeArray[currentIndex], _tempNodeArray);
 		currentIndex += 1;
@@ -206,7 +234,7 @@ Node* GameObject::getChildNodeWithProperty(String propertyName) {
 	return nullptr;
 }
 
-void GameObject::getChildNodesWithMethod(String methodName, Array fillArray) {
+void GameObject::getChildNodesWithMethod(const StringName& methodName, Array fillArray) {
 	PROFILE_FUNCTION()
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
@@ -215,7 +243,7 @@ void GameObject::getChildNodesWithMethod(String methodName, Array fillArray) {
 	}
 }
 
-Node* GameObject::getChildNodeInGroup(String groupName) {
+Node* GameObject::getChildNodeInGroup(const StringName& groupName) {
 	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
@@ -240,9 +268,10 @@ void GameObject::setInheritModifierFrom(GameObject *otherGameObject, bool automa
 	if(automaticallyKeepUpdated && validatedCurrentInheritModifierFrom != nullptr && !validatedCurrentInheritModifierFrom->is_queued_for_deletion())
 		validatedCurrentInheritModifierFrom->disconnect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 
+	bool isOtherGameObjectValid = otherGameObject != nullptr && !otherGameObject->is_queued_for_deletion();
 	_inheritModifierFrom = otherGameObject;
 
-	if(automaticallyKeepUpdated && otherGameObject != nullptr && !otherGameObject->is_queued_for_deletion())
+	if(automaticallyKeepUpdated && isOtherGameObjectValid)
 		otherGameObject->connect("ModifierUpdated", callable_mp(this, &GameObject::triggerModifierUpdated));
 	triggerModifierUpdated("ALL");
 }
