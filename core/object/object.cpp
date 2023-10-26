@@ -36,6 +36,7 @@
 #include "core/object/message_queue.h"
 #include "core/object/script_language.h"
 #include "core/os/os.h"
+#include "core/profiling.h"
 #include "core/string/print_string.h"
 #include "core/string/translation.h"
 #include "core/templates/local_vector.h"
@@ -478,6 +479,7 @@ Variant Object::get_indexed(const Vector<StringName> &p_names, bool *r_valid) co
 }
 
 void Object::get_property_list(List<PropertyInfo> *p_list, bool p_reversed) const {
+	PROFILE_FUNCTION()
 	if (script_instance && p_reversed) {
 		script_instance->get_property_list(p_list);
 	}

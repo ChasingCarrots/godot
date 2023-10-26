@@ -37,6 +37,7 @@
 
 #include "core/config/project_settings.h"
 #include "core/object/worker_thread_pool.h"
+#include "core/profiling.h"
 
 #include <Obstacle2d.h>
 
@@ -116,6 +117,7 @@ gd::PointKey NavMap::get_point_key(const Vector3 &p_pos) const {
 }
 
 Vector<Vector3> NavMap::get_path(Vector3 p_origin, Vector3 p_destination, bool p_optimize, uint32_t p_navigation_layers, Vector<int32_t> *r_path_types, TypedArray<RID> *r_path_rids, Vector<int64_t> *r_path_owners) const {
+	PROFILE_FUNCTION()
 	ERR_FAIL_COND_V_MSG(map_update_id == 0, Vector<Vector3>(), "NavigationServer map query failed because it was made before first map synchronization.");
 	// Clear metadata outputs.
 	if (r_path_types) {
@@ -759,6 +761,7 @@ void NavMap::remove_agent_as_controlled(NavAgent *agent) {
 }
 
 void NavMap::sync() {
+	PROFILE_FUNCTION()
 	// Performance Monitor
 	int _new_pm_region_count = regions.size();
 	int _new_pm_agent_count = agents.size();
@@ -1188,6 +1191,7 @@ void NavMap::compute_single_avoidance_step_3d(uint32_t index, NavAgent **agent) 
 }
 
 void NavMap::step(real_t p_deltatime) {
+	PROFILE_FUNCTION()
 	deltatime = p_deltatime;
 
 	rvo_simulation_2d.setTimeStep(float(deltatime));

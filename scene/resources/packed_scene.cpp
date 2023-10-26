@@ -35,6 +35,7 @@
 #include "core/core_string_names.h"
 #include "core/io/missing_resource.h"
 #include "core/io/resource_loader.h"
+#include "core/profiling.h"
 #include "core/templates/local_vector.h"
 #include "scene/2d/node_2d.h"
 #include "scene/3d/node_3d.h"
@@ -75,6 +76,7 @@ static Array _sanitize_node_pinned_properties(Node *p_node) {
 }
 
 Node *SceneState::instantiate(GenEditState p_edit_state) const {
+	PROFILE_FUNCTION()
 	// Nodes where instantiation failed (because something is missing.)
 	List<Node *> stray_instances;
 
