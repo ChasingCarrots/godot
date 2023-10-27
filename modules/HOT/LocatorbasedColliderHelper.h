@@ -17,7 +17,7 @@ protected:
 	// Required entry point that the API calls to bind our class to Godot.
 	static void _bind_methods();
 
-	enum class ColliderType {
+	enum class ColliderTypes {
 		Circle,
 		Rectangle,
 		CircleMotion
@@ -31,7 +31,7 @@ protected:
 		float RemainingTimeToReset;
 		TypedArray<String> LocatorPools;
 		Array CurrentCollidingGameObjects;
-		ColliderType ColliderType;
+		ColliderTypes ColliderType;
 		float Radius;
 		float Width;
 		float Height;
