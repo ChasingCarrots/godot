@@ -124,7 +124,7 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 				} break;
 				case ColliderTypes::CircleMotion:
 					Vector2 motionVector = Vector2(1,0) * scaleFactor;
-					if(dataIter->MotionDirectionCallable != nullptr && dataIter->MotionDirectionCallable.is_valid())
+					if(dataIter->MotionDirectionCallable.is_valid())
 						motionVector = dataIter->MotionDirectionCallable.call();
 					motionVector *= dataIter->MotionDist;
 					for (int poolIndex = 0; poolIndex < dataIter->LocatorPools.size(); ++poolIndex) {
