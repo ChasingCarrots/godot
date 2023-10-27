@@ -33,7 +33,7 @@ LocatorbasedColliderHelper::~LocatorbasedColliderHelper() {
 void LocatorbasedColliderHelper::InitializeAsCircle(Node2D *owner, TypedArray<String> locatorPools, float radius, float resetCollisionEverySeconds) {
 	auto myData = LocatorColliderData();
 	myData.BelongsTo = this;
-	myData.ColliderType = ColliderType::Circle;
+	myData.ColliderType = ColliderTypes::Circle;
 	myData.Owner = owner;
 	myData.LocatorPools = locatorPools;
 	myData.Radius = radius;
@@ -48,7 +48,7 @@ void LocatorbasedColliderHelper::InitializeAsCircle(Node2D *owner, TypedArray<St
 void LocatorbasedColliderHelper::InitializeAsRectangle(Node2D *owner, TypedArray<String> locatorPools, float width, float height, float resetCollisionEverySeconds) {
 	auto myData = LocatorColliderData();
 	myData.BelongsTo = this;
-	myData.ColliderType = ColliderType::Rectangle;
+	myData.ColliderType = ColliderTypes::Rectangle;
 	myData.Owner = owner;
 	myData.LocatorPools = locatorPools;
 	myData.Width = width;
@@ -63,7 +63,7 @@ void LocatorbasedColliderHelper::InitializeAsRectangle(Node2D *owner, TypedArray
 void LocatorbasedColliderHelper::InitializeAsCircleMotion(Node2D *owner, TypedArray<String> locatorPools, float radius, float motionDist, float resetCollisionEverySeconds, Callable motionDirectionCallable) {
 	auto myData = LocatorColliderData();
 	myData.BelongsTo = this;
-	myData.ColliderType = ColliderType::CircleMotion;
+	myData.ColliderType = ColliderTypes::CircleMotion;
 	myData.Owner = owner;
 	myData.LocatorPools = locatorPools;
 	myData.Radius = radius;
@@ -100,7 +100,7 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 			Point2 pos = dataIter->Owner->get_global_position();
 			float scaleFactor = dataIter->Owner->get_global_scale().x;
 			switch(dataIter->ColliderType) {
-				case ColliderType::Circle:
+				case ColliderTypes::Circle:
 					for (int poolIndex = 0; poolIndex < dataIter->LocatorPools.size(); ++poolIndex) {
 						dataIter->CurrentCollidingGameObjects.append_array(
 								locatorSystem->GetGameObjectsInCircle(
@@ -110,7 +110,7 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 						);
 					}
 					break;
-				case ColliderType::Rectangle: {
+				case ColliderTypes::Rectangle: {
 					float minX = pos.x - dataIter->Width / 2.0f;
 					float maxX = pos.x + dataIter->Width / 2.0f;
 					float minY = pos.y - dataIter->Height / 2.0f;
@@ -122,7 +122,7 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 										minX, maxX, minY, maxY));
 					}
 				} break;
-				case ColliderType::CircleMotion:
+				case ColliderTypes::CircleMotion:
 					Vector2 motionVector = Vector2(1,0) * scaleFactor;
 					if(dataIter->MotionDirectionCallable != nullptr && dataIter->MotionDirectionCallable.is_valid())
 						motionVector = dataIter->MotionDirectionCallable.call();
