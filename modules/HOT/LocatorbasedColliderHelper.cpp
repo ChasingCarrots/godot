@@ -124,7 +124,7 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 				} break;
 				case ColliderTypes::CircleMotion:
 					Vector2 motionVector = Vector2(1,0) * scaleFactor;
-					if(dataIter->MotionDirectionCallable != nullptr && dataIter->MotionDirectionCallable.is_valid()) {
+					if(dataIter->MotionDirectionCallable.is_valid()) {
 						Variant r_return_value; Callable::CallError r_call_error;
 						dataIter->MotionDirectionCallable.callp(nullptr, 0, r_return_value, r_call_error);
 						if(r_call_error.error == Callable::CallError::Error::CALL_OK)

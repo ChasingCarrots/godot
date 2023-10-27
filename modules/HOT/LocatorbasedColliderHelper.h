@@ -26,7 +26,7 @@ protected:
 	struct LocatorColliderData {
 		LocatorbasedColliderHelper* BelongsTo;
 		Node2D* Owner;
-		bool IsActive;
+		bool IsActive = true;
 		float ResetCollisionEverySeconds;
 		float RemainingTimeToReset;
 		TypedArray<String> LocatorPools;
