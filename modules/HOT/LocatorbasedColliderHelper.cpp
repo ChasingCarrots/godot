@@ -140,6 +140,10 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 			}
 			for (int lastIndex = 0; lastIndex < temp_lastCollisions.size(); ++lastIndex) {
 				if(!dataIter->CurrentCollidingGameObjects.has(temp_lastCollisions[lastIndex])) {
+					// it is possible that our current BelongsTo node was invalidated in one of
+					// the Collision callbacks! so we have to check for that every loop...
+					if(dataIter->BelongsTo == nullptr)
+						break;
 					Object* validEndCollisionObj = temp_lastCollisions[lastIndex].get_validated_object();
 					if(validEndCollisionObj == nullptr)
 						continue;
@@ -148,6 +152,10 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 			}
 			for (int currentIndex = 0; currentIndex < dataIter->CurrentCollidingGameObjects.size(); ++currentIndex) {
 				if(!temp_lastCollisions.has(dataIter->CurrentCollidingGameObjects[currentIndex])) {
+					// it is possible that our current BelongsTo node was invalidated in one of
+					// the Collision callbacks! so we have to check for that every loop...
+					if(dataIter->BelongsTo == nullptr)
+						break;
 					dataIter->BelongsTo->emit_signal("CollisionStarted", dataIter->CurrentCollidingGameObjects[currentIndex]);
 				}
 			}
