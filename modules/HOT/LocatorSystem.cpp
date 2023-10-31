@@ -14,16 +14,6 @@ inline Vector2i posToCell(Vector2 pos) {
     };
 }
 
-inline Node* getGameObjectInParents(Node* node) {
-    if(node == nullptr) return nullptr;
-    if(dynamic_cast<GameObject*>(node) != nullptr)
-        return node;
-    Node* parent = node->get_parent();
-    if(parent == nullptr)
-        return nullptr;
-    return getGameObjectInParents(parent);
-}
-
 
 namespace std {
     template<>
@@ -229,7 +219,7 @@ Array LocatorSystem::GetGameObjectsInCircle(String poolName, Vector2 center, flo
 	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsInCircle(poolName, center, radius);
     for(int i=tempArray.size()-1; i >= 0; --i) {
-        Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
+        Node* gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
         if(gameObject == nullptr)
             tempArray.remove_at(i);
         else
@@ -310,7 +300,7 @@ Array LocatorSystem::GetGameObjectsOutsideCircle(String poolName, Vector2 center
 	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsOutsideCircle(poolName, center, radius);
     for(int i=tempArray.size()-1; i >= 0; --i) {
-        Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
+        Node* gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
         if(gameObject == nullptr)
             tempArray.remove_at(i);
         else
@@ -414,7 +404,7 @@ Array LocatorSystem::GetGameObjectsInCircleMotion(String poolName, Vector2 cente
 	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsInCircleMotion(poolName, center, radius, motion);
     for(int i=tempArray.size()-1; i >= 0; --i) {
-        Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
+        Node* gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
         if(gameObject == nullptr)
             tempArray.remove_at(i);
         else
@@ -493,7 +483,7 @@ Array LocatorSystem::GetGameObjectsOutsideRectangle(String poolName, float minX,
 	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsOutsideRectangle(poolName, minX, maxX, minY, maxY);
     for(int i=tempArray.size()-1; i >= 0; --i) {
-        Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
+        Node* gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
         if(gameObject == nullptr)
             tempArray.remove_at(i);
         else
@@ -578,7 +568,7 @@ Array LocatorSystem::GetGameObjectsInRectangle(String poolName, float minX, floa
 	PROFILE_FUNCTION()
     auto tempArray = GetLocatorsInRectangle(poolName, minX, maxX, minY, maxY);
     for(int i=tempArray.size()-1; i >= 0; --i) {
-        Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
+        Node* gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(tempArray[i]));
         if(gameObject == nullptr)
             tempArray.remove_at(i);
         else
@@ -646,7 +636,7 @@ Array LocatorSystem::GetAllGameObjectsInPool(String poolName) {
 	_tempLocators.clear();
 	for(const auto& cell : poolIter->Cells)
 		for(auto locator : cell.second) {
-			Node* gameObject = getGameObjectInParents(Object::cast_to<Node>(locator));
+			Node* gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(locator));
 			if(gameObject != nullptr)
 				fillArray.append(gameObject);
 		}

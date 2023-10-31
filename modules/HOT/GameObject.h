@@ -47,6 +47,17 @@ public:
     void _exit_tree();
     void _child_entered_tree(Node* childNode);
 
+	static inline GameObject* getGameObjectInParents(Node* node) {
+		if(node == nullptr) return nullptr;
+		GameObject* currentNodeGO = dynamic_cast<GameObject*>(node);
+		if(currentNodeGO != nullptr)
+			return currentNodeGO;
+		Node* parent = node->get_parent();
+		if(parent == nullptr)
+			return nullptr;
+		return getGameObjectInParents(parent);
+	}
+
     // collective signal system
     void connectToSignal(String signalName, Callable callable);
     void disconnectFromSignal(String signalName, Callable callable);
