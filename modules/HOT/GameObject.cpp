@@ -210,7 +210,6 @@ Node* GameObject::getChildNodeWithProperty(const StringName& propertyName) {
 		_childNodeWithMethodOrPropertyCache.remove(propertyName);
 	}
 
-	List<PropertyInfo> _tempPropertyList;
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	int currentIndex = 0;
@@ -220,13 +219,11 @@ Node* GameObject::getChildNodeWithProperty(const StringName& propertyName) {
 			currentIndex += 1;
 			continue;
 		}
-		_tempPropertyList.clear();
-		_tempNodeArray[currentIndex]->get_property_list(&_tempPropertyList);
-		for (int i = 0; i < _tempPropertyList.size(); ++i) {
-			if(_tempPropertyList[i].name == propertyName) {
-				_childNodeWithMethodOrPropertyCache.insert(propertyName, _tempNodeArray[currentIndex]->get_instance_id());
-				return _tempNodeArray[currentIndex];
-			}
+		bool valid = false;
+		_tempNodeArray[currentIndex]->get(propertyName, &valid);
+		if(valid) {
+			_childNodeWithMethodOrPropertyCache.insert(propertyName, _tempNodeArray[currentIndex]->get_instance_id());
+			return _tempNodeArray[currentIndex];
 		}
 		fillArrayWithChildrenOfNode(_tempNodeArray[currentIndex], _tempNodeArray);
 		currentIndex += 1;
