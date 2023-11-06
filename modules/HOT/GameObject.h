@@ -28,11 +28,11 @@ class GameObject : public Node2D {
 			return nullptr;
 		return static_cast<GameObject*>(gameObjectAsPtr);
 	}
-	std::vector<SignalCallable> _connectedSignals;
-	std::vector<Variant> _sourceTree;
-	std::vector<Modifier*> _modifier;
+	LocalVector<SignalCallable> _connectedSignals;
+	LocalVector<Variant> _sourceTree;
+	LocalVector<Modifier*> _modifier;
 
-	std::vector<Node*> _tempNodeArray;
+	LocalVector<Node*> _tempNodeArray;
 	void populateTempNodesWithAllChildren();
 
 	OAHashMap<StringName, ObjectID> _childNodeWithMethodOrPropertyCache;

@@ -4,7 +4,6 @@
 
 #include "scene/2d/node_2d.h"
 #include <core/object/ref_counted.h>
-#include <experimental/vector>
 
 class LocatorSystem;
 class GameObject;
@@ -38,7 +37,7 @@ protected:
 		float MotionDist;
 		Callable MotionDirectionCallable;
 	};
-	static std::vector<LocatorColliderData> AllLocatorColliderHelpers;
+	static LocalVector<LocatorColliderData> AllLocatorColliderHelpers;
 
 	~LocatorbasedColliderHelper() override;
 

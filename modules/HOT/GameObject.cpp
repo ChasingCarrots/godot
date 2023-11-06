@@ -77,7 +77,7 @@ void GameObject::_child_entered_tree(Node* childNode) {
 	}
 }
 
-void fillArrayWithChildrenOfNode(Node* node, std::vector<Node*>& array) {
+void fillArrayWithChildrenOfNode(Node* node, LocalVector<Node*>& array) {
 	for(int i=0; i < node->get_child_count(); ++i)
 		array.push_back(node->get_child(i));
 }
@@ -85,11 +85,11 @@ void fillArrayWithChildrenOfNode(Node* node, std::vector<Node*>& array) {
 void GameObject::populateTempNodesWithAllChildren() {
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	int currentIndex = 0;
+	uint32_t currentIndex = 0;
 	while(currentIndex < _tempNodeArray.size()) {
 		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
 		{
-			_tempNodeArray.erase(_tempNodeArray.begin() + currentIndex);
+			_tempNodeArray.remove_at_unordered(currentIndex);
 			continue;
 		}
 		fillArrayWithChildrenOfNode(_tempNodeArray[currentIndex], _tempNodeArray);
@@ -112,12 +112,15 @@ void GameObject::connectToSignal(String signalName, Callable callable) {
 
 void GameObject::disconnectFromSignal(String signalName, Callable callable) {
 	PROFILE_FUNCTION()
+	int connectedSignalsIndex = 0;
 	auto connectedSignalsIter = _connectedSignals.begin();
 	while (connectedSignalsIter != _connectedSignals.end()) {
 		if(connectedSignalsIter->SignalName == signalName && connectedSignalsIter->CallableConnection == callable)
-			connectedSignalsIter = _connectedSignals.erase(connectedSignalsIter);
-		else
+			_connectedSignals.remove_at_unordered(connectedSignalsIndex);
+		else {
 			++connectedSignalsIter;
+			++connectedSignalsIndex;
+		}
 	}
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
@@ -161,7 +164,7 @@ Node* GameObject::getChildNodeWithMethod(const StringName& methodName) {
 
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	int currentIndex = 0;
+	uint32_t currentIndex = 0;
 	while (currentIndex < _tempNodeArray.size()) {
 		if (_tempNodeArray[currentIndex]->is_queued_for_deletion()) {
 			currentIndex += 1;
@@ -181,7 +184,7 @@ Node* GameObject::getChildNodeWithSignal(const StringName& signalName) {
 	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	int currentIndex = 0;
+	uint32_t currentIndex = 0;
 	while(currentIndex < _tempNodeArray.size()) {
 		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
 		{
@@ -212,7 +215,7 @@ Node* GameObject::getChildNodeWithProperty(const StringName& propertyName) {
 
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	int currentIndex = 0;
+	uint32_t currentIndex = 0;
 	while(currentIndex < _tempNodeArray.size()) {
 		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
 		{
@@ -244,7 +247,7 @@ Node* GameObject::getChildNodeInGroup(const StringName& groupName) {
 	PROFILE_FUNCTION()
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	int currentIndex = 0;
+	uint32_t currentIndex = 0;
 	while(currentIndex < _tempNodeArray.size()) {
 		if(_tempNodeArray[currentIndex]->is_queued_for_deletion())
 		{
@@ -359,21 +362,22 @@ float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<Stri
 }
 
 void GameObject::registerModifier(Modifier *modifier) {
-	if(std::find(_modifier.begin(), _modifier.end(), modifier) != _modifier.end())
+	if(_modifier.find(modifier) != -1)
 		return;
 	_modifier.push_back(modifier);
 }
 
 void GameObject::unregisterModifier(Modifier *modifier) {
-	auto modIter = std::find(_modifier.begin(), _modifier.end(), modifier);
-	if(modIter != _modifier.end()) {
-		_modifier.erase(modIter);
-		if(!is_queued_for_deletion()) {
-			// the modified values have changed after this and we
-			// would have to trigger the update via script anyways,
-			// so let's just do it here...
-			triggerModifierUpdated(modifier->_modifiedType);
-		}
+	auto modIndex = _modifier.find(modifier);
+	if(modIndex == -1)
+		return;
+
+	_modifier.remove_at_unordered(modIndex);
+	if(!is_queued_for_deletion()) {
+		// the modified values have changed after this and we
+		// would have to trigger the update via script anyways,
+		// so let's just do it here...
+		triggerModifierUpdated(modifier->_modifiedType);
 	}
 }
 
@@ -425,13 +429,16 @@ Node* GameObject::find_effect(String effectID) {
 
 GameObject* GameObject::get_rootSourceGameObject() {
 	PROFILE_FUNCTION()
-	auto sourceIter = _sourceTree.rbegin();
-	while(sourceIter != _sourceTree.rend()) {
+	if(_sourceTree.is_empty())
+		return this;
+
+	auto sourceIter = --_sourceTree.end();
+	while(sourceIter != --_sourceTree.begin()) {
 		auto sourceObj = sourceIter->get_validated_object();
 		if(sourceObj != nullptr) {
 			return dynamic_cast<GameObject *>(sourceObj);
 		}
-		sourceIter++;
+		--sourceIter;
 	}
 	return this;
 }
@@ -441,8 +448,8 @@ void GameObject::set_sourceGameObject(GameObject *source) {
 	if(source == nullptr)
 		return;
 	_sourceTree.push_back(source);
-	if(!source->_sourceTree.empty())
-		_sourceTree.insert(_sourceTree.end(), source->_sourceTree.begin(), source->_sourceTree.end());
+	for(auto sourceSource : source->_sourceTree)
+		_sourceTree.push_back(sourceSource);
 }
 
 void GameObject::set_spawn_origin(Node *spawnOrigin) {

@@ -26,9 +26,9 @@ namespace std {
 
 struct LocatorPool {
     String PoolName;
-    std::map<Vector2i, std::vector<Locator*>> Cells;
+    std::map<Vector2i, LocalVector<Locator*>> Cells;
 };
-std::vector<LocatorPool> GlobalLocatorPools;
+LocalVector<LocatorPool> GlobalLocatorPools;
 
 
 
@@ -67,13 +67,13 @@ void LocatorSystem::LocatorEnteredTree(Locator *locator) {
     while(poolIter != GlobalLocatorPools.end()) {
         if(poolIter->PoolName == locator->GetLocatorPoolName())
             break;
-        poolIter++;
+        ++poolIter;
     }
     if(poolIter == GlobalLocatorPools.end()) {
         GlobalLocatorPools.push_back({
             locator->GetLocatorPoolName()
         });
-        poolIter = GlobalLocatorPools.end() - 1;
+        poolIter = --GlobalLocatorPools.end();
     }
     auto cell = posToCell(locator->get_global_position());
     locator->SetCurrentCell(cell);
@@ -82,7 +82,7 @@ void LocatorSystem::LocatorEnteredTree(Locator *locator) {
         poolIter->Cells.insert({cell, {locator}});
     }
     else {
-        if(std::find(cellIter->second.begin(), cellIter->second.end(), locator) == cellIter->second.end())
+        if(cellIter->second.find(locator) == -1)
             cellIter->second.push_back(locator);
     }
 }
@@ -95,11 +95,11 @@ void LocatorSystem::LocatorExitedTree(Locator *locator) {
         auto cellIter = pool.Cells.find(locator->GetCurrentCell());
         if(cellIter == pool.Cells.end())
             return; // our cell isn't even there anymore
-        auto locatorIter = std::find(cellIter->second.begin(), cellIter->second.end(), locator);
-        if(locatorIter == cellIter->second.end())
+        auto locatorIndex = cellIter->second.find(locator);
+        if(locatorIndex == -1)
             return; // our locator wasn't found in the cell
-        cellIter->second.erase(locatorIter);
-        if(cellIter->second.empty())
+        cellIter->second.remove_at_unordered(locatorIndex);
+        if(cellIter->second.is_empty())
             // when there are no locators in this cell anymore, delete the cell
             pool.Cells.erase(cellIter);
         return;
@@ -112,18 +112,22 @@ void LocatorSystem::Update() {
         _tempLocators.clear();
         auto cellIter = pool.Cells.begin();
         while(cellIter != pool.Cells.end()) {
+			int locatorIndex = 0;
             auto locatorIter = cellIter->second.begin();
             while(locatorIter != cellIter->second.end()) {
                 auto currentLocatorCell = posToCell((*locatorIter)->get_global_position());
                 if(currentLocatorCell != cellIter->first){
                     (*locatorIter)->SetCurrentCell(currentLocatorCell);
                     _tempLocators.push_back(*locatorIter);
-                    locatorIter = cellIter->second.erase(locatorIter);
+                    cellIter->second.remove_at_unordered(locatorIndex);
+					// locator iterator and index stay the same!
                 }
-                else
-                    ++locatorIter;
-            }
-            if(cellIter->second.empty())
+                else {
+					++locatorIndex;
+					++locatorIter;
+				}
+			}
+            if(cellIter->second.is_empty())
                 cellIter = pool.Cells.erase(cellIter);
             else
                 ++cellIter;
@@ -134,7 +138,7 @@ void LocatorSystem::Update() {
                 pool.Cells.insert({relocator->GetCurrentCell(), {relocator}});
             }
             else {
-                if(std::find(cellIter->second.begin(), cellIter->second.end(), relocator) == cellIter->second.end())
+                if(cellIter->second.find(relocator) == -1)
                     cellIter->second.push_back(relocator);
             }
         }
