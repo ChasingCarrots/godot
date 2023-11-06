@@ -3,7 +3,7 @@
 #include "LocatorSystem.h"
 #include "core/profiling.h"
 
-std::vector<LocatorbasedColliderHelper::LocatorColliderData> LocatorbasedColliderHelper::AllLocatorColliderHelpers;
+LocalVector<LocatorbasedColliderHelper::LocatorColliderData> LocatorbasedColliderHelper::AllLocatorColliderHelpers;
 
 void LocatorbasedColliderHelper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("InitializeAsCircle", "OwnerNode", "LocatorPools", "Radius", "ResetCollisionEverySeconds"), &LocatorbasedColliderHelper::InitializeAsCircle);
@@ -79,11 +79,13 @@ void LocatorbasedColliderHelper::InitializeAsCircleMotion(Node2D *owner, TypedAr
 void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, float delta) {
 	PROFILE_FUNCTION()
 	Array temp_lastCollisions;
+	uint32_t dataIndex = 0;
 	auto dataIter = AllLocatorColliderHelpers.begin();
 	while(dataIter != AllLocatorColliderHelpers.end()) {
 		if(dataIter->BelongsTo != nullptr) {
 			if(!dataIter->IsActive) {
 				++dataIter;
+				++dataIndex;
 				continue;
 			}
 			dataIter->RemainingTimeToReset -= delta;
@@ -161,9 +163,10 @@ void LocatorbasedColliderHelper::UpdateAllHelpers(LocatorSystem* locatorSystem, 
 			}
 
 			++dataIter;
+			++dataIndex;
 		}
 		else {
-			dataIter = AllLocatorColliderHelpers.erase(dataIter);
+			AllLocatorColliderHelpers.remove_at_unordered(dataIndex);
 		}
 	}
 }

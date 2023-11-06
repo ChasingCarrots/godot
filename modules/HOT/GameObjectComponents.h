@@ -7,6 +7,7 @@
 #include "scene/2d/physics_body_2d.h"
 #include <scene/2d/node_2d.h>
 #include "SafeObjectPointer.h"
+#include <core/profiling.h>
 
 class GameObjectComponent : public Node {
 	GDCLASS(GameObjectComponent, Node)
@@ -38,6 +39,7 @@ protected:
 
 public:
 	void init_gameobject_component() {
+		PROFILE_FUNCTION()
 		_gameObject = GameObject::getGameObjectInParents(this);
 		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
@@ -47,6 +49,7 @@ public:
 	}
 
 	Vector2 get_gameobject_worldposition() {
+		PROFILE_FUNCTION()
 		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
@@ -125,6 +128,7 @@ protected:
 
 public:
 	void init_gameobject_component() {
+		PROFILE_FUNCTION()
 		_gameObject = GameObject::getGameObjectInParents(this);
 		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
@@ -134,6 +138,7 @@ public:
 	}
 
 	Vector2 get_gameobject_worldposition() {
+		PROFILE_FUNCTION()
 		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
@@ -209,6 +214,7 @@ protected:
 
 public:
 	void init_gameobject_component() {
+		PROFILE_FUNCTION()
 		_gameObject = GameObject::getGameObjectInParents(this);
 		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
@@ -218,6 +224,7 @@ public:
 	}
 
 	Vector2 get_gameobject_worldposition() {
+		PROFILE_FUNCTION()
 		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
@@ -291,6 +298,7 @@ protected:
 
 public:
 	void init_gameobject_component() {
+		PROFILE_FUNCTION()
 		_gameObject = GameObject::getGameObjectInParents(this);
 		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
@@ -300,6 +308,7 @@ public:
 	}
 
 	Vector2 get_gameobject_worldposition() {
+		PROFILE_FUNCTION()
 		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
@@ -374,6 +383,7 @@ protected:
 
 public:
 	void init_gameobject_component() {
+		PROFILE_FUNCTION()
 		_gameObject = GameObject::getGameObjectInParents(this);
 		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
@@ -383,6 +393,7 @@ public:
 	}
 
 	Vector2 get_gameobject_worldposition() {
+		PROFILE_FUNCTION()
 		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
