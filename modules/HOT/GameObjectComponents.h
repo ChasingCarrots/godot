@@ -6,6 +6,7 @@
 #include "scene/2d/area_2d.h"
 #include "scene/2d/physics_body_2d.h"
 #include <scene/2d/node_2d.h>
+#include "SafeObjectPointer.h"
 
 class GameObjectComponent : public Node {
 	GDCLASS(GameObjectComponent, Node)
@@ -31,87 +32,60 @@ protected:
 		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent::create_modified_float_value, DEFVAL(Callable()));
 	}
 
-	ObjectID _gameObjectID;
-	GameObject* _gameObject = nullptr;
-	ObjectID _externalSourceGameObjectID;
-	GameObject* _externalSourceGameObject = nullptr;
-	ObjectID _positionProviderID;
-	Node* _positionProvider = nullptr;
+	SafeObjectPointer<GameObject> _gameObject;
+	SafeObjectPointer<GameObject> _externalSourceGameObject;
+	SafeObjectPointer<Node> _positionProvider;
 
 public:
 	void init_gameobject_component() {
 		_gameObject = GameObject::getGameObjectInParents(this);
-		if(_gameObject == nullptr || _gameObject->is_queued_for_deletion()) {
+		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
-			_gameObjectID = ObjectID();
 			return;
 		}
-		_gameObjectID = _gameObject->get_instance_id();
 		_positionProvider = _gameObject->getChildNodeWithMethod("get_worldPosition");
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 
 	Vector2 get_gameobject_worldposition() {
-		if(_positionProviderID.is_valid() && ObjectDB::get_instance(_positionProviderID) != nullptr)
+		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
 		_gameObject = gameobject;
-		if(_gameObject != nullptr)
-			_gameObjectID = _gameObject->get_instance_id();
-		else
-			_gameObjectID = ObjectID();
 	}
 	GameObject* get_gameobject() {
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			return _gameObject;
-		return nullptr;
+		return _gameObject.get();
 	}
 
 	void set_externalsource_gameobject(GameObject *gameObject) {
 		_externalSourceGameObject = gameObject;
-		if(_externalSourceGameObject != nullptr)
-			_externalSourceGameObjectID = _externalSourceGameObject->get_instance_id();
-		else
-			_externalSourceGameObjectID = ObjectID();
 	}
 
 	GameObject *get_externalsource_gameobject() {
-		if(_externalSourceGameObject != nullptr && ObjectDB::get_instance(_externalSourceGameObjectID) != nullptr)
-			return _externalSourceGameObject;
-		return nullptr;
+		return _externalSourceGameObject.get();
 	}
 
 	void set_position_provider(Node* positionProvider) {
 		_positionProvider = positionProvider;
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 	Node* get_position_provider() {
-		if(_positionProvider != nullptr && ObjectDB::get_instance(_positionProviderID) != nullptr)
-			return _positionProvider;
-		return nullptr;
+		return _positionProvider.get();
 	}
 
 	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 };
@@ -145,87 +119,60 @@ protected:
 		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent2D::create_modified_float_value, DEFVAL(Callable()));
 	}
 
-	ObjectID _gameObjectID;
-	GameObject* _gameObject = nullptr;
-	ObjectID _externalSourceGameObjectID;
-	GameObject* _externalSourceGameObject = nullptr;
-	ObjectID _positionProviderID;
-	Node* _positionProvider = nullptr;
+	SafeObjectPointer<GameObject> _gameObject;
+	SafeObjectPointer<GameObject> _externalSourceGameObject;
+	SafeObjectPointer<Node> _positionProvider;
 
 public:
 	void init_gameobject_component() {
 		_gameObject = GameObject::getGameObjectInParents(this);
-		if(_gameObject == nullptr || _gameObject->is_queued_for_deletion()) {
+		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
-			_gameObjectID = ObjectID();
 			return;
 		}
-		_gameObjectID = _gameObject->get_instance_id();
 		_positionProvider = _gameObject->getChildNodeWithMethod("get_worldPosition");
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 
 	Vector2 get_gameobject_worldposition() {
-		if(_positionProviderID.is_valid() && ObjectDB::get_instance(_positionProviderID) != nullptr)
+		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
 		_gameObject = gameobject;
-		if(_gameObject != nullptr)
-			_gameObjectID = _gameObject->get_instance_id();
-		else
-			_gameObjectID = ObjectID();
 	}
 	GameObject* get_gameobject() {
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			return _gameObject;
-		return nullptr;
+		return _gameObject.get();
 	}
 
 	void set_externalsource_gameobject(GameObject *gameObject) {
 		_externalSourceGameObject = gameObject;
-		if(_externalSourceGameObject != nullptr)
-			_externalSourceGameObjectID = _externalSourceGameObject->get_instance_id();
-		else
-			_externalSourceGameObjectID = ObjectID();
 	}
 
 	GameObject *get_externalsource_gameobject() {
-		if(_externalSourceGameObject != nullptr && ObjectDB::get_instance(_externalSourceGameObjectID) != nullptr)
-			return _externalSourceGameObject;
-		return nullptr;
+		return _externalSourceGameObject.get();
 	}
 
 	void set_position_provider(Node* positionProvider) {
 		_positionProvider = positionProvider;
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 	Node* get_position_provider() {
-		if(_positionProvider != nullptr && ObjectDB::get_instance(_positionProviderID) != nullptr)
-			return _positionProvider;
-		return nullptr;
+		return _positionProvider.get();
 	}
 
 	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 };
@@ -256,87 +203,60 @@ protected:
 		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentArea2D::create_modified_float_value, DEFVAL(Callable()));
 	}
 
-	ObjectID _gameObjectID;
-	GameObject* _gameObject = nullptr;
-	ObjectID _externalSourceGameObjectID;
-	GameObject* _externalSourceGameObject = nullptr;
-	ObjectID _positionProviderID;
-	Node* _positionProvider = nullptr;
+	SafeObjectPointer<GameObject> _gameObject;
+	SafeObjectPointer<GameObject> _externalSourceGameObject;
+	SafeObjectPointer<Node> _positionProvider;
 
 public:
 	void init_gameobject_component() {
 		_gameObject = GameObject::getGameObjectInParents(this);
-		if(_gameObject == nullptr || _gameObject->is_queued_for_deletion()) {
+		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
-			_gameObjectID = ObjectID();
 			return;
 		}
-		_gameObjectID = _gameObject->get_instance_id();
 		_positionProvider = _gameObject->getChildNodeWithMethod("get_worldPosition");
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 
 	Vector2 get_gameobject_worldposition() {
-		if(_positionProviderID.is_valid() && ObjectDB::get_instance(_positionProviderID) != nullptr)
+		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
 		_gameObject = gameobject;
-		if(_gameObject != nullptr)
-			_gameObjectID = _gameObject->get_instance_id();
-		else
-			_gameObjectID = ObjectID();
 	}
 	GameObject* get_gameobject() {
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			return _gameObject;
-		return nullptr;
+		return _gameObject.get();
 	}
 
 	void set_externalsource_gameobject(GameObject *gameObject) {
 		_externalSourceGameObject = gameObject;
-		if(_externalSourceGameObject != nullptr)
-			_externalSourceGameObjectID = _externalSourceGameObject->get_instance_id();
-		else
-			_externalSourceGameObjectID = ObjectID();
 	}
 
 	GameObject *get_externalsource_gameobject() {
-		if(_externalSourceGameObject != nullptr && ObjectDB::get_instance(_externalSourceGameObjectID) != nullptr)
-			return _externalSourceGameObject;
-		return nullptr;
+		return _externalSourceGameObject.get();
 	}
 
 	void set_position_provider(Node* positionProvider) {
 		_positionProvider = positionProvider;
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 	Node* get_position_provider() {
-		if(_positionProvider != nullptr && ObjectDB::get_instance(_positionProviderID) != nullptr)
-			return _positionProvider;
-		return nullptr;
+		return _positionProvider.get();
 	}
 
 	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 };
@@ -365,87 +285,60 @@ protected:
 		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentRigidBody2D::create_modified_float_value, DEFVAL(Callable()));
 	}
 
-	ObjectID _gameObjectID;
-	GameObject* _gameObject = nullptr;
-	ObjectID _externalSourceGameObjectID;
-	GameObject* _externalSourceGameObject = nullptr;
-	ObjectID _positionProviderID;
-	Node* _positionProvider = nullptr;
+	SafeObjectPointer<GameObject> _gameObject;
+	SafeObjectPointer<GameObject> _externalSourceGameObject;
+	SafeObjectPointer<Node> _positionProvider;
 
 public:
 	void init_gameobject_component() {
 		_gameObject = GameObject::getGameObjectInParents(this);
-		if(_gameObject == nullptr || _gameObject->is_queued_for_deletion()) {
+		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
-			_gameObjectID = ObjectID();
 			return;
 		}
-		_gameObjectID = _gameObject->get_instance_id();
 		_positionProvider = _gameObject->getChildNodeWithMethod("get_worldPosition");
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 
 	Vector2 get_gameobject_worldposition() {
-		if(_positionProviderID.is_valid() && ObjectDB::get_instance(_positionProviderID) != nullptr)
+		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
 		_gameObject = gameobject;
-		if(_gameObject != nullptr)
-			_gameObjectID = _gameObject->get_instance_id();
-		else
-			_gameObjectID = ObjectID();
 	}
 	GameObject* get_gameobject() {
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			return _gameObject;
-		return nullptr;
+		return _gameObject.get();
 	}
 
 	void set_externalsource_gameobject(GameObject *gameObject) {
 		_externalSourceGameObject = gameObject;
-		if(_externalSourceGameObject != nullptr)
-			_externalSourceGameObjectID = _externalSourceGameObject->get_instance_id();
-		else
-			_externalSourceGameObjectID = ObjectID();
 	}
 
 	GameObject *get_externalsource_gameobject() {
-		if(_externalSourceGameObject != nullptr && ObjectDB::get_instance(_externalSourceGameObjectID) != nullptr)
-			return _externalSourceGameObject;
-		return nullptr;
+		return _externalSourceGameObject.get();
 	}
 
 	void set_position_provider(Node* positionProvider) {
 		_positionProvider = positionProvider;
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 	Node* get_position_provider() {
-		if(_positionProvider != nullptr && ObjectDB::get_instance(_positionProviderID) != nullptr)
-			return _positionProvider;
-		return nullptr;
+		return _positionProvider.get();
 	}
 
 	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 };
@@ -475,87 +368,60 @@ protected:
 		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentKinematicBody2D::create_modified_float_value, DEFVAL(Callable()));
 	}
 
-	ObjectID _gameObjectID;
-	GameObject* _gameObject = nullptr;
-	ObjectID _externalSourceGameObjectID;
-	GameObject* _externalSourceGameObject = nullptr;
-	ObjectID _positionProviderID;
-	Node* _positionProvider = nullptr;
+	SafeObjectPointer<GameObject> _gameObject;
+	SafeObjectPointer<GameObject> _externalSourceGameObject;
+	SafeObjectPointer<Node> _positionProvider;
 
 public:
 	void init_gameobject_component() {
 		_gameObject = GameObject::getGameObjectInParents(this);
-		if(_gameObject == nullptr || _gameObject->is_queued_for_deletion()) {
+		if(!_gameObject.is_valid() || _gameObject->is_queued_for_deletion()) {
 			_gameObject = nullptr;
-			_gameObjectID = ObjectID();
 			return;
 		}
-		_gameObjectID = _gameObject->get_instance_id();
 		_positionProvider = _gameObject->getChildNodeWithMethod("get_worldPosition");
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 
 	Vector2 get_gameobject_worldposition() {
-		if(_positionProviderID.is_valid() && ObjectDB::get_instance(_positionProviderID) != nullptr)
+		if(_positionProvider.is_valid())
 			return _positionProvider->callv("get_worldPosition", {});
 		return {};
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
 		_gameObject = gameobject;
-		if(_gameObject != nullptr)
-			_gameObjectID = _gameObject->get_instance_id();
-		else
-			_gameObjectID = ObjectID();
 	}
 	GameObject* get_gameobject() {
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			return _gameObject;
-		return nullptr;
+		return _gameObject.get();
 	}
 
 	void set_externalsource_gameobject(GameObject *gameObject) {
 		_externalSourceGameObject = gameObject;
-		if(_externalSourceGameObject != nullptr)
-			_externalSourceGameObjectID = _externalSourceGameObject->get_instance_id();
-		else
-			_externalSourceGameObjectID = ObjectID();
 	}
 
 	GameObject *get_externalsource_gameobject() {
-		if(_externalSourceGameObject != nullptr && ObjectDB::get_instance(_externalSourceGameObjectID) != nullptr)
-			return _externalSourceGameObject;
-		return nullptr;
+		return _externalSourceGameObject.get();
 	}
 
 	void set_position_provider(Node* positionProvider) {
 		_positionProvider = positionProvider;
-		if(_positionProvider != nullptr)
-			_positionProviderID = _positionProvider->get_instance_id();
-		else
-			_positionProviderID = ObjectID();
 	}
 	Node* get_position_provider() {
-		if(_positionProvider != nullptr && ObjectDB::get_instance(_positionProviderID) != nullptr)
-			return _positionProvider;
-		return nullptr;
+		return _positionProvider.get();
 	}
 
 	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
-		if(_gameObject != nullptr && ObjectDB::get_instance(_gameObjectID) != nullptr)
-			modValue->_init(baseVal, modifierName, _gameObject, rankModifier);
+		if(_gameObject.is_valid())
+			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
 };
