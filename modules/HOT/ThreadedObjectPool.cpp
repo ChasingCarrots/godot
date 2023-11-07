@@ -84,9 +84,14 @@ void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 	PROFILE_FUNCTION()
 	if(_availableObjects.is_empty() && _inUseObjects.size() >= _maxNumberOfInstances) {
 		switch(_maxBehaviour) {
-			case ReturnNull:
-				instanceCreatedCallback.call(Variant());
+			case ReturnNull: {
+				Variant r_return_value;
+				Callable::CallError r_call_error;
+				Variant nullptrAsVariant;
+				Variant* args[1] = { &nullptrAsVariant };
+				instanceCreatedCallback.callp((const Variant **)args, 1, r_return_value, r_call_error);
 				return;
+			}
 			case RecycleOldest:
 				ObjectID oldestID = _inUseObjects[0];
 				// we have to use the less performant remove_at here, because this vector
@@ -102,7 +107,14 @@ void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 				_inUseObjects.push_back(oldestID);
 				if(oldestObj->has_method("recycle_pooled_object"))
 					oldestObj->call("recycle_pooled_object");
-				instanceCreatedCallback.call(oldestObj);
+
+				{
+					Variant r_return_value;
+					Callable::CallError r_call_error;
+					Variant oldestObjAsVariant(oldestObj);
+					Variant* args[1] = { &oldestObjAsVariant };
+					instanceCreatedCallback.callp((const Variant **)args, 1, r_return_value, r_call_error);
+				}
 				return;
 		}
 	}
@@ -118,7 +130,11 @@ void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 		if(returnObj->has_method("recycle_pooled_object"))
 			returnObj->call("recycle_pooled_object");
 		_inUseObjects.push_back(returnObjID);
-		instanceCreatedCallback.call(returnObj);
+		Variant r_return_value;
+		Callable::CallError r_call_error;
+		Variant returnObjAsVariant(returnObj);
+		Variant* args[1] = { &returnObjAsVariant };
+		instanceCreatedCallback.callp((const Variant **)args, 1, r_return_value, r_call_error);
 		return;
 	}
 	InstanceCreationData creationData;
@@ -145,7 +161,11 @@ void ThreadedObjectPool::run_callbacks() {
 			if(_instanceCreationQueue[i].CreatedInstance->has_method("recycle_pooled_object"))
 				_instanceCreationQueue[i].CreatedInstance->call("recycle_pooled_object");
 			_inUseObjects.push_back(_instanceCreationQueue[i].CreatedInstance->get_instance_id());
-			_instanceCreationQueue[i].CreationCallback.call(_instanceCreationQueue[i].CreatedInstance);
+			Variant r_return_value;
+			Callable::CallError r_call_error;
+			Variant createdInstanceAsVariant(_instanceCreationQueue[i].CreatedInstance);
+			Variant* args[1] = { &createdInstanceAsVariant };
+			_instanceCreationQueue[i].CreationCallback.callp((const Variant **)args, 1, r_return_value, r_call_error);
 			_instanceCreationQueue.remove_at_unordered(i);
 		}
 		else {
