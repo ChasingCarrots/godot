@@ -11,6 +11,7 @@
 #include "GameObjectComponents.h"
 #include "DirectionsUtil.h"
 #include "SpriteAnimationControl.h"
+#include "ThreadedObjectPool.h"
 
 void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -31,6 +32,7 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<GameObjectComponentKinematicBody2D>();
 	ClassDB::register_class<DirectionsUtil>();
 	ClassDB::register_class<SpriteAnimationControl>();
+	ClassDB::register_class<ThreadedObjectPool>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {
