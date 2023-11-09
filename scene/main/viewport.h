@@ -70,6 +70,8 @@ class ViewportTexture : public Texture2D {
 protected:
 	static void _bind_methods();
 
+	virtual void reset_local_to_scene() override;
+
 public:
 	void set_viewport_path_in_scene(const NodePath &p_path);
 	NodePath get_viewport_path_in_scene() const;
@@ -501,7 +503,7 @@ public:
 	Ref<World2D> find_world_2d() const;
 
 	void enable_canvas_transform_override(bool p_enable);
-	bool is_canvas_transform_override_enbled() const;
+	bool is_canvas_transform_override_enabled() const;
 
 	void set_canvas_transform_override(const Transform2D &p_transform);
 	Transform2D get_canvas_transform_override() const;

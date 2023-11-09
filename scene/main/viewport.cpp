@@ -88,12 +88,7 @@ void ViewportTexture::setup_local_to_scene() {
 	}
 }
 
-void ViewportTexture::set_viewport_path_in_scene(const NodePath &p_path) {
-	if (path == p_path) {
-		return;
-	}
-
-	path = p_path;
+void ViewportTexture::reset_local_to_scene() {
 	vp_changed = true;
 
 	if (vp) {
@@ -105,6 +100,16 @@ void ViewportTexture::set_viewport_path_in_scene(const NodePath &p_path) {
 		proxy_ph = RS::get_singleton()->texture_2d_placeholder_create();
 		RS::get_singleton()->texture_proxy_update(proxy, proxy_ph);
 	}
+}
+
+void ViewportTexture::set_viewport_path_in_scene(const NodePath &p_path) {
+	if (path == p_path) {
+		return;
+	}
+
+	path = p_path;
+
+	reset_local_to_scene();
 
 	if (get_local_scene() && !path.is_empty()) {
 		setup_local_to_scene();
@@ -364,6 +369,7 @@ void Viewport::_sub_window_grab_focus(Window *p_window) {
 		return;
 	}
 
+	// The index needs to be update before every usage in case an event callback changed the window list.
 	int index = _sub_window_find(p_window);
 	ERR_FAIL_COND(index == -1);
 
@@ -375,6 +381,8 @@ void Viewport::_sub_window_grab_focus(Window *p_window) {
 			gui.subwindow_drag = SUB_WINDOW_DRAG_DISABLED;
 		}
 		// Can only move to foreground, but no focus granted.
+		index = _sub_window_find(p_window);
+		ERR_FAIL_COND(index == -1);
 		SubWindow sw = gui.sub_windows[index];
 		gui.sub_windows.remove_at(index);
 		gui.sub_windows.push_back(sw);
@@ -402,6 +410,8 @@ void Viewport::_sub_window_grab_focus(Window *p_window) {
 	gui.subwindow_focused->_event_callback(DisplayServer::WINDOW_EVENT_FOCUS_IN);
 
 	{ // Move to foreground.
+		index = _sub_window_find(p_window);
+		ERR_FAIL_COND(index == -1);
 		SubWindow sw = gui.sub_windows[index];
 		gui.sub_windows.remove_at(index);
 		gui.sub_windows.push_back(sw);
@@ -1074,7 +1084,7 @@ void Viewport::enable_canvas_transform_override(bool p_enable) {
 	}
 }
 
-bool Viewport::is_canvas_transform_override_enbled() const {
+bool Viewport::is_canvas_transform_override_enabled() const {
 	ERR_READ_THREAD_GUARD_V(false);
 	return override_canvas_transform;
 }
@@ -1451,6 +1461,9 @@ void Viewport::_gui_show_tooltip() {
 	// Popup window which houses the tooltip content.
 	PopupPanel *panel = memnew(PopupPanel);
 	panel->set_theme_type_variation(SNAME("TooltipPanel"));
+
+	// Ensure no opaque background behind the panel as its StyleBox can be partially transparent (e.g. corners).
+	panel->set_transparent_background(true);
 
 	// Controls can implement `make_custom_tooltip` to provide their own tooltip.
 	// This should be a Control node which will be added as child to a TooltipPanel.

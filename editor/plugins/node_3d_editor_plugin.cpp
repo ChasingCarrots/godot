@@ -2832,8 +2832,9 @@ void Node3DEditorViewport::_notification(int p_what) {
 				fps_label->set_visible(show_fps);
 				RS::get_singleton()->viewport_set_measure_render_time(viewport->get_viewport_rid(), show_fps);
 				for (int i = 0; i < FRAME_TIME_HISTORY; i++) {
-					cpu_time_history[i] = 0;
-					gpu_time_history[i] = 0;
+					// Initialize to 120 FPS, so that the initial estimation until we get enough data is always reasonable.
+					cpu_time_history[i] = 8.333333;
+					gpu_time_history[i] = 8.333333;
 				}
 				cpu_time_history_index = 0;
 				gpu_time_history_index = 0;
@@ -3104,7 +3105,7 @@ void Node3DEditorViewport::_draw() {
 							get_theme_icon(SNAME("ViewportSpeed"), SNAME("EditorIcons")),
 							get_theme_font(SNAME("font"), SNAME("Label")),
 							get_theme_font_size(SNAME("font_size"), SNAME("Label")),
-							vformat("%s u/s", String::num(freelook_speed).pad_decimals(precision)),
+							vformat("%s m/s", String::num(freelook_speed).pad_decimals(precision)),
 							Color(1.0, 0.95, 0.7));
 				}
 
@@ -3127,7 +3128,7 @@ void Node3DEditorViewport::_draw() {
 							get_theme_icon(SNAME("ViewportZoom"), SNAME("EditorIcons")),
 							get_theme_font(SNAME("font"), SNAME("Label")),
 							get_theme_font_size(SNAME("font_size"), SNAME("Label")),
-							vformat("%s u", String::num(cursor.distance).pad_decimals(precision)),
+							vformat("%s m", String::num(cursor.distance).pad_decimals(precision)),
 							Color(0.7, 0.95, 1.0));
 				}
 			}
@@ -6996,7 +6997,7 @@ void Node3DEditor::_init_grid() {
 	if (primary_grid_steps != 10) { // Log10 of 10 is 1.
 		// Change of base rule, divide by ln(10).
 		real_t div = Math::log((real_t)primary_grid_steps) / (real_t)2.302585092994045901094;
-		// Trucation (towards zero) is intentional.
+		// Truncation (towards zero) is intentional.
 		division_level_max = (int)(division_level_max / div);
 		division_level_min = (int)(division_level_min / div);
 	}
@@ -8103,7 +8104,7 @@ Node3DEditor::Node3DEditor() {
 
 	String sct;
 
-	// Add some margin to the left for better aesthetics.
+	// Add some margin to the left for better esthetics.
 	// This prevents the first button's hover/pressed effect from "touching" the panel's border,
 	// which looks ugly.
 	Control *margin_left = memnew(Control);

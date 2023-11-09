@@ -652,7 +652,8 @@ int Node::get_multiplayer_authority() const {
 bool Node::is_multiplayer_authority() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), false);
 
-	return get_multiplayer()->get_unique_id() == data.multiplayer_authority;
+	Ref<MultiplayerAPI> api = get_multiplayer();
+	return api.is_valid() && (api->get_unique_id() == data.multiplayer_authority);
 }
 
 /***** RPC CONFIG ********/
@@ -731,7 +732,12 @@ Error Node::_rpc_id_bind(const Variant **p_args, int p_argcount, Callable::CallE
 
 Error Node::rpcp(int p_peer_id, const StringName &p_method, const Variant **p_arg, int p_argcount) {
 	ERR_FAIL_COND_V(!is_inside_tree(), ERR_UNCONFIGURED);
-	return get_multiplayer()->rpcp(this, p_peer_id, p_method, p_arg, p_argcount);
+
+	Ref<MultiplayerAPI> api = get_multiplayer();
+	if (api.is_null()) {
+		return ERR_UNCONFIGURED;
+	}
+	return api->rpcp(this, p_peer_id, p_method, p_arg, p_argcount);
 }
 
 Ref<MultiplayerAPI> Node::get_multiplayer() const {
@@ -968,7 +974,11 @@ void Node::set_process_priority(int p_priority) {
 
 	if (_is_any_processing()) {
 		_remove_from_process_thread_group();
-		data.process_priority = p_priority;
+	}
+
+	data.process_priority = p_priority;
+
+	if (_is_any_processing()) {
 		_add_to_process_thread_group();
 	}
 }
@@ -990,7 +1000,11 @@ void Node::set_physics_process_priority(int p_priority) {
 
 	if (_is_any_processing()) {
 		_remove_from_process_thread_group();
-		data.physics_process_priority = p_priority;
+	}
+
+	data.physics_process_priority = p_priority;
+
+	if (_is_any_processing()) {
 		_add_to_process_thread_group();
 	}
 }

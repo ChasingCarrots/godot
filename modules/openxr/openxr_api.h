@@ -48,8 +48,6 @@
 #include "core/templates/vector.h"
 #include "servers/xr/xr_pose.h"
 
-#include "thirdparty/openxr/src/common/xr_linear.h"
-
 #include <openxr/openxr.h>
 
 // Note, OpenXR code that we wrote for our plugin makes use of C++20 notation for initializing structs which ensures zeroing out unspecified members.
@@ -142,6 +140,7 @@ private:
 		void *swapchain_graphics_data = nullptr;
 		uint32_t image_index = 0;
 		bool image_acquired = false;
+		bool skip_acquire_swapchain = false;
 	};
 
 	OpenXRSwapChainInfo swapchains[OPENXR_SWAPCHAIN_MAX];
@@ -291,7 +290,7 @@ private:
 	bool on_state_loss_pending();
 	bool on_state_exiting();
 
-	// convencience
+	// convenience
 	void copy_string_to_char_buffer(const String p_string, char *p_buffer, int p_buffer_len);
 
 public:

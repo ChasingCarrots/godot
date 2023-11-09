@@ -1834,7 +1834,7 @@ void ThemeItemEditorDialog::_edit_theme_item_gui_input(const Ref<InputEvent> &p_
 			return;
 		}
 
-		if (k->is_action_pressed(SNAME("ui_accept"), false, true)) {
+		if (k->is_action_pressed(SNAME("ui_text_submit"), false, true)) {
 			_confirm_edit_theme_item();
 			edit_theme_item_dialog->hide();
 			edit_theme_item_dialog->set_input_as_handled();
@@ -3394,6 +3394,7 @@ ThemeTypeEditor::ThemeTypeEditor() {
 	theme_type_list = memnew(OptionButton);
 	theme_type_list->set_h_size_flags(SIZE_EXPAND_FILL);
 	theme_type_list->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS);
+	theme_type_list->set_auto_translate(false);
 	type_list_hb->add_child(theme_type_list);
 	theme_type_list->connect("item_selected", callable_mp(this, &ThemeTypeEditor::_list_type_selected));
 
@@ -3582,6 +3583,8 @@ void ThemeEditor::_remove_preview_tab(int p_tab) {
 		}
 
 		preview_tabs_content->remove_child(preview_tab);
+		preview_tab->queue_free();
+
 		preview_tabs->remove_tab(p_tab);
 		_change_preview_tab(preview_tabs->get_current_tab());
 	}

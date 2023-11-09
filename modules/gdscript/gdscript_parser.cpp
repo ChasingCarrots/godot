@@ -1139,6 +1139,7 @@ GDScriptParser::ConstantNode *GDScriptParser::parse_constant(bool p_is_static) {
 	ConstantNode *constant = alloc_node<ConstantNode>();
 
 	if (!consume(GDScriptTokenizer::Token::IDENTIFIER, R"(Expected constant name after "const".)")) {
+		complete_extents(constant);
 		return nullptr;
 	}
 
@@ -2147,6 +2148,7 @@ GDScriptParser::PatternNode *GDScriptParser::parse_match_pattern(PatternNode *p_
 			ExpressionNode *expression = parse_expression(false);
 			if (expression == nullptr) {
 				push_error(R"(Expected expression for match pattern.)");
+				complete_extents(pattern);
 				return nullptr;
 			} else {
 				if (expression->type == GDScriptParser::Node::LITERAL) {
@@ -2442,7 +2444,7 @@ GDScriptParser::ExpressionNode *GDScriptParser::parse_binary_operator(Expression
 	complete_extents(operation);
 
 	if (operation->right_operand == nullptr) {
-		push_error(vformat(R"(Expected expression after "%s" operator.")", op.get_name()));
+		push_error(vformat(R"(Expected expression after "%s" operator.)", op.get_name()));
 	}
 
 	// TODO: Also for unary, ternary, and assignment.
@@ -3031,10 +3033,8 @@ GDScriptParser::ExpressionNode *GDScriptParser::parse_get_node(ExpressionNode *p
 	if (previous.type == GDScriptTokenizer::Token::DOLLAR) {
 		// Detect initial slash, which will be handled in the loop if it matches.
 		match(GDScriptTokenizer::Token::SLASH);
-#ifdef DEBUG_ENABLED
 	} else {
 		get_node->use_dollar = false;
-#endif
 	}
 
 	int context_argument = 0;

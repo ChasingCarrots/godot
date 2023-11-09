@@ -753,7 +753,9 @@ public:
 			members.push_back(Member(p_enum_value));
 		}
 		void add_member_group(AnnotationNode *p_annotation_node) {
-			members_indices[p_annotation_node->export_info.name] = members.size();
+			// Avoid name conflict. See GH-78252.
+			StringName name = vformat("@group_%d_%s", members.size(), p_annotation_node->export_info.name);
+			members_indices[name] = members.size();
 			members.push_back(Member(p_annotation_node));
 		}
 
@@ -832,9 +834,7 @@ public:
 
 	struct GetNodeNode : public ExpressionNode {
 		String full_path;
-#ifdef DEBUG_ENABLED
 		bool use_dollar = true;
-#endif
 
 		GetNodeNode() {
 			type = GET_NODE;
