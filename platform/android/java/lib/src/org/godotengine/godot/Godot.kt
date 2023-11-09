@@ -389,9 +389,6 @@ class Godot(private val context: Context) : SensorEventListener {
 				GodotGLRenderView(host, this, xrMode, useDebugOpengl)
 			}
 
-			renderView?.inputHandler?.enableLongPress(java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_long_press_as_right_click")))
-			renderView?.inputHandler?.enablePanningAndScalingGestures(java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_pan_and_scale_gestures")))
-
 			if (host == primaryHost) {
 				renderView!!.startRenderer()
 			}
@@ -575,6 +572,19 @@ class Godot(private val context: Context) : SensorEventListener {
 	 * Invoked on the render thread when the Godot setup is complete.
 	 */
 	private fun onGodotSetupCompleted() {
+		Log.d(TAG, "OnGodotSetupCompleted")
+
+		// These properties are defined after Godot setup completion, so we retrieve them here.
+		val longPressEnabled = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_long_press_as_right_click"))
+		val panScaleEnabled = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_pan_and_scale_gestures"))
+
+		runOnUiThread {
+			renderView?.inputHandler?.apply {
+				enableLongPress(longPressEnabled)
+				enablePanningAndScalingGestures(panScaleEnabled)
+			}
+		}
+
 		for (plugin in pluginRegistry.allPlugins) {
 			plugin.onGodotSetupCompleted()
 		}
@@ -585,6 +595,8 @@ class Godot(private val context: Context) : SensorEventListener {
 	 * Invoked on the render thread when the Godot main loop has started.
 	 */
 	private fun onGodotMainLoopStarted() {
+		Log.d(TAG, "OnGodotMainLoopStarted")
+
 		for (plugin in pluginRegistry.allPlugins) {
 			plugin.onGodotMainLoopStarted()
 		}
@@ -894,7 +906,7 @@ class Godot(private val context: Context) : SensorEventListener {
 				val arg = ByteArray(strlen)
 				r = inputStream.read(arg)
 				if (r == strlen) {
-					cmdline[i] = String(arg, StandardCharsets.UTF_8)
+					cmdline.add(String(arg, StandardCharsets.UTF_8))
 				}
 			}
 			cmdline

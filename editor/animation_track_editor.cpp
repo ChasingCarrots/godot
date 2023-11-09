@@ -31,6 +31,7 @@
 #include "animation_track_editor.h"
 
 #include "animation_track_editor_plugins.h"
+#include "core/error/error_macros.h"
 #include "core/input/input.h"
 #include "editor/animation_bezier_editor.h"
 #include "editor/editor_node.h"
@@ -330,6 +331,7 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 				undo_redo->commit_action();
 
 				setting = false;
+				notify_change(); // To update limits for `start_offset`/`end_offset` sliders (they depend on the stream length).
 				return true;
 			}
 
@@ -586,8 +588,10 @@ void AnimationTrackKeyEdit::_get_property_list(List<PropertyInfo> *p_list) const
 		} break;
 		case Animation::TYPE_AUDIO: {
 			p_list->push_back(PropertyInfo(Variant::OBJECT, PNAME("stream"), PROPERTY_HINT_RESOURCE_TYPE, "AudioStream"));
-			p_list->push_back(PropertyInfo(Variant::FLOAT, PNAME("start_offset"), PROPERTY_HINT_RANGE, "0,3600,0.0001,or_greater"));
-			p_list->push_back(PropertyInfo(Variant::FLOAT, PNAME("end_offset"), PROPERTY_HINT_RANGE, "0,3600,0.0001,or_greater"));
+			Ref<AudioStream> audio_stream = animation->audio_track_get_key_stream(track, key);
+			String hint_string = vformat("0,%.4f,0.0001,or_greater", audio_stream.is_valid() ? audio_stream->get_length() : 3600.0);
+			p_list->push_back(PropertyInfo(Variant::FLOAT, PNAME("start_offset"), PROPERTY_HINT_RANGE, hint_string));
+			p_list->push_back(PropertyInfo(Variant::FLOAT, PNAME("end_offset"), PROPERTY_HINT_RANGE, hint_string));
 
 		} break;
 		case Animation::TYPE_ANIMATION: {
@@ -4102,6 +4106,12 @@ PropertyInfo AnimationTrackEditor::_find_hint_for_track(int p_idx, NodePath &r_b
 	for (int i = 0; i < leftover_path.size() - 1; i++) {
 		bool valid;
 		property_info_base = property_info_base.get_named(leftover_path[i], valid);
+	}
+
+	if (property_info_base.is_null()) {
+		WARN_PRINT(vformat("Could not determine track hint for '%s:%s' because its base property is null.",
+				String(path.get_concatenated_names()), String(path.get_concatenated_subnames())));
+		return PropertyInfo();
 	}
 
 	List<PropertyInfo> pinfo;

@@ -871,21 +871,32 @@ bool AnimationMixer::_update_caches() {
 				// TODO: Currently, misc type cannot be blended. In the future,
 				// it should have a separate blend weight, just as bool is converted to 0 and 1.
 				// Then, it should provide the correct precedence value.
-				switch (track_value->init_value.get_type()) {
-					case Variant::NIL:
-					case Variant::STRING_NAME:
-					case Variant::NODE_PATH:
-					case Variant::RID:
-					case Variant::OBJECT:
-					case Variant::CALLABLE:
-					case Variant::SIGNAL:
-					case Variant::DICTIONARY:
-					case Variant::ARRAY: {
-						WARN_PRINT_ONCE_ED("AnimationMixer: '" + String(E) + "', Value Track: '" + String(path) + "' uses a non-numeric type as key value with UpdateMode.UPDATE_CONTINUOUS. This will not be blended correctly, so it is forced to UpdateMode.UPDATE_DISCRETE.");
-						track_value->is_continuous = false;
-						break;
-					}
-					default: {
+				if (track_value->is_continuous) {
+					switch (track_value->init_value.get_type()) {
+						case Variant::NIL:
+						case Variant::STRING_NAME:
+						case Variant::NODE_PATH:
+						case Variant::RID:
+						case Variant::OBJECT:
+						case Variant::CALLABLE:
+						case Variant::SIGNAL:
+						case Variant::DICTIONARY:
+						case Variant::ARRAY:
+						case Variant::PACKED_BYTE_ARRAY:
+						case Variant::PACKED_INT32_ARRAY:
+						case Variant::PACKED_INT64_ARRAY:
+						case Variant::PACKED_FLOAT32_ARRAY:
+						case Variant::PACKED_FLOAT64_ARRAY:
+						case Variant::PACKED_STRING_ARRAY:
+						case Variant::PACKED_VECTOR2_ARRAY:
+						case Variant::PACKED_VECTOR3_ARRAY:
+						case Variant::PACKED_COLOR_ARRAY: {
+							WARN_PRINT_ONCE_ED("AnimationMixer: '" + String(E) + "', Value Track: '" + String(path) + "' uses a non-numeric type as key value with UpdateMode.UPDATE_CONTINUOUS. This will not be blended correctly, so it is forced to UpdateMode.UPDATE_DISCRETE.");
+							track_value->is_continuous = false;
+							break;
+						}
+						default: {
+						}
 					}
 				}
 
@@ -1855,7 +1866,6 @@ Vector3 AnimationMixer::get_root_motion_scale_accumulator() const {
 	return root_motion_scale_accumulator;
 }
 
-#ifdef TOOLS_ENABLED
 void AnimationMixer::set_reset_on_save_enabled(bool p_enabled) {
 	reset_on_save = p_enabled;
 }
@@ -1864,6 +1874,7 @@ bool AnimationMixer::is_reset_on_save_enabled() const {
 	return reset_on_save;
 }
 
+#ifdef TOOLS_ENABLED
 bool AnimationMixer::can_apply_reset() const {
 	return has_animation(SceneStringNames::get_singleton()->RESET);
 }
@@ -1987,10 +1998,11 @@ void AnimationMixer::reset() {
 	ERR_FAIL_NULL(root_node_object);
 
 	AnimationPlayer *aux_player = memnew(AnimationPlayer);
-	EditorNode::get_singleton()->add_child(aux_player);
+	root_node_object->add_child(aux_player);
 	Ref<AnimationLibrary> al;
 	al.instantiate();
 	al->add_animation(SceneStringNames::get_singleton()->RESET, reset_anim);
+	aux_player->set_reset_on_save_enabled(false);
 	aux_player->set_root_node(aux_player->get_path_to(root_node_object));
 	aux_player->add_animation_library("", al);
 	aux_player->set_assigned_animation(SceneStringNames::get_singleton()->RESET);
@@ -2093,14 +2105,10 @@ void AnimationMixer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "active"), "set_active", "is_active");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "deterministic"), "set_deterministic", "is_deterministic");
 
-#ifdef TOOLS_ENABLED
-	ClassDB::bind_method(D_METHOD("_reset"), &AnimationMixer::reset);
-	ClassDB::bind_method(D_METHOD("_restore", "backup"), &AnimationMixer::restore);
 	ClassDB::bind_method(D_METHOD("set_reset_on_save_enabled", "enabled"), &AnimationMixer::set_reset_on_save_enabled);
 	ClassDB::bind_method(D_METHOD("is_reset_on_save_enabled"), &AnimationMixer::is_reset_on_save_enabled);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "reset_on_save", PROPERTY_HINT_NONE, ""), "set_reset_on_save_enabled", "is_reset_on_save_enabled");
 	ADD_SIGNAL(MethodInfo("mixer_updated")); // For updating dummy player.
-#endif // TOOLS_ENABLED
 
 	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "root_node"), "set_root_node", "get_root_node");
 
