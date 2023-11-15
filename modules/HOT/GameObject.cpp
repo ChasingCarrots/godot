@@ -72,8 +72,12 @@ void GameObject::_child_entered_tree(Node* childNode) {
 	for(auto connectedSignal : _connectedSignals) {
 		if(!connectedSignal.CallableConnection.is_valid())
 			continue;
-		if(childNode->has_signal(connectedSignal.SignalName))
+		if(childNode->has_signal(connectedSignal.SignalName)) {
+			// don't connect the node to itself
+			if(connectedSignal.CallableConnection.get_object() == childNode)
+				continue;
 			childNode->connect(connectedSignal.SignalName, connectedSignal.CallableConnection);
+		}
 	}
 }
 
@@ -103,9 +107,11 @@ void GameObject::connectToSignal(String signalName, Callable callable) {
 			signalName,
 			callable
 	});
+	Object* callableObject = callable.get_object();
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
-		if(child->has_signal(signalName))
+		// don't connect the node to itself
+		if(child != callableObject && child->has_signal(signalName))
 			child->connect(signalName, callable);
 	}
 }
