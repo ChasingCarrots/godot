@@ -21,8 +21,8 @@ protected:
 	static void _bind_methods();
 
 	Ref<PackedScene> _sceneToInstantiate;
-	uint32_t _maxNumberOfInstances;
-	MaxInstancesReachedBehaviour _maxBehaviour;
+	uint32_t _maxNumberOfInstances = 10;
+	MaxInstancesReachedBehaviour _maxBehaviour = MaxInstancesReachedBehaviour::ReturnNull;
 
 	LocalVector<ObjectID> _availableObjects;
 	LocalVector<ObjectID> _inUseObjects;

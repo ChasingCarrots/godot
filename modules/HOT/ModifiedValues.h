@@ -14,10 +14,10 @@ class ModifiedIntValue : public RefCounted {
 	GDCLASS(ModifiedIntValue, RefCounted)
 
 	ModifiedValueType _type = ModifiedValueType::NormalCalculation;
-	int _baseValue;
-	int _currentModifiedValue;
+	int _baseValue = 0;
+	int _currentModifiedValue = 0;
 	String _modifiedBy;
-	GameObject* _gameObject;
+	GameObject* _gameObject = nullptr;
 	Variant _gameObjectChecker;
 	inline bool IsGameObjectValid() {
 		if (_gameObjectChecker.get_type() != Variant::OBJECT)
@@ -52,10 +52,10 @@ class ModifiedFloatValue : public RefCounted {
 	GDCLASS(ModifiedFloatValue, RefCounted)
 
 	ModifiedValueType _type = ModifiedValueType::NormalCalculation;
-	float _baseValue;
-	float _currentModifiedValue;
+	float _baseValue = 0;
+	float _currentModifiedValue = 0;
 	String _modifiedBy;
-	GameObject* _gameObject;
+	GameObject* _gameObject = nullptr;
 	Variant _gameObjectChecker;
 	inline bool IsGameObjectValid() {
 		if (_gameObjectChecker.get_type() != Variant::OBJECT)

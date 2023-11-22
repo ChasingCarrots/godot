@@ -23,18 +23,18 @@ protected:
 	};
 
 	struct LocatorColliderData {
-		LocatorbasedColliderHelper* BelongsTo;
-		Node2D* Owner;
+		LocatorbasedColliderHelper* BelongsTo = nullptr;
+		Node2D* Owner = nullptr;
 		bool IsActive = true;
-		float ResetCollisionEverySeconds;
-		float RemainingTimeToReset;
+		float ResetCollisionEverySeconds = 0;
+		float RemainingTimeToReset = 0;
 		TypedArray<String> LocatorPools;
 		Array CurrentCollidingGameObjects;
-		ColliderTypes ColliderType;
-		float Radius;
-		float Width;
-		float Height;
-		float MotionDist;
+		ColliderTypes ColliderType = ColliderTypes::Circle;
+		float Radius = 0;
+		float Width = 0;
+		float Height = 0;
+		float MotionDist = 0;
 		Callable MotionDirectionCallable;
 	};
 	static LocalVector<LocatorColliderData> AllLocatorColliderHelpers;

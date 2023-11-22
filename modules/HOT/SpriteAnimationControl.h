@@ -17,13 +17,13 @@ protected:
 	float WalkAnimationThreshold = 200;
 	bool FlashOnDamage = false;
 	float FlashIntensity = 1;
-	bool ReactToAttack;
+	bool ReactToAttack = false;
 	bool FlippedSprites = false;
 	bool DirectionLess = false;
 
-	int DirectionSourceIdle;
-	int DirectionSourceMove;
-	bool UpperBodyLowerBodySetup;
+	int DirectionSourceIdle = 0;
+	int DirectionSourceMove = 0;
+	bool UpperBodyLowerBodySetup = false;
 	NodePath CustomFacingProviderPath;
 	SafeObjectPointer<Node> CustomFacingProvider;
 
@@ -73,7 +73,7 @@ protected:
 	int current_attack_animation_index = -1;
 
 	SafeObjectPointer<AnimatedSprite2D> shadow;
-	int flash_timer;
+	int flash_timer = 0;
 
 	// state of currently played animation
 	String animationState = "idle";
