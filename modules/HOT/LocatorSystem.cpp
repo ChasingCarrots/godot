@@ -28,7 +28,7 @@ struct LocatorPool {
     String PoolName;
     std::map<Vector2i, LocalVector<Locator*>> Cells;
 };
-LocalVector<LocatorPool> GlobalLocatorPools;
+std::vector<LocatorPool> GlobalLocatorPools;
 
 
 
