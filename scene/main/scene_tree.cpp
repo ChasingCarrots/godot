@@ -535,6 +535,10 @@ bool SceneTree::process(double p_time) {
 
 	_flush_delete_queue();
 
+	if (unlikely(pending_new_scene)) {
+		_flush_scene_change();
+	}
+
 	process_timers(p_time, false); //go through timers
 
 	process_tweens(p_time, false);
@@ -569,10 +573,6 @@ bool SceneTree::process(double p_time) {
 	}
 #endif // _3D_DISABLED
 #endif // TOOLS_ENABLED
-
-	if (unlikely(pending_new_scene)) {
-		_flush_scene_change();
-	}
 
 	return _quit;
 }
