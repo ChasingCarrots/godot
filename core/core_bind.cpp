@@ -109,6 +109,35 @@ PackedStringArray ResourceLoader::get_dependencies(const String &p_path) {
 	return ret;
 }
 
+void ResourceLoader::rename_dependencies(const String &p_path, const Dictionary &p_deps_dict) {
+	HashMap<String, String> deps_map;
+
+	const Variant *deps_dict_key = p_deps_dict.next(nullptr);
+	while(deps_dict_key != nullptr) {
+		if(deps_dict_key->get_type() != Variant::STRING && deps_dict_key->get_type() != Variant::STRING_NAME) {
+			WARN_PRINT("rename_dependencies() : Non-String key skipped in dependencies dictionary.");
+			deps_dict_key = p_deps_dict.next(deps_dict_key);
+			continue;
+		}
+		const Variant *deps_dict_value = p_deps_dict.getptr(*deps_dict_key);
+		if(deps_dict_value->get_type() != Variant::STRING && deps_dict_value->get_type() != Variant::STRING_NAME) {
+			WARN_PRINT("rename_dependencies() : Non-String value skipped in dependencies dictionary.");
+			deps_dict_key = p_deps_dict.next(deps_dict_key);
+			continue;
+		}
+		deps_map.insert(*deps_dict_key, *deps_dict_value);
+		deps_dict_key = p_deps_dict.next(deps_dict_key);
+	}
+
+	if(deps_map.is_empty()) {
+		WARN_PRINT("rename_dependencies() : No (usable) dependencies found. Nothing was renamed.");
+		return;
+	}
+
+	Error err = ::ResourceLoader::rename_dependencies(p_path, deps_map);
+	ERR_FAIL_COND_MSG(err != OK, "Error renaming dependencies: '" + p_path + "'.");
+}
+
 bool ResourceLoader::has_cached(const String &p_path) {
 	String local_path = ProjectSettings::get_singleton()->localize_path(p_path);
 	return ResourceCache::has(local_path);
@@ -133,6 +162,7 @@ void ResourceLoader::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_resource_format_loader", "format_loader"), &ResourceLoader::remove_resource_format_loader);
 	ClassDB::bind_method(D_METHOD("set_abort_on_missing_resources", "abort"), &ResourceLoader::set_abort_on_missing_resources);
 	ClassDB::bind_method(D_METHOD("get_dependencies", "path"), &ResourceLoader::get_dependencies);
+	ClassDB::bind_method(D_METHOD("rename_dependencies", "path"), &ResourceLoader::rename_dependencies);
 	ClassDB::bind_method(D_METHOD("has_cached", "path"), &ResourceLoader::has_cached);
 	ClassDB::bind_method(D_METHOD("exists", "path", "type_hint"), &ResourceLoader::exists, DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("get_resource_uid", "path"), &ResourceLoader::get_resource_uid);

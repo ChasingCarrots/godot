@@ -80,6 +80,7 @@ public:
 	void remove_resource_format_loader(Ref<ResourceFormatLoader> p_format_loader);
 	void set_abort_on_missing_resources(bool p_abort);
 	PackedStringArray get_dependencies(const String &p_path);
+	void rename_dependencies(const String &p_path, const Dictionary& p_deps_dict);
 	bool has_cached(const String &p_path);
 	bool exists(const String &p_path, const String &p_type_hint = "");
 	ResourceUID::ID get_resource_uid(const String &p_path);
