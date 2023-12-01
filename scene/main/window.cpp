@@ -1291,7 +1291,9 @@ void Window::_notification(int p_what) {
 				// Append a suffix to the window title to denote that the project is running
 				// from a debug build (including the editor). Since this results in lower performance,
 				// this should be clearly presented to the user.
-				tr_title = vformat("%s (DEBUG)", tr_title);
+				// CC: our players think the debug build is the wrong build. But we use it, since it is less
+				//     crash-prone and, in our experience, not that much less performant.
+				//tr_title = vformat("%s (DEBUG)", tr_title);
 			}
 #endif
 

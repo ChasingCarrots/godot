@@ -400,9 +400,12 @@ Array GameObject::getModifiers(String modifierType, TypedArray<String> categorie
 Node* GameObject::add_effect(Node *effectScene, GameObject *externalSource) {
 	PROFILE_FUNCTION()
 	String effectID = effectScene->call("get_effectID");
-	Node* GlobalQuestPool =
-			get_tree()->get_root()->get_node(NodePath("Global/QuestPool"));
-	GlobalQuestPool->call("notify_effect_applied", effectID);
+	Node* Global = get_tree()->get_root()->get_node(NodePath("Global"));
+	if(Global != nullptr) {
+		Variant questPool = Global->get("QuestPool");
+		if(questPool.has_method("notify_effect_applied"))
+			questPool.call("notify_effect_applied", effectID);
+	}
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	for(auto child : _tempNodeArray) {
