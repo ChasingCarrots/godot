@@ -77,14 +77,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -166,14 +166,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -252,14 +252,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -336,14 +336,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -421,14 +421,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())

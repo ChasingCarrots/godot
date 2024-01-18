@@ -1,17 +1,19 @@
 #include "register_types.h"
 
-#include <core/object/class_db.h>
+#include "DirectionsUtil.h"
+#include "GameObject.h"
+#include "GameObjectComponents.h"
+#include "Health.h"
 #include "Locator.h"
 #include "LocatorSystem.h"
-#include "GameObject.h"
+#include "LocatorbasedColliderHelper.h"
 #include "ModifiedValues.h"
 #include "Modifier.h"
-#include "Statistics.h"
-#include "LocatorbasedColliderHelper.h"
-#include "GameObjectComponents.h"
-#include "DirectionsUtil.h"
 #include "SpriteAnimationControl.h"
+#include "Statistics.h"
+#include "StatisticsValueData.h"
 #include "ThreadedObjectPool.h"
+#include <core/object/class_db.h>
 
 void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -33,6 +35,8 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<DirectionsUtil>();
 	ClassDB::register_class<SpriteAnimationControl>();
 	ClassDB::register_class<ThreadedObjectPool>();
+	ClassDB::register_class<StatisticsValueData>();
+	ClassDB::register_class<Health>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {
