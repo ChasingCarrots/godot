@@ -33,6 +33,8 @@
 #include "core/math/geometry_2d.h"
 #include "line_builder.h"
 
+#include <core/profiling.h>
+
 Line2D::Line2D() {
 }
 
@@ -271,6 +273,7 @@ bool Line2D::get_antialiased() const {
 }
 
 void Line2D::_draw() {
+	PROFILE_FUNCTION();
 	int len = _points.size();
 	if (len <= 1 || _width == 0.f) {
 		return;
