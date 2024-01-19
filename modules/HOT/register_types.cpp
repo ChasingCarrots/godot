@@ -9,6 +9,7 @@
 #include "LocatorbasedColliderHelper.h"
 #include "ModifiedValues.h"
 #include "Modifier.h"
+#include "MonsterInput.h"
 #include "SpriteAnimationControl.h"
 #include "Statistics.h"
 #include "StatisticsValueData.h"
@@ -37,6 +38,7 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ThreadedObjectPool>();
 	ClassDB::register_class<StatisticsValueData>();
 	ClassDB::register_class<Health>();
+	ClassDB::register_class<MonsterInput>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {
