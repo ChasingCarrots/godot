@@ -6,6 +6,11 @@
 template<typename Type>
 class SafeObjectPointer {
 public:
+	SafeObjectPointer() = default;
+	explicit SafeObjectPointer(Type* pointedObject) {
+		set(pointedObject);
+	}
+
 	void set(Type* pointedObject) {
 		if(pointedObject != nullptr) {
 			_pointedObject = pointedObject;
@@ -30,11 +35,13 @@ public:
 		return nullptr;
 	}
 
-	Type* get_nocheck() { return _pointedObject; }
+	Type* get_nocheck() const { return _pointedObject; }
 
 	explicit operator Type*() { return get(); }
 	Type* operator=(Type* pointedObject) { set(pointedObject); return pointedObject; }
-	Type* operator->() { return _pointedObject; }
+	Type *operator->() { return _pointedObject; }
+	friend bool operator==(const SafeObjectPointer &lhs, const SafeObjectPointer &rhs) { return lhs._pointedObject == rhs._pointedObject; }
+
 private:
 	Type* _pointedObject = nullptr;
 	ObjectID _objectID;

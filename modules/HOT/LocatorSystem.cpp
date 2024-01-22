@@ -629,21 +629,65 @@ Array LocatorSystem::GetAllGameObjectsInPool(String poolName) {
 	Array fillArray;
 
 	auto poolIter = GlobalLocatorPools.begin();
+	while (poolIter != GlobalLocatorPools.end()) {
+		if (poolIter->PoolName == poolName)
+			break;
+		++poolIter;
+	}
+	if (poolIter == GlobalLocatorPools.end())
+		return {};
+
+	_tempLocators.clear();
+	for (const auto &cell : poolIter->Cells)
+		for (auto locator : cell.second) {
+			Node *gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(locator));
+			if (gameObject != nullptr)
+				fillArray.append(gameObject);
+		}
+
+	return fillArray;
+}
+
+void LocatorSystem::FillWithGameObjectsInCircleMotion(String poolName, Vector2 center, float radius, Vector2 motion, LocalVector<GameObject *> &fillVector) {
+	PROFILE_FUNCTION()
+	auto poolIter = GlobalLocatorPools.begin();
 	while(poolIter != GlobalLocatorPools.end()) {
 		if(poolIter->PoolName == poolName)
 			break;
 		++poolIter;
 	}
 	if(poolIter == GlobalLocatorPools.end())
-		return {};
+		return;
 
-	_tempLocators.clear();
-	for(const auto& cell : poolIter->Cells)
-		for(auto locator : cell.second) {
-			Node* gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(locator));
-			if(gameObject != nullptr)
-				fillArray.append(gameObject);
+	int minX = int(floor((center.x - radius)/GridSize));
+	minX = std::min(minX, int(floor((center.x + motion.x - radius)/GridSize)));
+	int minY = int(floor((center.y - radius)/GridSize));
+	minY = std::min(minY, int(floor((center.y + motion.y - radius)/GridSize)));
+	int maxX = int(ceil((center.x + radius)/GridSize));
+	maxX = std::max(maxX, int(ceil((center.x + motion.x + radius)/GridSize)));
+	int maxY = int(ceil((center.y + radius)/GridSize));
+	maxY = std::max(maxY, int(ceil((center.y + motion.y + radius)/GridSize)));
+
+	for(int x=minX; x <= maxX; x++) {
+		for(int y=minY; y <= maxY; y++) {
+			Vector2i cell(x,y);
+			auto cellIter = poolIter->Cells.find(cell);
+			if(cellIter == poolIter->Cells.end())
+				continue;
+			for(const auto locator : cellIter->second) {
+				if(locator->is_queued_for_deletion())
+					continue;
+				Vector2 segment[2] = {center, center+motion};
+				Vector2 checkPoint = Geometry2D::get_closest_point_to_segment(
+						locator->get_global_position(), segment);
+				float checkDistSQ = radius + locator->GetRadius();
+				checkDistSQ *= checkDistSQ;
+				if(checkPoint.distance_squared_to(locator->get_global_position()) <= checkDistSQ) {
+					GameObject* gameObject = GameObject::getGameObjectInParents(locator);
+					if(gameObject != nullptr)
+						fillVector.push_back(gameObject);
+				}
+			}
 		}
-
-	return fillArray;
+	}
 }

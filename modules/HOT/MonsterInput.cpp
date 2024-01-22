@@ -215,7 +215,7 @@ void MonsterInput::updateAllMonsterInputs(float delta) {
 				if(monster->loitering_counter == 0.0f)
 					monster->loitering_counter = VariantUtilityFunctions::randf_range(monster->MinLoiteringDuration, monster->MaxLoiteringDuration);
 				else if(monster->loitering_counter > 0.0f) {
-					monster->loitering_counter = std::max(0.0f, std::min(9999.0f, monster->loitering_counter));
+					monster->loitering_counter = std::max(0.0f, std::min(9999.0f, monster->loitering_counter - delta));
 					monster->targetFacingSetter->call("set_facingDirection", newInputDir);
 					newInputDir = Vector2();
 					if(monster->loitering_counter == 0.0f)

@@ -1,6 +1,7 @@
 #ifndef HOTEXTENSION_LOCATORSYSTEM_H
 #define HOTEXTENSION_LOCATORSYSTEM_H
 
+#include "GameObject.h"
 #include "Locator.h"
 
 #include <core/object/ref_counted.h>
@@ -48,6 +49,8 @@ public:
     Locator* GetRandomLocatorInPool(String poolName);
 	Array GetAllLocatorsInPool(String poolName);
 	Array GetAllGameObjectsInPool(String poolName);
+
+	void FillWithGameObjectsInCircleMotion(String poolName, Vector2 center, float radius, Vector2 motion, LocalVector<GameObject*>& fillVector);
 
     static void LocatorEnteredTree(Locator* locator);
     static void LocatorExitedTree(Locator* locator);

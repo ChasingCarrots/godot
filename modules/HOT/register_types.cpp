@@ -1,6 +1,7 @@
 #include "register_types.h"
 
 #include "DirectionsUtil.h"
+#include "FastRaybasedMover.h"
 #include "GameObject.h"
 #include "GameObjectComponents.h"
 #include "Health.h"
@@ -39,6 +40,7 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<StatisticsValueData>();
 	ClassDB::register_class<Health>();
 	ClassDB::register_class<MonsterInput>();
+	ClassDB::register_class<FastRaybasedMover>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {

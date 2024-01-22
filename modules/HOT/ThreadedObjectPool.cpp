@@ -63,12 +63,12 @@ void ThreadedObjectPool::instance_creation_thread_loop(void *p_ud) {
 }
 
 ThreadedObjectPool::~ThreadedObjectPool() {
-	clear_all_instances();
 	if(_instanceCreationThread.is_started()) {
 		_endThread = true;
 		_instanceCreationSemaphore.post();
 		_instanceCreationThread.wait_to_finish();
 	}
+	clear_all_instances();
 }
 
 void ThreadedObjectPool::init_with_scene(String scenePath, int maxNumberOfInstances, ThreadedObjectPool::MaxInstancesReachedBehaviour maxBehaviour) {
@@ -154,6 +154,16 @@ void ThreadedObjectPool::run_callbacks() {
 	}
 }
 void ThreadedObjectPool::clear_all_instances() {
+	// don't leave the thread running while we clear the instances
+	// (could lead to strange race conditions!)
+	bool restartThread = false;
+	if(_instanceCreationThread.is_started()) {
+		_endThread = true;
+		_instanceCreationSemaphore.post();
+		_instanceCreationThread.wait_to_finish();
+		restartThread = true;
+	}
+
 	MutexLock lock(_instanceListMutex);
 	for(auto& creationData : _instanceCreationQueue) {
 		if(creationData.CreatedInstance != nullptr)
@@ -174,4 +184,9 @@ void ThreadedObjectPool::clear_all_instances() {
 		obj->queue_free();
 	}
 	_inUseObjects.clear();
+
+	if(restartThread && _sceneToInstantiate.is_valid()) {
+		_endThread = false;
+		_instanceCreationThread.start(instance_creation_thread_loop, this);
+	}
 }

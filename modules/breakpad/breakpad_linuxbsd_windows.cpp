@@ -60,7 +60,9 @@ static bool dump_callback(const google_breakpad::MinidumpDescriptor &descriptor,
 static void create_breakpad_handler(const wchar_t *crash_folder) {
 	// Automatic register to the exception handlers can be disabled when Godot crash handler listens to them
 	breakpad_handler = new google_breakpad::ExceptionHandler(crash_folder, nullptr, dump_callback, nullptr,
-			register_breakpad_handlers ? google_breakpad::ExceptionHandler::HANDLER_ALL : google_breakpad::ExceptionHandler::HANDLER_NONE);
+			register_breakpad_handlers ? google_breakpad::ExceptionHandler::HANDLER_ALL : google_breakpad::ExceptionHandler::HANDLER_NONE
+			//, MiniDumpWithFullMemory, (const wchar_t*)NULL, NULL
+			);
 
 #else
 static void create_breakpad_handler(const String &crash_folder) {
