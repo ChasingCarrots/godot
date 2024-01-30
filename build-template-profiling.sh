@@ -1,0 +1,1 @@
+scons target=template_profiling debug_symbols=yes

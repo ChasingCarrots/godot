@@ -292,13 +292,13 @@ void Health::_world_ready() {
 }
 
 void Health::_exit_tree() {
-	_modifiedMaxHealth = nullptr;
-	_modifiedChanceToBlock = nullptr;
-	_modifiedBlockValue = nullptr;
-	_modifiedDamageFactor = nullptr;
-	_modifiedRegeneration = nullptr;
-	_modifiedDamageFromEffectsFactor = nullptr;
-	_modifiedDefense = nullptr;
+	_modifiedMaxHealth.unref();
+	_modifiedChanceToBlock.unref();
+	_modifiedBlockValue.unref();
+	_modifiedDamageFactor.unref();
+	_modifiedRegeneration.unref();
+	_modifiedDamageFromEffectsFactor.unref();
+	_modifiedDefense.unref();
 }
 
 void Health::_process(float delta) {
