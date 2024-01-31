@@ -114,21 +114,10 @@ void FastRaybasedMover::_notification(int p_notification) {
 
 void FastRaybasedMover::_exit_tree() {
 	_allFastRaybasedMovers.erase(this);
-	_locatorSystem = Variant();
 }
 
 void FastRaybasedMover::_enter_tree() {
-	Node* global = get_tree()->get_root()->get_node(NodePath("Global"));
-	if (global == nullptr) {
-		print_error("Global autoload node not found!");
-		return;
-	}
-	Variant worldVariant = global->get("World");
-	if (worldVariant.is_null()) {
-		print_error("Global.World is null!");
-		return;
-	}
-	_locatorSystem.reference_ptr(cast_to<LocatorSystem>(worldVariant.get("Locators")));
+	PROFILE_FUNCTION();
 	_allFastRaybasedMovers.push_back(this);
 }
 
@@ -219,7 +208,7 @@ void FastRaybasedMover::updateAllFastRaybasedMovers(float delta) {
 		float scaledRadius = mover->Radius * std::max(moverScale.x, moverScale.y);
 		tempHits.clear();
 		for(const String& pool : mover->HitLocatorPools) {
-			mover->_locatorSystem->FillWithGameObjectsInCircleMotion(pool, moverPos, scaledRadius, motion, tempHits);
+			LocatorSystem::FillWithGameObjectsInCircleMotion(pool, moverPos, scaledRadius, motion, tempHits);
 		}
 		for(GameObject* hitGameObj : tempHits) {
 			if(!mover->allowMultipleHits && mover->_allTimeHitObjects.find(hitGameObj) != -1)

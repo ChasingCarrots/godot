@@ -18,13 +18,13 @@ class Modifier : public RefCounted {
 	Variant _gameObject;
 	TypedArray<String> _modifierCategories;
 
-	~Modifier();
-
 protected:
 	// Required entry point that the API calls to bind our class to Godot.
 	static void _bind_methods();
 
 public:
+	~Modifier();
+
 	static Modifier* create(String modifiedType, Variant gameObject) {
 		Modifier* mod = memnew(Modifier);
 		mod->_init(modifiedType, gameObject);

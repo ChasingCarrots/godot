@@ -2,9 +2,11 @@
 #define AREAOFEFFECT_H
 
 #include "GameObjectComponents.h"
+#include "LocatorSystem.h"
 #include "StatisticsValueData.h"
 
 #include <scene/resources/packed_scene.h>
+#include <scene/main/window.h>
 
 class AreaOfEffect  : public GameObjectComponent2D {
 	GDCLASS(AreaOfEffect, GameObjectComponent2D)
@@ -16,6 +18,36 @@ protected:
 	void _enter_tree();
 	void _ready();
 	void _notification(int p_notification);
+
+	static LocalVector<AreaOfEffect*> _allAreaOfEffects;
+
+	Node* _world = nullptr;
+	Node* _global = nullptr;
+	Node* World() {
+		PROFILE_FUNCTION();
+		if(_world != nullptr)
+			return _world;
+		Node* global = Global();
+		if(global == nullptr) return nullptr;
+		Variant worldVariant = global->get("World");
+		if (worldVariant.is_null()) {
+			print_error("Global.World is null!");
+			return nullptr;
+		}
+		_world = cast_to<Node>(worldVariant);
+		return _world;
+	}
+	Node* Global() {
+		PROFILE_FUNCTION();
+		if(_global != nullptr)
+			return _global;
+		_global = get_tree()->get_root()->get_node(NodePath("Global"));
+		if (_global == nullptr) {
+			print_error("Global autoload node not found!");
+			return nullptr;
+		}
+		return _global;
+	}
 
 	int ApplyDamage;
 	String RankDamageModifierMethod;
@@ -53,141 +85,46 @@ public:
 	void attackSpeedWasChanged(float oldvalue, float newvalue);
 	void set_harmless(bool harmless);
 
-	[[nodiscard]] int get_apply_damage() const {
-		return ApplyDamage;
-	}
-
-	void set_apply_damage(const int apply_damage) {
-		ApplyDamage = apply_damage;
-	}
-
-	[[nodiscard]] String get_rank_damage_modifier_method() const {
-		return RankDamageModifierMethod;
-	}
-
-	void set_rank_damage_modifier_method(String rank_damage_modifier_method) {
-		RankDamageModifierMethod = std::move(rank_damage_modifier_method);
-	}
-
-	[[nodiscard]] Ref<PackedScene> get_apply_node() const {
-		return ApplyNode;
-	}
-
-	void set_apply_node(Ref<PackedScene> apply_node) {
-		ApplyNode = apply_node;
-	}
-
-	[[nodiscard]] bool is_trigger_hit_on_children() const {
-		return TriggerHitOnChildren;
-	}
-
-	void set_trigger_hit_on_children(const bool trigger_hit_on_children) {
-		TriggerHitOnChildren = trigger_hit_on_children;
-	}
-
-	[[nodiscard]] bool is_trigger_hit_on_parent_game_object() const {
-		return TriggerHitOnParentGameObject;
-	}
-
-	void set_trigger_hit_on_parent_game_object(const bool trigger_hit_on_parent_game_object) {
-		TriggerHitOnParentGameObject = trigger_hit_on_parent_game_object;
-	}
-
-	[[nodiscard]] String get_locator_pool_name() const {
-		return LocatorPoolName;
-	}
-
-	void set_locator_pool_name(String locator_pool_name) {
-		LocatorPoolName = std::move(locator_pool_name);
-	}
-
-	[[nodiscard]] float get_radius() const {
-		return Radius;
-	}
-
-	void set_radius(const float radius) {
-		Radius = radius;
-	}
-
-	[[nodiscard]] float get_trigger_every_seconds() const {
-		return TriggerEverySeconds;
-	}
-
-	void set_trigger_every_seconds(const float trigger_every_seconds) {
-		TriggerEverySeconds = trigger_every_seconds;
-	}
-
-	[[nodiscard]] float get_probability_to_apply() const {
-		return ProbabilityToApply;
-	}
-
-	void set_probability_to_apply(const float probability_to_apply) {
-		ProbabilityToApply = probability_to_apply;
-	}
-
-	[[nodiscard]] PackedStringArray get_modifier_categories() const {
-		return ModifierCategories;
-	}
-
-	void set_modifier_categories(PackedStringArray modifier_categories) {
-		ModifierCategories = std::move(modifier_categories);
-	}
-
-	[[nodiscard]] PackedStringArray get_damage_categories() const {
-		return DamageCategories;
-	}
-
-	void set_damage_categories(PackedStringArray damage_categories) {
-		DamageCategories = std::move(damage_categories);
-	}
-
-	[[nodiscard]] bool is_use_modified_area() const {
-		return UseModifiedArea;
-	}
-
-	void set_use_modified_area(const bool use_modified_area) {
-		UseModifiedArea = use_modified_area;
-	}
-
-	[[nodiscard]] Ref<ModifiedFloatValue> get_modified_attack_speed() const {
-		return _modifiedAttackSpeed;
-	}
-
-	void set_modified_attack_speed(Ref<ModifiedFloatValue> modified_attack_speed) {
-		_modifiedAttackSpeed = std::move(modified_attack_speed);
-	}
-
-	[[nodiscard]] int get_weapon_index() const {
-		return _weapon_index;
-	}
-
-	void set_weapon_index(const int weapon_index) {
-		_weapon_index = weapon_index;
-	}
-
-	[[nodiscard]] StatisticsValueData::StatisticsTypes get_stats_display_type() const {
-		return StatsDisplayType;
-	}
-
-	void set_stats_display_type(const StatisticsValueData::StatisticsTypes stats_display_type) {
-		StatsDisplayType = stats_display_type;
-	}
-
-	[[nodiscard]] String get_stats_category() const {
-		return StatsCategory;
-	}
-
-	void set_stats_category(String stats_category) {
-		StatsCategory = std::move(stats_category);
-	}
-
-	[[nodiscard]] bool is_display_stats() const {
-		return DisplayStats;
-	}
-
-	void set_display_stats(const bool display_stats) {
-		DisplayStats = display_stats;
-	}
+	[[nodiscard]] int GetApplyDamage() const { return ApplyDamage; }
+	void SetApplyDamage(int applyDamage) { ApplyDamage = applyDamage; }
+	[[nodiscard]] String GetRankDamageModifierMethod() const { return RankDamageModifierMethod; }
+	void SetRankDamageModifierMethod(const String &rankDamageModifierMethod) { RankDamageModifierMethod = rankDamageModifierMethod; }
+	[[nodiscard]] Ref<PackedScene> GetApplyNode() const { return ApplyNode; }
+	void SetApplyNode(const Ref<PackedScene> &applyNode) { ApplyNode = applyNode; }
+	[[nodiscard]] bool GetTriggerHitOnChildren() const { return TriggerHitOnChildren; }
+	void SetTriggerHitOnChildren(bool triggerHitOnChildren) { TriggerHitOnChildren = triggerHitOnChildren; }
+	[[nodiscard]] bool GetTriggerHitOnParentGameObject() const { return TriggerHitOnParentGameObject; }
+	void SetTriggerHitOnParentGameObject(bool triggerHitOnParentGameObject) { TriggerHitOnParentGameObject = triggerHitOnParentGameObject; }
+	[[nodiscard]] String GetLocatorPoolName() const { return LocatorPoolName; }
+	void SetLocatorPoolName(const String &locatorPoolName) { LocatorPoolName = locatorPoolName; }
+	[[nodiscard]] float GetRadius() const { return Radius; }
+	void SetRadius(float radius) { Radius = radius; }
+	[[nodiscard]] float GetTriggerEverySeconds() const { return TriggerEverySeconds; }
+	void SetTriggerEverySeconds(float triggerEverySeconds) { TriggerEverySeconds = triggerEverySeconds; }
+	[[nodiscard]] float GetProbabilityToApply() const { return ProbabilityToApply; }
+	void SetProbabilityToApply(float probabilityToApply) { ProbabilityToApply = probabilityToApply; }
+	[[nodiscard]] PackedStringArray GetModifierCategories() const { return ModifierCategories; }
+	void SetModifierCategories(const PackedStringArray &modifierCategories) { ModifierCategories = modifierCategories; }
+	[[nodiscard]] PackedStringArray GetDamageCategories() const { return DamageCategories; }
+	void SetDamageCategories(const PackedStringArray &damageCategories) { DamageCategories = damageCategories; }
+	[[nodiscard]] bool GetUseModifiedArea() const { return UseModifiedArea; }
+	void SetUseModifiedArea(bool useModifiedArea) { UseModifiedArea = useModifiedArea; }
+	[[nodiscard]] float GetRemainingTimeToNextTrigger() const { return _remainingTimeToNextTrigger; }
+	void SetRemainingTimeToNextTrigger(float remainingTimeToNextTrigger) { _remainingTimeToNextTrigger = remainingTimeToNextTrigger; }
+	[[nodiscard]] bool GetIsHarmless() const { return _is_harmless; }
+	void SetIsHarmless(bool isHarmless) { _is_harmless = isHarmless; }
+	[[nodiscard]] Ref<ModifiedFloatValue> GetModifiedDamage() const { return _modifiedDamage; }
+	void SetModifiedDamage(const Ref<ModifiedFloatValue> &modifiedDamage) { _modifiedDamage = modifiedDamage; }
+	[[nodiscard]] Ref<Modifier> GetDamageModifier() const { return _damageModifier; }
+	void SetDamageModifier(const Ref<Modifier> &damageModifier) { _damageModifier = damageModifier; }
+	[[nodiscard]] Ref<ModifiedFloatValue> GetModifiedAttackSpeed() const { return _modifiedAttackSpeed; }
+	void SetModifiedAttackSpeed(const Ref<ModifiedFloatValue> &modifiedAttackSpeed) { _modifiedAttackSpeed = modifiedAttackSpeed; }
+	[[nodiscard]] Ref<ModifiedFloatValue> GetModifiedArea() const { return _modifiedArea; }
+	void SetModifiedArea(const Ref<ModifiedFloatValue> &modifiedArea) { _modifiedArea = modifiedArea; }
+	[[nodiscard]] int GetWeaponIndex() const { return _weapon_index; }
+	void SetWeaponIndex(int weaponIndex) { _weapon_index = weaponIndex; }
+	[[nodiscard]] String GetStatsCategory() const { return StatsCategory; }
+	void SetStatsCategory(const String &statsCategory) { StatsCategory = statsCategory; }
 };
 
 

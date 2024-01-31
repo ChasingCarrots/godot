@@ -18,7 +18,6 @@ protected:
 
 private:
 	static LocalVector<FastRaybasedMover*> _allFastRaybasedMovers;
-	Ref<LocatorSystem> _locatorSystem;
 	float _randomizedDamping = 0;
 	float _randomizedSpeed = 0;
 	float _randomizedAcceleration = 0;

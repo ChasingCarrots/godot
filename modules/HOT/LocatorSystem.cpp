@@ -691,3 +691,40 @@ void LocatorSystem::FillWithGameObjectsInCircleMotion(String poolName, Vector2 c
 		}
 	}
 }
+
+void LocatorSystem::FillWithGameObjectsInCircle(String poolName, Vector2 center, float radius, LocalVector<GameObject *> &fillVector) {
+	PROFILE_FUNCTION()
+	auto poolIter = GlobalLocatorPools.begin();
+	while(poolIter != GlobalLocatorPools.end()) {
+		if(poolIter->PoolName == poolName)
+			break;
+		++poolIter;
+	}
+	if(poolIter == GlobalLocatorPools.end())
+		return;
+
+	int minX = int(floor((center.x - radius)/GridSize));
+	int minY = int(floor((center.y - radius)/GridSize));
+	int maxX = int(ceil((center.x + radius)/GridSize));
+	int maxY = int(ceil((center.y + radius)/GridSize));
+
+	for(int x=minX; x <= maxX; x++) {
+		for(int y=minY; y <= maxY; y++) {
+			Vector2i cell(x,y);
+			auto cellIter = poolIter->Cells.find(cell);
+			if(cellIter == poolIter->Cells.end())
+				continue;
+			for(const auto locator : cellIter->second) {
+				if(locator->is_queued_for_deletion())
+					continue;
+				float checkDistSQ = radius + locator->GetRadius();
+				checkDistSQ *= checkDistSQ;
+				if(center.distance_squared_to(locator->get_global_position()) <= checkDistSQ) {
+					GameObject* gameObject = GameObject::getGameObjectInParents(locator);
+					if(gameObject != nullptr)
+						fillVector.push_back(gameObject);
+				}
+			}
+		}
+	}
+}

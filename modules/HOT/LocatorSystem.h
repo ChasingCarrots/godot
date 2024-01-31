@@ -50,7 +50,8 @@ public:
 	Array GetAllLocatorsInPool(String poolName);
 	Array GetAllGameObjectsInPool(String poolName);
 
-	void FillWithGameObjectsInCircleMotion(String poolName, Vector2 center, float radius, Vector2 motion, LocalVector<GameObject*>& fillVector);
+	static void FillWithGameObjectsInCircleMotion(String poolName, Vector2 center, float radius, Vector2 motion, LocalVector<GameObject*>& fillVector);
+	static void FillWithGameObjectsInCircle(String poolName, Vector2 center, float radius, LocalVector<GameObject*>& fillVector);
 
     static void LocatorEnteredTree(Locator* locator);
     static void LocatorExitedTree(Locator* locator);
