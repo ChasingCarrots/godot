@@ -29,7 +29,7 @@ class ModifiedIntValue : public RefCounted {
 			return false;
 		return true;
 	}
-	Callable _rankModifier;
+	String _rankModifierStr;
 	TypedArray<String> _modifierCategories;
 
 protected:
@@ -37,8 +37,8 @@ protected:
 	static void _bind_methods();
 
 public:
-	void _init(int baseVal, String modifierName, Variant gameObject, Callable rankModifier);
-	void _initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier);
+	void _init(int baseVal, String modifierName, Variant gameObject, String rankModifier);
+	void _initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier);
 	void setModifierCategories(TypedArray<String> categories);
 	TypedArray<String> getModifierCategories() { return _modifierCategories.duplicate(); }
 	void updateManually();
@@ -67,7 +67,7 @@ class ModifiedFloatValue : public RefCounted {
 			return false;
 		return true;
 	}
-	Callable _rankModifier;
+	String _rankModifierStr;
 	TypedArray<String> _modifierCategories;
 
 protected:
@@ -75,9 +75,9 @@ protected:
 	static void _bind_methods();
 
 public:
-	void _init(float baseVal, String modifierName, Variant gameObject, Callable rankModifier);
-	void _initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier);
-	void _initAsMultiplicativeOnly(String modifierName, Variant gameObject, Callable rankModifier);
+	void _init(float baseVal, String modifierName, Variant gameObject, String rankModifier);
+	void _initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier);
+	void _initAsMultiplicativeOnly(String modifierName, Variant gameObject, String rankModifier);
 	void setModifierCategories(TypedArray<String> categories);
 	TypedArray<String> getModifierCategories() { return _modifierCategories.duplicate(); }
 	void updateManually();

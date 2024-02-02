@@ -21,34 +21,6 @@ protected:
 
 	static LocalVector<AreaOfEffect*> _allAreaOfEffects;
 
-	Node* _world = nullptr;
-	Node* _global = nullptr;
-	Node* World() {
-		PROFILE_FUNCTION();
-		if(_world != nullptr)
-			return _world;
-		Node* global = Global();
-		if(global == nullptr) return nullptr;
-		Variant worldVariant = global->get("World");
-		if (worldVariant.is_null()) {
-			print_error("Global.World is null!");
-			return nullptr;
-		}
-		_world = cast_to<Node>(worldVariant);
-		return _world;
-	}
-	Node* Global() {
-		PROFILE_FUNCTION();
-		if(_global != nullptr)
-			return _global;
-		_global = get_tree()->get_root()->get_node(NodePath("Global"));
-		if (_global == nullptr) {
-			print_error("Global autoload node not found!");
-			return nullptr;
-		}
-		return _global;
-	}
-
 	int ApplyDamage;
 	String RankDamageModifierMethod;
 	Ref<PackedScene> ApplyNode;

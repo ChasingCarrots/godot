@@ -16,9 +16,7 @@ protected:
 
 private:
 	// pointer to nodes, that are used regularly
-	Node* _world = nullptr;
 	Node* _fx = nullptr;
-	Node* _global = nullptr;
 
 public:
 	enum DamageEffectType {

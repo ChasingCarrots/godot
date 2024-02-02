@@ -29,8 +29,8 @@ protected:
 
 		ClassDB::bind_method(D_METHOD("initGameObjectComponent"), &GameObjectComponent::init_gameobject_component);
 		ClassDB::bind_method(D_METHOD("get_gameobjectWorldPosition"), &GameObjectComponent::get_gameobject_worldposition);
-		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent::create_modified_int_value, DEFVAL(Callable()));
-		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent::create_modified_float_value, DEFVAL(Callable()));
+		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent::create_modified_int_value, DEFVAL(""));
+		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent::create_modified_float_value, DEFVAL(""));
 	}
 
 	SafeObjectPointer<GameObject> _gameObject;
@@ -77,14 +77,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -118,8 +118,8 @@ protected:
 
 		ClassDB::bind_method(D_METHOD("initGameObjectComponent"), &GameObjectComponent2D::init_gameobject_component);
 		ClassDB::bind_method(D_METHOD("get_gameobjectWorldPosition"), &GameObjectComponent2D::get_gameobject_worldposition);
-		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent2D::create_modified_int_value, DEFVAL(Callable()));
-		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent2D::create_modified_float_value, DEFVAL(Callable()));
+		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent2D::create_modified_int_value, DEFVAL(""));
+		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponent2D::create_modified_float_value, DEFVAL(""));
 	}
 
 	SafeObjectPointer<GameObject> _gameObject;
@@ -166,14 +166,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -204,8 +204,8 @@ protected:
 
 		ClassDB::bind_method(D_METHOD("initGameObjectComponent"), &GameObjectComponentArea2D::init_gameobject_component);
 		ClassDB::bind_method(D_METHOD("get_gameobjectWorldPosition"), &GameObjectComponentArea2D::get_gameobject_worldposition);
-		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentArea2D::create_modified_int_value, DEFVAL(Callable()));
-		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentArea2D::create_modified_float_value, DEFVAL(Callable()));
+		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentArea2D::create_modified_int_value, DEFVAL(""));
+		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentArea2D::create_modified_float_value, DEFVAL(""));
 	}
 
 	SafeObjectPointer<GameObject> _gameObject;
@@ -252,14 +252,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -288,8 +288,8 @@ protected:
 
 		ClassDB::bind_method(D_METHOD("initGameObjectComponent"), &GameObjectComponentRigidBody2D::init_gameobject_component);
 		ClassDB::bind_method(D_METHOD("get_gameobjectWorldPosition"), &GameObjectComponentRigidBody2D::get_gameobject_worldposition);
-		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentRigidBody2D::create_modified_int_value, DEFVAL(Callable()));
-		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentRigidBody2D::create_modified_float_value, DEFVAL(Callable()));
+		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentRigidBody2D::create_modified_int_value, DEFVAL(""));
+		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentRigidBody2D::create_modified_float_value, DEFVAL(""));
 	}
 
 	SafeObjectPointer<GameObject> _gameObject;
@@ -336,14 +336,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
@@ -373,8 +373,8 @@ protected:
 
 		ClassDB::bind_method(D_METHOD("initGameObjectComponent"), &GameObjectComponentKinematicBody2D::init_gameobject_component);
 		ClassDB::bind_method(D_METHOD("get_gameobjectWorldPosition"), &GameObjectComponentKinematicBody2D::get_gameobject_worldposition);
-		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentKinematicBody2D::create_modified_int_value, DEFVAL(Callable()));
-		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentKinematicBody2D::create_modified_float_value, DEFVAL(Callable()));
+		ClassDB::bind_method(D_METHOD("createModifiedIntValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentKinematicBody2D::create_modified_int_value, DEFVAL(""));
+		ClassDB::bind_method(D_METHOD("createModifiedFloatValue", "baseVal", "modifierName", "rankModifier"), &GameObjectComponentKinematicBody2D::create_modified_float_value, DEFVAL(""));
 	}
 
 	SafeObjectPointer<GameObject> _gameObject;
@@ -421,14 +421,14 @@ public:
 		return _positionProvider.get();
 	}
 
-	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedIntValue> create_modified_int_value(int baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedIntValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())
 			modValue->_init(baseVal, modifierName, _gameObject.get_nocheck(), rankModifier);
 		return modValue;
 	}
-	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, Callable rankModifier = {}) {
+	Ref<ModifiedFloatValue> create_modified_float_value(float baseVal, String modifierName, String rankModifier = "") {
 		Ref<ModifiedFloatValue> modValue;
 		modValue.instantiate();
 		if(_gameObject.is_valid())

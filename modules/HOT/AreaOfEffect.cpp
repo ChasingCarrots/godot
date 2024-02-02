@@ -1,5 +1,8 @@
 #include "AreaOfEffect.h"
 
+#include "StaticValueHelper.h"
+
+#include <core/object/script_language.h>
 #include <core/variant/variant_utility.h>
 
 LocalVector<AreaOfEffect*> AreaOfEffect::_allAreaOfEffects;
@@ -199,12 +202,16 @@ TypedArray<StatisticsValueData> AreaOfEffect::get_display_stats() {
 }
 
 void AreaOfEffect::initialize_modifiers(Node *referenceParent) {
-	if(!RankDamageModifierMethod.is_empty() && World() != nullptr) {
+	if(!RankDamageModifierMethod.is_empty() && GameObject::World() != nullptr) {
 		_damageModifier.reference_ptr(Modifier::create("Damage", referenceParent->get("_gameObject")));
 		_damageModifier->setModifierName("Torment Scaling");
 		_damageModifier->setAdditiveMod(0);
-		Callable modifier_accessor_callable = static_cast<Callable>(World()->get("TormentRank").call("get_modifier_accessor", RankDamageModifierMethod));
-		_damageModifier->setMultiplierMod(static_cast<float>(modifier_accessor_callable.call()) - 1);
+		String value_key;
+		if(RankDamageModifierMethod.begins_with("get_"))
+			value_key = RankDamageModifierMethod.substr(4);
+		else
+			value_key = RankDamageModifierMethod;
+		_damageModifier->setMultiplierMod(static_cast<float>(StaticValueHelper::get_value(value_key)) - 1);
 		_gameObject->triggerModifierUpdated("Damage");
 	}
 	_modifiedDamage = referenceParent->call("createModifiedFloatValue", ApplyDamage, "Damage");

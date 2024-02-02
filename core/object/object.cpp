@@ -660,6 +660,7 @@ Variant Object::_call_deferred_bind(const Variant **p_args, int p_argcount, Call
 }
 
 bool Object::has_method(const StringName &p_method) const {
+	PROFILE_FUNCTION();
 	if (p_method == CoreStringNames::get_singleton()->_free) {
 		return true;
 	}

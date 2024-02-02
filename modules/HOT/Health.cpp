@@ -1,9 +1,11 @@
 #include "Health.h"
 
+#include "StaticValueHelper.h"
+
+#include "Statistics.h"
+#include <core/math/math_funcs.h>
 #include <core/variant/variant_utility.h>
 #include <scene/main/window.h>
-#include <core/math/math_funcs.h>
-#include "Statistics.h"
 
 const Color CRIT_COLOR = Color(1.0, 0.4, 0.3);
 const Color BURN_COLOR = Color(1.0, 0.7, 0.0);
@@ -237,21 +239,15 @@ void Health::_ready() {
 	if (_fx == nullptr)
 		print_error("Fx autoload node not found!");
 
-	_global = get_tree()->get_root()->get_node(NodePath("Global"));
-	if (_global == nullptr) {
-		print_error("Global autoload node not found!");
-		return;
-	}
-
 	if (RankHealthModifierMethod.is_empty())
 		_modifiedMaxHealth = create_modified_int_value(StartHealth, "MaxHealth");
 	if (RankDefenseModifierMethod.is_empty())
 		_modifiedDefense = create_modified_int_value(BaseDefense, "Defense");
 
-	if (_global->call("is_world_ready"))
+	if (GameObject::Global()->call("is_world_ready"))
 		_world_ready();
 	else
-		_global->connect("WorldReady", callable_mp(this, &Health::_world_ready));
+		GameObject::Global()->connect("WorldReady", callable_mp(this, &Health::_world_ready));
 
 	_modifiedRegeneration = create_modified_float_value(BaseRegenerationPerSecond, "HealthRegen");
 	_modifiedRegeneration->connect("ValueUpdated", callable_mp(this, &Health::checkAndUpdateNeedsProcess));
@@ -265,28 +261,34 @@ void Health::_ready() {
 
 
 void Health::_world_ready() {
-	Variant worldVariant = _global->get("World");
-	if (worldVariant.is_null()) {
-		print_error("Global.World is null!");
+	if (GameObject::World() == nullptr) {
 		return;
 	}
-	_world = cast_to<Node>(worldVariant);
-	Variant tormentRank = _world->get("TormentRank");
+	Variant tormentRank = GameObject::World()->get("TormentRank");
 	if (tormentRank.is_null()) {
 		print_error("World.TormentRank is null!");
 		return;
 	}
-	_world->connect("ExperienceThresholdReached", callable_mp(this, &Health::on_level_up));
+	GameObject::World()->connect("ExperienceThresholdReached", callable_mp(this, &Health::on_level_up));
 
-	if (!RankHealthModifierMethod.is_empty() && tormentRank.has_method(RankHealthModifierMethod))
+	String value_key;
+	if(RankHealthModifierMethod.begins_with("get_"))
+		value_key = RankHealthModifierMethod.substr(4);
+	else
+		value_key = RankHealthModifierMethod;
+	if (!value_key.is_empty() && StaticValueHelper::has_value(value_key))
 		_modifiedMaxHealth = create_modified_int_value(
-				StartHealth * (float)tormentRank.call(RankHealthModifierMethod), "MaxHealth");
+				StartHealth * static_cast<float>(StaticValueHelper::get_value(value_key)), "MaxHealth");
 	else if(_modifiedMaxHealth.is_null())
 		_modifiedMaxHealth = create_modified_int_value(StartHealth, "MaxHealth");
 
-	if (!RankDefenseModifierMethod.is_empty() && tormentRank.has_method(RankDefenseModifierMethod))
+	if(RankDefenseModifierMethod.begins_with("get_"))
+		value_key = RankDefenseModifierMethod.substr(4);
+	else
+		value_key = RankDefenseModifierMethod;
+	if (value_key.is_empty() && StaticValueHelper::has_value(value_key))
 		_modifiedDefense = create_modified_int_value(
-				BaseDefense + (float)tormentRank.call(RankDefenseModifierMethod), "Defense");
+				BaseDefense + static_cast<float>(StaticValueHelper::get_value(value_key)), "Defense");
 	else if(_modifiedDefense.is_null())
 		_modifiedDefense = create_modified_int_value(BaseDefense, "Defense");
 }
@@ -324,7 +326,7 @@ void Health::_process(float delta) {
 		if(_remainingInvincibilityAfterDamage <= 0)
 			_remainingInvincibilityAfterDamage = 0;
 	}
-	while(!_invincibilityStacks.is_empty() && (float)_invincibilityStacks[0] <= (float)(_world->get("current_world_time")))
+	while(!_invincibilityStacks.is_empty() && (float)_invincibilityStacks[0] <= (float)(GameObject::World()->get("current_world_time")))
 		_invincibilityStacks.pop_front();
 
 	if(invincible_before && !is_invincible())
@@ -445,14 +447,14 @@ void Health::reduce_health(int reduce, bool canKill, Node *source, bool countash
 		}
 		emit_signal("Killed", source);
 		if(AddsToKillCount) {
-			_world->call("TriggerDamageEvent",
+			GameObject::World()->call("TriggerDamageEvent",
 				_gameObject.get(),
 				source,
 				actualReduce,
 				actualReduce,
 				false,
 				-1);
-			_world->call("TriggerDeathEvent", _gameObject.get(), source);
+			GameObject::World()->call("TriggerDeathEvent", _gameObject.get(), source);
 		}
 	}
 	else if(actualReduce > 0) {
@@ -595,18 +597,18 @@ Array Health::applyDamage(int damageAmount, Node *byNode, bool critical, int wea
 		}
 		emit_signal("Killed", byNode);
 		if(actualDamageAmount == get_maxHealth()) {
-			Variant questPool = _global->get("QuestPool");
+			Variant questPool = GameObject::Global()->get("QuestPool");
 			questPool.call("notify_one_hit_kill", actualDamageAmount, weapon_index);
 		}
 		if(AddsToKillCount) {
-			_world->call("TriggerDamageEvent",
+			GameObject::World()->call("TriggerDamageEvent",
 				_gameObject.get(),
 				byNode,
 				actualDamageAmount,
 				scaledDamageAmount,
 				critical,
 				weapon_index);
-			_world->call("TriggerDeathEvent", _gameObject.get(), byNode);
+			GameObject::World()->call("TriggerDeathEvent", _gameObject.get(), byNode);
 		}
 
 		Stats::AddDamageEvent(static_cast<GameObject *>(byNode), _gameObject.get(), actualDamageAmount, weapon_index);
@@ -624,7 +626,7 @@ Array Health::applyDamage(int damageAmount, Node *byNode, bool critical, int wea
 	emit_signal("OnHitTaken", false, false, byNode);
 	emit_signal("ReceivedDamage", actualDamageAmount, byNode, weapon_index);
 	if(AddsToKillCount)
-		_world->call("TriggerDamageEvent",
+		GameObject::World()->call("TriggerDamageEvent",
 			_gameObject.get(),
 			byNode,
 			actualDamageAmount,
@@ -660,7 +662,7 @@ void Health::set_invincible_after_damage() {
 
 float Health::setInvincibleForTime(float invincibleDuration) {
 	bool invincible_before = is_invincible();
-	float invincibility_end_time = static_cast<float>(_world->get("current_world_time")) + invincibleDuration;
+	float invincibility_end_time = static_cast<float>(GameObject::World()->get("current_world_time")) + invincibleDuration;
 	_invincibilityStacks.append(invincibility_end_time);
 	_invincibilityStacks.sort();
 	if(!invincible_before) {

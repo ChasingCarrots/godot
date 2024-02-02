@@ -1,10 +1,11 @@
 #include "ModifiedValues.h"
 
+#include "StaticValueHelper.h"
 #include "core/profiling.h"
 
 void ModifiedIntValue::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("init", "baseVal", "modifierName", "gameObject", "rankModifier"), &ModifiedIntValue::_init);
-	ClassDB::bind_method(D_METHOD("initAsAdditiveOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedIntValue::_initAsAdditiveOnly);
+	ClassDB::bind_method(D_METHOD("init", "baseVal", "modifierName", "gameObject", "rankModifier"), &ModifiedIntValue::_init, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("initAsAdditiveOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedIntValue::_initAsAdditiveOnly, DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("setModifierCategories", "categories"), &ModifiedIntValue::setModifierCategories);
 	ClassDB::bind_method(D_METHOD("getModifierCategories"), &ModifiedIntValue::getModifierCategories);
 	ClassDB::bind_method(D_METHOD("updateManually"), &ModifiedIntValue::updateManually);
@@ -15,7 +16,7 @@ void ModifiedIntValue::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("ValueUpdated", PropertyInfo(Variant::INT, "oldValue"), PropertyInfo(Variant::INT, "newValue")));
 }
 
-void ModifiedIntValue::_init(int baseVal, String modifierName, Variant gameObject, Callable rankModifier) {
+void ModifiedIntValue::_init(int baseVal, String modifierName, Variant gameObject, String rankModifier) {
 	PROFILE_FUNCTION()
 	_gameObjectChecker = gameObject;
 	if (!IsGameObjectValid()) {
@@ -30,11 +31,11 @@ void ModifiedIntValue::_init(int baseVal, String modifierName, Variant gameObjec
 	// should be possible to call init multiple times, to change values...
 	if(!_gameObject->is_connected("ModifierUpdated", callable_mp(this, &ModifiedIntValue::updateModifier)))
 		_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedIntValue::updateModifier));
-	_rankModifier = rankModifier;
+	_rankModifierStr = rankModifier;
 	updateModifier(modifierName);
 }
 
-void ModifiedIntValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier) {
+void ModifiedIntValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier) {
 	_type = ModifiedValueType::AdditiveOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
@@ -74,17 +75,17 @@ void ModifiedIntValue::updateModifier(String mod) {
 }
 
 int ModifiedIntValue::Value() {
-	if(_rankModifier.is_null())
+	if(_rankModifierStr.is_empty())
 		return _currentModifiedValue;
-	return Math::round((float)_currentModifiedValue * (float)_rankModifier.callv({}));
+	return Math::round(static_cast<float>(_currentModifiedValue) * static_cast<float>(StaticValueHelper::get_value(_rankModifierStr)));
 }
 
 
 
 void ModifiedFloatValue::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("init", "baseVal", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_init);
-	ClassDB::bind_method(D_METHOD("initAsAdditiveOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_initAsAdditiveOnly);
-	ClassDB::bind_method(D_METHOD("initAsMultiplicativeOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_initAsMultiplicativeOnly);
+	ClassDB::bind_method(D_METHOD("init", "baseVal", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_init, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("initAsAdditiveOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_initAsAdditiveOnly, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("initAsMultiplicativeOnly", "modifierName", "gameObject", "rankModifier"), &ModifiedFloatValue::_initAsMultiplicativeOnly, DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("setModifierCategories", "categories"), &ModifiedFloatValue::setModifierCategories);
 	ClassDB::bind_method(D_METHOD("getModifierCategories"), &ModifiedFloatValue::getModifierCategories);
 	ClassDB::bind_method(D_METHOD("updateManually"), &ModifiedFloatValue::updateManually);
@@ -95,7 +96,7 @@ void ModifiedFloatValue::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("ValueUpdated", PropertyInfo(Variant::FLOAT, "oldValue"), PropertyInfo(Variant::FLOAT, "newValue")));
 }
 
-void ModifiedFloatValue::_init(float baseVal, String modifierName, Variant gameObject, Callable rankModifier) {
+void ModifiedFloatValue::_init(float baseVal, String modifierName, Variant gameObject, String rankModifier) {
 	PROFILE_FUNCTION()
 	_gameObjectChecker = gameObject;
 	if (!IsGameObjectValid()) {
@@ -110,16 +111,16 @@ void ModifiedFloatValue::_init(float baseVal, String modifierName, Variant gameO
 	// should be possible to call init multiple times, to change values...
 	if(!_gameObject->is_connected("ModifierUpdated", callable_mp(this, &ModifiedFloatValue::updateModifier)))
 		_gameObject->connect("ModifierUpdated", callable_mp(this, &ModifiedFloatValue::updateModifier));
-	_rankModifier = rankModifier;
+	_rankModifierStr = rankModifier;
 	updateModifier(modifierName);
 }
 
-void ModifiedFloatValue::_initAsMultiplicativeOnly(String modifierName, Variant gameObject, Callable rankModifier) {
+void ModifiedFloatValue::_initAsMultiplicativeOnly(String modifierName, Variant gameObject, String rankModifier) {
 	_type = ModifiedValueType::MultiplicativeOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
 
-void ModifiedFloatValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, Callable rankModifier) {
+void ModifiedFloatValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier) {
 	_type = ModifiedValueType::AdditiveOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
@@ -159,7 +160,7 @@ void ModifiedFloatValue::updateModifier(String mod) {
 }
 
 float ModifiedFloatValue::Value() {
-	if(_rankModifier.is_null())
+	if(_rankModifierStr.is_empty())
 		return _currentModifiedValue;
-	return _currentModifiedValue * (float)_rankModifier.callv({});
+	return _currentModifiedValue * static_cast<float>(StaticValueHelper::get_value(_rankModifierStr));
 }

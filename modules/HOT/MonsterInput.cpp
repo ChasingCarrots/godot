@@ -118,17 +118,10 @@ void MonsterInput::_ready() {
 	targetDirectionSetter = _gameObject->getChildNodeWithMethod("set_targetDirection");
 	targetFacingSetter = _gameObject->getChildNodeWithMethod("set_facingDirection");
 	_targetOverrideProvider = _gameObject->getChildNodeWithMethod("get_override_target_position");
-	Node* global = get_tree()->get_root()->get_node(NodePath("Global"));
-	if (global == nullptr) {
-		print_error("Global autoload node not found!");
+	if (GameObject::World() == nullptr) {
 		return;
 	}
-	Variant worldVariant = global->get("World");
-	if (worldVariant.is_null()) {
-		print_error("Global.World is null!");
-		return;
-	}
-	GameObject* player = cast_to<GameObject>(worldVariant.get("Player"));
+	GameObject* player = cast_to<GameObject>(GameObject::World()->get("Player"));
 
 	if (SetPlayerAsTargetOnSpawn && player != nullptr && !player->is_queued_for_deletion())
 		set_target(player);

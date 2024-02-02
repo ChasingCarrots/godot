@@ -9,6 +9,7 @@
 
 #include <core/profiling.h>
 #include <core/templates/oa_hash_map.h>
+#include <scene/main/window.h>
 
 struct SignalCallable {
 	String SignalName;
@@ -39,12 +40,35 @@ class GameObject : public Node2D {
 
 	OAHashMap<StringName, ObjectID> _childNodeWithMethodOrPropertyCache;
 
+	static Node* _global;
+	static Node* _world;
+	static void InvalidateWorld() { _world = nullptr; }
 protected:
     // Required entry point that the API calls to bind our class to Godot.
     static void _bind_methods();
 	void _notification(int p_notification);
 
 public:
+	inline static Node* Global() {
+		if(_global == nullptr) {
+			_global = SceneTree::get_singleton()->get_root()->get_node(NodePath("Global"));
+			if(_global != nullptr)
+				_global->connect("WorldRemoved", callable_mp_static(&GameObject::InvalidateWorld));
+		}
+		return _global;
+	}
+	inline static Node* World() {
+		if(_world != nullptr)
+			return _world;
+		Variant worldVariant = Global()->get("World");
+		if (worldVariant.is_null()) {
+			print_error("Global.World is null!");
+			return nullptr;
+		}
+		_world = cast_to<Node>(worldVariant);
+		return _world;
+	}
+
     void _connect_child_entered_tree();
     void _exit_tree();
     void _child_entered_tree(Node* childNode);

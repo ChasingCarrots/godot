@@ -2450,6 +2450,7 @@ bool Node::get_scene_instance_load_placeholder() const {
 }
 
 Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) const {
+	PROFILE_FUNCTION();
 	ERR_THREAD_GUARD_V(nullptr);
 	Node *node = nullptr;
 

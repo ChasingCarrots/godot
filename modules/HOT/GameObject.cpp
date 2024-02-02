@@ -6,6 +6,9 @@
 
 #include <algorithm>
 
+Node* GameObject::_global = nullptr;
+Node* GameObject::_world = nullptr;
+
 void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("connectToSignal", "signalName", "callable"), &GameObject::connectToSignal);
 	ClassDB::bind_method(D_METHOD("disconnectFromSignal", "signalName", "callable"), &GameObject::disconnectFromSignal);
@@ -400,12 +403,9 @@ Array GameObject::getModifiers(String modifierType, TypedArray<String> categorie
 Node* GameObject::add_effect(Node *effectScene, GameObject *externalSource) {
 	PROFILE_FUNCTION()
 	String effectID = effectScene->call("get_effectID");
-	Node* Global = get_tree()->get_root()->get_node(NodePath("Global"));
-	if(Global != nullptr) {
-		Variant questPool = Global->get("QuestPool");
-		if(questPool.has_method("notify_effect_applied"))
-			questPool.call("notify_effect_applied", effectID);
-	}
+	Variant questPool = Global()->get("QuestPool");
+	if(questPool.has_method("notify_effect_applied"))
+		questPool.call("notify_effect_applied", effectID);
 	_tempNodeArray.clear();
 	fillArrayWithChildrenOfNode(this, _tempNodeArray);
 	for(auto child : _tempNodeArray) {

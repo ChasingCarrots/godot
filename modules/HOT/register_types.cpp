@@ -13,10 +13,14 @@
 #include "Modifier.h"
 #include "MonsterInput.h"
 #include "SpriteAnimationControl.h"
+#include "StaticValueHelper.h"
 #include "Statistics.h"
 #include "StatisticsValueData.h"
 #include "ThreadedObjectPool.h"
 #include <core/object/class_db.h>
+
+// don't want to add a StaticValueHelper.cpp, just to do this:
+OAHashMap<String, Variant> StaticValueHelper::_staticValues;
 
 void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -43,6 +47,7 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<MonsterInput>();
 	ClassDB::register_class<FastRaybasedMover>();
 	ClassDB::register_class<AreaOfEffect>();
+	ClassDB::register_class<StaticValueHelper>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {
