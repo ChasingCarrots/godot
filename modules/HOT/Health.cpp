@@ -76,6 +76,12 @@ void Health::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_RankDefenseModifierMethod", "rankDefenseModifierMethod"), &Health::SetRankDefenseModifierMethod);
 	ClassDB::bind_method(D_METHOD("get_RankDefenseModifierMethod"), &Health::GetRankDefenseModifierMethod);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "RankDefenseModifierMethod"), "set_RankDefenseModifierMethod", "get_RankDefenseModifierMethod");
+	ClassDB::bind_method(D_METHOD("set_StatsDisplayType", "statsDisplayType"), &Health::SetStatsDisplayType);
+	ClassDB::bind_method(D_METHOD("get_StatsDisplayType"), &Health::GetStatsDisplayType);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "StatsDisplayType", PROPERTY_HINT_ENUM, "PlayerBaseStats,AbilityStats"), "set_StatsDisplayType", "get_StatsDisplayType");
+	ClassDB::bind_method(D_METHOD("set_StatsCategory", "statsCategory"), &Health::SetStatsCategory);
+	ClassDB::bind_method(D_METHOD("get_StatsCategory"), &Health::GetStatsCategory);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "StatsCategory"), "set_StatsCategory", "get_StatsCategory");
 
 	// the following properties should not show up in the inspector (PROPERTY_USAGE_NONE)
 	ClassDB::bind_method(D_METHOD("set_CurrentHealth", "_currentHealth"), &Health::SetCurrentHealth);
@@ -480,17 +486,6 @@ int Health::apply_defense_to_damage_value(int damageAmount) {
 	float part_2 = std::max(0.0f, (1.0f - (def / 100.0f)) * DEF_FACTOR_COEFF);
 	return std::max(1, static_cast<int>(round(damageAmount * (part_1 + part_2))));
 }
-
-// IMPORTANT: this enum should always be kept up to date with the one in Global.gd
-// it is replicated here for convenience and performance...
-enum class ApplyDamageResult {
-	Invalid,
-	Blocked,
-	Invincible,
-	DamagedButNotKilled,
-	Killed,
-	CheatedDeath
-};
 
 Array Health::applyDamage(int damageAmount, Node *byNode, bool critical, int weapon_index, bool unblockable, DamageEffectType damageEffectType) {
 	PROFILE_FUNCTION();

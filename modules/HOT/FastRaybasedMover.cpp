@@ -54,6 +54,12 @@ void FastRaybasedMover::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_RotationModifier", "rotationModifier"), &FastRaybasedMover::SetRotationModifier);
 	ClassDB::bind_method(D_METHOD("get_RotationModifier"), &FastRaybasedMover::GetRotationModifier);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "rotationModifier"), "set_RotationModifier", "get_RotationModifier");
+	ClassDB::bind_method(D_METHOD("set_StatsCategory", "statsCategory"), &FastRaybasedMover::SetStatsCategory);
+	ClassDB::bind_method(D_METHOD("get_StatsCategory"), &FastRaybasedMover::GetStatsCategory);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "StatsCategory"), "set_StatsCategory", "get_StatsCategory");
+	ClassDB::bind_method(D_METHOD("set_StatsDisplayType", "statsDisplayType"), &FastRaybasedMover::SetStatsDisplayType);
+	ClassDB::bind_method(D_METHOD("get_StatsDisplayType"), &FastRaybasedMover::GetStatsDisplayType);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "StatsDisplayType", PROPERTY_HINT_ENUM, "PlayerBaseStats,AbilityStats"), "set_StatsDisplayType", "get_StatsDisplayType");
 
 	ClassDB::bind_method(D_METHOD("set_TotalMoved", "totalMoved"), &FastRaybasedMover::SetTotalMoved);
 	ClassDB::bind_method(D_METHOD("get_TotalMoved"), &FastRaybasedMover::GetTotalMoved);

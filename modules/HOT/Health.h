@@ -6,6 +6,17 @@
 #include "GameObjectComponents.h"
 #include "StatisticsValueData.h"
 
+// IMPORTANT: this enum should always be kept up to date with the one in Global.gd
+// it is replicated here for convenience and performance...
+enum class ApplyDamageResult {
+	Invalid,
+	Blocked,
+	Invincible,
+	DamagedButNotKilled,
+	Killed,
+	CheatedDeath
+};
+
 class Health : public GameObjectComponent {
 	GDCLASS(Health, GameObjectComponent)
 

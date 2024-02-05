@@ -97,6 +97,8 @@ public:
 	void SetWeaponIndex(int weaponIndex) { _weapon_index = weaponIndex; }
 	[[nodiscard]] String GetStatsCategory() const { return StatsCategory; }
 	void SetStatsCategory(const String &statsCategory) { StatsCategory = statsCategory; }
+	[[nodiscard]] StatisticsValueData::StatisticsTypes GetStatsDisplayType() const { return StatsDisplayType; }
+	void SetStatsDisplayType(StatisticsValueData::StatisticsTypes statsDisplayType) { StatsDisplayType = statsDisplayType; }
 };
 
 

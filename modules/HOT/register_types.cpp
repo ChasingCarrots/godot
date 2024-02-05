@@ -1,6 +1,7 @@
 #include "register_types.h"
 
 #include "AreaOfEffect.h"
+#include "Bullet.h"
 #include "DirectionsUtil.h"
 #include "FastRaybasedMover.h"
 #include "GameObject.h"
@@ -48,6 +49,7 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<FastRaybasedMover>();
 	ClassDB::register_class<AreaOfEffect>();
 	ClassDB::register_class<StaticValueHelper>();
+	ClassDB::register_class<Bullet>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {

@@ -49,6 +49,12 @@ void AreaOfEffect::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_UseModifiedArea", "useModifiedArea"), &AreaOfEffect::SetUseModifiedArea);
 	ClassDB::bind_method(D_METHOD("get_UseModifiedArea"), &AreaOfEffect::GetUseModifiedArea);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "UseModifiedArea"), "set_UseModifiedArea", "get_UseModifiedArea");
+	ClassDB::bind_method(D_METHOD("set_StatsCategory", "statsCategory"), &AreaOfEffect::SetStatsCategory);
+	ClassDB::bind_method(D_METHOD("get_StatsCategory"), &AreaOfEffect::GetStatsCategory);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "StatsCategory"), "set_StatsCategory", "get_StatsCategory");
+	ClassDB::bind_method(D_METHOD("set_StatsDisplayType", "statsDisplayType"), &AreaOfEffect::SetStatsDisplayType);
+	ClassDB::bind_method(D_METHOD("get_StatsDisplayType"), &AreaOfEffect::GetStatsDisplayType);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "StatsDisplayType", PROPERTY_HINT_ENUM, "PlayerBaseStats,AbilityStats"), "set_StatsDisplayType", "get_StatsDisplayType");
 
 	ClassDB::bind_method(D_METHOD("set_RemainingTimeToNextTrigger", "remainingTimeToNextTrigger"), &AreaOfEffect::SetRemainingTimeToNextTrigger);
 	ClassDB::bind_method(D_METHOD("get_RemainingTimeToNextTrigger"), &AreaOfEffect::GetRemainingTimeToNextTrigger);
@@ -71,9 +77,6 @@ void AreaOfEffect::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_WeaponIndex", "weaponIndex"), &AreaOfEffect::SetWeaponIndex);
 	ClassDB::bind_method(D_METHOD("get_WeaponIndex"), &AreaOfEffect::GetWeaponIndex);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "_weapon_index", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_WeaponIndex", "get_WeaponIndex");
-	ClassDB::bind_method(D_METHOD("set_StatsCategory", "statsCategory"), &AreaOfEffect::SetStatsCategory);
-	ClassDB::bind_method(D_METHOD("get_StatsCategory"), &AreaOfEffect::GetStatsCategory);
-	ADD_PROPERTY(PropertyInfo(Variant::STRING, "StatsCategory", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_StatsCategory", "get_StatsCategory");
 
 	ADD_SIGNAL(MethodInfo("DamageApplied", PropertyInfo(Variant::ARRAY, "damageCategories", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), PropertyInfo(Variant::FLOAT, "damageAmount"), PropertyInfo(Variant::ARRAY, "applyReturn"), PropertyInfo(Variant::OBJECT, "targetNode", PROPERTY_HINT_RESOURCE_TYPE, "GameObject"), PropertyInfo(Variant::BOOL, "critical")));
 
