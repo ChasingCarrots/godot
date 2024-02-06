@@ -219,7 +219,7 @@ void AreaOfEffect::initialize_modifiers(Node *referenceParent) {
 	}
 	_modifiedDamage = referenceParent->call("createModifiedFloatValue", ApplyDamage, "Damage");
 	float attackSpeed = TriggerEverySeconds == 0 ? 9999.0f : 1.0f / TriggerEverySeconds;
-	_modifiedAttackSpeed = referenceParent->call("createModifiedFloatValue", attackSpeed, "AttackSpeed", Callable());
+	_modifiedAttackSpeed = referenceParent->call("createModifiedFloatValue", attackSpeed, "AttackSpeed");
 	_modifiedAttackSpeed->connect("ValueUpdated", callable_mp(this, &AreaOfEffect::attackSpeedWasChanged));
 	_modifiedArea = referenceParent->call("createModifiedFloatValue", Radius, "Area");
 	applyModifierCategories();
