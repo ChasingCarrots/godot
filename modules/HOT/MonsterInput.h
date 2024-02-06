@@ -38,7 +38,7 @@ public:
 	SafeObjectPointer<Node> targetDirectionSetter;
 	SafeObjectPointer<Node> targetFacingSetter;
 	Vector2 input_direction;
-	float loitering_counter;
+	float loitering_counter = 0;
 	SafeObjectPointer<Node> _targetPosProvider;
 	Vector2 targetOffset;
 	SafeObjectPointer<Node> _targetOverrideProvider;

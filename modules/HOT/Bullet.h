@@ -30,10 +30,10 @@ protected:
 	bool TrackDistanceTraveled = false;
 	int TrackForIndex = 0;
 
-	float _remainingLifeTime;
-	float _lastLifeTimeFactorEmitted;
-	int _numberOfHits;
-	float _distanceTraveled;
+	float _remainingLifeTime = 0;
+	float _lastLifeTimeFactorEmitted = 0;
+	int _numberOfHits = 0;
+	float _distanceTraveled = 0;
 
 	Ref<ModifiedFloatValue> _modifiedNumberOfHits;
 	Ref<ModifiedFloatValue> _modifiedSize;

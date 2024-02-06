@@ -53,12 +53,12 @@ public:
 	int BaseDefense = 0;
 	String RankDefenseModifierMethod;
 
-	int _currentHealth;
+	int _currentHealth = 0;
 	TypedArray<float> _invincibilityStacks;
-	float _remainingInvincibilityAfterDamage;
-	float _damageTakenBeforeInvincibility;
-	int _hitCount;
-	float _regenBucket;
+	float _remainingInvincibilityAfterDamage = 0;
+	float _damageTakenBeforeInvincibility = 0;
+	int _hitCount = 0;
+	float _regenBucket = 0;
 
 	Ref<ModifiedIntValue> _modifiedMaxHealth;
 	Ref<ModifiedFloatValue> _modifiedChanceToBlock;

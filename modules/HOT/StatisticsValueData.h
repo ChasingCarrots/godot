@@ -40,8 +40,8 @@ public:
 	String DisplayName;
 	String StatisticsCategory;
 	String ModifierKey;
-	float BaseValue;
-	float FinalValue;
+	float BaseValue = 0;
+	float FinalValue = 0;
 	TypedArray<String> Categories;
 	StatisticsFormatTypes FormatType;
 	StatisticsSpecialInfoTypes SpecialInfoType;

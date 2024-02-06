@@ -21,7 +21,7 @@ protected:
 
 	static LocalVector<AreaOfEffect*> _allAreaOfEffects;
 
-	int ApplyDamage;
+	int ApplyDamage = 0;
 	String RankDamageModifierMethod;
 	Ref<PackedScene> ApplyNode;
 	bool TriggerHitOnChildren = true;
