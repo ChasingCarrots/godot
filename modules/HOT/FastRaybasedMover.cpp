@@ -267,13 +267,13 @@ void FastRaybasedMover::updateAllFastRaybasedMovers(float delta) {
 void FastRaybasedMover::initialize_modifiers(Node *referenceParent) {
 	PROFILE_FUNCTION();
 	if(!speedModifier.is_empty())
-		_modifiedMovementSpeed = referenceParent->call("create_modified_float_value", movementSpeed, speedModifier);
+		_modifiedMovementSpeed = referenceParent->call("createModifiedFloatValue", movementSpeed, speedModifier);
 	if(!accelerationModifier.is_empty())
-		_modifiedAcceleration = referenceParent->call("create_modified_float_value", acceleration, accelerationModifier);
+		_modifiedAcceleration = referenceParent->call("createModifiedFloatValue", acceleration, accelerationModifier);
 	if(!dampingModifier.is_empty())
-		_modifiedDamping = referenceParent->call("create_modified_float_value", damping, dampingModifier);
+		_modifiedDamping = referenceParent->call("createModifiedFloatValue", damping, dampingModifier);
 	if(!rotationModifier.is_empty())
-		_modifiedRotationOverTime = referenceParent->call("create_modified_float_value", rotationOverTime, rotationModifier);
+		_modifiedRotationOverTime = referenceParent->call("createModifiedFloatValue", rotationOverTime, rotationModifier);
 }
 
 void FastRaybasedMover::applyModifierCategories() {
