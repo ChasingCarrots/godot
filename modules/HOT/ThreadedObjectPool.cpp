@@ -71,6 +71,15 @@ ThreadedObjectPool::~ThreadedObjectPool() {
 	clear_all_instances();
 }
 
+void ThreadedObjectPool::init_with_scene_res(Ref<PackedScene> sceneRes, int maxNumberOfInstances, ThreadedObjectPool::MaxInstancesReachedBehaviour maxBehaviour) {
+	_maxNumberOfInstances = (uint32_t)maxNumberOfInstances;
+	_maxBehaviour = maxBehaviour;
+	_sceneToInstantiate = sceneRes;
+	if(!_sceneToInstantiate.is_valid())
+		return;
+	_instanceCreationThread.start(instance_creation_thread_loop, this);
+}
+
 void ThreadedObjectPool::init_with_scene(String scenePath, int maxNumberOfInstances, ThreadedObjectPool::MaxInstancesReachedBehaviour maxBehaviour) {
 	_maxNumberOfInstances = (uint32_t)maxNumberOfInstances;
 	_maxBehaviour = maxBehaviour;
@@ -128,12 +137,60 @@ void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 	_instanceCreationSemaphore.post();
 }
 
+Node* ThreadedObjectPool::get_instance_unthreaded() {
+	PROFILE_FUNCTION();
+	if(_availableObjects.is_empty() && _inUseObjects.size() >= _maxNumberOfInstances) {
+		switch(_maxBehaviour) {
+			case ReturnNull:
+				return nullptr;
+			case RecycleOldest:
+				ObjectID oldestID = _inUseObjects[0];
+			// we have to use the less performant remove_at here, because this vector
+			// is actually ordered: oldest first, newest last!
+			_inUseObjects.remove_at(0);
+			Object* oldestObj = ObjectDB::get_instance(oldestID);
+			if(oldestObj == nullptr) {
+				print_error("ThreadedObjectPool had an invalid Object in its pool. Don't queue_free the pooled Objects, but return them with 'your_object_pool.return_instance(your_object)'!");
+				// no fallback here!
+				return nullptr;
+			}
+			// we'll push it back again, so that it is inUse, but at the 'newest' place
+			_inUseObjects.push_back(oldestID);
+			if(oldestObj->has_method("recycle_pooled_object"))
+				oldestObj->call("recycle_pooled_object");
+			return cast_to<Node>(oldestObj);
+		}
+	}
+
+	while(!_availableObjects.is_empty()) {
+		ObjectID returnObjID = _availableObjects[_availableObjects.size()-1];
+		_availableObjects.remove_at_unordered(_availableObjects.size()-1);
+		Object* returnObj = ObjectDB::get_instance(returnObjID);
+		if(returnObj == nullptr) {
+			print_error("ThreadedObjectPool had an invalid Object in its pool. Don't queue_free the pooled Objects, but return them with 'your_object_pool.return_instance(your_object)'!");
+			continue;
+		}
+		if(returnObj->has_method("recycle_pooled_object"))
+			returnObj->call("recycle_pooled_object");
+		_inUseObjects.push_back(returnObjID);
+		return cast_to<Node>(returnObj);
+	}
+
+	Node* new_object = _sceneToInstantiate->instantiate();
+	if (new_object->has_method("managed_by_pool")) {
+		new_object->call("managed_by_pool", this);
+	}
+	_inUseObjects.push_back(new_object->get_instance_id());
+	return new_object;
+}
+
 void ThreadedObjectPool::return_instance(Node *instance) {
 	if(instance->get_parent() != nullptr) {
 		instance->get_parent()->remove_child(instance);
 	}
 	_inUseObjects.erase(instance->get_instance_id());
-	_availableObjects.push_back(instance->get_instance_id());
+	if(_availableObjects.find(instance->get_instance_id()) == -1)
+		_availableObjects.push_back(instance->get_instance_id());
 }
 
 void ThreadedObjectPool::run_callbacks() {

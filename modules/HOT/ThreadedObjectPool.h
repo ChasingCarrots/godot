@@ -38,13 +38,14 @@ protected:
 	Thread _instanceCreationThread;
 	static void instance_creation_thread_loop(void *p_ud);
 
-	~ThreadedObjectPool();
-
 public:
+	~ThreadedObjectPool() override;
 
+	void init_with_scene_res(Ref<PackedScene> sceneRes, int maxNumberOfInstances, MaxInstancesReachedBehaviour maxBehaviour);
 	void init_with_scene(String scenePath, int maxNumberOfInstances, MaxInstancesReachedBehaviour maxBehaviour);
 
 	void get_instance(Callable instanceCreatedCallback);
+	Node* get_instance_unthreaded();
 	void return_instance(Node* instance);
 
 	void run_callbacks();

@@ -60,6 +60,9 @@ void FastRaybasedMover::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_StatsDisplayType", "statsDisplayType"), &FastRaybasedMover::SetStatsDisplayType);
 	ClassDB::bind_method(D_METHOD("get_StatsDisplayType"), &FastRaybasedMover::GetStatsDisplayType);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "StatsDisplayType", PROPERTY_HINT_ENUM, "PlayerBaseStats,AbilityStats"), "set_StatsDisplayType", "get_StatsDisplayType");
+	ClassDB::bind_method(D_METHOD("set_SpeedStatName", "SpeedStatName"), &FastRaybasedMover::SetSpeedStatName);
+	ClassDB::bind_method(D_METHOD("get_SpeedStatName"), &FastRaybasedMover::GetSpeedStatName);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "SpeedStatName"), "set_SpeedStatName", "get_SpeedStatName");
 
 	ClassDB::bind_method(D_METHOD("set_TotalMoved", "totalMoved"), &FastRaybasedMover::SetTotalMoved);
 	ClassDB::bind_method(D_METHOD("get_TotalMoved"), &FastRaybasedMover::GetTotalMoved);

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Modifier.h"
+#include "ThreadedObjectPool.h"
 
 #include <core/profiling.h>
 #include <core/templates/oa_hash_map.h>
@@ -42,7 +43,11 @@ class GameObject : public Node2D {
 
 	static Node* _global;
 	static Node* _world;
-	static void InvalidateWorld() { _world = nullptr; }
+	static OAHashMap<String, Ref<ThreadedObjectPool>> EffectObjectPools;
+	static void InvalidateWorld() {
+		_world = nullptr;
+		EffectObjectPools.clear();
+	}
 protected:
     // Required entry point that the API calls to bind our class to Godot.
     static void _bind_methods();
@@ -109,7 +114,8 @@ public:
 	Array getModifiers(String modifierType, TypedArray<String> categories);
 
 	// effect system
-	Node* add_effect(Node* effectScene, GameObject* externalSource);
+	Node* add_effect(PackedScene* effectScene, GameObject* externalSource);
+	Node* add_effect_from_pool(Ref<ThreadedObjectPool> pool, GameObject* externalSource);
 	Node* find_effect(String effectID);
 
 	// sourcetree system

@@ -128,6 +128,8 @@ public:
 	void SetStatsDisplayType(StatisticsValueData::StatisticsTypes statsDisplayType) { StatsDisplayType = statsDisplayType; }
 	[[nodiscard]] String GetStatsCategory() const { return StatsCategory; }
 	void SetStatsCategory(const String &statsCategory) { StatsCategory = statsCategory; }
+	[[nodiscard]] String GetSpeedStatName() const { return SpeedStatName; }
+	void SetSpeedStatName(const String &speedStatName) { SpeedStatName = speedStatName; }
 };
 
 

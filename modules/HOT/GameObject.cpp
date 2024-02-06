@@ -8,6 +8,7 @@
 
 Node* GameObject::_global = nullptr;
 Node* GameObject::_world = nullptr;
+OAHashMap<String, Ref<ThreadedObjectPool>> GameObject::EffectObjectPools;
 
 void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("connectToSignal", "signalName", "callable"), &GameObject::connectToSignal);
@@ -28,6 +29,7 @@ void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("getModifiers", "modifierType", "categories"), &GameObject::getModifiers);
 
 	ClassDB::bind_method(D_METHOD("add_effect", "effectScene", "externalSource"), &GameObject::add_effect);
+	ClassDB::bind_method(D_METHOD("add_effect_from_pool", "objectPool", "externalSource"), &GameObject::add_effect_from_pool);
 	ClassDB::bind_method(D_METHOD("find_effect", "effectID"), &GameObject::find_effect);
 
 	ClassDB::bind_method(D_METHOD("get_rootSourceGameObject"), &GameObject::get_rootSourceGameObject);
@@ -400,9 +402,32 @@ Array GameObject::getModifiers(String modifierType, TypedArray<String> categorie
 	return returnArray;
 }
 
-Node* GameObject::add_effect(Node *effectScene, GameObject *externalSource) {
-	PROFILE_FUNCTION()
-	String effectID = effectScene->call("get_effectID");
+Node* GameObject::add_effect(PackedScene *effectScene, GameObject *externalSource) {
+	PROFILE_FUNCTION();
+	if(effectScene == nullptr)
+		return nullptr;
+	Ref<ThreadedObjectPool> effect_object_pool;
+	if(!EffectObjectPools.lookup(effectScene->get_scene_unique_id(), effect_object_pool)) {
+		effect_object_pool.instantiate();
+		effect_object_pool->init_with_scene_res(effectScene, 999, ThreadedObjectPool::ReturnNull);
+		EffectObjectPools.insert(effectScene->get_scene_unique_id(), effect_object_pool);
+	}
+	return add_effect_from_pool(effect_object_pool, externalSource);
+}
+
+Node *GameObject::add_effect_from_pool(Ref<ThreadedObjectPool> effect_object_pool, GameObject *externalSource) {
+	Node* effect_instance = effect_object_pool->get_instance_unthreaded();
+
+	// this can happen in rare cases (max number of instances reached)
+	// we return nullptr here and the script will run into problems...
+	// but it should almost never happen, because we have a really
+	// large maxNumberOfInstances for the effect pools!
+	if(effect_instance == nullptr) {
+		print_error("Effect pool ran out of instances! (shouldn't really happen, we have a huge buffer of instances!)");
+		return nullptr;
+	}
+
+	String effectID = effect_instance->call("get_effectID");
 	Variant questPool = Global()->get("QuestPool");
 	if(questPool.has_method("notify_effect_applied"))
 		questPool.call("notify_effect_applied", effectID);
@@ -412,15 +437,14 @@ Node* GameObject::add_effect(Node *effectScene, GameObject *externalSource) {
 		if(child->is_queued_for_deletion())
 			continue ;
 		if(child->has_method("get_effectID") && effectID == (String)child->call("get_effectID")) {
-			child->call("add_additional_effect", effectScene);
+			child->call("add_additional_effect", effect_instance);
+			effect_object_pool->return_instance(effect_instance);
 			return child;
 		}
 	}
-	auto effectInstance = effectScene->duplicate(
-			Node::DUPLICATE_GROUPS | Node::DUPLICATE_SCRIPTS | Node::DUPLICATE_SIGNALS);
-	effectInstance->call("set_externalSource", externalSource);
-	add_child(effectInstance);
-	return effectInstance;
+	effect_instance->call("set_externalSource", externalSource);
+	add_child(effect_instance);
+	return effect_instance;
 }
 
 Node* GameObject::find_effect(String effectID) {
