@@ -407,10 +407,10 @@ Node* GameObject::add_effect(PackedScene *effectScene, GameObject *externalSourc
 	if(effectScene == nullptr)
 		return nullptr;
 	Ref<ThreadedObjectPool> effect_object_pool;
-	if(!EffectObjectPools.lookup(effectScene->get_scene_unique_id(), effect_object_pool)) {
+	if(!EffectObjectPools.lookup(effectScene->get_path(), effect_object_pool)) {
 		effect_object_pool.instantiate();
 		effect_object_pool->init_with_scene_res(effectScene, 999, ThreadedObjectPool::ReturnNull);
-		EffectObjectPools.insert(effectScene->get_scene_unique_id(), effect_object_pool);
+		EffectObjectPools.insert(effectScene->get_path(), effect_object_pool);
 	}
 	return add_effect_from_pool(effect_object_pool, externalSource);
 }
