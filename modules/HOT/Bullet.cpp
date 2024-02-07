@@ -97,6 +97,18 @@ void Bullet::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("OnTimeReduced",  PropertyInfo(Variant::FLOAT,"remainingTimeFactor")));
 
 	ClassDB::bind_static_method("Bullet", D_METHOD("updateAllBullets"), &Bullet::updateAllBullets);
+
+	ClassDB::bind_method(D_METHOD("get_display_stats_type"), &Bullet::GetStatsDisplayType);
+	ClassDB::bind_method(D_METHOD("get_display_stats"), &Bullet::get_display_stats);
+	ClassDB::bind_method(D_METHOD("initialize_modifiers"), &Bullet::initialize_modifiers);
+	ClassDB::bind_method(D_METHOD("applyModifierCategories"), &Bullet::applyModifierCategories);
+	ClassDB::bind_method(D_METHOD("transformCategories"), &Bullet::transformCategories);
+	ClassDB::bind_method(D_METHOD("sizeWasUpdated"), &Bullet::sizeWasUpdated);
+	ClassDB::bind_method(D_METHOD("collisionWithNode"), &Bullet::collisionWithNode);
+	ClassDB::bind_method(D_METHOD("endLife"), &Bullet::endLife);
+	ClassDB::bind_method(D_METHOD("set_homing_target"), &Bullet::set_homing_target);
+	ClassDB::bind_method(D_METHOD("get_maximum_distance"), &Bullet::get_maximum_distance);
+	ClassDB::bind_method(D_METHOD("_on_hit_damage_applied"), &Bullet::_on_hit_damage_applied);
 }
 
 void Bullet::_notification(int p_notification) {

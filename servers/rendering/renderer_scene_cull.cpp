@@ -35,6 +35,8 @@
 #include "core/os/os.h"
 #include "rendering_server_default.h"
 
+#include <core/profiling.h>
+
 #include <new>
 
 /* HALTON SEQUENCE */
@@ -4029,6 +4031,7 @@ void RendererSceneCull::update_dirty_instances() {
 }
 
 void RendererSceneCull::update() {
+	PROFILE_FUNCTION();
 	//optimize bvhs
 
 	uint32_t rid_count = scenario_owner.get_rid_count();

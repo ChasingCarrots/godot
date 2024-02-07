@@ -39,6 +39,9 @@ Modifier::~Modifier() {
 }
 
 void Modifier::allowCategories(TypedArray<String> categories) {
-	_modifierCategories = categories;
+	_modifierCategories.resize(categories.size());
+	for (int i = 0; i < categories.size(); ++i) {
+		_modifierCategories.set(i, categories[i]);
+	}
 }
 

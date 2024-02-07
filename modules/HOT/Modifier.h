@@ -2,7 +2,9 @@
 #define GODOT_SOURCE_MODIFIER_H
 
 #include "core/variant/typed_array.h"
+
 #include <core/object/ref_counted.h>
+#include <core/profiling.h>
 
 class GameObject;
 
@@ -16,7 +18,7 @@ class Modifier : public RefCounted {
 	String _modifiedType;
 	String _modifierName = "Unnamed Modifier";
 	Variant _gameObject;
-	TypedArray<String> _modifierCategories;
+	PackedStringArray _modifierCategories;
 
 protected:
 	// Required entry point that the API calls to bind our class to Godot.
@@ -47,7 +49,8 @@ public:
 		_multiplierMod = multiplier;
 	}
 
-	bool isRelevant(String modifiedType, TypedArray<String> categories) {
+	bool isRelevant(const String& modifiedType, const PackedStringArray& categories) const {
+		PROFILE_FUNCTION("Modifier::isRelevant");
 		if(modifiedType != _modifiedType)
 			return false;
 		if(_modifierCategories.is_empty())

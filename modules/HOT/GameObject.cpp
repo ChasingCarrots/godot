@@ -292,18 +292,22 @@ GameObject *GameObject::getInheritModifierFrom() {
 }
 
 void GameObject::triggerModifierUpdated(String modifierType) {
-	PROFILE_FUNCTION()
+	PROFILE_FUNCTION();
 	emit_signal("ModifierUpdated", modifierType);
 }
 
 Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValue, TypedArray<String> categories) {
-	PROFILE_FUNCTION()
+	PROFILE_FUNCTION();
 	int baseValueInt = baseValue;
 	float baseValueFloat = baseValue;
 	float multiplier = 1;
+	PackedStringArray categoriesAsPackedStr;
+	categoriesAsPackedStr.resize(categories.size());
+	for (int i = 0; i < categories.size(); ++i)
+		categoriesAsPackedStr.set(i, categories[i]);
 
 	for(auto modifier : _modifier) {
-		if(!modifier->isRelevant(modifierType, categories))
+		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
 		baseValueInt += (int)modifier->getAdditiveModifier();
 		baseValueFloat += modifier->getAdditiveModifier();
@@ -313,7 +317,7 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
-			if(!modifier->isRelevant(modifierType, categories))
+			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
 			baseValueInt += (int)modifier->getAdditiveModifier();
 			baseValueFloat += modifier->getAdditiveModifier();
@@ -330,10 +334,14 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 }
 
 float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> categories) {
-	PROFILE_FUNCTION()
+	PROFILE_FUNCTION();
+	PackedStringArray categoriesAsPackedStr;
+	categoriesAsPackedStr.resize(categories.size());
+	for (int i = 0; i < categories.size(); ++i)
+		categoriesAsPackedStr.set(i, categories[i]);
 	float additiveModifierSum = 0;
 	for(auto modifier : _modifier) {
-		if(!modifier->isRelevant(modifierType, categories))
+		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
 		additiveModifierSum += modifier->getAdditiveModifier();
 	}
@@ -341,7 +349,7 @@ float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> ca
 	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
-			if(!modifier->isRelevant(modifierType, categories))
+			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
 			additiveModifierSum += modifier->getAdditiveModifier();
 		}
@@ -351,11 +359,16 @@ float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> ca
 }
 
 float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<String> categories) {
-	PROFILE_FUNCTION()
+	PROFILE_FUNCTION();
+	PackedStringArray categoriesAsPackedStr;
+	categoriesAsPackedStr.resize(categories.size());
+	for (int i = 0; i < categories.size(); ++i)
+		categoriesAsPackedStr.set(i, categories[i]);
+
 	float multiplierSum = 1;
 
 	for(auto modifier : _modifier) {
-		if(!modifier->isRelevant(modifierType, categories))
+		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
 		multiplierSum += modifier->getMultiplierModifier();
 	}
@@ -363,7 +376,7 @@ float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<Stri
 	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
-			if(!modifier->isRelevant(modifierType, categories))
+			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
 			multiplierSum += modifier->getMultiplierModifier();
 		}
@@ -393,10 +406,16 @@ void GameObject::unregisterModifier(Modifier *modifier) {
 }
 
 Array GameObject::getModifiers(String modifierType, TypedArray<String> categories) {
+	PROFILE_FUNCTION();
+	PackedStringArray categoriesAsPackedStr;
+	categoriesAsPackedStr.resize(categories.size());
+	for (int i = 0; i < categories.size(); ++i)
+		categoriesAsPackedStr.set(i, categories[i]);
+
 	Array returnArray;
 
 	for(auto modifier : _modifier)
-		if(modifier->isRelevant(modifierType, categories))
+		if(modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			returnArray.append(modifier);
 
 	return returnArray;
@@ -416,6 +435,7 @@ Node* GameObject::add_effect(PackedScene *effectScene, GameObject *externalSourc
 }
 
 Node *GameObject::add_effect_from_pool(Ref<ThreadedObjectPool> effect_object_pool, GameObject *externalSource) {
+	PROFILE_FUNCTION();
 	Node* effect_instance = effect_object_pool->get_instance_unthreaded();
 
 	// this can happen in rare cases (max number of instances reached)
@@ -431,32 +451,27 @@ Node *GameObject::add_effect_from_pool(Ref<ThreadedObjectPool> effect_object_poo
 	Variant questPool = Global()->get("QuestPool");
 	if(questPool.has_method("notify_effect_applied"))
 		questPool.call("notify_effect_applied", effectID);
-	_tempNodeArray.clear();
-	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	for(auto child : _tempNodeArray) {
-		if(child->is_queued_for_deletion())
-			continue ;
-		if(child->has_method("get_effectID") && effectID == (String)child->call("get_effectID")) {
-			child->call("add_additional_effect", effect_instance);
-			effect_object_pool->return_instance(effect_instance);
-			return child;
-		}
+
+	SafeObjectPointer<Node> already_applied_effect;
+	if(_current_effects.lookup(effectID, already_applied_effect) && already_applied_effect.is_valid()) {
+		already_applied_effect->call("add_additional_effect", effect_instance);
+		effect_object_pool->return_instance(effect_instance);
+		return already_applied_effect.get_nocheck();
 	}
+
 	effect_instance->call("set_externalSource", externalSource);
 	add_child(effect_instance);
+	_current_effects.insert(effectID, SafeObjectPointer(effect_instance));
 	return effect_instance;
 }
 
 Node* GameObject::find_effect(String effectID) {
-	PROFILE_FUNCTION()
-	_tempNodeArray.clear();
-	fillArrayWithChildrenOfNode(this, _tempNodeArray);
-	for(auto child : _tempNodeArray) {
-		if(child->is_queued_for_deletion())
-			continue ;
-		if(child->has_method("get_effectID") && effectID == (String)child->call("get_effectID"))
-			return child;
-	}
+	PROFILE_FUNCTION();
+
+	SafeObjectPointer<Node> already_applied_effect;
+	if(_current_effects.lookup(effectID, already_applied_effect) && already_applied_effect.is_valid())
+		return already_applied_effect.get_nocheck();
+
 	return nullptr;
 }
 

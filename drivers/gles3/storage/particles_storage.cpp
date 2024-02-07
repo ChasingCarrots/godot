@@ -28,6 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+#include <core/profiling.h>
 #ifdef GLES3_ENABLED
 
 #include "particles_storage.h"
@@ -1001,6 +1002,7 @@ void ParticlesStorage::_particles_update_instance_buffer(Particles *particles, c
 }
 
 void ParticlesStorage::update_particles() {
+	PROFILE_FUNCTION();
 	glEnable(GL_RASTERIZER_DISCARD);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

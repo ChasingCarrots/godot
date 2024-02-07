@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Modifier.h"
+#include "SafeObjectPointer.h"
 #include "ThreadedObjectPool.h"
 
 #include <core/profiling.h>
@@ -35,6 +36,7 @@ class GameObject : public Node2D {
 	LocalVector<SignalCallable> _connectedSignals;
 	LocalVector<Variant> _sourceTree;
 	LocalVector<Modifier*> _modifier;
+	OAHashMap<String, SafeObjectPointer<Node>> _current_effects;
 
 	LocalVector<Node*> _tempNodeArray;
 	void populateTempNodesWithAllChildren();

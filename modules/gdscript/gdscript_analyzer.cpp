@@ -567,6 +567,9 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 }
 
 Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_class, bool p_recursive) {
+	// weird problem: p_class sometimes can be null? workaround:
+	if(p_class == nullptr)
+		return Error::ERR_PARSE_ERROR;
 	Error err = resolve_class_inheritance(p_class);
 	if (err) {
 		return err;
