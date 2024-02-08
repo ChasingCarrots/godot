@@ -48,6 +48,11 @@ class GameObject : public Node2D {
 	static OAHashMap<String, Ref<ThreadedObjectPool>> EffectObjectPools;
 	static void InvalidateWorld() {
 		_world = nullptr;
+		auto poolIter = EffectObjectPools.iter();
+		while(poolIter.valid) {
+			poolIter.value->ptr()->clear_all_instances();
+			poolIter = EffectObjectPools.next_iter(poolIter);
+		}
 		EffectObjectPools.clear();
 	}
 protected:

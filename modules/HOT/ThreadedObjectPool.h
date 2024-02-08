@@ -35,6 +35,7 @@ protected:
 	Mutex _instanceListMutex;
 	Semaphore _instanceCreationSemaphore;
 	bool _endThread = false;
+	bool _is_clearing_instances = false;
 	Thread _instanceCreationThread;
 	static void instance_creation_thread_loop(void *p_ud);
 

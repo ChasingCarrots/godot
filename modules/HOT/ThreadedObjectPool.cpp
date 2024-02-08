@@ -185,6 +185,11 @@ Node* ThreadedObjectPool::get_instance_unthreaded() {
 }
 
 void ThreadedObjectPool::return_instance(Node *instance) {
+	if(_is_clearing_instances)
+		// instances might be inclined to return themselves while
+		// we are in the process of clearing them!
+		return;
+
 	if(instance->get_parent() != nullptr) {
 		instance->get_parent()->remove_child(instance);
 	}
@@ -211,6 +216,7 @@ void ThreadedObjectPool::run_callbacks() {
 	}
 }
 void ThreadedObjectPool::clear_all_instances() {
+	_is_clearing_instances = true;
 	// don't leave the thread running while we clear the instances
 	// (could lead to strange race conditions!)
 	bool restartThread = false;
@@ -227,13 +233,6 @@ void ThreadedObjectPool::clear_all_instances() {
 			creationData.CreatedInstance->queue_free();
 	}
 	_instanceCreationQueue.clear();
-	for(ObjectID objId : _availableObjects) {
-		Node* obj = Object::cast_to<Node>(ObjectDB::get_instance(objId));
-		if(obj == nullptr)
-			continue;
-		obj->queue_free();
-	}
-	_availableObjects.clear();
 	for(ObjectID objId : _inUseObjects) {
 		Node* obj = Object::cast_to<Node>(ObjectDB::get_instance(objId));
 		if(obj == nullptr)
@@ -241,6 +240,15 @@ void ThreadedObjectPool::clear_all_instances() {
 		obj->queue_free();
 	}
 	_inUseObjects.clear();
+	for(ObjectID objId : _availableObjects) {
+		Node* obj = Object::cast_to<Node>(ObjectDB::get_instance(objId));
+		if(obj == nullptr)
+			continue;
+		obj->queue_free();
+	}
+	_availableObjects.clear();
+
+	_is_clearing_instances = false;
 
 	if(restartThread && _sceneToInstantiate.is_valid()) {
 		_endThread = false;
