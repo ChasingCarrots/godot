@@ -294,9 +294,8 @@ void Bullet::endLife() {
 }
 
 void Bullet::endLifePart2() {
-	Node* parent = get_parent();
-	if(parent != nullptr)
-		parent->queue_free();
+	if(_gameObject.is_valid())
+		_gameObject->queue_free();
 }
 
 

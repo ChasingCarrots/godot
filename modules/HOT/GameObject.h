@@ -36,7 +36,7 @@ class GameObject : public Node2D {
 	LocalVector<SignalCallable> _connectedSignals;
 	LocalVector<Variant> _sourceTree;
 	LocalVector<Modifier*> _modifier;
-	OAHashMap<String, SafeObjectPointer<Node>> _current_effects;
+	OAHashMap<uint32_t, SafeObjectPointer<Node>> _current_effects;
 
 	LocalVector<Node*> _tempNodeArray;
 	void populateTempNodesWithAllChildren();
@@ -45,7 +45,7 @@ class GameObject : public Node2D {
 
 	static Node* _global;
 	static Node* _world;
-	static OAHashMap<String, Ref<ThreadedObjectPool>> EffectObjectPools;
+	static OAHashMap<uint32_t, Ref<ThreadedObjectPool>> EffectObjectPools;
 	static void InvalidateWorld() {
 		_world = nullptr;
 		auto poolIter = EffectObjectPools.iter();

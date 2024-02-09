@@ -8,7 +8,7 @@
 
 Node* GameObject::_global = nullptr;
 Node* GameObject::_world = nullptr;
-OAHashMap<String, Ref<ThreadedObjectPool>> GameObject::EffectObjectPools;
+OAHashMap<uint32_t, Ref<ThreadedObjectPool>> GameObject::EffectObjectPools;
 
 void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("connectToSignal", "signalName", "callable"), &GameObject::connectToSignal);
@@ -426,10 +426,10 @@ Node* GameObject::add_effect(PackedScene *effectScene, GameObject *externalSourc
 	if(effectScene == nullptr)
 		return nullptr;
 	Ref<ThreadedObjectPool> effect_object_pool;
-	if(!EffectObjectPools.lookup(effectScene->get_path(), effect_object_pool)) {
+	if(!EffectObjectPools.lookup(effectScene->get_path().hash(), effect_object_pool)) {
 		effect_object_pool.instantiate();
 		effect_object_pool->init_with_scene_res(effectScene, 999, ThreadedObjectPool::ReturnNull);
-		EffectObjectPools.insert(effectScene->get_path(), effect_object_pool);
+		EffectObjectPools.insert(effectScene->get_path().hash(), effect_object_pool);
 	}
 	return add_effect_from_pool(effect_object_pool, externalSource);
 }
@@ -453,15 +453,22 @@ Node *GameObject::add_effect_from_pool(Ref<ThreadedObjectPool> effect_object_poo
 		questPool.call("notify_effect_applied", effectID);
 
 	SafeObjectPointer<Node> already_applied_effect;
-	if(_current_effects.lookup(effectID, already_applied_effect) && already_applied_effect.is_valid()) {
-		already_applied_effect->call("add_additional_effect", effect_instance);
-		effect_object_pool->return_instance(effect_instance);
-		return already_applied_effect.get_nocheck();
+	if(_current_effects.lookup(effectID.hash(), already_applied_effect)) {
+		if(already_applied_effect.is_valid() &&
+			already_applied_effect->get_parent() == this)
+		{
+			already_applied_effect->call("add_additional_effect", effect_instance);
+			effect_object_pool->return_instance(effect_instance);
+			return already_applied_effect.get_nocheck();
+		}
+		// when there is an invalid effect in there at that position,
+		// it has to be removed (otherwise .insert() will add another instance!)
+		_current_effects.remove(effectID.hash());
 	}
 
 	effect_instance->call("set_externalSource", externalSource);
 	add_child(effect_instance);
-	_current_effects.insert(effectID, SafeObjectPointer(effect_instance));
+	_current_effects.insert(effectID.hash(), SafeObjectPointer(effect_instance));
 	return effect_instance;
 }
 
@@ -469,7 +476,9 @@ Node* GameObject::find_effect(String effectID) {
 	PROFILE_FUNCTION();
 
 	SafeObjectPointer<Node> already_applied_effect;
-	if(_current_effects.lookup(effectID, already_applied_effect) && already_applied_effect.is_valid())
+	if(_current_effects.lookup(effectID.hash(), already_applied_effect) &&
+		already_applied_effect.is_valid() &&
+		already_applied_effect->get_parent() == this)
 		return already_applied_effect.get_nocheck();
 
 	return nullptr;
