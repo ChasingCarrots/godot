@@ -42,8 +42,6 @@
 #include "scene/gui/texture_rect.h"
 #include "scene/gui/tree.h"
 
-#include "editor/editor_scale.h"
-
 /**
  * NOTE: Do not assume the EditorNode singleton to be available in this class' methods.
  * EditorAbout is also used from the project manager where EditorNode isn't initialized.
@@ -63,8 +61,6 @@ private:
 	RichTextLabel *_license_text = nullptr;
 	RichTextLabel *_tpl_text = nullptr;
 	TextureRect *_logo = nullptr;
-
-	void _theme_changed();
 
 protected:
 	void _notification(int p_what);

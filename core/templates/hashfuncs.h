@@ -310,7 +310,7 @@ struct HashMapHasherDefault {
 	static _FORCE_INLINE_ uint32_t hash(const char16_t p_uchar) { return hash_fmix32(p_uchar); }
 	static _FORCE_INLINE_ uint32_t hash(const char32_t p_uchar) { return hash_fmix32(p_uchar); }
 	static _FORCE_INLINE_ uint32_t hash(const RID &p_rid) { return hash_one_uint64(p_rid.get_id()); }
-	static _FORCE_INLINE_ uint32_t hash(const CharString &p_char_string) { return hash_djb2(p_char_string.ptr()); }
+	static _FORCE_INLINE_ uint32_t hash(const CharString &p_char_string) { return hash_djb2(p_char_string.get_data()); }
 	static _FORCE_INLINE_ uint32_t hash(const StringName &p_string_name) { return p_string_name.hash(); }
 	static _FORCE_INLINE_ uint32_t hash(const NodePath &p_path) { return p_path.hash(); }
 	static _FORCE_INLINE_ uint32_t hash(const ObjectID &p_id) { return hash_one_uint64(p_id); }
@@ -429,7 +429,7 @@ struct HashMapComparatorDefault<Vector3> {
 
 constexpr uint32_t HASH_TABLE_SIZE_MAX = 29;
 
-const uint32_t hash_table_size_primes[HASH_TABLE_SIZE_MAX] = {
+inline constexpr uint32_t hash_table_size_primes[HASH_TABLE_SIZE_MAX] = {
 	5,
 	13,
 	23,
@@ -462,7 +462,7 @@ const uint32_t hash_table_size_primes[HASH_TABLE_SIZE_MAX] = {
 };
 
 // Computed with elem_i = UINT64_C (0 x FFFFFFFF FFFFFFFF ) / d_i + 1, where d_i is the i-th element of the above array.
-const uint64_t hash_table_size_primes_inv[HASH_TABLE_SIZE_MAX] = {
+inline constexpr uint64_t hash_table_size_primes_inv[HASH_TABLE_SIZE_MAX] = {
 	3689348814741910324,
 	1418980313362273202,
 	802032351030850071,

@@ -1194,7 +1194,7 @@ void SceneState::update_instance_resource(String p_path, Ref<PackedScene> p_pack
 }
 
 int SceneState::find_node_by_path(const NodePath &p_node) const {
-	ERR_FAIL_COND_V_MSG(node_path_cache.size() == 0, -1, "This operation requires the node cache to have been built.");
+	ERR_FAIL_COND_V_MSG(node_path_cache.is_empty(), -1, "This operation requires the node cache to have been built.");
 
 	if (!node_path_cache.has(p_node)) {
 		if (get_base_scene_state().is_valid()) {
@@ -1849,6 +1849,44 @@ void SceneState::add_connection(int p_from, int p_to, int p_signal, int p_method
 
 void SceneState::add_editable_instance(const NodePath &p_path) {
 	editable_instances.push_back(p_path);
+}
+
+bool SceneState::remove_group_references(const StringName &p_name) {
+	bool edited = false;
+	for (NodeData &node : nodes) {
+		for (const int &group : node.groups) {
+			if (names[group] == p_name) {
+				node.groups.erase(group);
+				edited = true;
+				break;
+			}
+		}
+	}
+	return edited;
+}
+
+bool SceneState::rename_group_references(const StringName &p_old_name, const StringName &p_new_name) {
+	bool edited = false;
+	for (const NodeData &node : nodes) {
+		for (const int &group : node.groups) {
+			if (names[group] == p_old_name) {
+				names.write[group] = p_new_name;
+				edited = true;
+				break;
+			}
+		}
+	}
+	return edited;
+}
+
+HashSet<StringName> SceneState::get_all_groups() {
+	HashSet<StringName> ret;
+	for (const NodeData &node : nodes) {
+		for (const int &group : node.groups) {
+			ret.insert(names[group]);
+		}
+	}
+	return ret;
 }
 
 Vector<String> SceneState::_get_node_groups(int p_idx) const {

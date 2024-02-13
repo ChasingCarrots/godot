@@ -61,6 +61,7 @@ enum PassMode {
 	PASS_MODE_COLOR_TRANSPARENT,
 	PASS_MODE_SHADOW,
 	PASS_MODE_DEPTH,
+	PASS_MODE_MATERIAL,
 };
 
 // These should share as much as possible with SkyUniform Location
@@ -96,6 +97,9 @@ struct RenderDataGLES3 {
 	Projection cam_projection;
 	bool cam_orthogonal = false;
 	uint32_t camera_visible_layers = 0xFFFFFFFF;
+
+	// For billboards to cast correct shadows.
+	Transform3D main_cam_transform;
 
 	// For stereo rendering
 	uint32_t view_count = 1;
@@ -152,7 +156,12 @@ private:
 		RID default_material;
 		RID default_shader;
 		RID cubemap_filter_shader_version;
+		RID overdraw_material;
+		RID overdraw_shader;
 	} scene_globals;
+
+	GLES3::SceneMaterialData *default_material_data_ptr = nullptr;
+	GLES3::SceneMaterialData *overdraw_material_data_ptr = nullptr;
 
 	/* LIGHT INSTANCE */
 
@@ -170,6 +179,9 @@ private:
 		float cos_spot_angle;
 		float specular_amount;
 		float shadow_opacity;
+
+		float pad[3];
+		uint32_t bake_mode;
 	};
 	static_assert(sizeof(LightData) % 16 == 0, "LightData size must be a multiple of 16 bytes");
 
@@ -181,7 +193,7 @@ private:
 		float size;
 
 		uint32_t enabled; // For use by SkyShaders
-		float pad;
+		uint32_t bake_mode;
 		float shadow_opacity;
 		float specular;
 	};
@@ -269,6 +281,10 @@ private:
 		GeometryInstanceGLES3 *owner = nullptr;
 	};
 
+	struct GeometryInstanceLightmapSH {
+		Color sh[9];
+	};
+
 	class GeometryInstanceGLES3 : public RenderGeometryInstanceBase {
 	public:
 		//used during rendering
@@ -296,6 +312,11 @@ private:
 		LocalVector<uint32_t> omni_light_gl_cache;
 		LocalVector<uint32_t> spot_light_gl_cache;
 
+		RID lightmap_instance;
+		Rect2 lightmap_uv_scale;
+		uint32_t lightmap_slice_index;
+		GeometryInstanceLightmapSH *lightmap_sh = nullptr;
+
 		// Used during setup.
 		GeometryInstanceSurface *surface_caches = nullptr;
 		SelfList<GeometryInstanceGLES3> dirty_list_element;
@@ -316,6 +337,7 @@ private:
 	};
 
 	enum {
+		INSTANCE_DATA_FLAGS_DYNAMIC = 1 << 3,
 		INSTANCE_DATA_FLAGS_NON_UNIFORM_SCALE = 1 << 4,
 		INSTANCE_DATA_FLAG_USE_GI_BUFFERS = 1 << 5,
 		INSTANCE_DATA_FLAG_USE_LIGHTMAP_CAPTURE = 1 << 7,
@@ -351,13 +373,15 @@ private:
 			float inv_view_matrix[16];
 			float view_matrix[16];
 
+			float main_cam_inv_view_matrix[16];
+
 			float viewport_size[2];
 			float screen_pixel_size[2];
 
 			float ambient_light_color_energy[4];
 
 			float ambient_color_sky_mix;
-			uint32_t material_uv2_mode;
+			uint32_t pad2;
 			float emissive_exposure_normalization;
 			uint32_t use_ambient_light = 0;
 
@@ -447,13 +471,15 @@ private:
 		bool reverse_cull = false;
 		uint64_t spec_constant_base_flags = 0;
 		bool force_wireframe = false;
+		Vector2 uv_offset = Vector2(0, 0);
 
-		RenderListParameters(GeometryInstanceSurface **p_elements, int p_element_count, bool p_reverse_cull, uint64_t p_spec_constant_base_flags, bool p_force_wireframe = false) {
+		RenderListParameters(GeometryInstanceSurface **p_elements, int p_element_count, bool p_reverse_cull, uint64_t p_spec_constant_base_flags, bool p_force_wireframe = false, Vector2 p_uv_offset = Vector2()) {
 			elements = p_elements;
 			element_count = p_element_count;
 			reverse_cull = p_reverse_cull;
 			spec_constant_base_flags = p_spec_constant_base_flags;
 			force_wireframe = p_force_wireframe;
+			uv_offset = p_uv_offset;
 		}
 	};
 
@@ -517,7 +543,8 @@ private:
 	void _setup_environment(const RenderDataGLES3 *p_render_data, bool p_no_fog, const Size2i &p_screen_size, bool p_flip_y, const Color &p_default_bg_color, bool p_pancake_shadows, float p_shadow_bias = 0.0);
 	void _fill_render_list(RenderListType p_render_list, const RenderDataGLES3 *p_render_data, PassMode p_pass_mode, bool p_append = false);
 	void _render_shadows(const RenderDataGLES3 *p_render_data, const Size2i &p_viewport_size = Size2i(1, 1));
-	void _render_shadow_pass(RID p_light, RID p_shadow_atlas, int p_pass, const PagedArray<RenderGeometryInstance *> &p_instances, const Plane &p_camera_plane = Plane(), float p_lod_distance_multiplier = 0, float p_screen_mesh_lod_threshold = 0.0, RenderingMethod::RenderInfo *p_render_info = nullptr, const Size2i &p_viewport_size = Size2i(1, 1));
+	void _render_shadow_pass(RID p_light, RID p_shadow_atlas, int p_pass, const PagedArray<RenderGeometryInstance *> &p_instances, const Plane &p_camera_plane = Plane(), float p_lod_distance_multiplier = 0, float p_screen_mesh_lod_threshold = 0.0, RenderingMethod::RenderInfo *p_render_info = nullptr, const Size2i &p_viewport_size = Size2i(1, 1), const Transform3D &p_main_cam_transform = Transform3D());
+	void _render_post_processing(const RenderDataGLES3 *p_render_data);
 
 	template <PassMode p_pass_mode>
 	_FORCE_INLINE_ void _render_list_template(RenderListParameters *p_params, const RenderDataGLES3 *p_render_data, uint32_t p_from_element, uint32_t p_to_element, bool p_alpha_pass = false);
@@ -530,7 +557,7 @@ protected:
 	float screen_space_roughness_limiter_amount = 0.25;
 	float screen_space_roughness_limiter_limit = 0.18;
 
-	void _render_buffers_debug_draw(Ref<RenderSceneBuffersGLES3> p_render_buffers, RID p_shadow_atlas);
+	void _render_buffers_debug_draw(Ref<RenderSceneBuffersGLES3> p_render_buffers, RID p_shadow_atlas, GLuint p_fbo);
 
 	/* Camera Attributes */
 
@@ -627,6 +654,10 @@ protected:
 	void _filter_sky_radiance(Sky *p_sky, int p_base_layer);
 	void _draw_sky(RID p_env, const Projection &p_projection, const Transform3D &p_transform, float p_luminance_multiplier, bool p_use_multiview, bool p_flip_y);
 	void _free_sky_data(Sky *p_sky);
+
+	// Needed for a single argument calls (material and uv2).
+	PagedArrayPool<RenderGeometryInstance *> cull_argument_pool;
+	PagedArray<RenderGeometryInstance *> cull_argument;
 
 public:
 	static RasterizerSceneGLES3 *get_singleton() { return singleton; }
@@ -728,6 +759,7 @@ public:
 	void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) override;
 
 	TypedArray<Image> bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) override;
+	void _render_uv2(const PagedArray<RenderGeometryInstance *> &p_instances, GLuint p_framebuffer, const Rect2i &p_region);
 
 	bool free(RID p_rid) override;
 	void update() override;

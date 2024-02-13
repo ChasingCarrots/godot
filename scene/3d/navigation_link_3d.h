@@ -67,6 +67,8 @@ public:
 	NavigationLink3D();
 	~NavigationLink3D();
 
+	RID get_rid() const;
+
 	void set_enabled(bool p_enabled);
 	bool is_enabled() const { return enabled; }
 
@@ -97,7 +99,7 @@ public:
 	void set_travel_cost(real_t p_travel_cost);
 	real_t get_travel_cost() const { return travel_cost; }
 
-	PackedStringArray get_configuration_warnings() const override;
+	Array get_configuration_warnings() const override;
 };
 
 #endif // NAVIGATION_LINK_3D_H

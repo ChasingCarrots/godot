@@ -209,6 +209,11 @@ void Node::_notification(int p_notification) {
 				_clean_up_owner();
 			}
 
+			while (!data.owned.is_empty()) {
+				Node *n = data.owned.back()->get();
+				n->_clean_up_owner(); // This will change data.owned. So it's impossible to loop over the list in the usual manner.
+			}
+
 			if (data.parent) {
 				data.parent->remove_child(this);
 			}
@@ -1216,6 +1221,11 @@ String Node::validate_child_name(Node *p_child) {
 	_generate_serial_child_name(p_child, name);
 	return name;
 }
+
+String Node::prevalidate_child_name(Node *p_child, StringName p_name) {
+	_generate_serial_child_name(p_child, p_name);
+	return p_name;
+}
 #endif
 
 String Node::adjust_name_casing(const String &p_name) {
@@ -1425,6 +1435,14 @@ void Node::add_child(Node *p_child, bool p_force_readable_name, InternalMode p_i
 	ERR_FAIL_COND_MSG(data.blocked > 0, "Parent node is busy setting up children, `add_child()` failed. Consider using `add_child.call_deferred(child)` instead.");
 
 	_validate_child_name(p_child, p_force_readable_name);
+
+#ifdef DEBUG_ENABLED
+	if (p_child->data.owner && !p_child->data.owner->is_ancestor_of(p_child)) {
+		// Owner of p_child should be ancestor of p_child.
+		WARN_PRINT(vformat("Adding '%s' as child to '%s' will make owner '%s' inconsistent. Consider unsetting the owner beforehand.", p_child->get_name(), get_name(), p_child->data.owner->get_name()));
+	}
+#endif // DEBUG_ENABLED
+
 	_add_child_nocheck(p_child, p_child->data.name, p_internal);
 }
 
@@ -1733,8 +1751,40 @@ void Node::reparent(Node *p_parent, bool p_keep_global_transform) {
 		return;
 	}
 
+	bool preserve_owner = data.owner && (data.owner == p_parent || data.owner->is_ancestor_of(p_parent));
+	Node *owner_temp = data.owner;
+	LocalVector<Node *> common_parents;
+
+	// If the new parent is related to the owner, find all children of the reparented node who have the same owner so that we can reassign them.
+	if (preserve_owner) {
+		LocalVector<Node *> to_visit;
+
+		to_visit.push_back(this);
+		common_parents.push_back(this);
+
+		while (to_visit.size() > 0) {
+			Node *check = to_visit[to_visit.size() - 1];
+			to_visit.resize(to_visit.size() - 1);
+
+			for (int i = 0; i < check->get_child_count(); i++) {
+				Node *child = check->get_child(i, false);
+				to_visit.push_back(child);
+				if (child->data.owner == owner_temp) {
+					common_parents.push_back(child);
+				}
+			}
+		}
+	}
+
 	data.parent->remove_child(this);
 	p_parent->add_child(this);
+
+	// Reassign the old owner to those found nodes.
+	if (preserve_owner) {
+		for (Node *E : common_parents) {
+			E->set_owner(owner_temp);
+		}
+	}
 }
 
 Node *Node::get_parent() const {
@@ -1922,7 +1972,7 @@ void Node::set_owner(Node *p_owner) {
 		return;
 	}
 
-	Node *check = this->get_parent();
+	Node *check = get_parent();
 	bool owner_valid = false;
 
 	while (check) {
@@ -2286,8 +2336,14 @@ void Node::_propagate_replace_owner(Node *p_owner, Node *p_by_owner) {
 
 Ref<Tween> Node::create_tween() {
 	ERR_THREAD_GUARD_V(Ref<Tween>());
-	ERR_FAIL_NULL_V_MSG(data.tree, nullptr, "Can't create Tween when not inside scene tree.");
-	Ref<Tween> tween = get_tree()->create_tween();
+
+	SceneTree *tree = data.tree;
+	if (!tree) {
+		tree = SceneTree::get_singleton();
+	}
+	ERR_FAIL_NULL_V_MSG(tree, Ref<Tween>(), "No available SceneTree to create the Tween.");
+
+	Ref<Tween> tween = tree->create_tween();
 	tween->bind_node(this);
 	return tween;
 }
@@ -2308,11 +2364,7 @@ void Node::set_editor_description(const String &p_editor_description) {
 	}
 
 	data.editor_description = p_editor_description;
-
-	if (Engine::get_singleton()->is_editor_hint() && is_inside_tree()) {
-		// Update tree so the tooltip in the Scene tree dock is also updated in the editor.
-		get_tree()->tree_changed();
-	}
+	emit_signal(SNAME("editor_description_changed"), this);
 }
 
 String Node::get_editor_description() const {
@@ -2508,6 +2560,11 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 		for (List<const Node *>::Element *N = node_tree.front(); N; N = N->next()) {
 			for (int i = 0; i < N->get()->get_child_count(); ++i) {
 				Node *descendant = N->get()->get_child(i);
+
+				if (!descendant->get_owner()) {
+					continue; // Internal nodes or nodes added by scripts.
+				}
+
 				// Skip nodes not really belonging to the instantiated hierarchy; they'll be processed normally later
 				// but remember non-instantiated nodes that are hidden below instantiated ones
 				if (!instance_roots.has(descendant->get_owner())) {
@@ -2522,44 +2579,6 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 				if (!descendant->get_scene_file_path().is_empty() && instance_roots.has(descendant->get_owner())) {
 					instance_roots.push_back(descendant);
 				}
-			}
-		}
-	}
-
-	for (List<const Node *>::Element *N = node_tree.front(); N; N = N->next()) {
-		Node *current_node = node->get_node(get_path_to(N->get()));
-		ERR_CONTINUE(!current_node);
-
-		if (p_flags & DUPLICATE_SCRIPTS) {
-			bool is_valid = false;
-			Variant scr = N->get()->get(script_property_name, &is_valid);
-			if (is_valid) {
-				current_node->set(script_property_name, scr);
-			}
-		}
-
-		List<PropertyInfo> plist;
-		N->get()->get_property_list(&plist);
-
-		for (const PropertyInfo &E : plist) {
-			if (!(E.usage & PROPERTY_USAGE_STORAGE)) {
-				continue;
-			}
-			String name = E.name;
-			if (name == script_property_name) {
-				continue;
-			}
-
-			Variant value = N->get()->get(name).duplicate(true);
-
-			if (E.usage & PROPERTY_USAGE_ALWAYS_DUPLICATE) {
-				Resource *res = Object::cast_to<Resource>(value);
-				if (res) { // Duplicate only if it's a resource
-					current_node->set(name, res->duplicate());
-				}
-
-			} else {
-				current_node->set(name, value);
 			}
 		}
 	}
@@ -2626,6 +2645,62 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 
 		if (pos < parent->get_child_count() - 1) {
 			parent->move_child(dup, pos);
+		}
+	}
+
+	for (List<const Node *>::Element *N = node_tree.front(); N; N = N->next()) {
+		Node *current_node = node->get_node(get_path_to(N->get()));
+		ERR_CONTINUE(!current_node);
+
+		if (p_flags & DUPLICATE_SCRIPTS) {
+			bool is_valid = false;
+			Variant scr = N->get()->get(script_property_name, &is_valid);
+			if (is_valid) {
+				current_node->set(script_property_name, scr);
+			}
+		}
+
+		List<PropertyInfo> plist;
+		N->get()->get_property_list(&plist);
+
+		for (const PropertyInfo &E : plist) {
+			if (!(E.usage & PROPERTY_USAGE_STORAGE)) {
+				continue;
+			}
+			String name = E.name;
+			if (name == script_property_name) {
+				continue;
+			}
+
+			Variant value = N->get()->get(name).duplicate(true);
+
+			if (E.usage & PROPERTY_USAGE_ALWAYS_DUPLICATE) {
+				Resource *res = Object::cast_to<Resource>(value);
+				if (res) { // Duplicate only if it's a resource
+					current_node->set(name, res->duplicate());
+				}
+
+			} else {
+				// If property points to a node which is owned by a node we are duplicating, update its path.
+				if (value.get_type() == Variant::OBJECT) {
+					Node *property_node = Object::cast_to<Node>(value);
+					if (property_node && is_ancestor_of(property_node)) {
+						value = current_node->get_node_or_null(get_path_to(property_node));
+					}
+				} else if (value.get_type() == Variant::ARRAY) {
+					Array arr = value;
+					if (arr.get_typed_builtin() == Variant::OBJECT) {
+						for (int i = 0; i < arr.size(); i++) {
+							Node *property_node = Object::cast_to<Node>(arr[i]);
+							if (property_node && is_ancestor_of(property_node)) {
+								arr[i] = current_node->get_node_or_null(get_path_to(property_node));
+							}
+						}
+						value = arr;
+					}
+				}
+				current_node->set(name, value);
+			}
 		}
 	}
 
@@ -2812,7 +2887,7 @@ void Node::replace_by(Node *p_node, bool p_keep_groups) {
 	}
 
 	Node *parent = data.parent;
-	int index_in_parent = get_index();
+	int index_in_parent = get_index(false);
 
 	if (data.parent) {
 		parent->remove_child(this);
@@ -3040,6 +3115,10 @@ static void _add_nodes_to_options(const Node *p_base, const Node *p_node, List<S
 	if (p_node != p_base && !p_node->get_owner()) {
 		return;
 	}
+	if (p_node->is_unique_name_in_owner() && p_node->get_owner() == p_base) {
+		String n = "%" + p_node->get_name();
+		r_options->push_back(n.quote());
+	}
 	String n = p_base->get_path_to(p_node);
 	r_options->push_back(n.quote());
 	for (int i = 0; i < p_node->get_child_count(); i++) {
@@ -3049,8 +3128,13 @@ static void _add_nodes_to_options(const Node *p_base, const Node *p_node, List<S
 
 void Node::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {
 	String pf = p_function;
-	if ((pf == "has_node" || pf == "get_node") && p_idx == 0) {
+	if (p_idx == 0 && (pf == "has_node" || pf == "get_node" || pf == "get_node_or_null")) {
 		_add_nodes_to_options(this, this, r_options);
+	} else if (p_idx == 0 && (pf == "add_to_group" || pf == "remove_from_group" || pf == "is_in_group")) {
+		HashMap<StringName, String> global_groups = ProjectSettings::get_singleton()->get_global_groups_list();
+		for (const KeyValue<StringName, String> &E : global_groups) {
+			r_options->push_back(E.key.operator String().quote());
+		}
 	}
 	Object::get_argument_options(p_function, p_idx, r_options);
 }
@@ -3062,28 +3146,89 @@ void Node::clear_internal_tree_resource_paths() {
 	}
 }
 
-PackedStringArray Node::get_configuration_warnings() const {
-	ERR_THREAD_GUARD_V(PackedStringArray());
-	PackedStringArray ret;
+Array Node::get_configuration_warnings() const {
+	ERR_THREAD_GUARD_V(Array());
+	Array warnings;
+	GDVIRTUAL_CALL(_get_configuration_warnings, warnings);
+	return warnings;
+}
 
-	Vector<String> warnings;
-	if (GDVIRTUAL_CALL(_get_configuration_warnings, warnings)) {
-		ret.append_array(warnings);
+Dictionary Node::configuration_warning_to_dict(const Variant &p_warning) const {
+	switch (p_warning.get_type()) {
+		case Variant::Type::DICTIONARY:
+			return p_warning;
+		case Variant::Type::STRING: {
+			// Convert string to dictionary.
+			Dictionary warning;
+			warning["message"] = p_warning;
+			return warning;
+		}
+		default: {
+			ERR_FAIL_V_MSG(Dictionary(), "Node::get_configuration_warnings returned a value which is neither a string nor a dictionary, but a " + Variant::get_type_name(p_warning.get_type()));
+		}
 	}
+}
 
+Vector<Dictionary> Node::get_configuration_warnings_as_dicts() const {
+	Vector<Dictionary> ret;
+	Array mixed = get_configuration_warnings();
+	for (int i = 0; i < mixed.size(); i++) {
+		ret.append(configuration_warning_to_dict(mixed[i]));
+	}
 	return ret;
 }
 
-String Node::get_configuration_warnings_as_string() const {
-	PackedStringArray warnings = get_configuration_warnings();
-	String all_warnings;
-	for (int i = 0; i < warnings.size(); i++) {
-		if (i > 0) {
-			all_warnings += "\n\n";
+Vector<Dictionary> Node::get_configuration_warnings_of_property(const String &p_property) const {
+	Vector<Dictionary> ret;
+	Vector<Dictionary> warnings = get_configuration_warnings_as_dicts();
+	if (p_property.is_empty()) {
+		ret.append_array(warnings);
+	} else {
+		// Filter by property path.
+		for (int i = 0; i < warnings.size(); i++) {
+			Dictionary warning = warnings[i];
+			String warning_property = warning.get("property", String());
+			if (p_property == warning_property) {
+				ret.append(warning);
+			}
 		}
-		// Format as a bullet point list to make multiple warnings easier to distinguish
-		// from each other.
-		all_warnings += String::utf8("•  ") + warnings[i];
+	}
+	return ret;
+}
+
+PackedStringArray Node::get_configuration_warnings_as_strings(bool p_wrap_lines, const String &p_property) const {
+	Vector<Dictionary> warnings = get_configuration_warnings_of_property(p_property);
+
+	const String bullet_point = U"•  ";
+	PackedStringArray all_warnings;
+	for (const Dictionary &warning : warnings) {
+		if (!warning.has("message")) {
+			continue;
+		}
+
+		// Prefix with property name if we are showing all warnings.
+		String text;
+		if (warning.has("property") && p_property.is_empty()) {
+			text = bullet_point + vformat("[%s] %s", warning["property"], warning["message"]);
+		} else {
+			text = bullet_point + static_cast<String>(warning["message"]);
+		}
+
+		if (p_wrap_lines) {
+			// Limit the line width while keeping some padding.
+			// It is not efficient, but it does not have to be.
+			const PackedInt32Array boundaries = TS->string_get_word_breaks(text, "", 80);
+			PackedStringArray lines;
+			for (int i = 0; i < boundaries.size(); i += 2) {
+				const int start = boundaries[i];
+				const int end = boundaries[i + 1];
+				String line = text.substr(start, end - start);
+				lines.append(line);
+			}
+			text = String("\n").join(lines);
+		}
+		text = text.replace("\n", "\n    ");
+		all_warnings.append(text);
 	}
 	return all_warnings;
 }
@@ -3511,6 +3656,7 @@ void Node::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("child_order_changed"));
 	ADD_SIGNAL(MethodInfo("replacing_by", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "Node")));
+	ADD_SIGNAL(MethodInfo("editor_description_changed", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "Node")));
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "name", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "unique_name_in_owner", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_unique_name_in_owner", "is_unique_name_in_owner");
@@ -3554,6 +3700,16 @@ String Node::_get_name_num_separator() {
 			return "-";
 	}
 	return " ";
+}
+
+StringName Node::get_configuration_warning_icon(int p_count) {
+	if (p_count == 1) {
+		return SNAME("NodeWarning");
+	} else if (p_count <= 3) {
+		return vformat("NodeWarnings%d", p_count);
+	} else {
+		return SNAME("NodeWarnings4Plus");
+	}
 }
 
 Node::Node() {

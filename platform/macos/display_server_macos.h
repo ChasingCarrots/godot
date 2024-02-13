@@ -39,11 +39,13 @@
 #include "gl_manager_macos_legacy.h"
 #endif // GLES3_ENABLED
 
-#if defined(VULKAN_ENABLED)
-#include "vulkan_context_macos.h"
+#if defined(RD_ENABLED)
+#include "servers/rendering/rendering_device.h"
 
-#include "drivers/vulkan/rendering_device_vulkan.h"
+#if defined(VULKAN_ENABLED)
+#include "rendering_context_driver_vulkan_macos.h"
 #endif // VULKAN_ENABLED
+#endif // RD_ENABLED
 
 #define BitMap _QDBitMap // Suppress deprecated QuickDraw definition.
 
@@ -73,6 +75,7 @@ public:
 		Key physical_keycode = Key::NONE;
 		Key key_label = Key::NONE;
 		uint32_t unicode = 0;
+		KeyLocation location = KeyLocation::UNSPECIFIED;
 	};
 
 	struct WindowData {
@@ -133,13 +136,15 @@ private:
 	GLManagerLegacy_MacOS *gl_manager_legacy = nullptr;
 	GLManagerANGLE_MacOS *gl_manager_angle = nullptr;
 #endif
-#if defined(VULKAN_ENABLED)
-	VulkanContextMacOS *context_vulkan = nullptr;
-	RenderingDeviceVulkan *rendering_device_vulkan = nullptr;
+#if defined(RD_ENABLED)
+	RenderingContextDriver *rendering_context = nullptr;
+	RenderingDevice *rendering_device = nullptr;
 #endif
 	String rendering_driver;
 
 	NSMenu *apple_menu = nullptr;
+	NSMenu *window_menu = nullptr;
+	NSMenu *help_menu = nullptr;
 	NSMenu *dock_menu = nullptr;
 	struct MenuData {
 		Callable open;
@@ -226,8 +231,11 @@ private:
 
 	static NSCursor *_cursor_from_selector(SEL p_selector, SEL p_fallback = nil);
 
-	bool _has_help_menu() const;
+	int _get_system_menu_start(const NSMenu *p_menu) const;
+	int _get_system_menu_count(const NSMenu *p_menu) const;
 	NSMenuItem *_menu_add_item(const String &p_menu_root, const String &p_label, Key p_accel, int p_index, int *r_out);
+
+	Error _file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback, bool p_options_in_cb);
 
 public:
 	NSMenu *get_dock_menu() const;
@@ -321,6 +329,8 @@ public:
 	virtual void global_menu_remove_item(const String &p_menu_root, int p_idx) override;
 	virtual void global_menu_clear(const String &p_menu_root) override;
 
+	virtual Dictionary global_menu_get_system_menu_roots() const override;
+
 	virtual bool tts_is_speaking() const override;
 	virtual bool tts_is_paused() const override;
 	virtual TypedArray<Dictionary> tts_get_voices() const override;
@@ -338,6 +348,7 @@ public:
 	virtual Error dialog_input_text(String p_title, String p_description, String p_partial, const Callable &p_callback) override;
 
 	virtual Error file_dialog_show(const String &p_title, const String &p_current_directory, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const Callable &p_callback) override;
+	virtual Error file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback) override;
 
 	virtual void mouse_set_mode(MouseMode p_mode) override;
 	virtual MouseMode mouse_get_mode() const override;
@@ -420,6 +431,8 @@ public:
 	virtual void window_request_attention(WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual void window_move_to_foreground(WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual bool window_is_focused(WindowID p_window = MAIN_WINDOW_ID) const override;
+
+	virtual WindowID get_focused_window() const override;
 
 	virtual bool window_can_draw(WindowID p_window = MAIN_WINDOW_ID) const override;
 

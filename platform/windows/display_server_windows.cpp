@@ -39,6 +39,12 @@
 #include "main/main.h"
 #include "scene/resources/atlas_texture.h"
 
+#if defined(VULKAN_ENABLED)
+#include "rendering_context_driver_vulkan_windows.h"
+#endif
+#if defined(D3D12_ENABLED)
+#include "drivers/d3d12/rendering_context_driver_d3d12.h"
+#endif
 #if defined(GLES3_ENABLED)
 #include "drivers/gles3/rasterizer_gles3.h"
 #endif
@@ -50,6 +56,10 @@
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1
+#define DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 19
 #endif
 
 #if defined(__GNUC__)
@@ -165,20 +175,26 @@ DisplayServer::WindowID DisplayServerWindows::_get_focused_window_or_popup() con
 void DisplayServerWindows::_register_raw_input_devices(WindowID p_target_window) {
 	use_raw_input = true;
 
-	RAWINPUTDEVICE rid[1] = {};
-	rid[0].usUsagePage = 0x01;
-	rid[0].usUsage = 0x02;
+	RAWINPUTDEVICE rid[2] = {};
+	rid[0].usUsagePage = 0x01; // HID_USAGE_PAGE_GENERIC
+	rid[0].usUsage = 0x02; // HID_USAGE_GENERIC_MOUSE
 	rid[0].dwFlags = 0;
+
+	rid[1].usUsagePage = 0x01; // HID_USAGE_PAGE_GENERIC
+	rid[1].usUsage = 0x06; // HID_USAGE_GENERIC_KEYBOARD
+	rid[1].dwFlags = 0;
 
 	if (p_target_window != INVALID_WINDOW_ID && windows.has(p_target_window)) {
 		// Follow the defined window
 		rid[0].hwndTarget = windows[p_target_window].hWnd;
+		rid[1].hwndTarget = windows[p_target_window].hWnd;
 	} else {
 		// Follow the keyboard focus
 		rid[0].hwndTarget = 0;
+		rid[1].hwndTarget = 0;
 	}
 
-	if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == FALSE) {
+	if (RegisterRawInputDevices(rid, 2, sizeof(rid[0])) == FALSE) {
 		// Registration failed.
 		use_raw_input = false;
 	}
@@ -219,7 +235,142 @@ void DisplayServerWindows::tts_stop() {
 	tts->stop();
 }
 
+// Silence warning due to a COM API weirdness.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
+
+class FileDialogEventHandler : public IFileDialogEvents, public IFileDialogControlEvents {
+	LONG ref_count = 1;
+	int ctl_id = 1;
+
+	HashMap<int, String> ctls;
+	Dictionary selected;
+	String root;
+
+public:
+	// IUnknown methods
+	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppv) {
+		static const QITAB qit[] = {
+#ifdef __MINGW32__
+			{ &__uuidof(IFileDialogEvents), static_cast<decltype(qit[0].dwOffset)>(OFFSETOFCLASS(IFileDialogEvents, FileDialogEventHandler)) },
+			{ &__uuidof(IFileDialogControlEvents), static_cast<decltype(qit[0].dwOffset)>(OFFSETOFCLASS(IFileDialogControlEvents, FileDialogEventHandler)) },
+#else
+			QITABENT(FileDialogEventHandler, IFileDialogEvents),
+			QITABENT(FileDialogEventHandler, IFileDialogControlEvents),
+#endif
+			{ 0, 0 },
+		};
+		return QISearch(this, qit, riid, ppv);
+	}
+
+	ULONG STDMETHODCALLTYPE AddRef() {
+		return InterlockedIncrement(&ref_count);
+	}
+
+	ULONG STDMETHODCALLTYPE Release() {
+		long ref = InterlockedDecrement(&ref_count);
+		if (!ref) {
+			delete this;
+		}
+		return ref;
+	}
+
+	// IFileDialogEvents methods
+	HRESULT STDMETHODCALLTYPE OnFileOk(IFileDialog *) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnFolderChange(IFileDialog *) { return S_OK; };
+
+	HRESULT STDMETHODCALLTYPE OnFolderChanging(IFileDialog *p_pfd, IShellItem *p_item) {
+		if (root.is_empty()) {
+			return S_OK;
+		}
+
+		LPWSTR lpw_path = nullptr;
+		p_item->GetDisplayName(SIGDN_FILESYSPATH, &lpw_path);
+		if (!lpw_path) {
+			return S_FALSE;
+		}
+		String path = String::utf16((const char16_t *)lpw_path).simplify_path();
+		if (!path.begins_with(root.simplify_path())) {
+			return S_FALSE;
+		}
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnHelp(IFileDialog *) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnSelectionChange(IFileDialog *) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnShareViolation(IFileDialog *, IShellItem *, FDE_SHAREVIOLATION_RESPONSE *) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnTypeChange(IFileDialog *pfd) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnOverwrite(IFileDialog *, IShellItem *, FDE_OVERWRITE_RESPONSE *) { return S_OK; };
+
+	// IFileDialogControlEvents methods
+	HRESULT STDMETHODCALLTYPE OnItemSelected(IFileDialogCustomize *p_pfdc, DWORD p_ctl_id, DWORD p_item_idx) {
+		if (ctls.has(p_ctl_id)) {
+			selected[ctls[p_ctl_id]] = (int)p_item_idx;
+		}
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnButtonClicked(IFileDialogCustomize *, DWORD) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnCheckButtonToggled(IFileDialogCustomize *p_pfdc, DWORD p_ctl_id, BOOL p_checked) {
+		if (ctls.has(p_ctl_id)) {
+			selected[ctls[p_ctl_id]] = (bool)p_checked;
+		}
+		return S_OK;
+	}
+	HRESULT STDMETHODCALLTYPE OnControlActivating(IFileDialogCustomize *, DWORD) { return S_OK; };
+
+	Dictionary get_selected() {
+		return selected;
+	}
+
+	void set_root(const String &p_root) {
+		root = p_root;
+	}
+
+	void add_option(IFileDialogCustomize *p_pfdc, const String &p_name, const Vector<String> &p_options, int p_default) {
+		int gid = ctl_id++;
+		int cid = ctl_id++;
+
+		if (p_options.size() == 0) {
+			// Add check box.
+			p_pfdc->StartVisualGroup(gid, L"");
+			p_pfdc->AddCheckButton(cid, (LPCWSTR)p_name.utf16().get_data(), p_default);
+			p_pfdc->SetControlState(cid, CDCS_VISIBLE | CDCS_ENABLED);
+			p_pfdc->EndVisualGroup();
+			selected[p_name] = (bool)p_default;
+		} else {
+			// Add combo box.
+			p_pfdc->StartVisualGroup(gid, (LPCWSTR)p_name.utf16().get_data());
+			p_pfdc->AddComboBox(cid);
+			p_pfdc->SetControlState(cid, CDCS_VISIBLE | CDCS_ENABLED);
+			for (int i = 0; i < p_options.size(); i++) {
+				p_pfdc->AddControlItem(cid, i, (LPCWSTR)p_options[i].utf16().get_data());
+			}
+			p_pfdc->SetSelectedControlItem(cid, p_default);
+			p_pfdc->EndVisualGroup();
+			selected[p_name] = p_default;
+		}
+		ctls[cid] = p_name;
+	}
+
+	virtual ~FileDialogEventHandler(){};
+};
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 Error DisplayServerWindows::file_dialog_show(const String &p_title, const String &p_current_directory, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const Callable &p_callback) {
+	return _file_dialog_with_options_show(p_title, p_current_directory, String(), p_filename, p_show_hidden, p_mode, p_filters, TypedArray<Dictionary>(), p_callback, false);
+}
+
+Error DisplayServerWindows::file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback) {
+	return _file_dialog_with_options_show(p_title, p_current_directory, p_root, p_filename, p_show_hidden, p_mode, p_filters, p_options, p_callback, true);
+}
+
+Error DisplayServerWindows::_file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback, bool p_options_in_cb) {
 	_THREAD_SAFE_METHOD_
 
 	ERR_FAIL_INDEX_V(int(p_mode), FILE_DIALOG_MODE_SAVE_MAX, FAILED);
@@ -269,6 +420,31 @@ Error DisplayServerWindows::file_dialog_show(const String &p_title, const String
 		hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_IFileOpenDialog, (void **)&pfd);
 	}
 	if (SUCCEEDED(hr)) {
+		IFileDialogEvents *pfde = nullptr;
+		FileDialogEventHandler *event_handler = new FileDialogEventHandler();
+		hr = event_handler->QueryInterface(IID_PPV_ARGS(&pfde));
+
+		DWORD cookie = 0;
+		hr = pfd->Advise(pfde, &cookie);
+
+		IFileDialogCustomize *pfdc = nullptr;
+		hr = pfd->QueryInterface(IID_PPV_ARGS(&pfdc));
+
+		for (int i = 0; i < p_options.size(); i++) {
+			const Dictionary &item = p_options[i];
+			if (!item.has("name") || !item.has("values") || !item.has("default")) {
+				continue;
+			}
+			const String &name = item["name"];
+			const Vector<String> &options = item["values"];
+			int default_idx = item["default"];
+
+			event_handler->add_option(pfdc, name, options, default_idx);
+		}
+		event_handler->set_root(p_root);
+
+		pfdc->Release();
+
 		DWORD flags;
 		pfd->GetOptions(&flags);
 		if (p_mode == FILE_DIALOG_MODE_OPEN_FILES) {
@@ -306,8 +482,18 @@ Error DisplayServerWindows::file_dialog_show(const String &p_title, const String
 		}
 
 		hr = pfd->Show(windows[window_id].hWnd);
+		pfd->Unadvise(cookie);
+
+		Dictionary options = event_handler->get_selected();
+
+		pfde->Release();
+		event_handler->Release();
+
 		UINT index = 0;
 		pfd->GetFileTypeIndex(&index);
+		if (index > 0) {
+			index = index - 1;
+		}
 
 		if (SUCCEEDED(hr)) {
 			Vector<String> file_names;
@@ -346,30 +532,60 @@ Error DisplayServerWindows::file_dialog_show(const String &p_title, const String
 				}
 			}
 			if (!p_callback.is_null()) {
-				Variant v_result = true;
-				Variant v_files = file_names;
-				Variant v_index = index;
-				Variant ret;
-				Callable::CallError ce;
-				const Variant *args[3] = { &v_result, &v_files, &v_index };
+				if (p_options_in_cb) {
+					Variant v_result = true;
+					Variant v_files = file_names;
+					Variant v_index = index;
+					Variant v_opt = options;
+					Variant ret;
+					Callable::CallError ce;
+					const Variant *args[4] = { &v_result, &v_files, &v_index, &v_opt };
 
-				p_callback.callp(args, 3, ret, ce);
-				if (ce.error != Callable::CallError::CALL_OK) {
-					ERR_PRINT(vformat("Failed to execute file dialogs callback: %s.", Variant::get_callable_error_text(p_callback, args, 3, ce)));
+					p_callback.callp(args, 4, ret, ce);
+					if (ce.error != Callable::CallError::CALL_OK) {
+						ERR_PRINT(vformat("Failed to execute file dialogs callback: %s.", Variant::get_callable_error_text(p_callback, args, 4, ce)));
+					}
+				} else {
+					Variant v_result = true;
+					Variant v_files = file_names;
+					Variant v_index = index;
+					Variant ret;
+					Callable::CallError ce;
+					const Variant *args[3] = { &v_result, &v_files, &v_index };
+
+					p_callback.callp(args, 3, ret, ce);
+					if (ce.error != Callable::CallError::CALL_OK) {
+						ERR_PRINT(vformat("Failed to execute file dialogs callback: %s.", Variant::get_callable_error_text(p_callback, args, 3, ce)));
+					}
 				}
 			}
 		} else {
 			if (!p_callback.is_null()) {
-				Variant v_result = false;
-				Variant v_files = Vector<String>();
-				Variant v_index = index;
-				Variant ret;
-				Callable::CallError ce;
-				const Variant *args[3] = { &v_result, &v_files, &v_index };
+				if (p_options_in_cb) {
+					Variant v_result = false;
+					Variant v_files = Vector<String>();
+					Variant v_index = index;
+					Variant v_opt = options;
+					Variant ret;
+					Callable::CallError ce;
+					const Variant *args[4] = { &v_result, &v_files, &v_index, &v_opt };
 
-				p_callback.callp(args, 3, ret, ce);
-				if (ce.error != Callable::CallError::CALL_OK) {
-					ERR_PRINT(vformat("Failed to execute file dialogs callback: %s.", Variant::get_callable_error_text(p_callback, args, 3, ce)));
+					p_callback.callp(args, 4, ret, ce);
+					if (ce.error != Callable::CallError::CALL_OK) {
+						ERR_PRINT(vformat("Failed to execute file dialogs callback: %s.", Variant::get_callable_error_text(p_callback, args, 4, ce)));
+					}
+				} else {
+					Variant v_result = false;
+					Variant v_files = Vector<String>();
+					Variant v_index = index;
+					Variant ret;
+					Callable::CallError ce;
+					const Variant *args[3] = { &v_result, &v_files, &v_index };
+
+					p_callback.callp(args, 3, ret, ce);
+					if (ce.error != Callable::CallError::CALL_OK) {
+						ERR_PRINT(vformat("Failed to execute file dialogs callback: %s.", Variant::get_callable_error_text(p_callback, args, 3, ce)));
+					}
 				}
 			}
 		}
@@ -550,8 +766,7 @@ Ref<Image> DisplayServerWindows::clipboard_get_image() const {
 						pba.append(rgbquad->rgbReserved);
 					}
 				}
-				image.instantiate();
-				image->create_from_data(info->biWidth, info->biHeight, false, Image::Format::FORMAT_RGBA8, pba);
+				image = Image::create_from_data(info->biWidth, info->biHeight, false, Image::Format::FORMAT_RGBA8, pba);
 
 				GlobalUnlock(mem);
 			}
@@ -687,6 +902,8 @@ typedef struct {
 } EnumRectData;
 
 typedef struct {
+	Vector<DISPLAYCONFIG_PATH_INFO> paths;
+	Vector<DISPLAYCONFIG_MODE_INFO> modes;
 	int count;
 	int screen;
 	float rate;
@@ -738,12 +955,30 @@ static BOOL CALLBACK _MonitorEnumProcRefreshRate(HMONITOR hMonitor, HDC hdcMonit
 		minfo.cbSize = sizeof(minfo);
 		GetMonitorInfoW(hMonitor, &minfo);
 
-		DEVMODEW dm;
-		memset(&dm, 0, sizeof(dm));
-		dm.dmSize = sizeof(dm);
-		EnumDisplaySettingsW(minfo.szDevice, ENUM_CURRENT_SETTINGS, &dm);
+		bool found = false;
+		for (const DISPLAYCONFIG_PATH_INFO &path : data->paths) {
+			DISPLAYCONFIG_SOURCE_DEVICE_NAME source_name;
+			memset(&source_name, 0, sizeof(source_name));
+			source_name.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+			source_name.header.size = sizeof(source_name);
+			source_name.header.adapterId = path.sourceInfo.adapterId;
+			source_name.header.id = path.sourceInfo.id;
+			if (DisplayConfigGetDeviceInfo(&source_name.header) == ERROR_SUCCESS) {
+				if (wcscmp(minfo.szDevice, source_name.viewGdiDeviceName) == 0 && path.targetInfo.refreshRate.Numerator != 0 && path.targetInfo.refreshRate.Denominator != 0) {
+					data->rate = (double)path.targetInfo.refreshRate.Numerator / (double)path.targetInfo.refreshRate.Denominator;
+					found = true;
+					break;
+				}
+			}
+		}
+		if (!found) {
+			DEVMODEW dm;
+			memset(&dm, 0, sizeof(dm));
+			dm.dmSize = sizeof(dm);
+			EnumDisplaySettingsW(minfo.szDevice, ENUM_CURRENT_SETTINGS, &dm);
 
-		data->rate = dm.dmDisplayFrequency;
+			data->rate = dm.dmDisplayFrequency;
+		}
 	}
 
 	data->count++;
@@ -932,7 +1167,19 @@ float DisplayServerWindows::screen_get_refresh_rate(int p_screen) const {
 	_THREAD_SAFE_METHOD_
 
 	p_screen = _get_screen_index(p_screen);
-	EnumRefreshRateData data = { 0, p_screen, SCREEN_REFRESH_RATE_FALLBACK };
+	EnumRefreshRateData data = { Vector<DISPLAYCONFIG_PATH_INFO>(), Vector<DISPLAYCONFIG_MODE_INFO>(), 0, p_screen, SCREEN_REFRESH_RATE_FALLBACK };
+
+	uint32_t path_count = 0;
+	uint32_t mode_count = 0;
+	if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &path_count, &mode_count) == ERROR_SUCCESS) {
+		data.paths.resize(path_count);
+		data.modes.resize(mode_count);
+		if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &path_count, data.paths.ptrw(), &mode_count, data.modes.ptrw(), nullptr) != ERROR_SUCCESS) {
+			data.paths.clear();
+			data.modes.clear();
+		}
+	}
+
 	EnumDisplayMonitors(nullptr, nullptr, _MonitorEnumProcRefreshRate, (LPARAM)&data);
 	return data.rate;
 }
@@ -1049,6 +1296,11 @@ DisplayServer::WindowID DisplayServerWindows::create_sub_window(WindowMode p_mod
 	if (mainwindow_icon) {
 		SendMessage(windows[window_id].hWnd, WM_SETICON, ICON_BIG, (LPARAM)mainwindow_icon);
 	}
+#ifdef RD_ENABLED
+	if (rendering_device) {
+		rendering_device->screen_create(window_id);
+	}
+#endif
 	return window_id;
 }
 
@@ -1102,9 +1354,13 @@ void DisplayServerWindows::delete_sub_window(WindowID p_window) {
 		window_set_transient(p_window, INVALID_WINDOW_ID);
 	}
 
-#ifdef VULKAN_ENABLED
-	if (context_vulkan) {
-		context_vulkan->window_destroy(p_window);
+#ifdef RD_ENABLED
+	if (rendering_device) {
+		rendering_device->screen_free(p_window);
+	}
+
+	if (rendering_context) {
+		rendering_context->window_destroy(p_window);
 	}
 #endif
 #ifdef GLES3_ENABLED
@@ -1534,9 +1790,9 @@ void DisplayServerWindows::window_set_size(const Size2i p_size, WindowID p_windo
 	wd.width = w;
 	wd.height = h;
 
-#if defined(VULKAN_ENABLED)
-	if (context_vulkan) {
-		context_vulkan->window_resize(p_window, w, h);
+#if defined(RD_ENABLED)
+	if (rendering_context) {
+		rendering_context->window_set_size(p_window, w, h);
 	}
 #endif
 #if defined(GLES3_ENABLED)
@@ -1914,6 +2170,10 @@ bool DisplayServerWindows::window_is_focused(WindowID p_window) const {
 	const WindowData &wd = windows[p_window];
 
 	return wd.window_focused;
+}
+
+DisplayServerWindows::WindowID DisplayServerWindows::get_focused_window() const {
+	return last_focused_window;
 }
 
 bool DisplayServerWindows::window_can_draw(WindowID p_window) const {
@@ -2584,9 +2844,9 @@ void DisplayServerWindows::set_icon(const Ref<Image> &p_icon) {
 
 void DisplayServerWindows::window_set_vsync_mode(DisplayServer::VSyncMode p_vsync_mode, WindowID p_window) {
 	_THREAD_SAFE_METHOD_
-#if defined(VULKAN_ENABLED)
-	if (context_vulkan) {
-		context_vulkan->set_vsync_mode(p_window, p_vsync_mode);
+#if defined(RD_ENABLED)
+	if (rendering_context) {
+		rendering_context->window_set_vsync_mode(p_window, p_vsync_mode);
 	}
 #endif
 
@@ -2602,9 +2862,9 @@ void DisplayServerWindows::window_set_vsync_mode(DisplayServer::VSyncMode p_vsyn
 
 DisplayServer::VSyncMode DisplayServerWindows::window_get_vsync_mode(WindowID p_window) const {
 	_THREAD_SAFE_METHOD_
-#if defined(VULKAN_ENABLED)
-	if (context_vulkan) {
-		return context_vulkan->get_vsync_mode(p_window);
+#if defined(RD_ENABLED)
+	if (rendering_context) {
+		return rendering_context->window_get_vsync_mode(p_window);
 	}
 #endif
 
@@ -2616,7 +2876,6 @@ DisplayServer::VSyncMode DisplayServerWindows::window_get_vsync_mode(WindowID p_
 		return gl_manager_angle->is_using_vsync() ? DisplayServer::VSYNC_ENABLED : DisplayServer::VSYNC_DISABLED;
 	}
 #endif
-
 	return DisplayServer::VSYNC_ENABLED;
 }
 
@@ -2668,6 +2927,7 @@ void DisplayServerWindows::_drag_event(WindowID p_window, float p_x, float p_y, 
 	event->set_index(idx);
 	event->set_position(Vector2(p_x, p_y));
 	event->set_relative(Vector2(p_x, p_y) - curr->get());
+	event->set_relative_screen_position(event->get_relative());
 
 	Input::get_singleton()->parse_input_event(event);
 
@@ -2928,6 +3188,14 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 
 	// Process window messages.
 	switch (uMsg) {
+		case WM_CREATE: {
+			if (is_dark_mode_supported() && dark_title_available) {
+				BOOL value = is_dark_mode();
+
+				::DwmSetWindowAttribute(windows[window_id].hWnd, use_legacy_dark_mode_before_20H1 ? DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 : DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+				SendMessageW(windows[window_id].hWnd, WM_PAINT, 0, 0);
+			}
+		} break;
 		case WM_NCPAINT: {
 			if (RenderingServer::get_singleton() && (windows[window_id].borderless || (windows[window_id].fullscreen && windows[window_id].multiwindow_fs))) {
 				Color color = RenderingServer::get_singleton()->get_default_clear_color();
@@ -2958,9 +3226,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			}
 		} break;
 		case WM_MOUSEACTIVATE: {
-			if (windows[window_id].no_focus) {
-				return MA_NOACTIVATEANDEAT; // Do not activate, and discard mouse messages.
-			} else if (windows[window_id].is_popup) {
+			if (windows[window_id].no_focus || windows[window_id].is_popup) {
 				return MA_NOACTIVATE; // Do not activate, but process mouse messages.
 			}
 		} break;
@@ -3062,14 +3328,14 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			if (lParam && CompareStringOrdinal(reinterpret_cast<LPCWCH>(lParam), -1, L"ImmersiveColorSet", -1, true) == CSTR_EQUAL) {
 				if (is_dark_mode_supported() && dark_title_available) {
 					BOOL value = is_dark_mode();
-					::DwmSetWindowAttribute(windows[window_id].hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+					::DwmSetWindowAttribute(windows[window_id].hWnd, use_legacy_dark_mode_before_20H1 ? DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 : DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
 				}
 			}
 		} break;
 		case WM_THEMECHANGED: {
 			if (is_dark_mode_supported() && dark_title_available) {
 				BOOL value = is_dark_mode();
-				::DwmSetWindowAttribute(windows[window_id].hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+				::DwmSetWindowAttribute(windows[window_id].hWnd, use_legacy_dark_mode_before_20H1 ? DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 : DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
 			}
 		} break;
 		case WM_SYSCOMMAND: // Intercept system commands.
@@ -3108,7 +3374,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 
 		} break;
 		case WM_INPUT: {
-			if (mouse_mode != MOUSE_MODE_CAPTURED || !use_raw_input) {
+			if (!use_raw_input) {
 				break;
 			}
 
@@ -3126,7 +3392,32 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 
 			RAWINPUT *raw = (RAWINPUT *)lpb;
 
-			if (raw->header.dwType == RIM_TYPEMOUSE) {
+			if (raw->header.dwType == RIM_TYPEKEYBOARD) {
+				if (raw->data.keyboard.VKey == VK_SHIFT) {
+					// If multiple Shifts are held down at the same time,
+					// Windows natively only sends a KEYUP for the last one to be released.
+					if (raw->data.keyboard.Flags & RI_KEY_BREAK) {
+						if (GetAsyncKeyState(VK_SHIFT) < 0) {
+							// A Shift is released, but another Shift is still held
+							ERR_BREAK(key_event_pos >= KEY_EVENT_BUFFER_SIZE);
+
+							KeyEvent ke;
+							ke.shift = false;
+							ke.alt = alt_mem;
+							ke.control = control_mem;
+							ke.meta = meta_mem;
+							ke.uMsg = WM_KEYUP;
+							ke.window_id = window_id;
+
+							ke.wParam = VK_SHIFT;
+							// data.keyboard.MakeCode -> 0x2A - left shift, 0x36 - right shift.
+							// Bit 30 -> key was previously down, bit 31 -> key is being released.
+							ke.lParam = raw->data.keyboard.MakeCode << 16 | 1 << 30 | 1 << 31;
+							key_event_buffer[key_event_pos++] = ke;
+						}
+					}
+				}
+			} else if (mouse_mode == MOUSE_MODE_CAPTURED && raw->header.dwType == RIM_TYPEMOUSE) {
 				Ref<InputEventMouseMotion> mm;
 				mm.instantiate();
 
@@ -3149,6 +3440,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 				mm->set_position(c);
 				mm->set_global_position(c);
 				mm->set_velocity(Vector2(0, 0));
+				mm->set_screen_velocity(Vector2(0, 0));
 
 				if (raw->data.mouse.usFlags == MOUSE_MOVE_RELATIVE) {
 					mm->set_relative(Vector2(raw->data.mouse.lLastX, raw->data.mouse.lLastY));
@@ -3173,6 +3465,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 					old_x = coords.x;
 					old_y = coords.y;
 				}
+				mm->set_relative_screen_position(mm->get_relative());
 
 				if ((windows[window_id].window_has_focus || windows[window_id].is_popup) && mm->get_relative() != Vector2()) {
 					Input::get_singleton()->parse_input_event(mm);
@@ -3260,6 +3553,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 					}
 
 					mm->set_velocity(Input::get_singleton()->get_last_mouse_velocity());
+					mm->set_screen_velocity(mm->get_velocity());
 
 					if (old_invalid) {
 						old_x = mm->get_position().x;
@@ -3268,6 +3562,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 					}
 
 					mm->set_relative(Vector2(mm->get_position() - Vector2(old_x, old_y)));
+					mm->set_relative_screen_position(mm->get_relative());
 					old_x = mm->get_position().x;
 					old_y = mm->get_position().y;
 					if (windows[window_id].window_has_focus || window_get_active_popup() == window_id) {
@@ -3407,6 +3702,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			}
 
 			mm->set_velocity(Input::get_singleton()->get_last_mouse_velocity());
+			mm->set_screen_velocity(mm->get_velocity());
 
 			if (old_invalid) {
 				old_x = mm->get_position().x;
@@ -3415,6 +3711,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			}
 
 			mm->set_relative(Vector2(mm->get_position() - Vector2(old_x, old_y)));
+			mm->set_relative_screen_position(mm->get_relative());
 			old_x = mm->get_position().x;
 			old_y = mm->get_position().y;
 			if (windows[window_id].window_has_focus || window_get_active_popup() == window_id) {
@@ -3526,6 +3823,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			}
 
 			mm->set_velocity(Input::get_singleton()->get_last_mouse_velocity());
+			mm->set_screen_velocity(mm->get_velocity());
 
 			if (old_invalid) {
 				old_x = mm->get_position().x;
@@ -3534,6 +3832,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			}
 
 			mm->set_relative(Vector2(mm->get_position() - Vector2(old_x, old_y)));
+			mm->set_relative_screen_position(mm->get_relative());
 			old_x = mm->get_position().x;
 			old_y = mm->get_position().y;
 
@@ -3769,10 +4068,10 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 
 					rect_changed = true;
 				}
-#if defined(VULKAN_ENABLED)
-				if (context_vulkan && window.context_created) {
+#if defined(RD_ENABLED)
+				if (rendering_context && window.context_created) {
 					// Note: Trigger resize event to update swapchains when window is minimized/restored, even if size is not changed.
-					context_vulkan->window_resize(window_id, window.width, window.height);
+					rendering_context->window_set_size(window_id, window.width, window.height);
 				}
 #endif
 			}
@@ -3800,7 +4099,6 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			// Return here to prevent WM_MOVE and WM_SIZE from being sent
 			// See: https://docs.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged#remarks
 			return 0;
-
 		} break;
 
 		case WM_ENTERSIZEMOVE: {
@@ -4132,6 +4430,7 @@ void DisplayServerWindows::_process_key_events() {
 				}
 				Key key_label = keycode;
 				Key physical_keycode = KeyMappingWindows::get_scansym((ke.lParam >> 16) & 0xFF, ke.lParam & (1 << 24));
+				KeyLocation location = KeyMappingWindows::get_location((ke.lParam >> 16) & 0xFF, ke.lParam & (1 << 24));
 
 				static BYTE keyboard_state[256];
 				memset(keyboard_state, 0, 256);
@@ -4158,6 +4457,7 @@ void DisplayServerWindows::_process_key_events() {
 				}
 				k->set_keycode(keycode);
 				k->set_physical_keycode(physical_keycode);
+				k->set_location(location);
 				k->set_key_label(key_label);
 
 				if (i + 1 < key_event_pos && key_event_buffer[i + 1].uMsg == WM_CHAR) {
@@ -4323,17 +4623,40 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 
 		if (is_dark_mode_supported() && dark_title_available) {
 			BOOL value = is_dark_mode();
-			::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+			::DwmSetWindowAttribute(wd.hWnd, use_legacy_dark_mode_before_20H1 ? DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 : DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
 		}
 
+#ifdef RD_ENABLED
+		if (rendering_context) {
+			union {
 #ifdef VULKAN_ENABLED
-		if (context_vulkan) {
-			if (context_vulkan->window_create(id, p_vsync_mode, wd.hWnd, hInstance, WindowRect.right - WindowRect.left, WindowRect.bottom - WindowRect.top) != OK) {
-				memdelete(context_vulkan);
-				context_vulkan = nullptr;
-				windows.erase(id);
-				ERR_FAIL_V_MSG(INVALID_WINDOW_ID, "Failed to create Vulkan Window.");
+				RenderingContextDriverVulkanWindows::WindowPlatformData vulkan;
+#endif
+#ifdef D3D12_ENABLED
+				RenderingContextDriverD3D12::WindowPlatformData d3d12;
+#endif
+			} wpd;
+#ifdef VULKAN_ENABLED
+			if (rendering_driver == "vulkan") {
+				wpd.vulkan.window = wd.hWnd;
+				wpd.vulkan.instance = hInstance;
 			}
+#endif
+#ifdef D3D12_ENABLED
+			if (rendering_driver == "d3d12") {
+				wpd.d3d12.window = wd.hWnd;
+			}
+#endif
+			if (rendering_context->window_create(id, &wpd) != OK) {
+				ERR_PRINT(vformat("Failed to create %s window.", rendering_driver));
+				memdelete(rendering_context);
+				rendering_context = nullptr;
+				windows.erase(id);
+				return INVALID_WINDOW_ID;
+			}
+
+			rendering_context->window_set_size(id, WindowRect.right - WindowRect.left, WindowRect.bottom - WindowRect.top);
+			rendering_context->window_set_vsync_mode(id, p_vsync_mode);
 			wd.context_created = true;
 		}
 #endif
@@ -4442,6 +4765,7 @@ WTEnablePtr DisplayServerWindows::wintab_WTEnable = nullptr;
 
 // UXTheme API.
 bool DisplayServerWindows::dark_title_available = false;
+bool DisplayServerWindows::use_legacy_dark_mode_before_20H1 = false;
 bool DisplayServerWindows::ux_theme_available = false;
 ShouldAppsUseDarkModePtr DisplayServerWindows::ShouldAppsUseDarkMode = nullptr;
 GetImmersiveColorFromColorSetExPtr DisplayServerWindows::GetImmersiveColorFromColorSetEx = nullptr;
@@ -4563,9 +4887,28 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		GetImmersiveUserColorSetPreference = (GetImmersiveUserColorSetPreferencePtr)GetProcAddress(ux_theme_lib, MAKEINTRESOURCEA(98));
 
 		ux_theme_available = ShouldAppsUseDarkMode && GetImmersiveColorFromColorSetEx && GetImmersiveColorTypeFromName && GetImmersiveUserColorSetPreference;
-		if (os_ver.dwBuildNumber >= 22000) {
+		if (os_ver.dwBuildNumber >= 18363) {
 			dark_title_available = true;
+			if (os_ver.dwBuildNumber < 19041) {
+				use_legacy_dark_mode_before_20H1 = true;
+			}
 		}
+	}
+
+	// Note: Windows Ink API for pen input, available on Windows 8+ only.
+	// Note: DPI conversion API, available on Windows 8.1+ only.
+	HMODULE user32_lib = LoadLibraryW(L"user32.dll");
+	if (user32_lib) {
+		win8p_GetPointerType = (GetPointerTypePtr)GetProcAddress(user32_lib, "GetPointerType");
+		win8p_GetPointerPenInfo = (GetPointerPenInfoPtr)GetProcAddress(user32_lib, "GetPointerPenInfo");
+		win81p_LogicalToPhysicalPointForPerMonitorDPI = (LogicalToPhysicalPointForPerMonitorDPIPtr)GetProcAddress(user32_lib, "LogicalToPhysicalPointForPerMonitorDPI");
+		win81p_PhysicalToLogicalPointForPerMonitorDPI = (PhysicalToLogicalPointForPerMonitorDPIPtr)GetProcAddress(user32_lib, "PhysicalToLogicalPointForPerMonitorDPI");
+
+		winink_available = win8p_GetPointerType && win8p_GetPointerPenInfo;
+	}
+
+	if (winink_available) {
+		tablet_drivers.push_back("winink");
 	}
 
 	// Note: Wacom WinTab driver API for pen input, for devices incompatible with Windows Ink.
@@ -4584,21 +4927,7 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		tablet_drivers.push_back("wintab");
 	}
 
-	// Note: Windows Ink API for pen input, available on Windows 8+ only.
-	// Note: DPI conversion API, available on Windows 8.1+ only.
-	HMODULE user32_lib = LoadLibraryW(L"user32.dll");
-	if (user32_lib) {
-		win8p_GetPointerType = (GetPointerTypePtr)GetProcAddress(user32_lib, "GetPointerType");
-		win8p_GetPointerPenInfo = (GetPointerPenInfoPtr)GetProcAddress(user32_lib, "GetPointerPenInfo");
-		win81p_LogicalToPhysicalPointForPerMonitorDPI = (LogicalToPhysicalPointForPerMonitorDPIPtr)GetProcAddress(user32_lib, "LogicalToPhysicalPointForPerMonitorDPI");
-		win81p_PhysicalToLogicalPointForPerMonitorDPI = (PhysicalToLogicalPointForPerMonitorDPIPtr)GetProcAddress(user32_lib, "PhysicalToLogicalPointForPerMonitorDPI");
-
-		winink_available = win8p_GetPointerType && win8p_GetPointerPenInfo;
-	}
-
-	if (winink_available) {
-		tablet_drivers.push_back("winink");
-	}
+	tablet_drivers.push_back("dummy");
 
 	if (OS::get_singleton()->is_hidpi_allowed()) {
 		HMODULE Shcore = LoadLibraryW(L"Shcore.dll");
@@ -4635,20 +4964,36 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 
 	_register_raw_input_devices(INVALID_WINDOW_ID);
 
+#if defined(RD_ENABLED)
 #if defined(VULKAN_ENABLED)
 	if (rendering_driver == "vulkan") {
-		context_vulkan = memnew(VulkanContextWindows);
-		if (context_vulkan->initialize() != OK) {
-			memdelete(context_vulkan);
-			context_vulkan = nullptr;
+		rendering_context = memnew(RenderingContextDriverVulkanWindows);
+	}
+#endif
+#if defined(D3D12_ENABLED)
+	if (rendering_driver == "d3d12") {
+		rendering_context = memnew(RenderingContextDriverD3D12);
+	}
+#endif
+
+	if (rendering_context) {
+		if (rendering_context->initialize() != OK) {
+			memdelete(rendering_context);
+			rendering_context = nullptr;
 			r_error = ERR_UNAVAILABLE;
 			return;
 		}
 	}
 #endif
-	// Init context and rendering device
+// Init context and rendering device
 #if defined(GLES3_ENABLED)
 
+#if defined(__arm__) || defined(__aarch64__) || defined(_M_ARM) || defined(_M_ARM64)
+	// There's no native OpenGL drivers on Windows for ARM, switch to ANGLE over DX.
+	if (rendering_driver == "opengl3") {
+		rendering_driver = "opengl3_angle";
+	}
+#else
 	bool fallback = GLOBAL_GET("rendering/gl_compatibility/fallback_to_angle");
 	if (fallback && (rendering_driver == "opengl3")) {
 		Dictionary gl_info = detect_wgl();
@@ -4669,6 +5014,7 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 			rendering_driver = "opengl3_angle";
 		}
 	}
+#endif
 
 	if (rendering_driver == "opengl3") {
 		gl_manager_native = memnew(GLManagerNative_Windows);
@@ -4705,7 +5051,8 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		if (p_screen == SCREEN_OF_MAIN_WINDOW) {
 			p_screen = SCREEN_PRIMARY;
 		}
-		window_position = screen_get_position(p_screen) + (screen_get_size(p_screen) - p_resolution) / 2;
+		Rect2i scr_rect = screen_get_usable_rect(p_screen);
+		window_position = scr_rect.position + (scr_rect.size - p_resolution) / 2;
 	}
 
 	WindowID main_window = _create_window(p_mode, p_vsync_mode, p_flags, Rect2i(window_position, p_resolution));
@@ -4721,11 +5068,11 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 
 	show_window(MAIN_WINDOW_ID);
 
-#if defined(VULKAN_ENABLED)
-
-	if (rendering_driver == "vulkan") {
-		rendering_device_vulkan = memnew(RenderingDeviceVulkan);
-		rendering_device_vulkan->initialize(context_vulkan);
+#if defined(RD_ENABLED)
+	if (rendering_context) {
+		rendering_device = memnew(RenderingDevice);
+		rendering_device->initialize(rendering_context, MAIN_WINDOW_ID);
+		rendering_device->screen_create(MAIN_WINDOW_ID);
 
 		RendererCompositorRD::make_current();
 	}
@@ -4764,6 +5111,9 @@ Vector<String> DisplayServerWindows::get_rendering_drivers_func() {
 #ifdef VULKAN_ENABLED
 	drivers.push_back("vulkan");
 #endif
+#ifdef D3D12_ENABLED
+	drivers.push_back("d3d12");
+#endif
 #ifdef GLES3_ENABLED
 	drivers.push_back("opengl3");
 	drivers.push_back("opengl3_angle");
@@ -4785,6 +5135,16 @@ DisplayServer *DisplayServerWindows::create_func(const String &p_rendering_drive
 							"If you have recently updated your video card drivers, try rebooting.",
 							executable_name),
 					"Unable to initialize Vulkan video driver");
+		} else if (p_rendering_driver == "d3d12") {
+			String executable_name = OS::get_singleton()->get_executable_path().get_file();
+			OS::get_singleton()->alert(
+					vformat("Your video card drivers seem not to support the required DirectX 12 version.\n\n"
+							"If possible, consider updating your video card drivers or using the OpenGL 3 driver.\n\n"
+							"You can enable the OpenGL 3 driver by starting the engine from the\n"
+							"command line with the command:\n\n    \"%s\" --rendering-driver opengl3\n\n"
+							"If you have recently updated your video card drivers, try rebooting.",
+							executable_name),
+					"Unable to initialize DirectX 12 video driver");
 		} else {
 			OS::get_singleton()->alert(
 					"Your video card drivers seem not to support the required OpenGL 3.3 version.\n\n"
@@ -4823,9 +5183,13 @@ DisplayServerWindows::~DisplayServerWindows() {
 #endif
 
 	if (windows.has(MAIN_WINDOW_ID)) {
-#ifdef VULKAN_ENABLED
-		if (context_vulkan) {
-			context_vulkan->window_destroy(MAIN_WINDOW_ID);
+#ifdef RD_ENABLED
+		if (rendering_device) {
+			rendering_device->screen_free(MAIN_WINDOW_ID);
+		}
+
+		if (rendering_context) {
+			rendering_context->window_destroy(MAIN_WINDOW_ID);
 		}
 #endif
 		if (wintab_available && windows[MAIN_WINDOW_ID].wtctx) {
@@ -4835,16 +5199,15 @@ DisplayServerWindows::~DisplayServerWindows() {
 		DestroyWindow(windows[MAIN_WINDOW_ID].hWnd);
 	}
 
-#if defined(VULKAN_ENABLED)
-	if (rendering_device_vulkan) {
-		rendering_device_vulkan->finalize();
-		memdelete(rendering_device_vulkan);
-		rendering_device_vulkan = nullptr;
+#ifdef RD_ENABLED
+	if (rendering_device) {
+		memdelete(rendering_device);
+		rendering_device = nullptr;
 	}
 
-	if (context_vulkan) {
-		memdelete(context_vulkan);
-		context_vulkan = nullptr;
+	if (rendering_context) {
+		memdelete(rendering_context);
+		rendering_context = nullptr;
 	}
 #endif
 

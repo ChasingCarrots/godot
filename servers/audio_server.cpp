@@ -122,8 +122,10 @@ int AudioDriver::_get_configured_mix_rate() {
 
 	// In the case of invalid mix rate, let's default to a sensible value..
 	if (mix_rate <= 0) {
+#ifndef WEB_ENABLED
 		WARN_PRINT(vformat("Invalid mix rate of %d, consider reassigning setting \'%s\'. \nDefaulting mix rate to value %d.",
 				mix_rate, audio_driver_setting, AudioDriverManager::DEFAULT_MIX_RATE));
+#endif
 		mix_rate = AudioDriverManager::DEFAULT_MIX_RATE;
 	}
 
@@ -199,8 +201,8 @@ int AudioDriverManager::get_driver_count() {
 
 void AudioDriverManager::initialize(int p_driver) {
 	GLOBAL_DEF_RST("audio/driver/enable_input", false);
-	GLOBAL_DEF_RST("audio/driver/mix_rate", DEFAULT_MIX_RATE);
-	GLOBAL_DEF_RST("audio/driver/mix_rate.web", 0); // Safer default output_latency for web (use browser default).
+	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "audio/driver/mix_rate", PROPERTY_HINT_RANGE, "11025,192000,1,or_greater,suffix:Hz"), DEFAULT_MIX_RATE);
+	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "audio/driver/mix_rate.web", PROPERTY_HINT_RANGE, "0,192000,1,or_greater,suffix:Hz"), 0); // Safer default output_latency for web (use browser default).
 
 	int failed_driver = -1;
 
@@ -271,7 +273,14 @@ void AudioServer::_driver_process(int p_frames, int32_t *p_buffer) {
 
 		//master master, send to output
 		int cs = master->channels.size();
+
+		// Take away 1 from the stride, as we are manually incrementing by 1 for stereo.
+		uintptr_t stride_minus_one = (cs * 2) - 1;
+
 		for (int k = 0; k < cs; k++) {
+			// The destination start for data will be the same in all cases.
+			int32_t *dest = &p_buffer[from_buf * (cs * 2) + (k * 2)];
+
 			if (master->channels[k].active) {
 				const AudioFrame *buf = master->channels[k].buffer.ptr();
 
@@ -279,18 +288,25 @@ void AudioServer::_driver_process(int p_frames, int32_t *p_buffer) {
 					float l = CLAMP(buf[from + j].l, -1.0, 1.0);
 					int32_t vl = l * ((1 << 20) - 1);
 					int32_t vl2 = (vl < 0 ? -1 : 1) * (ABS(vl) << 11);
-					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 0] = vl2;
+					*dest = vl2;
+					dest++;
 
 					float r = CLAMP(buf[from + j].r, -1.0, 1.0);
 					int32_t vr = r * ((1 << 20) - 1);
 					int32_t vr2 = (vr < 0 ? -1 : 1) * (ABS(vr) << 11);
-					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 1] = vr2;
+					*dest = vr2;
+					dest += stride_minus_one;
 				}
 
 			} else {
+				// Bizarrely, profiling indicates that detecting the common case of cs == 1,
+				// k == 0, and using memset is SLOWER than setting them individually.
+				// Perhaps it gets optimized to a faster instruction than memset.
 				for (int j = 0; j < to_copy; j++) {
-					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 0] = 0;
-					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 1] = 0;
+					*dest = 0;
+					dest++;
+					*dest = 0;
+					dest += stride_minus_one;
 				}
 			}
 		}
@@ -300,7 +316,7 @@ void AudioServer::_driver_process(int p_frames, int32_t *p_buffer) {
 	}
 
 #ifdef DEBUG_ENABLED
-	prof_time += OS::get_singleton()->get_ticks_usec() - prof_ticks;
+	prof_time.add(OS::get_singleton()->get_ticks_usec() - prof_ticks);
 #endif
 }
 
@@ -1118,7 +1134,7 @@ float AudioServer::get_playback_speed_scale() const {
 	return playback_speed_scale;
 }
 
-void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, StringName p_bus, Vector<AudioFrame> p_volume_db_vector, float p_start_time, float p_pitch_scale) {
+void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, const StringName &p_bus, Vector<AudioFrame> p_volume_db_vector, float p_start_time, float p_pitch_scale) {
 	ERR_FAIL_COND(p_playback.is_null());
 
 	HashMap<StringName, Vector<AudioFrame>> map;
@@ -1127,7 +1143,7 @@ void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, Str
 	start_playback_stream(p_playback, map, p_start_time, p_pitch_scale);
 }
 
-void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, HashMap<StringName, Vector<AudioFrame>> p_bus_volumes, float p_start_time, float p_pitch_scale, float p_highshelf_gain, float p_attenuation_cutoff_hz) {
+void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, const HashMap<StringName, Vector<AudioFrame>> &p_bus_volumes, float p_start_time, float p_pitch_scale, float p_highshelf_gain, float p_attenuation_cutoff_hz) {
 	ERR_FAIL_COND(p_playback.is_null());
 
 	AudioStreamPlaybackListNode *playback_node = new AudioStreamPlaybackListNode();
@@ -1147,6 +1163,7 @@ void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, Has
 		for (int channel_idx = 0; channel_idx < MAX_CHANNELS_PER_BUS; channel_idx++) {
 			new_bus_details->volume[idx][channel_idx] = pair.value[channel_idx];
 		}
+		idx++;
 	}
 	playback_node->bus_details = new_bus_details;
 	playback_node->prev_bus_details = new AudioStreamPlaybackBusDetails();
@@ -1185,7 +1202,7 @@ void AudioServer::stop_playback_stream(Ref<AudioStreamPlayback> p_playback) {
 	} while (!playback_node->state.compare_exchange_strong(old_state, new_state));
 }
 
-void AudioServer::set_playback_bus_exclusive(Ref<AudioStreamPlayback> p_playback, StringName p_bus, Vector<AudioFrame> p_volumes) {
+void AudioServer::set_playback_bus_exclusive(Ref<AudioStreamPlayback> p_playback, const StringName &p_bus, Vector<AudioFrame> p_volumes) {
 	ERR_FAIL_COND(p_volumes.size() != MAX_CHANNELS_PER_BUS);
 
 	HashMap<StringName, Vector<AudioFrame>> map;
@@ -1194,7 +1211,7 @@ void AudioServer::set_playback_bus_exclusive(Ref<AudioStreamPlayback> p_playback
 	set_playback_bus_volumes_linear(p_playback, map);
 }
 
-void AudioServer::set_playback_bus_volumes_linear(Ref<AudioStreamPlayback> p_playback, HashMap<StringName, Vector<AudioFrame>> p_bus_volumes) {
+void AudioServer::set_playback_bus_volumes_linear(Ref<AudioStreamPlayback> p_playback, const HashMap<StringName, Vector<AudioFrame>> &p_bus_volumes) {
 	ERR_FAIL_COND(p_bus_volumes.size() > MAX_BUSES_PER_PLAYBACK);
 
 	AudioStreamPlaybackListNode *playback_node = _find_playback_list_node(p_playback);
@@ -1383,7 +1400,7 @@ void AudioServer::update() {
 		// Driver time includes server time + effects times
 		// Server time includes effects times
 		uint64_t driver_time = AudioDriver::get_singleton()->get_profiling_time();
-		uint64_t server_time = prof_time;
+		uint64_t server_time = prof_time.get();
 
 		// Subtract the server time from the driver time
 		if (driver_time > server_time) {
@@ -1442,7 +1459,7 @@ void AudioServer::update() {
 	}
 
 	AudioDriver::get_singleton()->reset_profiling_time();
-	prof_time = 0;
+	prof_time.set(0);
 #endif
 
 	for (CallbackItem *ci : update_callback_list) {
@@ -1572,7 +1589,7 @@ void AudioServer::remove_listener_changed_callback(AudioCallback p_callback, voi
 }
 
 void AudioServer::set_bus_layout(const Ref<AudioBusLayout> &p_bus_layout) {
-	ERR_FAIL_COND(p_bus_layout.is_null() || p_bus_layout->buses.size() == 0);
+	ERR_FAIL_COND(p_bus_layout.is_null() || p_bus_layout->buses.is_empty());
 
 	lock();
 	for (int i = 0; i < buses.size(); i++) {

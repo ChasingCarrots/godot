@@ -267,6 +267,11 @@ void DisplayServer::global_menu_clear(const String &p_menu_root) {
 	WARN_PRINT("Global menus not supported by this display server.");
 }
 
+Dictionary DisplayServer::global_menu_get_system_menu_roots() const {
+	WARN_PRINT("Global menus not supported by this display server.");
+	return Dictionary();
+}
+
 bool DisplayServer::tts_is_speaking() const {
 	WARN_PRINT("TTS is not supported by this display server.");
 	return false;
@@ -527,6 +532,11 @@ Error DisplayServer::file_dialog_show(const String &p_title, const String &p_cur
 	return OK;
 }
 
+Error DisplayServer::file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback) {
+	WARN_PRINT("Native dialogs not supported by this display server.");
+	return OK;
+}
+
 int DisplayServer::keyboard_get_layout_count() const {
 	return 0;
 }
@@ -591,6 +601,10 @@ DisplayServer::VSyncMode DisplayServer::window_get_vsync_mode(WindowID p_window)
 	return VSyncMode::VSYNC_ENABLED;
 }
 
+DisplayServer::WindowID DisplayServer::get_focused_window() const {
+	return MAIN_WINDOW_ID; // Proper value for single windows.
+}
+
 void DisplayServer::set_context(Context p_context) {
 }
 
@@ -651,6 +665,8 @@ void DisplayServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("global_menu_remove_item", "menu_root", "idx"), &DisplayServer::global_menu_remove_item);
 	ClassDB::bind_method(D_METHOD("global_menu_clear", "menu_root"), &DisplayServer::global_menu_clear);
+
+	ClassDB::bind_method(D_METHOD("global_menu_get_system_menu_roots"), &DisplayServer::global_menu_get_system_menu_roots);
 
 	ClassDB::bind_method(D_METHOD("tts_is_speaking"), &DisplayServer::tts_is_speaking);
 	ClassDB::bind_method(D_METHOD("tts_is_paused"), &DisplayServer::tts_is_paused);
@@ -793,6 +809,7 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("dialog_input_text", "title", "description", "existing_text", "callback"), &DisplayServer::dialog_input_text);
 
 	ClassDB::bind_method(D_METHOD("file_dialog_show", "title", "current_directory", "filename", "show_hidden", "mode", "filters", "callback"), &DisplayServer::file_dialog_show);
+	ClassDB::bind_method(D_METHOD("file_dialog_with_options_show", "title", "current_directory", "root", "filename", "show_hidden", "mode", "filters", "options", "callback"), &DisplayServer::file_dialog_with_options_show);
 
 	ClassDB::bind_method(D_METHOD("keyboard_get_layout_count"), &DisplayServer::keyboard_get_layout_count);
 	ClassDB::bind_method(D_METHOD("keyboard_get_current_layout"), &DisplayServer::keyboard_get_current_layout);

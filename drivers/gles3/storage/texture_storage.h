@@ -191,6 +191,7 @@ struct Texture {
 	RenderTarget *render_target = nullptr;
 
 	Ref<Image> image_cache_2d;
+	Vector<Ref<Image>> image_cache_3d;
 
 	bool redraw_if_visible = false;
 
@@ -365,6 +366,7 @@ struct RenderTarget {
 
 	bool used_in_frame = false;
 	RS::ViewportMSAA msaa = RS::VIEWPORT_MSAA_DISABLED;
+	bool reattach_textures = false;
 
 	struct RTOverridden {
 		bool is_overridden = false;
@@ -450,7 +452,10 @@ private:
 	void _render_target_clear_sdf(RenderTarget *rt);
 	Rect2i _render_target_get_sdf_rect(const RenderTarget *rt) const;
 
-	void _texture_set_data(RID p_texture, const Ref<Image> &p_image, int p_layer, bool initialize);
+	void _texture_set_data(RID p_texture, const Ref<Image> &p_image, int p_layer, bool p_initialize);
+	void _texture_set_3d_data(RID p_texture, const Vector<Ref<Image>> &p_data, bool p_initialize);
+	void _texture_set_swizzle(Texture *p_texture, Image::Format p_real_format);
+	Vector<Ref<Image>> _texture_3d_read_framebuffer(Texture *p_texture) const;
 
 	struct RenderTargetSDF {
 		CanvasSdfShaderGLES3 shader;
@@ -484,7 +489,7 @@ public:
 
 	/* Texture API */
 
-	Texture *get_texture(RID p_rid) {
+	Texture *get_texture(RID p_rid) const {
 		Texture *texture = texture_owner.get_or_null(p_rid);
 		if (texture && texture->is_proxy) {
 			return texture_owner.get_or_null(texture->proxy_to);
@@ -492,6 +497,10 @@ public:
 		return texture;
 	};
 	bool owns_texture(RID p_rid) { return texture_owner.owns(p_rid); };
+
+	void texture_2d_initialize_from_texture(RID p_texture, Texture &p_tex) {
+		texture_owner.initialize_rid(p_texture, p_tex);
+	}
 
 	virtual bool can_create_resources_async() const override;
 
@@ -506,7 +515,7 @@ public:
 	RID texture_create_external(Texture::Type p_type, Image::Format p_format, unsigned int p_image, int p_width, int p_height, int p_depth, int p_layers, RS::TextureLayeredType p_layered_type = RS::TEXTURE_LAYERED_2D_ARRAY);
 
 	virtual void texture_2d_update(RID p_texture, const Ref<Image> &p_image, int p_layer = 0) override;
-	virtual void texture_3d_update(RID p_texture, const Vector<Ref<Image>> &p_data) override{};
+	virtual void texture_3d_update(RID p_texture, const Vector<Ref<Image>> &p_data) override;
 	virtual void texture_proxy_update(RID p_proxy, RID p_base) override;
 
 	//these two APIs can be used together or in combination with the others.
@@ -515,8 +524,8 @@ public:
 	virtual void texture_3d_placeholder_initialize(RID p_texture) override;
 
 	virtual Ref<Image> texture_2d_get(RID p_texture) const override;
-	virtual Ref<Image> texture_2d_layer_get(RID p_texture, int p_layer) const override { return Ref<Image>(); };
-	virtual Vector<Ref<Image>> texture_3d_get(RID p_texture) const override { return Vector<Ref<Image>>(); };
+	virtual Ref<Image> texture_2d_layer_get(RID p_texture, int p_layer) const override;
+	virtual Vector<Ref<Image>> texture_3d_get(RID p_texture) const override;
 
 	virtual void texture_replace(RID p_texture, RID p_by_texture) override;
 	virtual void texture_set_size_override(RID p_texture, int p_width, int p_height) override;
@@ -602,7 +611,7 @@ public:
 	RenderTarget *get_render_target(RID p_rid) { return render_target_owner.get_or_null(p_rid); };
 	bool owns_render_target(RID p_rid) { return render_target_owner.owns(p_rid); };
 
-	void copy_scene_to_backbuffer(RenderTarget *rt, const bool uses_screen_texture, const bool uses_depth_texture);
+	void check_backbuffer(RenderTarget *rt, const bool uses_screen_texture, const bool uses_depth_texture);
 
 	virtual RID render_target_create() override;
 	virtual void render_target_free(RID p_rid) override;
@@ -635,6 +644,12 @@ public:
 	Color render_target_get_clear_request_color(RID p_render_target) override;
 	void render_target_disable_clear_request(RID p_render_target) override;
 	void render_target_do_clear_request(RID p_render_target) override;
+
+	GLuint render_target_get_fbo(RID p_render_target) const;
+	GLuint render_target_get_color(RID p_render_target) const;
+	GLuint render_target_get_depth(RID p_render_target) const;
+	void render_target_set_reattach_textures(RID p_render_target, bool p_reattach_textures) const;
+	bool render_target_is_reattach_textures(RID p_render_target) const;
 
 	virtual void render_target_set_sdf_size_and_scale(RID p_render_target, RS::ViewportSDFOversize p_size, RS::ViewportSDFScale p_scale) override;
 	virtual Rect2i render_target_get_sdf_rect(RID p_render_target) const override;

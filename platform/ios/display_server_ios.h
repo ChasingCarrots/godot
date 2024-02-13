@@ -34,11 +34,12 @@
 #include "core/input/input.h"
 #include "servers/display_server.h"
 
-#if defined(VULKAN_ENABLED)
-#import "vulkan_context_ios.h"
-
-#include "drivers/vulkan/rendering_device_vulkan.h"
+#if defined(RD_ENABLED)
 #include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
+#include "servers/rendering/rendering_device.h"
+
+#if defined(VULKAN_ENABLED)
+#import "rendering_context_driver_vulkan_ios.h"
 
 #ifdef USE_VOLK
 #include <volk.h>
@@ -46,6 +47,7 @@
 #include <vulkan/vulkan.h>
 #endif
 #endif // VULKAN_ENABLED
+#endif // RD_ENABLED
 
 #if defined(GLES3_ENABLED)
 #include "drivers/gles3/rasterizer_gles3.h"
@@ -59,9 +61,9 @@ class DisplayServerIOS : public DisplayServer {
 
 	_THREAD_SAFE_CLASS_
 
-#if defined(VULKAN_ENABLED)
-	VulkanContextIOS *context_vulkan = nullptr;
-	RenderingDeviceVulkan *rendering_device_vulkan = nullptr;
+#if defined(RD_ENABLED)
+	RenderingContextDriver *rendering_context = nullptr;
+	RenderingDevice *rendering_device = nullptr;
 #endif
 
 	id tts = nullptr;
@@ -117,7 +119,7 @@ public:
 
 	// MARK: Keyboard
 
-	void key(Key p_key, char32_t p_char, Key p_unshifted, Key p_physical, NSInteger p_modifier, bool p_pressed);
+	void key(Key p_key, char32_t p_char, Key p_unshifted, Key p_physical, NSInteger p_modifier, bool p_pressed, KeyLocation p_location);
 	bool is_keyboard_active() const;
 
 	// MARK: Motion

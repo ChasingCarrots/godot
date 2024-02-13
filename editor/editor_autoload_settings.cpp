@@ -33,12 +33,12 @@
 #include "core/config/project_settings.h"
 #include "core/core_constants.h"
 #include "editor/editor_node.h"
-#include "editor/editor_scale.h"
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/filesystem_dock.h"
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/project_settings_editor.h"
+#include "editor/themes/editor_scale.h"
 #include "scene/main/window.h"
 #include "scene/resources/packed_scene.h"
 
@@ -57,7 +57,7 @@ void EditorAutoloadSettings::_notification(int p_what) {
 
 			for (const AutoloadInfo &info : autoload_cache) {
 				if (info.node && info.in_editor) {
-					get_tree()->get_root()->call_deferred(SNAME("add_child"), info.node);
+					callable_mp((Node *)get_tree()->get_root(), &Node::add_child).call_deferred(info.node, false, Node::INTERNAL_MODE_DISABLED);
 				}
 			}
 			browse_button->set_icon(get_editor_theme_icon(SNAME("Folder")));
@@ -65,6 +65,7 @@ void EditorAutoloadSettings::_notification(int p_what) {
 
 		case NOTIFICATION_THEME_CHANGED: {
 			browse_button->set_icon(get_editor_theme_icon(SNAME("Folder")));
+			add_autoload->set_icon(get_editor_theme_icon(SNAME("Add")));
 		} break;
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
@@ -407,31 +408,30 @@ Node *EditorAutoloadSettings::_create_autoload(const String &p_path) {
 		scn.instantiate();
 		scn->set_path(p_path);
 		scn->reload_from_file();
-		ERR_FAIL_COND_V_MSG(!scn.is_valid(), nullptr, vformat("Can't autoload: %s.", p_path));
+		ERR_FAIL_COND_V_MSG(!scn.is_valid(), nullptr, vformat("Failed to create an autoload, can't load from path: %s.", p_path));
 
 		if (scn.is_valid()) {
 			n = scn->instantiate();
 		}
 	} else {
 		Ref<Resource> res = ResourceLoader::load(p_path);
-		ERR_FAIL_COND_V_MSG(res.is_null(), nullptr, vformat("Can't autoload: %s.", p_path));
+		ERR_FAIL_COND_V_MSG(res.is_null(), nullptr, vformat("Failed to create an autoload, can't load from path: %s.", p_path));
 
 		Ref<Script> scr = res;
 		if (scr.is_valid()) {
 			StringName ibt = scr->get_instance_base_type();
 			bool valid_type = ClassDB::is_parent_class(ibt, "Node");
-			ERR_FAIL_COND_V_MSG(!valid_type, nullptr, vformat("Script does not inherit from Node: %s.", p_path));
+			ERR_FAIL_COND_V_MSG(!valid_type, nullptr, vformat("Failed to create an autoload, script '%s' does not inherit from 'Node'.", p_path));
 
 			Object *obj = ClassDB::instantiate(ibt);
-
-			ERR_FAIL_NULL_V_MSG(obj, nullptr, vformat("Cannot instance script for Autoload, expected 'Node' inheritance, got: %s.", ibt));
+			ERR_FAIL_NULL_V_MSG(obj, nullptr, vformat("Failed to create an autoload, cannot instantiate '%s'.", ibt));
 
 			n = Object::cast_to<Node>(obj);
 			n->set_script(scr);
 		}
 	}
 
-	ERR_FAIL_NULL_V_MSG(n, nullptr, vformat("Path in Autoload not a node or script: %s.", p_path));
+	ERR_FAIL_NULL_V_MSG(n, nullptr, vformat("Failed to create an autoload, path is not pointing to a scene or a script: %s.", p_path));
 
 	return n;
 }
@@ -534,7 +534,7 @@ void EditorAutoloadSettings::update_autoload() {
 		}
 		if (info.in_editor) {
 			ERR_CONTINUE(!info.node);
-			get_tree()->get_root()->call_deferred(SNAME("remove_child"), info.node);
+			callable_mp((Node *)get_tree()->get_root(), &Node::remove_child).call_deferred(info.node);
 		}
 
 		if (info.node) {

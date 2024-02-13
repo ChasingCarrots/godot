@@ -52,10 +52,8 @@
 #include "drivers/xaudio2/audio_driver_xaudio2.h"
 #endif
 
-#if defined(VULKAN_ENABLED)
-#include "vulkan_context_win.h"
-
-#include "drivers/vulkan/rendering_device_vulkan.h"
+#if defined(RD_ENABLED)
+#include "servers/rendering/rendering_device.h"
 #endif
 
 #if defined(GLES3_ENABLED)
@@ -289,6 +287,7 @@ class DisplayServerWindows : public DisplayServer {
 
 	// UXTheme API
 	static bool dark_title_available;
+	static bool use_legacy_dark_mode_before_20H1;
 	static bool ux_theme_available;
 	static ShouldAppsUseDarkModePtr ShouldAppsUseDarkMode;
 	static GetImmersiveColorFromColorSetExPtr GetImmersiveColorFromColorSetEx;
@@ -342,9 +341,9 @@ class DisplayServerWindows : public DisplayServer {
 	GLManagerNative_Windows *gl_manager_native = nullptr;
 #endif
 
-#if defined(VULKAN_ENABLED)
-	VulkanContextWindows *context_vulkan = nullptr;
-	RenderingDeviceVulkan *rendering_device_vulkan = nullptr;
+#if defined(RD_ENABLED)
+	RenderingContextDriver *rendering_context = nullptr;
+	RenderingDevice *rendering_device = nullptr;
 #endif
 
 	RBMap<int, Vector2> touch_state;
@@ -492,6 +491,8 @@ class DisplayServerWindows : public DisplayServer {
 	LRESULT _handle_early_window_message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	Point2i _get_screens_origin() const;
 
+	Error _file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback, bool p_options_in_cb);
+
 public:
 	LRESULT WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	LRESULT MouseProc(int code, WPARAM wParam, LPARAM lParam);
@@ -516,6 +517,7 @@ public:
 	virtual Color get_accent_color() const override;
 
 	virtual Error file_dialog_show(const String &p_title, const String &p_current_directory, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const Callable &p_callback) override;
+	virtual Error file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback) override;
 
 	virtual void mouse_set_mode(MouseMode p_mode) override;
 	virtual MouseMode mouse_get_mode() const override;
@@ -605,6 +607,8 @@ public:
 	virtual void window_request_attention(WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual void window_move_to_foreground(WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual bool window_is_focused(WindowID p_window = MAIN_WINDOW_ID) const override;
+
+	virtual WindowID get_focused_window() const override;
 
 	virtual bool window_can_draw(WindowID p_window = MAIN_WINDOW_ID) const override;
 
