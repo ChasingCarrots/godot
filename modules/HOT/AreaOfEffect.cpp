@@ -125,8 +125,8 @@ void AreaOfEffect::_ready() {
 static LocalVector<GameObject*> tempHits;
 void AreaOfEffect::UpdateAllAreaOfEffects(float delta) {
 	PROFILE_FUNCTION();
-	LocatorSystem* locators = nullptr;
-	for(auto* area : _allAreaOfEffects) {
+	for(int area_index= static_cast<int>(_allAreaOfEffects.size()) -1; area_index >= 0; --area_index) {
+		AreaOfEffect* area = _allAreaOfEffects[area_index];
 		area->_remainingTimeToNextTrigger -= delta;
 		if(area->TriggerEverySeconds <= 0 || area->_remainingTimeToNextTrigger < 0) {
 			if(area->_is_harmless || area->_modifiedAttackSpeed->Value() == 0)
