@@ -305,10 +305,9 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 	categoriesAsPackedStr.resize(categories.size());
 	for (int i = 0; i < categories.size(); ++i)
 		categoriesAsPackedStr.set(i, categories[i]);
-	const uint32_t categoriesHash = Modifier::CalculateCategoriesHash(categoriesAsPackedStr);
 
 	for(auto modifier : _modifier) {
-		if(!modifier->isRelevant(modifierType, categoriesHash, categoriesAsPackedStr))
+		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
 		baseValueInt += (int)modifier->getAdditiveModifier();
 		baseValueFloat += modifier->getAdditiveModifier();
@@ -318,7 +317,7 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
-			if(!modifier->isRelevant(modifierType, categoriesHash, categoriesAsPackedStr))
+			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
 			baseValueInt += (int)modifier->getAdditiveModifier();
 			baseValueFloat += modifier->getAdditiveModifier();
@@ -340,10 +339,9 @@ float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> ca
 	categoriesAsPackedStr.resize(categories.size());
 	for (int i = 0; i < categories.size(); ++i)
 		categoriesAsPackedStr.set(i, categories[i]);
-	const uint32_t categoriesHash = Modifier::CalculateCategoriesHash(categoriesAsPackedStr);
 	float additiveModifierSum = 0;
 	for(auto modifier : _modifier) {
-		if(!modifier->isRelevant(modifierType, categoriesHash, categoriesAsPackedStr))
+		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
 		additiveModifierSum += modifier->getAdditiveModifier();
 	}
@@ -351,7 +349,7 @@ float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> ca
 	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
-			if(!modifier->isRelevant(modifierType, categoriesHash, categoriesAsPackedStr))
+			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
 			additiveModifierSum += modifier->getAdditiveModifier();
 		}
@@ -366,12 +364,11 @@ float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<Stri
 	categoriesAsPackedStr.resize(categories.size());
 	for (int i = 0; i < categories.size(); ++i)
 		categoriesAsPackedStr.set(i, categories[i]);
-	const uint32_t categoriesHash = Modifier::CalculateCategoriesHash(categoriesAsPackedStr);
 
 	float multiplierSum = 1;
 
 	for(auto modifier : _modifier) {
-		if(!modifier->isRelevant(modifierType, categoriesHash, categoriesAsPackedStr))
+		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
 		multiplierSum += modifier->getMultiplierModifier();
 	}
@@ -379,7 +376,7 @@ float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<Stri
 	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
-			if(!modifier->isRelevant(modifierType, categoriesHash, categoriesAsPackedStr))
+			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
 			multiplierSum += modifier->getMultiplierModifier();
 		}
@@ -414,12 +411,11 @@ Array GameObject::getModifiers(String modifierType, TypedArray<String> categorie
 	categoriesAsPackedStr.resize(categories.size());
 	for (int i = 0; i < categories.size(); ++i)
 		categoriesAsPackedStr.set(i, categories[i]);
-	const uint32_t categoriesHash = Modifier::CalculateCategoriesHash(categoriesAsPackedStr);
 
 	Array returnArray;
 
 	for(auto modifier : _modifier)
-		if(modifier->isRelevant(modifierType, categoriesHash, categoriesAsPackedStr))
+		if(modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			returnArray.append(modifier);
 
 	return returnArray;

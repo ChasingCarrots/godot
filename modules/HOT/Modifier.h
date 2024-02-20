@@ -5,7 +5,6 @@
 
 #include <core/object/ref_counted.h>
 #include <core/profiling.h>
-#include <core/templates/oa_hash_map.h>
 
 class GameObject;
 
@@ -20,44 +19,6 @@ class Modifier : public RefCounted {
 	String _modifierName = "Unnamed Modifier";
 	Variant _gameObject;
 	PackedStringArray _modifierCategories;
-	uint32_t _modifierCategoriesHash = 0;
-
-	struct RelevanceLists {
-		HashSet<uint32_t> Relevant;
-		HashSet<uint32_t> Irrelevant;
-	};
-	static OAHashMap<uint32_t, RelevanceLists> CategoriesRelevance;
-	static bool AreCategoriesRelevant(uint32_t ownHash, const PackedStringArray& ownCategories,
-		uint32_t otherHash, const PackedStringArray& otherCategories)
-	{
-		PROFILE_FUNCTION();
-		if (RelevanceLists *lists = CategoriesRelevance.lookup_ptr(ownHash); lists != nullptr) {
-			if(lists->Relevant.has(otherHash))
-				return true;
-			if(lists->Irrelevant.has(otherHash))
-				return false;
-			for (const auto& ownString : ownCategories) {
-				if (otherCategories.has(ownString)) {
-					lists->Relevant.insert(otherHash);
-					return true;
-				}
-			}
-			lists->Irrelevant.insert(otherHash);
-			return false;
-		}
-		RelevanceLists newLists;
-		bool isRelevant = false;
-		for (const auto& ownString : ownCategories) {
-			if (otherCategories.has(ownString)) {
-				isRelevant = true;
-				newLists.Relevant.insert(otherHash);
-				break;
-			}
-		}
-		if(!isRelevant) newLists.Irrelevant.insert(otherHash);
-		CategoriesRelevance.insert(ownHash, newLists);
-		return isRelevant;
-	}
 
 protected:
 	// Required entry point that the API calls to bind our class to Godot.
@@ -88,24 +49,17 @@ public:
 		_multiplierMod = multiplier;
 	}
 
-	static uint32_t CalculateCategoriesHash(const PackedStringArray& categories) {
-		// we specifically don't want the order to matter, so we'll just add the hashes
-		uint32_t hash = 0;
-		for(const auto& s : categories)
-			hash += s.hash();
-		return hash;
-	}
-
-	bool isRelevant(const String& modifiedType, uint32_t categoriesHash, const PackedStringArray& categories) const {
+	bool isRelevant(const String& modifiedType, const PackedStringArray& categories) const {
 		PROFILE_FUNCTION("Modifier::isRelevant");
 		if(modifiedType != _modifiedType)
 			return false;
-		if(_modifierCategoriesHash == categoriesHash || _modifierCategoriesHash == 0)
+		if(_modifierCategories.is_empty())
 			return true;
-		if(categoriesHash == 0)
-			return false;
-		return AreCategoriesRelevant(_modifierCategoriesHash, _modifierCategories,
-			categoriesHash, categories);
+		for (int i = 0; i < _modifierCategories.size(); ++i) {
+			if (categories.has(_modifierCategories[i]))
+				return true;
+		}
+		return false;
 	}
 	float getAdditiveModifier()  {
 		return _additiveMod;
