@@ -15,6 +15,7 @@ void Modifier::_bind_methods() {
 }
 
 void Modifier::_init(String modifierName, Variant gameObject) {
+	_hash = 0;
 	_modifiedType = modifierName;
 	if (gameObject.get_type() != Variant::OBJECT)
 		return;
@@ -43,5 +44,6 @@ void Modifier::allowCategories(TypedArray<String> categories) {
 	for (int i = 0; i < categories.size(); ++i) {
 		_modifierCategories.set(i, categories[i]);
 	}
+	_hash = 0;
 }
 

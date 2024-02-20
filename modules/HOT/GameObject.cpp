@@ -9,6 +9,8 @@
 Node* GameObject::_global = nullptr;
 Node* GameObject::_world = nullptr;
 OAHashMap<uint32_t, Ref<ThreadedObjectPool>> GameObject::EffectObjectPools;
+OAHashMap<uint32_t, float> GameObject::CalculatedModifiedFloatValuesCache;
+OAHashMap<uint32_t, int> GameObject::CalculatedModifiedIntValuesCache;
 
 void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("connectToSignal", "signalName", "callable"), &GameObject::connectToSignal);
@@ -42,6 +44,8 @@ void GameObject::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("ModifierUpdated", PropertyInfo(Variant::STRING_NAME, "type")));
 	ADD_SIGNAL(MethodInfo("Removed", PropertyInfo(Variant::OBJECT, "type", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
+
+	ClassDB::bind_static_method("GameObject", D_METHOD("clearModifiedValueCache"), &GameObject::clearModifiedValueCache);
 }
 
 void GameObject::_notification(int p_notification) {
@@ -298,6 +302,23 @@ void GameObject::triggerModifierUpdated(String modifierType) {
 
 Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValue, TypedArray<String> categories) {
 	PROFILE_FUNCTION();
+	uint32_t calculationHash;
+	bool isFloat = baseValue.get_type() == Variant::FLOAT;
+	{
+		PROFILE_FUNCTION("ModValueCalculationHashing");
+		calculationHash = calculateHashForModifiedValueCalculation(modifierType, baseValue, categories);
+		if(isFloat) {
+			float cachedValue = 0;
+			if(CalculatedModifiedFloatValuesCache.lookup(calculationHash, cachedValue))
+				return cachedValue;
+		}
+		else {
+			int cachedValue = 0;
+			if(CalculatedModifiedIntValuesCache.lookup(calculationHash, cachedValue))
+				return cachedValue;
+		}
+	}
+
 	int baseValueInt = baseValue;
 	float baseValueFloat = baseValue;
 	float multiplier = 1;
@@ -325,12 +346,16 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 		}
 	}
 
-	if(baseValue.get_type() == Variant::FLOAT) {
-		if(multiplier < 0) return 0.0f;
-		return baseValueFloat * multiplier;
+	if(isFloat) {
+		float calculatedFloatValue = 0;
+		if(multiplier > 0) calculatedFloatValue = baseValueFloat * multiplier;
+		CalculatedModifiedFloatValuesCache.insert(calculationHash, calculatedFloatValue);
+		return calculatedFloatValue;
 	}
-	if(multiplier < 0) return 0;
-	return (int)(baseValueInt * multiplier);
+	int calculatedIntValue = 0;
+	if(multiplier > 0) calculatedIntValue = static_cast<int>(baseValueInt * multiplier);
+	CalculatedModifiedIntValuesCache.insert(calculationHash, calculatedIntValue);
+	return calculatedIntValue;
 }
 
 float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> categories) {

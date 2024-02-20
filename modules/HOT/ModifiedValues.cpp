@@ -17,7 +17,7 @@ void ModifiedIntValue::_bind_methods() {
 }
 
 void ModifiedIntValue::_init(int baseVal, String modifierName, Variant gameObject, String rankModifier) {
-	PROFILE_FUNCTION()
+	PROFILE_FUNCTION();
 	_gameObjectChecker = gameObject;
 	if (!IsGameObjectValid()) {
 		print_error(String("Error: ModifiedIntValue init received an invalid gameObject! ModifierName: ")+modifierName);

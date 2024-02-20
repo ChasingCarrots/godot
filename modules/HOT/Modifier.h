@@ -19,6 +19,7 @@ class Modifier : public RefCounted {
 	String _modifierName = "Unnamed Modifier";
 	Variant _gameObject;
 	PackedStringArray _modifierCategories;
+	mutable uint32_t _hash = 0;
 
 protected:
 	// Required entry point that the API calls to bind our class to Godot.
@@ -36,17 +37,32 @@ public:
 
 	void setModifierName(String modifierName) {
 		_modifierName = modifierName;
+		_hash = 0;
 	}
 	String getModifierName() {
 		return _modifierName;
 	}
 
+	uint32_t hash() const {
+		if(_hash != 0)
+			return _hash;
+		_hash = _modifiedType.hash();
+		_hash += 6763 * hash_murmur3_one_float(_additiveMod);
+		_hash += 7489 * hash_murmur3_one_float(_multiplierMod);
+		// we specifically don't want the order to matter, so we'll just use xor
+		for(const auto& s : _modifierCategories)
+			_hash ^= s.hash();
+		return _hash;
+	}
+
 	void allowCategories(TypedArray<String> categories);
 	void setAdditiveMod(float additive) {
 		_additiveMod = additive;
+		_hash = 0;
 	}
 	void setMultiplierMod(float multiplier) {
 		_multiplierMod = multiplier;
+		_hash = 0;
 	}
 
 	bool isRelevant(const String& modifiedType, const PackedStringArray& categories) const {

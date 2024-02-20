@@ -43,9 +43,21 @@ class GameObject : public Node2D {
 
 	OAHashMap<StringName, ObjectID> _childNodeWithMethodOrPropertyCache;
 
+	uint32_t calculateHashForModifiedValueCalculation(const String& modifierType, const Variant& baseValue, const TypedArray<String>& categories) {
+		uint32_t calculationHash = modifierType.hash();
+		calculationHash += 7841 * baseValue.hash();
+		for (int i = 0; i < categories.size(); ++i)
+			calculationHash ^= categories[i].hash();
+		for(const auto mod : _modifier)
+			calculationHash ^= mod->hash();
+		return calculationHash;
+	}
+
 	static Node* _global;
 	static Node* _world;
 	static OAHashMap<uint32_t, Ref<ThreadedObjectPool>> EffectObjectPools;
+	static OAHashMap<uint32_t, float> CalculatedModifiedFloatValuesCache;
+	static OAHashMap<uint32_t, int> CalculatedModifiedIntValuesCache;
 	static void InvalidateWorld() {
 		_world = nullptr;
 		auto poolIter = EffectObjectPools.iter();
@@ -54,6 +66,9 @@ class GameObject : public Node2D {
 			poolIter = EffectObjectPools.next_iter(poolIter);
 		}
 		EffectObjectPools.clear();
+		print_line("ModifiedFloatValuesCache: ",CalculatedModifiedFloatValuesCache.get_num_elements(),"  ModifiedIntValuesCache: ",CalculatedModifiedIntValuesCache.get_num_elements() );
+		CalculatedModifiedFloatValuesCache.clear();
+		CalculatedModifiedIntValuesCache.clear();
 	}
 protected:
     // Required entry point that the API calls to bind our class to Godot.
@@ -79,6 +94,10 @@ public:
 		}
 		_world = cast_to<Node>(worldVariant);
 		return _world;
+	}
+	static void clearModifiedValueCache() {
+		CalculatedModifiedFloatValuesCache.clear();
+		CalculatedModifiedIntValuesCache.clear();
 	}
 
     void _connect_child_entered_tree();
