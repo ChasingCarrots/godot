@@ -2,6 +2,8 @@
 
 #include "GameObject.h"
 
+OAHashMap<uint32_t, Modifier::RelevanceLists> Modifier::CategoriesRelevance;
+
 void Modifier::_bind_methods() {
 	ClassDB::bind_static_method("Modifier", D_METHOD("create", "modifierName", "gameObject"), &Modifier::create);
 	ClassDB::bind_method(D_METHOD("init", "modifiedType", "gameObject"), &Modifier::_init);
@@ -15,6 +17,7 @@ void Modifier::_bind_methods() {
 }
 
 void Modifier::_init(String modifierName, Variant gameObject) {
+	PROFILE_FUNCTION();
 	_modifiedType = modifierName;
 	if (gameObject.get_type() != Variant::OBJECT)
 		return;
@@ -43,5 +46,6 @@ void Modifier::allowCategories(TypedArray<String> categories) {
 	for (int i = 0; i < categories.size(); ++i) {
 		_modifierCategories.set(i, categories[i]);
 	}
+	_modifierCategoriesHash = CalculateCategoriesHash(_modifierCategories);
 }
 
