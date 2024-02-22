@@ -24,8 +24,13 @@ void StatisticsValueData::_bind_methods() {
 	BIND_ENUM_CONSTANT(Block);
 	BIND_ENUM_CONSTANT(Attacks);
 
-	ClassDB::bind_static_method("StatisticsValueData", D_METHOD("createFromModifiedValue", "modifiedValue", "displayName", "statsCategory", "format", "specialInfo"), &StatisticsValueData::createFromModifiedValue);
-	ClassDB::bind_static_method("StatisticsValueData", D_METHOD("createNew", "displayName", "statsCategory", "modifierKey", "baseVal", "finalVal", "categories", "format", "specialInfo"), &StatisticsValueData::createNew);
+	BIND_ENUM_CONSTANT(NoFlags);
+	BIND_ENUM_CONSTANT(NoBaseValue);
+	BIND_ENUM_CONSTANT(NoMultiplierValue);
+	BIND_ENUM_CONSTANT(NegativeValueIsPositiveEffect);
+
+	ClassDB::bind_static_method("StatisticsValueData", D_METHOD("createFromModifiedValue", "modifiedValue", "displayName", "statsCategory", "format", "specialInfo", "displayFlags"), &StatisticsValueData::createFromModifiedValue, DEFVAL(NoFlags));
+	ClassDB::bind_static_method("StatisticsValueData", D_METHOD("createNew", "displayName", "statsCategory", "modifierKey", "baseVal", "finalVal", "categories", "format", "specialInfo", "displayFlags"), &StatisticsValueData::createNew, DEFVAL(NoFlags));
 
 	ClassDB::bind_method(D_METHOD("set_DisplayName", "displayName"), &StatisticsValueData::SetDisplayName);
 	ClassDB::bind_method(D_METHOD("get_DisplayName"), &StatisticsValueData::GetDisplayName);
@@ -33,9 +38,9 @@ void StatisticsValueData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_StatisticsCategory", "statisticsCategory"), &StatisticsValueData::SetStatisticsCategory);
 	ClassDB::bind_method(D_METHOD("get_StatisticsCategory"), &StatisticsValueData::GetStatisticsCategory);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "StatisticsCategory"), "set_StatisticsCategory", "get_StatisticsCategory");
-	ClassDB::bind_method(D_METHOD("set_ModifierKey", "modifierKey"), &StatisticsValueData::SetModifierKey);
-	ClassDB::bind_method(D_METHOD("get_ModifierKey"), &StatisticsValueData::GetModifierKey);
-	ADD_PROPERTY(PropertyInfo(Variant::STRING, "ModifierKey"), "set_ModifierKey", "get_ModifierKey");
+	ClassDB::bind_method(D_METHOD("set_ModifierKeys", "modifierKeys"), &StatisticsValueData::SetModifierKeys);
+	ClassDB::bind_method(D_METHOD("get_ModifierKeys"), &StatisticsValueData::GetModifierKeys);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "ModifierKeys"), "set_ModifierKeys", "get_ModifierKeys");
 	ClassDB::bind_method(D_METHOD("set_BaseValue", "baseValue"), &StatisticsValueData::SetBaseValue);
 	ClassDB::bind_method(D_METHOD("get_BaseValue"), &StatisticsValueData::GetBaseValue);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "BaseValue"), "set_BaseValue", "get_BaseValue");
@@ -51,9 +56,12 @@ void StatisticsValueData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_SpecialInfoType", "specialInfoType"), &StatisticsValueData::SetSpecialInfoType);
 	ClassDB::bind_method(D_METHOD("get_SpecialInfoType"), &StatisticsValueData::GetSpecialInfoType);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "SpecialInfoType", PROPERTY_HINT_ENUM, "None,Defense,Block,Attacks"), "set_SpecialInfoType", "get_SpecialInfoType");
+	ClassDB::bind_method(D_METHOD("set_DisplayFlags", "displayFlags"), &StatisticsValueData::SetDisplayFlags);
+	ClassDB::bind_method(D_METHOD("get_DisplayFlags"), &StatisticsValueData::GetDisplayFlags);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "DisplayFlags", PROPERTY_HINT_FLAGS, "NoFlags,NoBaseValue"), "set_DisplayFlags", "get_DisplayFlags");
 }
 
-Ref<StatisticsValueData> StatisticsValueData::createFromModifiedValue(Variant modifiedValue, const String &displayName, const String &statsCategory, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo) {
+Ref<StatisticsValueData> StatisticsValueData::createFromModifiedValue(Variant modifiedValue, const String &displayName, const String &statsCategory, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags) {
 	if(modifiedValue.is_null()) {
 		print_error("StatisticsValueData::createFromModifiedValue called with a null value!");
 		return {};
@@ -74,7 +82,8 @@ Ref<StatisticsValueData> StatisticsValueData::createFromModifiedValue(Variant mo
 				modifiedFloatValue->Value(),
 				modifiedFloatValue->getModifierCategories(),
 				format,
-				specialInfo);
+				specialInfo,
+				display_flags);
 		}
 	}
 	{
@@ -88,23 +97,38 @@ Ref<StatisticsValueData> StatisticsValueData::createFromModifiedValue(Variant mo
 				modifiedIntValue->Value(),
 				modifiedIntValue->getModifierCategories(),
 				format,
-				specialInfo);
+				specialInfo,
+				display_flags);
 		}
 	}
 	print_line("StatisticsValueData::createFromModifiedValue needs either a ModifiedIntValue or a ModifiedFloatValue as its first parameter, but got: ", modifiedValueAsObject->get_class_name());
 	return {};
 }
 
-Ref<StatisticsValueData> StatisticsValueData::createNew(const String &displayName, const String &statsCategory, const String &modifierKey, float baseVal, float finalVal, const TypedArray<String> &categories, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo) {
+Ref<StatisticsValueData> StatisticsValueData::createNew(const String &displayName, const String &statsCategory, Variant modifierKeys, float baseVal, float finalVal, const TypedArray<String> &categories, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags) {
 	Ref<StatisticsValueData> newStatsValueData;
 	newStatsValueData.instantiate();
 	newStatsValueData->DisplayName = displayName;
 	newStatsValueData->StatisticsCategory = statsCategory;
-	newStatsValueData->ModifierKey = modifierKey;
+	if(modifierKeys.get_type() == Variant::STRING || modifierKeys.get_type() == Variant::STRING_NAME)
+		newStatsValueData->ModifierKeys.append(modifierKeys);
+	else {
+		if(modifierKeys.get_type() != Variant::ARRAY) {
+			print_error("StatisticsValueData::createNew needs either one String or an array of Strings as its \"modifierKeys\" parameter.");
+			return {};
+		}
+		Array modKeysArray = VariantCaster<Array>::cast(modifierKeys);
+		for (int i = 0; i < modKeysArray.size(); ++i) {
+			if(modKeysArray[i].get_type() != Variant::STRING && modKeysArray[i].get_type() != Variant::STRING_NAME)
+				continue;
+			newStatsValueData->ModifierKeys.append(modKeysArray[i]);
+		}
+	}
 	newStatsValueData->BaseValue = baseVal;
 	newStatsValueData->FinalValue = finalVal;
 	newStatsValueData->Categories = categories;
 	newStatsValueData->FormatType = format;
 	newStatsValueData->SpecialInfoType = specialInfo;
+	newStatsValueData->DisplayFlags = display_flags;
 	return newStatsValueData;
 }
