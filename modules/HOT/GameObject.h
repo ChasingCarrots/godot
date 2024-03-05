@@ -45,11 +45,14 @@ class GameObject : public Node2D {
 
 	uint32_t calculateHashForModifiedValueCalculation(const String& modifierType, const Variant& baseValue, const TypedArray<String>& categories) {
 		uint32_t calculationHash = modifierType.hash();
-		calculationHash += 7841 * baseValue.hash();
+		calculationHash += 7841 + baseValue.hash();
 		for (int i = 0; i < categories.size(); ++i)
-			calculationHash ^= categories[i].hash();
+			calculationHash ^= 6343 + categories[i].hash();
 		for(const auto mod : _modifier)
-			calculationHash ^= mod->hash();
+			calculationHash ^= 6053 + mod->hash();
+		GameObject* inherit_modifier = getValidatedInheritModifierFrom();
+		if(inherit_modifier != nullptr)
+			calculationHash ^= 7817 + inherit_modifier->calculateHashForModifiedValueCalculation(modifierType, baseValue, categories);
 		return calculationHash;
 	}
 
