@@ -47,8 +47,10 @@ public:
 		if(_hash != 0)
 			return _hash;
 		_hash = _modifiedType.hash();
-		_hash += 6763 * hash_murmur3_one_float(_additiveMod);
-		_hash += 7489 * hash_murmur3_one_float(_multiplierMod);
+		_hash *= 16777619;
+		_hash ^= hash_murmur3_one_float(_additiveMod);
+		_hash *= 16777619;
+		_hash ^= hash_murmur3_one_float(_multiplierMod);
 		// we specifically don't want the order to matter, so we'll just use xor
 		for(const auto& s : _modifierCategories)
 			_hash ^= s.hash();
