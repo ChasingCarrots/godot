@@ -50,6 +50,7 @@ class AudioDriverWASAPI : public AudioDriver {
 		IAudioRenderClient *render_client = nullptr; // Output
 		IAudioCaptureClient *capture_client = nullptr; // Input
 		SafeFlag active;
+		HANDLE notify_event;
 
 		WORD format_tag = 0;
 		WORD bits_per_sample = 0;
