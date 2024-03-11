@@ -361,7 +361,7 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 			push_error(vformat(R"(Class "%s" hides a built-in type.)", class_name), p_class->identifier);
 		} else if (class_exists(class_name)) {
 			push_error(vformat(R"(Class "%s" hides a native class.)", class_name), p_class->identifier);
-		} else if (ScriptServer::is_global_class(class_name) && (ScriptServer::get_global_class_path(class_name) != parser->script_path || p_class != parser->head)) {
+		} else if (ScriptServer::is_global_class(class_name) && (!GDScript::is_canonically_equal_paths(ScriptServer::get_global_class_path(class_name), parser->script_path) || p_class != parser->head)) {
 			push_error(vformat(R"(Class "%s" hides a global script class.)", class_name), p_class->identifier);
 		} else if (ProjectSettings::get_singleton()->has_autoload(class_name) && ProjectSettings::get_singleton()->get_autoload(class_name).is_singleton) {
 			push_error(vformat(R"(Class "%s" hides an autoload singleton.)", class_name), p_class->identifier);
@@ -425,7 +425,7 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 			if (ScriptServer::is_global_class(name)) {
 				String base_path = ScriptServer::get_global_class_path(name);
 
-				if (base_path == parser->script_path) {
+				if (GDScript::is_canonically_equal_paths(base_path, parser->script_path)) {
 					base = parser->head->get_datatype();
 				} else {
 					Ref<GDScriptParserRef> base_parser = get_parser_for(base_path);
@@ -701,7 +701,7 @@ GDScriptParser::DataType GDScriptAnalyzer::resolve_datatype(GDScriptParser::Type
 			result.builtin_type = Variant::OBJECT;
 			result.native_type = first;
 		} else if (ScriptServer::is_global_class(first)) {
-			if (parser->script_path == ScriptServer::get_global_class_path(first)) {
+			if (GDScript::is_canonically_equal_paths(parser->script_path, ScriptServer::get_global_class_path(first))) {
 				result = parser->head->get_datatype();
 			} else {
 				String path = ScriptServer::get_global_class_path(first);
@@ -3363,12 +3363,8 @@ void GDScriptAnalyzer::reduce_call(GDScriptParser::CallNode *p_call, bool p_is_a
 			parser->push_warning(p_call, GDScriptWarning::RETURN_VALUE_DISCARDED, p_call->function_name);
 		}
 
-		if (method_flags.has_flag(METHOD_FLAG_STATIC) && !is_constructor && !base_type.is_meta_type && !(is_self && static_context)) {
-			String caller_type = String(base_type.native_type);
-
-			if (caller_type.is_empty()) {
-				caller_type = base_type.to_string();
-			}
+		if (method_flags.has_flag(METHOD_FLAG_STATIC) && !is_constructor && !base_type.is_meta_type && !is_self) {
+			String caller_type = base_type.to_string();
 
 			parser->push_warning(p_call, GDScriptWarning::STATIC_CALLED_ON_INSTANCE, p_call->function_name, caller_type);
 		}
@@ -4222,21 +4218,14 @@ void GDScriptAnalyzer::reduce_preload(GDScriptParser::PreloadNode *p_preload) {
 		} else {
 			// TODO: Don't load if validating: use completion cache.
 
-			// Must load GDScript and PackedScenes separately to permit cyclic references
-			// as ResourceLoader::load() detect and reject those.
+			// Must load GDScript separately to permit cyclic references
+			// as ResourceLoader::load() detects and rejects those.
 			if (ResourceLoader::get_resource_type(p_preload->resolved_path) == "GDScript") {
 				Error err = OK;
 				Ref<GDScript> res = GDScriptCache::get_shallow_script(p_preload->resolved_path, err, parser->script_path);
 				p_preload->resource = res;
 				if (err != OK) {
 					push_error(vformat(R"(Could not preload resource script "%s".)", p_preload->resolved_path), p_preload->path);
-				}
-			} else if (ResourceLoader::get_resource_type(p_preload->resolved_path) == "PackedScene") {
-				Error err = OK;
-				Ref<PackedScene> res = GDScriptCache::get_packed_scene(p_preload->resolved_path, err, parser->script_path);
-				p_preload->resource = res;
-				if (err != OK) {
-					push_error(vformat(R"(Could not preload resource scene "%s".)", p_preload->resolved_path), p_preload->path);
 				}
 			} else {
 				p_preload->resource = ResourceLoader::load(p_preload->resolved_path);

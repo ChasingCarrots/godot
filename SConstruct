@@ -182,7 +182,6 @@ opts.Add(BoolVariable("debug_symbols", "Build with debugging symbols", False))
 opts.Add(BoolVariable("separate_debug_symbols", "Extract debugging symbols to a separate file", False))
 opts.Add(EnumVariable("lto", "Link-time optimization (production builds)", "none", ("none", "auto", "thin", "full")))
 opts.Add(BoolVariable("production", "Set defaults to build Godot for use in production", False))
-opts.Add(BoolVariable("generate_apk", "Generate an APK/AAB after building Android library by calling Gradle", False))
 opts.Add(BoolVariable("threads", "Enable threading support", True))
 
 # Components
@@ -261,13 +260,16 @@ opts.Add(BoolVariable("builtin_zlib", "Use the built-in zlib library", True))
 opts.Add(BoolVariable("builtin_zstd", "Use the built-in Zstd library", True))
 
 # Compilation environment setup
-opts.Add("CXX", "C++ compiler")
-opts.Add("CC", "C compiler")
-opts.Add("LINK", "Linker")
-opts.Add("CCFLAGS", "Custom flags for both the C and C++ compilers")
-opts.Add("CFLAGS", "Custom flags for the C compiler")
-opts.Add("CXXFLAGS", "Custom flags for the C++ compiler")
-opts.Add("LINKFLAGS", "Custom flags for the linker")
+# CXX, CC, and LINK directly set the equivalent `env` values (which may still
+# be overridden for a specific platform), the lowercase ones are appended.
+opts.Add("CXX", "C++ compiler binary")
+opts.Add("CC", "C compiler binary")
+opts.Add("LINK", "Linker binary")
+opts.Add("cppdefines", "Custom defines for the pre-processor")
+opts.Add("ccflags", "Custom flags for both the C and C++ compilers")
+opts.Add("cxxflags", "Custom flags for the C++ compiler")
+opts.Add("cflags", "Custom flags for the C compiler")
+opts.Add("linkflags", "Custom flags for the linker")
 
 # Update the environment to have all above options defined
 # in following code (especially platform and custom_modules).
@@ -516,21 +518,11 @@ if selected_platform in platform_list:
         env.extra_suffix += "." + env["extra_suffix"]
 
     # Environment flags
-    CCFLAGS = env.get("CCFLAGS", "")
-    env["CCFLAGS"] = ""
-    env.Append(CCFLAGS=str(CCFLAGS).split())
-
-    CFLAGS = env.get("CFLAGS", "")
-    env["CFLAGS"] = ""
-    env.Append(CFLAGS=str(CFLAGS).split())
-
-    CXXFLAGS = env.get("CXXFLAGS", "")
-    env["CXXFLAGS"] = ""
-    env.Append(CXXFLAGS=str(CXXFLAGS).split())
-
-    LINKFLAGS = env.get("LINKFLAGS", "")
-    env["LINKFLAGS"] = ""
-    env.Append(LINKFLAGS=str(LINKFLAGS).split())
+    env.Append(CPPDEFINES=env.get("cppdefines", "").split())
+    env.Append(CCFLAGS=env.get("ccflags", "").split())
+    env.Append(CXXFLAGS=env.get("cxxflags", "").split())
+    env.Append(CFLAGS=env.get("cflags", "").split())
+    env.Append(LINKFLAGS=env.get("linkflags", "").split())
 
     # Feature build profile
     disabled_classes = []
@@ -946,17 +938,17 @@ if selected_platform in platform_list:
 
     GLSL_BUILDERS = {
         "RD_GLSL": env.Builder(
-            action=env.Run(glsl_builders.build_rd_headers, 'Building RD_GLSL header: "$TARGET"'),
+            action=env.Run(glsl_builders.build_rd_headers),
             suffix="glsl.gen.h",
             src_suffix=".glsl",
         ),
         "GLSL_HEADER": env.Builder(
-            action=env.Run(glsl_builders.build_raw_headers, 'Building GLSL header: "$TARGET"'),
+            action=env.Run(glsl_builders.build_raw_headers),
             suffix="glsl.gen.h",
             src_suffix=".glsl",
         ),
         "GLES3_GLSL": env.Builder(
-            action=env.Run(gles3_builders.build_gles3_headers, 'Building GLES3 GLSL header: "$TARGET"'),
+            action=env.Run(gles3_builders.build_gles3_headers),
             suffix="glsl.gen.h",
             src_suffix=".glsl",
         ),

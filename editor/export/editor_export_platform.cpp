@@ -329,7 +329,7 @@ Ref<ImageTexture> EditorExportPlatform::get_option_icon(int p_index) const {
 	}
 }
 
-String EditorExportPlatform::find_export_template(String template_file_name, String *err) const {
+String EditorExportPlatform::find_export_template(const String &template_file_name, String *err) const {
 	String current_version = VERSION_FULL_CONFIG;
 	String template_path = EditorPaths::get_singleton()->get_export_templates_dir().path_join(current_version).path_join(template_file_name);
 
@@ -344,7 +344,7 @@ String EditorExportPlatform::find_export_template(String template_file_name, Str
 	return String();
 }
 
-bool EditorExportPlatform::exists_export_template(String template_file_name, String *err) const {
+bool EditorExportPlatform::exists_export_template(const String &template_file_name, String *err) const {
 	return find_export_template(template_file_name, err) != "";
 }
 
@@ -815,6 +815,8 @@ String EditorExportPlatform::_export_customize(const String &p_path, LocalVector
 			Error err = ResourceSaver::save(s, save_path);
 			ERR_FAIL_COND_V_MSG(err != OK, p_path, "Unable to save export scene file to: " + save_path);
 		}
+
+		node->queue_free();
 	} else {
 		Ref<Resource> res = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE);
 		ERR_FAIL_COND_V(res.is_null(), p_path);
@@ -1611,6 +1613,9 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 	if (enc_pck && enc_directory) {
 		pack_flags |= PACK_DIR_ENCRYPTED;
 	}
+	if (p_embed) {
+		pack_flags |= PACK_REL_FILEBASE;
+	}
 	f->store_32(pack_flags); // flags
 
 	uint64_t file_base_ofs = f->get_position();
@@ -1701,8 +1706,12 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 	}
 
 	uint64_t file_base = f->get_position();
+	uint64_t file_base_store = file_base;
+	if (pack_flags & PACK_REL_FILEBASE) {
+		file_base_store -= pck_start_pos;
+	}
 	f->seek(file_base_ofs);
-	f->store_64(file_base); // update files base
+	f->store_64(file_base_store); // update files base
 	f->seek(file_base);
 
 	// Save the rest of the data.
@@ -1743,6 +1752,7 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 			*r_embedded_size = f->get_position() - embed_pos;
 		}
 	}
+	f->close();
 
 	DirAccess::remove_file_or_error(tmppath);
 

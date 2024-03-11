@@ -274,13 +274,17 @@ public:
 		String description;
 		Vector<Pair<String, String>> tutorials;
 		bool is_deprecated = false;
+		String deprecated_message;
 		bool is_experimental = false;
+		String experimental_message;
 	};
 
 	struct MemberDocData {
 		String description;
 		bool is_deprecated = false;
+		String deprecated_message;
 		bool is_experimental = false;
+		String experimental_message;
 	};
 #endif // TOOLS_ENABLED
 
@@ -1478,6 +1482,7 @@ private:
 	bool onready_annotation(const AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	template <PropertyHint t_hint, Variant::Type t_type>
 	bool export_annotations(const AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
+	bool export_custom_annotation(const AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	template <PropertyUsageFlags t_usage>
 	bool export_group_annotations(const AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	bool warning_annotations(const AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);

@@ -524,7 +524,7 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 	return false; //nothing changed
 }
 
-bool EditorFileSystem::_scan_import_support(Vector<String> reimports) {
+bool EditorFileSystem::_scan_import_support(const Vector<String> &reimports) {
 	if (import_support_queries.size() == 0) {
 		return false;
 	}
@@ -1161,7 +1161,7 @@ void EditorFileSystem::_scan_fs_changes(EditorFileSystemDirectory *p_dir, const 
 	}
 }
 
-void EditorFileSystem::_delete_internal_files(String p_file) {
+void EditorFileSystem::_delete_internal_files(const String &p_file) {
 	if (FileAccess::exists(p_file + ".import")) {
 		List<String> paths;
 		ResourceFormatImporter::get_singleton()->get_internal_resource_path_list(p_file, &paths);
@@ -1333,24 +1333,28 @@ void EditorFileSystem::_save_filesystem_cache(EditorFileSystemDirectory *p_dir, 
 	p_file->store_line("::" + p_dir->get_path() + "::" + String::num(p_dir->modified_time));
 
 	for (int i = 0; i < p_dir->files.size(); i++) {
-		if (!p_dir->files[i]->import_group_file.is_empty()) {
-			group_file_cache.insert(p_dir->files[i]->import_group_file);
+		const EditorFileSystemDirectory::FileInfo *file_info = p_dir->files[i];
+		if (!file_info->import_group_file.is_empty()) {
+			group_file_cache.insert(file_info->import_group_file);
 		}
 
-		String type = p_dir->files[i]->type;
-		if (p_dir->files[i]->resource_script_class) {
-			type += "/" + String(p_dir->files[i]->resource_script_class);
-		}
-		String s = p_dir->files[i]->file + "::" + type + "::" + itos(p_dir->files[i]->uid) + "::" + itos(p_dir->files[i]->modified_time) + "::" + itos(p_dir->files[i]->import_modified_time) + "::" + itos(p_dir->files[i]->import_valid) + "::" + p_dir->files[i]->import_group_file + "::" + p_dir->files[i]->script_class_name + "<>" + p_dir->files[i]->script_class_extends + "<>" + p_dir->files[i]->script_class_icon_path;
-		s += "::";
-		for (int j = 0; j < p_dir->files[i]->deps.size(); j++) {
-			if (j > 0) {
-				s += "<>";
-			}
-			s += p_dir->files[i]->deps[j];
+		String type = file_info->type;
+		if (file_info->resource_script_class) {
+			type += "/" + String(file_info->resource_script_class);
 		}
 
-		p_file->store_line(s);
+		PackedStringArray cache_string;
+		cache_string.append(file_info->file);
+		cache_string.append(type);
+		cache_string.append(itos(file_info->uid));
+		cache_string.append(itos(file_info->modified_time));
+		cache_string.append(itos(file_info->import_modified_time));
+		cache_string.append(itos(file_info->import_valid));
+		cache_string.append(file_info->import_group_file);
+		cache_string.append(String("<>").join({ file_info->script_class_name, file_info->script_class_extends, file_info->script_class_icon_path }));
+		cache_string.append(String("<>").join(file_info->deps));
+
+		p_file->store_line(String("::").join(cache_string));
 	}
 
 	for (int i = 0; i < p_dir->subdirs.size(); i++) {
@@ -2016,6 +2020,9 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 }
 
 Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<StringName, Variant> &p_custom_options, const String &p_custom_importer, Variant *p_generator_parameters) {
+	print_verbose(vformat("EditorFileSystem: Importing file: %s", p_file));
+	uint64_t start_time = OS::get_singleton()->get_ticks_msec();
+
 	EditorFileSystemDirectory *fs = nullptr;
 	int cpos = -1;
 	bool found = _find_file(p_file, &fs, cpos);
@@ -2267,6 +2274,8 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 	}
 
 	EditorResourcePreview::get_singleton()->check_for_invalidation(p_file);
+
+	print_verbose(vformat("EditorFileSystem: \"%s\" import took %d ms.", p_file, OS::get_singleton()->get_ticks_msec() - start_time));
 
 	return OK;
 }

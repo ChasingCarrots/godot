@@ -2033,11 +2033,13 @@ static void _register_variant_builtin_methods() {
 	bind_method(NodePath, get_subname, sarray("idx"), varray());
 	bind_method(NodePath, get_concatenated_names, sarray(), varray());
 	bind_method(NodePath, get_concatenated_subnames, sarray(), varray());
+	bind_method(NodePath, slice, sarray("begin", "end"), varray(INT_MAX));
 	bind_method(NodePath, get_as_property_path, sarray(), varray());
 	bind_method(NodePath, is_empty, sarray(), varray());
 
 	/* Callable */
 
+	bind_static_method(Callable, create, sarray("variant", "method"), varray());
 	bind_method(Callable, callv, sarray("arguments"), varray());
 	bind_method(Callable, is_null, sarray(), varray());
 	bind_method(Callable, is_custom, sarray(), varray());
@@ -2203,6 +2205,7 @@ static void _register_variant_builtin_methods() {
 	bind_method(Dictionary, is_empty, sarray(), varray());
 	bind_method(Dictionary, clear, sarray(), varray());
 	bind_method(Dictionary, merge, sarray("dictionary", "overwrite"), varray(false));
+	bind_method(Dictionary, merged, sarray("dictionary", "overwrite"), varray(false));
 	bind_method(Dictionary, has, sarray("key"), varray());
 	bind_method(Dictionary, has_all, sarray("keys"), varray());
 	bind_method(Dictionary, find_key, sarray("value"), varray());

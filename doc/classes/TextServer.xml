@@ -1837,6 +1837,9 @@
 		<constant name="BREAK_TRIM_EDGE_SPACES" value="16" enum="LineBreakFlag" is_bitfield="true">
 			Remove edge spaces from the broken line segments.
 		</constant>
+		<constant name="BREAK_TRIM_INDENT" value="32" enum="LineBreakFlag" is_bitfield="true">
+			Subtract first line indentation width from all lines after the first one.
+		</constant>
 		<constant name="VC_CHARS_BEFORE_SHAPING" value="0" enum="VisibleCharactersBehavior">
 			Trims text before the shaping. e.g, increasing [member Label.visible_characters] or [member RichTextLabel.visible_characters] value is visually identical to typing the text.
 		</constant>
@@ -1923,6 +1926,9 @@
 		</constant>
 		<constant name="GRAPHEME_IS_EMBEDDED_OBJECT" value="4096" enum="GraphemeFlag" is_bitfield="true">
 			Grapheme is an object replacement character for the embedded object.
+		</constant>
+		<constant name="GRAPHEME_IS_SOFT_HYPHEN" value="8192" enum="GraphemeFlag" is_bitfield="true">
+			Grapheme is a soft hyphen.
 		</constant>
 		<constant name="HINTING_NONE" value="0" enum="Hinting">
 			Disables font hinting (smoother but less crisp).

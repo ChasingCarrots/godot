@@ -75,7 +75,9 @@
 #include "servers/navigation_server_3d.h"
 #include "servers/navigation_server_3d_dummy.h"
 #include "servers/physics_server_2d.h"
+#ifndef _3D_DISABLED
 #include "servers/physics_server_3d.h"
+#endif // _3D_DISABLED
 #include "servers/register_server_types.h"
 #include "servers/rendering/rendering_server_default.h"
 #include "servers/text/text_server_dummy.h"
@@ -149,8 +151,10 @@ static RenderingServer *rendering_server = nullptr;
 static CameraServer *camera_server = nullptr;
 static XRServer *xr_server = nullptr;
 static TextServerManager *tsman = nullptr;
+#ifndef _3D_DISABLED
 static PhysicsServer3DManager *physics_server_3d_manager = nullptr;
 static PhysicsServer3D *physics_server_3d = nullptr;
+#endif // _3D_DISABLED
 static PhysicsServer2DManager *physics_server_2d_manager = nullptr;
 static PhysicsServer2D *physics_server_2d = nullptr;
 static NavigationServer3D *navigation_server_3d = nullptr;
@@ -298,6 +302,7 @@ static Vector<String> get_files_with_extension(const String &p_root, const Strin
 
 // FIXME: Could maybe be moved to have less code in main.cpp.
 void initialize_physics() {
+#ifndef _3D_DISABLED
 	/// 3D Physics Server
 	physics_server_3d = PhysicsServer3DManager::get_singleton()->new_server(
 			GLOBAL_GET(PhysicsServer3DManager::setting_property_name));
@@ -307,6 +312,7 @@ void initialize_physics() {
 	}
 	ERR_FAIL_NULL(physics_server_3d);
 	physics_server_3d->init();
+#endif // _3D_DISABLED
 
 	// 2D Physics server
 	physics_server_2d = PhysicsServer2DManager::get_singleton()->new_server(
@@ -320,8 +326,10 @@ void initialize_physics() {
 }
 
 void finalize_physics() {
+#ifndef _3D_DISABLED
 	physics_server_3d->finish();
 	memdelete(physics_server_3d);
+#endif // _3D_DISABLED
 
 	physics_server_2d->finish();
 	memdelete(physics_server_2d);
@@ -389,6 +397,23 @@ void finalize_theme_db() {
 #else
 #define MAIN_PRINT(m_txt)
 #endif
+
+void Main::print_header(bool p_rich) {
+	if (VERSION_TIMESTAMP > 0) {
+		// Version timestamp available.
+		if (p_rich) {
+			print_line_rich("\u001b[38;5;39m" + String(VERSION_NAME) + "\u001b[0m v" + get_full_version_string() + " (" + Time::get_singleton()->get_datetime_string_from_unix_time(VERSION_TIMESTAMP, true) + " UTC) - \u001b[4m" + String(VERSION_WEBSITE));
+		} else {
+			print_line(String(VERSION_NAME) + " v" + get_full_version_string() + " (" + Time::get_singleton()->get_datetime_string_from_unix_time(VERSION_TIMESTAMP, true) + " UTC) - " + String(VERSION_WEBSITE));
+		}
+	} else {
+		if (p_rich) {
+			print_line_rich("\u001b[38;5;39m" + String(VERSION_NAME) + "\u001b[0m v" + get_full_version_string() + " - \u001b[4m" + String(VERSION_WEBSITE));
+		} else {
+			print_line(String(VERSION_NAME) + " v" + get_full_version_string() + " - " + String(VERSION_WEBSITE));
+		}
+	}
+}
 
 /**
  * Prints a copyright notice in the command-line help with colored text. A newline is
@@ -460,7 +485,7 @@ void Main::print_help_option(const char *p_option, const char *p_description, CL
 }
 
 void Main::print_help(const char *p_binary) {
-	print_line("\u001b[38;5;39m" + String(VERSION_NAME) + "\u001b[0m v" + get_full_version_string() + " - \u001b[4m" + String(VERSION_WEBSITE) + "\u001b[0m");
+	print_header(true);
 	print_help_copyright("Free and open source software under the terms of the MIT license.");
 	print_help_copyright("(c) 2014-present Godot Engine contributors. (c) 2007-present Juan Linietsky, Ariel Manzur.");
 
@@ -488,6 +513,7 @@ void Main::print_help(const char *p_binary) {
 	print_help_option("--version", "Display the version string.\n");
 	print_help_option("-v, --verbose", "Use verbose stdout mode.\n");
 	print_help_option("--quiet", "Quiet mode, silences stdout messages. Errors are still displayed.\n");
+	print_help_option("--no-header", "Do not print engine version and rendering method header on startup.\n");
 
 	print_help_title("Run options");
 	print_help_option("--, ++", "Separator for user-provided arguments. Following arguments are not used by the engine, but can be read from `OS.get_cmdline_user_args()`.\n");
@@ -659,7 +685,9 @@ Error Main::test_setup() {
 		tsman->add_interface(ts);
 	}
 
+#ifndef _3D_DISABLED
 	physics_server_3d_manager = memnew(PhysicsServer3DManager);
+#endif // _3D_DISABLED
 	physics_server_2d_manager = memnew(PhysicsServer2DManager);
 
 	// From `Main::setup2()`.
@@ -787,9 +815,11 @@ void Main::test_cleanup() {
 	if (tsman) {
 		memdelete(tsman);
 	}
+#ifndef _3D_DISABLED
 	if (physics_server_3d_manager) {
 		memdelete(physics_server_3d_manager);
 	}
+#endif // _3D_DISABLED
 	if (physics_server_2d_manager) {
 		memdelete(physics_server_2d_manager);
 	}
@@ -1017,6 +1047,9 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		} else if (I->get() == "-q" || I->get() == "--quiet") { // quieter output
 
 			quiet_stdout = true;
+
+		} else if (I->get() == "--no-header") {
+			Engine::get_singleton()->_print_header = false;
 
 		} else if (I->get() == "--audio-driver") { // audio driver
 
@@ -1842,6 +1875,10 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	if (bool(GLOBAL_GET("application/run/disable_stderr"))) {
 		CoreGlobals::print_error_enabled = false;
 	}
+	if (!bool(GLOBAL_GET("application/run/print_header"))) {
+		// --no-header option for project settings.
+		Engine::get_singleton()->_print_header = false;
+	}
 
 	if (quiet_stdout) {
 		CoreGlobals::print_line_enabled = false;
@@ -1957,6 +1994,33 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		BLOCK_DEVICE("AMD", "Radeon (TM) R7 M3");
 		BLOCK_DEVICE("ATI", "Radeon (TM) R9 M3");
 		BLOCK_DEVICE("AMD", "Radeon (TM) R9 M3");
+
+		// Intel GPUs.
+		BLOCK_DEVICE("0x8086", "0x0042"); // HD Graphics, Gen5, Clarkdale
+		BLOCK_DEVICE("0x8086", "0x0046"); // HD Graphics, Gen5, Arrandale
+		BLOCK_DEVICE("0x8086", "0x010A"); // HD Graphics, Gen6, Sandy Bridge
+		BLOCK_DEVICE("Intel", "Intel HD Graphics 2000");
+		BLOCK_DEVICE("Intel", "Intel(R) HD Graphics 2000");
+		BLOCK_DEVICE("0x8086", "0x0102"); // HD Graphics 2000, Gen6, Sandy Bridge
+		BLOCK_DEVICE("0x8086", "0x0116"); // HD Graphics 3000, Gen6, Sandy Bridge
+		BLOCK_DEVICE("Intel", "Intel HD Graphics 3000");
+		BLOCK_DEVICE("Intel", "Intel(R) HD Graphics 3000");
+		BLOCK_DEVICE("0x8086", "0x0126"); // HD Graphics 3000, Gen6, Sandy Bridge
+		BLOCK_DEVICE("Intel", "Intel HD Graphics P3000");
+		BLOCK_DEVICE("Intel", "Intel(R) HD Graphics P3000");
+		BLOCK_DEVICE("0x8086", "0x0112"); // HD Graphics P3000, Gen6, Sandy Bridge
+		BLOCK_DEVICE("0x8086", "0x0122"); // HD Graphics P3000, Gen6, Sandy Bridge
+		BLOCK_DEVICE("0x8086", "0x015A"); // HD Graphics, Gen7, Ivy Bridge
+		BLOCK_DEVICE("Intel", "Intel HD Graphics 2500");
+		BLOCK_DEVICE("Intel", "Intel(R) HD Graphics 2500");
+		BLOCK_DEVICE("0x8086", "0x0152"); // HD Graphics 2500, Gen7, Ivy Bridge
+		BLOCK_DEVICE("Intel", "Intel HD Graphics 4000");
+		BLOCK_DEVICE("Intel", "Intel(R) HD Graphics 4000");
+		BLOCK_DEVICE("0x8086", "0x0162"); // HD Graphics 4000, Gen7, Ivy Bridge
+		BLOCK_DEVICE("0x8086", "0x0166"); // HD Graphics 4000, Gen7, Ivy Bridge
+		BLOCK_DEVICE("Intel", "Intel HD Graphics P4000");
+		BLOCK_DEVICE("Intel", "Intel(R) HD Graphics P4000");
+		BLOCK_DEVICE("0x8086", "0x016A"); // HD Graphics P4000, Gen7, Ivy Bridge
 
 #undef BLOCK_DEVICE
 
@@ -2190,11 +2254,13 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		OS::get_singleton()->set_environment("DISABLE_MANGOHUD", "1"); // GH-57403.
 		OS::get_singleton()->set_environment("DISABLE_RTSS_LAYER", "1"); // GH-57937.
 		OS::get_singleton()->set_environment("DISABLE_VKBASALT", "1");
+		OS::get_singleton()->set_environment("DISABLE_VK_LAYER_reshade_1", "1"); // GH-70849.
 	} else {
 		// Re-allow using Vulkan overlays, disabled while using the editor.
 		OS::get_singleton()->unset_environment("DISABLE_MANGOHUD");
 		OS::get_singleton()->unset_environment("DISABLE_RTSS_LAYER");
 		OS::get_singleton()->unset_environment("DISABLE_VKBASALT");
+		OS::get_singleton()->unset_environment("DISABLE_VK_LAYER_reshade_1");
 	}
 #endif
 
@@ -2428,8 +2494,8 @@ Error Main::setup2() {
 	Thread::make_main_thread(); // Make whatever thread call this the main thread.
 	set_current_thread_safe_for_nodes(true);
 
-	// Print engine name and version
-	print_line(String(VERSION_NAME) + " v" + get_full_version_string() + " - " + String(VERSION_WEBSITE));
+	// Don't use rich formatting to prevent ANSI escape codes from being written to log files.
+	print_header(false);
 
 #ifdef TOOLS_ENABLED
 	if (editor || project_manager || cmdline_tool) {
@@ -2533,7 +2599,9 @@ Error Main::setup2() {
 		tsman->add_interface(ts);
 	}
 
+#ifndef _3D_DISABLED
 	physics_server_3d_manager = memnew(PhysicsServer3DManager);
+#endif // _3D_DISABLED
 	physics_server_2d_manager = memnew(PhysicsServer2DManager);
 
 	register_server_types();
@@ -2722,8 +2790,6 @@ Error Main::setup2() {
 
 		AudioDriverManager::initialize(audio_driver_idx);
 
-		print_line(" "); // Add a blank line for readability.
-
 		// Right moment to create and initialize the audio server.
 		audio_server = memnew(AudioServer);
 		audio_server->init();
@@ -2742,6 +2808,9 @@ Error Main::setup2() {
 	}
 
 	OS::get_singleton()->benchmark_end_measure("Startup", "Servers");
+
+	// Add a blank line for readability.
+	Engine::get_singleton()->print_header("");
 
 	register_core_singletons();
 
@@ -2825,7 +2894,7 @@ Error Main::setup2() {
 			}
 
 #if defined(TOOLS_ENABLED) && defined(MACOS_ENABLED)
-			if (OS::get_singleton()->get_bundle_icon_path().is_empty()) {
+			if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_ICON) && OS::get_singleton()->get_bundle_icon_path().is_empty()) {
 				Ref<Image> icon = memnew(Image(app_icon_png));
 				DisplayServer::get_singleton()->set_icon(icon);
 			}
@@ -2861,7 +2930,7 @@ Error Main::setup2() {
 
 		GLOBAL_DEF_BASIC("input_devices/pointing/android/enable_long_press_as_right_click", false);
 		GLOBAL_DEF_BASIC("input_devices/pointing/android/enable_pan_and_scale_gestures", false);
-
+		GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "input_devices/pointing/android/rotary_input_scroll_axis", PROPERTY_HINT_ENUM, "Horizontal,Vertical"), 1);
 		OS::get_singleton()->benchmark_end_measure("Startup", "Setup Window and Boot");
 	}
 
@@ -3742,7 +3811,7 @@ bool Main::start() {
 
 #ifdef MACOS_ENABLED
 				String mac_icon_path = GLOBAL_GET("application/config/macos_native_icon");
-				if (!mac_icon_path.is_empty()) {
+				if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_NATIVE_ICON) && !mac_icon_path.is_empty()) {
 					DisplayServer::get_singleton()->set_native_icon(mac_icon_path);
 					has_icon = true;
 				}
@@ -3750,14 +3819,14 @@ bool Main::start() {
 
 #ifdef WINDOWS_ENABLED
 				String win_icon_path = GLOBAL_GET("application/config/windows_native_icon");
-				if (!win_icon_path.is_empty()) {
+				if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_NATIVE_ICON) && !win_icon_path.is_empty()) {
 					DisplayServer::get_singleton()->set_native_icon(win_icon_path);
 					has_icon = true;
 				}
 #endif
 
 				String icon_path = GLOBAL_GET("application/config/icon");
-				if ((!icon_path.is_empty()) && (!has_icon)) {
+				if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_ICON) && !icon_path.is_empty() && !has_icon) {
 					Ref<Image> icon;
 					icon.instantiate();
 					if (ImageLoader::load_image(icon_path, icon) == OK) {
@@ -3790,7 +3859,7 @@ bool Main::start() {
 #endif
 	}
 
-	if (!has_icon && OS::get_singleton()->get_bundle_icon_path().is_empty()) {
+	if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_ICON) && !has_icon && OS::get_singleton()->get_bundle_icon_path().is_empty()) {
 		Ref<Image> icon = memnew(Image(app_icon_png));
 		DisplayServer::get_singleton()->set_icon(icon);
 	}
@@ -3898,14 +3967,18 @@ bool Main::iteration() {
 
 		uint64_t physics_begin = OS::get_singleton()->get_ticks_usec();
 
+#ifndef _3D_DISABLED
 		PhysicsServer3D::get_singleton()->sync();
 		PhysicsServer3D::get_singleton()->flush_queries();
+#endif // _3D_DISABLED
 
 		PhysicsServer2D::get_singleton()->sync();
 		PhysicsServer2D::get_singleton()->flush_queries();
 
 		if (OS::get_singleton()->get_main_loop()->physics_process(physics_step * time_scale)) {
+#ifndef _3D_DISABLED
 			PhysicsServer3D::get_singleton()->end_sync();
+#endif // _3D_DISABLED
 			PhysicsServer2D::get_singleton()->end_sync();
 
 			exit = true;
@@ -3921,8 +3994,10 @@ bool Main::iteration() {
 
 		message_queue->flush();
 
+#ifndef _3D_DISABLED
 		PhysicsServer3D::get_singleton()->end_sync();
 		PhysicsServer3D::get_singleton()->step(physics_step * time_scale);
+#endif // _3D_DISABLED
 
 		PhysicsServer2D::get_singleton()->end_sync();
 		PhysicsServer2D::get_singleton()->step(physics_step * time_scale);
@@ -4167,9 +4242,11 @@ void Main::cleanup(bool p_force) {
 	if (tsman) {
 		memdelete(tsman);
 	}
+#ifndef _3D_DISABLED
 	if (physics_server_3d_manager) {
 		memdelete(physics_server_3d_manager);
 	}
+#endif // _3D_DISABLED
 	if (physics_server_2d_manager) {
 		memdelete(physics_server_2d_manager);
 	}

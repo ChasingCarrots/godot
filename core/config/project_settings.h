@@ -32,10 +32,6 @@
 #define PROJECT_SETTINGS_H
 
 #include "core/object/class_db.h"
-#include "core/os/thread_safe.h"
-#include "core/templates/hash_map.h"
-#include "core/templates/local_vector.h"
-#include "core/templates/rb_set.h"
 
 template <typename T>
 class TypedArray;
@@ -161,7 +157,7 @@ public:
 	void store_global_class_list(const Array &p_classes);
 	String get_global_class_list_path() const;
 
-	bool has_setting(String p_var) const;
+	bool has_setting(const String &p_var) const;
 	String localize_path(const String &p_path) const;
 	String globalize_path(const String &p_path) const;
 
@@ -221,6 +217,10 @@ public:
 	void save_scene_groups_cache();
 	String get_scene_groups_cache_path() const;
 	void load_scene_groups_cache();
+
+#ifdef TOOLS_ENABLED
+	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const override;
+#endif
 
 	ProjectSettings();
 	~ProjectSettings();
