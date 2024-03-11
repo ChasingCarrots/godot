@@ -150,7 +150,8 @@ Vector2 getPosOfPosProvider(SafeObjectPointer<Node>& posProvider) {
 void MonsterInput::updateAllMonsterInputs(float delta) {
 	PROFILE_FUNCTION();
 	NodePosCache.clear();
-	for(auto monster : _allMonsterInputs) {
+	for(int monster_index= static_cast<int>(_allMonsterInputs.size()) -1; monster_index >= 0; --monster_index) {
+		MonsterInput* monster = _allMonsterInputs[monster_index];
 		Vector2 newInputDir;
 		if(monster->_targetPosProvider.is_valid() && !monster->_targetPosProvider->is_queued_for_deletion()) {
 			bool hasOverridePos = monster->_targetOverrideProvider.is_valid() && monster->_targetOverrideProvider->call("has_override_target_position");

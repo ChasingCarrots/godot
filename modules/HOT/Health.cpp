@@ -498,7 +498,7 @@ Array Health::applyDamage(int damageAmount, Node *byNode, bool critical, int wea
 		return retValue;
 	}
 	if(damageAmount < 0) {
-		print_error("the damage amount in applyDamage has to be a positive value!");
+		// print_error("the damage amount in applyDamage has to be a positive value!");
 		retValue.append(static_cast<int>(ApplyDamageResult::Invalid));
 		retValue.append(0);
 		return retValue;

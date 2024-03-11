@@ -199,7 +199,8 @@ Vector2 FastRaybasedMover::calculateMotion(float delta) {
 static LocalVector<GameObject*> tempHits;
 void FastRaybasedMover::updateAllFastRaybasedMovers(float delta) {
 	PROFILE_FUNCTION();
-	for(auto mover : _allFastRaybasedMovers) {
+	for(int mover_index= static_cast<int>(_allFastRaybasedMovers.size()) -1; mover_index >= 0; --mover_index) {
+		FastRaybasedMover* mover = _allFastRaybasedMovers[mover_index];
 		if(!mover->_gameObject.is_valid())
 			continue;
 
