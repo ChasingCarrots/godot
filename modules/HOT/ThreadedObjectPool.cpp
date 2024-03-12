@@ -10,6 +10,7 @@ void ThreadedObjectPool::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("return_instance", "instance"), &ThreadedObjectPool::return_instance);
 	ClassDB::bind_method(D_METHOD("run_callbacks"), &ThreadedObjectPool::run_callbacks);
 	ClassDB::bind_method(D_METHOD("clear_all_instances"), &ThreadedObjectPool::clear_all_instances);
+	ClassDB::bind_method(D_METHOD("set_max_number_of_instances", "max_num_instances"), &ThreadedObjectPool::set_max_number_of_instances);
 }
 
 void ThreadedObjectPool::instance_creation_thread_loop(void *p_ud) {

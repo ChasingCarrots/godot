@@ -49,6 +49,8 @@ public:
 	Node* get_instance_unthreaded();
 	void return_instance(Node* instance);
 
+	void set_max_number_of_instances(uint32_t newMaxNum) { _maxNumberOfInstances = newMaxNum; }
+
 	void run_callbacks();
 
 	void clear_all_instances();

@@ -3,8 +3,9 @@
 
 #include "GameObject.h"
 #include "ModifiedValues.h"
-#include "scene/2d/area_2d.h"
-#include "scene/2d/physics_body_2d.h"
+#include "scene/2d/physics/area_2d.h"
+#include "scene/2d/physics/rigid_body_2d.h"
+#include "scene/2d/physics/character_body_2d.h"
 #include <scene/2d/node_2d.h>
 #include "SafeObjectPointer.h"
 #include <core/profiling.h>
