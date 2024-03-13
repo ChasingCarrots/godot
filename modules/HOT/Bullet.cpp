@@ -166,17 +166,15 @@ void Bullet::updateAllBullets(float delta) {
 	PROFILE_FUNCTION();
 	for(int bulletIndex= static_cast<int>(_allBullets.size()) -1; bulletIndex >= 0; --bulletIndex) {
 		Bullet* bullet = _allBullets[bulletIndex];
-		if(bullet->_remainingLifeTime > 0) {
-			bullet->_remainingLifeTime -= delta;
-			const float lifeTimeFactor = std::max(0.0f, bullet->_remainingLifeTime / bullet->_modifiedLifetime->Value());
-			if(lifeTimeFactor == 0 || bullet->_lastLifeTimeFactorEmitted - lifeTimeFactor > 0.05f) {
-				bullet->emit_signal("OnTimeReduced", lifeTimeFactor);
-				bullet->_lastLifeTimeFactorEmitted = lifeTimeFactor;
-			}
-			if(bullet->_remainingLifeTime <= 0) {
-				bullet->endLife();
-				continue;
-			}
+		bullet->_remainingLifeTime -= delta;
+		const float lifeTimeFactor = std::max(0.0f, bullet->_remainingLifeTime / bullet->_modifiedLifetime->Value());
+		if(lifeTimeFactor == 0 || bullet->_lastLifeTimeFactorEmitted - lifeTimeFactor > 0.05f) {
+			bullet->emit_signal("OnTimeReduced", lifeTimeFactor);
+			bullet->_lastLifeTimeFactorEmitted = lifeTimeFactor;
+		}
+		if(bullet->_remainingLifeTime <= 0) {
+			bullet->endLife();
+			continue;
 		}
 
 		if(bullet->_directionSetter.is_valid() && bullet->MovementCurvatureAngle > 0.0 && bullet->MovementCurvatureDistance > 0.0) {
