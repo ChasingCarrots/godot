@@ -48,16 +48,16 @@ class GameObject : public Node2D {
 		calculationHash *= 16777619;
 		calculationHash ^= baseValue.hash();
 		for (int i = 0; i < categories.size(); ++i) {
-			calculationHash *= 16777619;
+			calculationHash *= 6569;
 			calculationHash += categories[i].hash();
 		}
 		for(const auto mod : _modifier) {
-			calculationHash *= 16777619;
+			calculationHash *= 7187;
 			calculationHash ^= mod->hash();
 		}
 		GameObject* inherit_modifier = getValidatedInheritModifierFrom();
 		if(inherit_modifier != nullptr) {
-			calculationHash *= 16777619;
+			calculationHash *= 	7229;
 			calculationHash ^= inherit_modifier->calculateHashForModifiedValueCalculation(modifierType, baseValue, categories);
 		}
 		return calculationHash;
