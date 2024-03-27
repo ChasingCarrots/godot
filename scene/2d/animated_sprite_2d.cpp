@@ -292,12 +292,19 @@ void AnimatedSprite2D::set_sprite_frames(const Ref<SpriteFrames> &p_frames) {
 	}
 
 	if (frames.is_valid()) {
+#ifdef TOOLS_ENABLED
 		frames->disconnect(SceneStringNames::get_singleton()->changed, callable_mp(this, &AnimatedSprite2D::_res_changed));
+#endif
 	}
 	stop();
 	frames = p_frames;
 	if (frames.is_valid()) {
+		// only connect to the frames resource "changed" callback in the editor,
+		// because disconnecting that callback leads to very rare crashes in Halls of Torment
+		// and we don't change those resources at runtime anyway...
+#ifdef TOOLS_ENABLED
 		frames->connect(SceneStringNames::get_singleton()->changed, callable_mp(this, &AnimatedSprite2D::_res_changed));
+#endif
 
 		List<StringName> al;
 		frames->get_animation_list(&al);
