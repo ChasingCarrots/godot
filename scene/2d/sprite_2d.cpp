@@ -135,6 +135,10 @@ void Sprite2D::set_texture(const Ref<Texture2D> &p_texture) {
 		return;
 	}
 
+	// only connect to the texture resource "changed" callback in the editor,
+	// because disconnecting that callback leads to very rare crashes in Halls of Torment
+	// and we don't change those resources at runtime anyway...
+#ifdef TOOLS_ENABLED
 	if (texture.is_valid()) {
 		texture->disconnect_changed(callable_mp(this, &Sprite2D::_texture_changed));
 	}
@@ -144,6 +148,10 @@ void Sprite2D::set_texture(const Ref<Texture2D> &p_texture) {
 	if (texture.is_valid()) {
 		texture->connect_changed(callable_mp(this, &Sprite2D::_texture_changed));
 	}
+#else
+	texture = p_texture;
+#endif
+
 
 	queue_redraw();
 	emit_signal(SceneStringNames::get_singleton()->texture_changed);
