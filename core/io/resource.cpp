@@ -38,6 +38,7 @@
 #include "core/os/os.h"
 #include "scene/main/node.h" //only so casting works
 
+#include <core/profiling.h>
 #include <stdio.h>
 
 void Resource::emit_changed() {
@@ -359,6 +360,7 @@ void Resource::configure_for_local_scene(Node *p_for_scene, HashMap<Ref<Resource
 }
 
 Ref<Resource> Resource::duplicate(bool p_subresources) const {
+	PROFILE_FUNCTION()
 	List<PropertyInfo> plist;
 	get_property_list(&plist);
 

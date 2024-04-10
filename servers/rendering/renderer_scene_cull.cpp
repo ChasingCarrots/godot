@@ -4198,6 +4198,7 @@ TypedArray<Image> RendererSceneCull::bake_render_uv2(RID p_base, const TypedArra
 }
 
 void RendererSceneCull::update_visibility_notifiers() {
+	PROFILE_FUNCTION()
 	SelfList<InstanceVisibilityNotifierData> *E = visible_notifier_list.first();
 	while (E) {
 		SelfList<InstanceVisibilityNotifierData> *N = E->next();

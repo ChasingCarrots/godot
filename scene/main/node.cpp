@@ -3079,6 +3079,7 @@ Node *Node::get_node_and_resource(const NodePath &p_path, Ref<Resource> &r_res, 
 }
 
 void Node::_set_tree(SceneTree *p_tree) {
+	PROFILE_FUNCTION();
 	SceneTree *tree_changed_a = nullptr;
 	SceneTree *tree_changed_b = nullptr;
 
