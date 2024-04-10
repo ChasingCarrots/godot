@@ -50,10 +50,6 @@ EditorFileSystem *EditorFileSystem::singleton = nullptr;
 //the name is the version, to keep compatibility with different versions of Godot
 #define CACHE_FILE_NAME "filesystem_cache8"
 
-void EditorFileSystemDirectory::sort_files() {
-	files.sort_custom<FileInfoSort>();
-}
-
 int EditorFileSystemDirectory::find_file_index(const String &p_file) const {
 	for (int i = 0; i < files.size(); i++) {
 		if (files[i]->file == p_file) {
@@ -439,7 +435,7 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 		}
 	}
 
-	if (importer_name == "keep") {
+	if (importer_name == "keep" || importer_name == "skip") {
 		return false; //keep mode, do not reimport
 	}
 
@@ -578,7 +574,7 @@ bool EditorFileSystem::_update_scan_actions() {
 			case ItemAction::ACTION_DIR_ADD: {
 				int idx = 0;
 				for (int i = 0; i < ia.dir->subdirs.size(); i++) {
-					if (ia.new_dir->name.naturalnocasecmp_to(ia.dir->subdirs[i]->name) < 0) {
+					if (ia.new_dir->name.filenocasecmp_to(ia.dir->subdirs[i]->name) < 0) {
 						break;
 					}
 					idx++;
@@ -600,7 +596,7 @@ bool EditorFileSystem::_update_scan_actions() {
 			case ItemAction::ACTION_FILE_ADD: {
 				int idx = 0;
 				for (int i = 0; i < ia.dir->files.size(); i++) {
-					if (ia.new_file->file.naturalnocasecmp_to(ia.dir->files[i]->file) < 0) {
+					if (ia.new_file->file.filenocasecmp_to(ia.dir->files[i]->file) < 0) {
 						break;
 					}
 					idx++;
@@ -810,8 +806,8 @@ void EditorFileSystem::_scan_new_dir(EditorFileSystemDirectory *p_dir, Ref<DirAc
 
 	da->list_dir_end();
 
-	dirs.sort_custom<NaturalNoCaseComparator>();
-	files.sort_custom<NaturalNoCaseComparator>();
+	dirs.sort_custom<FileNoCaseComparator>();
+	files.sort_custom<FileNoCaseComparator>();
 
 	int total = dirs.size() + files.size();
 	int idx = 0;
@@ -832,7 +828,7 @@ void EditorFileSystem::_scan_new_dir(EditorFileSystemDirectory *p_dir, Ref<DirAc
 
 				int idx2 = 0;
 				for (int i = 0; i < p_dir->subdirs.size(); i++) {
-					if (efd->name.naturalnocasecmp_to(p_dir->subdirs[i]->name) < 0) {
+					if (efd->name.filenocasecmp_to(p_dir->subdirs[i]->name) < 0) {
 						break;
 					}
 					idx2++;
@@ -1371,6 +1367,10 @@ bool EditorFileSystem::_find_file(const String &p_file, EditorFileSystemDirector
 
 	String f = ProjectSettings::get_singleton()->localize_path(p_file);
 
+	// Note: Only checks if base directory is case sensitive.
+	Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	bool fs_case_sensitive = dir->is_case_sensitive("res://");
+
 	if (!f.begins_with("res://")) {
 		return false;
 	}
@@ -1394,9 +1394,16 @@ bool EditorFileSystem::_find_file(const String &p_file, EditorFileSystemDirector
 
 		int idx = -1;
 		for (int j = 0; j < fs->get_subdir_count(); j++) {
-			if (fs->get_subdir(j)->get_name() == path[i]) {
-				idx = j;
-				break;
+			if (fs_case_sensitive) {
+				if (fs->get_subdir(j)->get_name() == path[i]) {
+					idx = j;
+					break;
+				}
+			} else {
+				if (fs->get_subdir(j)->get_name().to_lower() == path[i].to_lower()) {
+					idx = j;
+					break;
+				}
 			}
 		}
 
@@ -1409,7 +1416,7 @@ bool EditorFileSystem::_find_file(const String &p_file, EditorFileSystemDirector
 
 			int idx2 = 0;
 			for (int j = 0; j < fs->get_subdir_count(); j++) {
-				if (efsd->name.naturalnocasecmp_to(fs->get_subdir(j)->get_name()) < 0) {
+				if (efsd->name.filenocasecmp_to(fs->get_subdir(j)->get_name()) < 0) {
 					break;
 				}
 				idx2++;
@@ -1766,7 +1773,7 @@ void EditorFileSystem::update_file(const String &p_file) {
 		String file_name = p_file.get_file();
 
 		for (int i = 0; i < fs->files.size(); i++) {
-			if (p_file.naturalnocasecmp_to(fs->files[i]->file) < 0) {
+			if (p_file.filenocasecmp_to(fs->files[i]->file) < 0) {
 				break;
 			}
 			idx++;
@@ -1859,7 +1866,7 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 		source_file_options[p_files[i]] = HashMap<StringName, Variant>();
 		importer_name = file_importer_name;
 
-		if (importer_name == "keep") {
+		if (importer_name == "keep" || importer_name == "skip") {
 			continue; //do nothing
 		}
 
@@ -1885,7 +1892,7 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 		base_paths[p_files[i]] = ResourceFormatImporter::get_singleton()->get_import_base_path(p_files[i]);
 	}
 
-	if (importer_name == "keep") {
+	if (importer_name == "keep" || importer_name == "skip") {
 		return OK; // (do nothing)
 	}
 
@@ -2078,7 +2085,7 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 		}
 	}
 
-	if (importer_name == "keep") {
+	if (importer_name == "keep" || importer_name == "skip") {
 		//keep files, do nothing.
 		fs->files[cpos]->modified_time = FileAccess::get_modified_time(p_file);
 		fs->files[cpos]->import_modified_time = FileAccess::get_modified_time(p_file + ".import");

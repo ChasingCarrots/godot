@@ -1705,9 +1705,10 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 
 		Point2 mpos = mb->get_position();
 		if (mb->is_pressed()) {
-			if (!gui.mouse_focus_mask.is_empty()) {
-				// Do not steal mouse focus and stuff while a focus mask exists.
-				gui.mouse_focus_mask.set_flag(mouse_button_to_mask(mb->get_button_index()));
+			MouseButtonMask button_mask = mouse_button_to_mask(mb->get_button_index());
+			if (!gui.mouse_focus_mask.is_empty() && !gui.mouse_focus_mask.has_flag(button_mask)) {
+				// Do not steal mouse focus and stuff while a focus mask without the current mouse button exists.
+				gui.mouse_focus_mask.set_flag(button_mask);
 			} else {
 				gui.mouse_focus = gui_find_control(mpos);
 				gui.last_mouse_focus = gui.mouse_focus;
@@ -2747,8 +2748,7 @@ bool Viewport::_sub_windows_forward_input(const Ref<InputEvent> &p_event) {
 				Size2i min_size = gui.currently_dragged_subwindow->get_min_size();
 				Size2i min_size_clamped = gui.currently_dragged_subwindow->get_clamped_minimum_size();
 
-				min_size_clamped.x = MAX(min_size_clamped.x, 1);
-				min_size_clamped.y = MAX(min_size_clamped.y, 1);
+				min_size_clamped = min_size_clamped.max(Size2i(1, 1));
 
 				Rect2i r = gui.subwindow_resize_from_rect;
 
@@ -2809,8 +2809,7 @@ bool Viewport::_sub_windows_forward_input(const Ref<InputEvent> &p_event) {
 
 				Size2i max_size = gui.currently_dragged_subwindow->get_max_size();
 				if ((max_size.x > 0 || max_size.y > 0) && (max_size.x >= min_size.x && max_size.y >= min_size.y)) {
-					max_size.x = MAX(max_size.x, 1);
-					max_size.y = MAX(max_size.y, 1);
+					max_size = max_size.max(Size2i(1, 1));
 
 					if (r.size.x > max_size.x) {
 						r.size.x = max_size.x;
@@ -4488,6 +4487,10 @@ void Viewport::set_use_xr(bool p_use_xr) {
 			} else {
 				RS::get_singleton()->viewport_set_size(viewport, 0, 0);
 			}
+
+			// Reset render target override textures.
+			RID rt = RS::get_singleton()->viewport_get_render_target(viewport);
+			RSG::texture_storage->render_target_set_override(rt, RID(), RID(), RID());
 		}
 	}
 }
@@ -4843,6 +4846,7 @@ void Viewport::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(RENDER_INFO_TYPE_VISIBLE);
 	BIND_ENUM_CONSTANT(RENDER_INFO_TYPE_SHADOW);
+	BIND_ENUM_CONSTANT(RENDER_INFO_TYPE_CANVAS);
 	BIND_ENUM_CONSTANT(RENDER_INFO_TYPE_MAX);
 
 	BIND_ENUM_CONSTANT(DEBUG_DRAW_DISABLED);

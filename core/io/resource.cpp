@@ -215,6 +215,7 @@ Error Resource::copy_from(const Ref<Resource> &p_resource) {
 	}
 	return OK;
 }
+
 void Resource::reload_from_file() {
 	String path = get_path();
 	if (!path.is_resource_file()) {
@@ -425,8 +426,7 @@ RID Resource::get_rid() const {
 		}
 	}
 	if (_get_extension() && _get_extension()->get_rid) {
-		RID ret;
-		ret.from_uint64(_get_extension()->get_rid(_get_extension_instance()));
+		RID ret = RID::from_uint64(_get_extension()->get_rid(_get_extension_instance()));
 		if (ret.is_valid()) {
 			return ret;
 		}

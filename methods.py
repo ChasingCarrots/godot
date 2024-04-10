@@ -179,7 +179,7 @@ def get_version_info(module_version_string="", silent=False):
     gitfolder = ".git"
 
     if os.path.isfile(".git"):
-        with open(".git", "r") as file:
+        with open(".git", "r", encoding="utf-8") as file:
             module_folder = file.readline().strip()
         if module_folder.startswith("gitdir: "):
             gitfolder = module_folder[8:]
@@ -196,12 +196,12 @@ def get_version_info(module_version_string="", silent=False):
             head = os.path.join(gitfolder, ref)
             packedrefs = os.path.join(gitfolder, "packed-refs")
             if os.path.isfile(head):
-                with open(head, "r") as file:
+                with open(head, "r", encoding="utf-8") as file:
                     githash = file.readline().strip()
             elif os.path.isfile(packedrefs):
                 # Git may pack refs into a single file. This code searches .git/packed-refs file for the current ref's hash.
                 # https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-pack-refs.html
-                for line in open(packedrefs, "r").read().splitlines():
+                for line in open(packedrefs, "r", encoding="utf-8").read().splitlines():
                     if line.startswith("#"):
                         continue
                     (line_hash, line_ref) = line.split(" ")
@@ -228,14 +228,47 @@ def get_version_info(module_version_string="", silent=False):
     return version_info
 
 
+_cleanup_env = None
+_cleanup_bool = False
+
+
+def write_file_if_needed(path, string):
+    """Generates a file only if it doesn't already exist or the content has changed.
+
+    Utilizes a dedicated SCons environment to ensure the files are properly removed
+    during cleanup; will not attempt to create files during cleanup.
+
+    - `path` - Path to the file in question; used to create cleanup logic.
+    - `string` - Content to compare against an existing file.
+    """
+    global _cleanup_env
+    global _cleanup_bool
+
+    if _cleanup_env is None:
+        from SCons.Environment import Environment
+
+        _cleanup_env = Environment()
+        _cleanup_bool = _cleanup_env.GetOption("clean")
+
+    _cleanup_env.Clean("#", path)
+    if _cleanup_bool:
+        return
+
+    try:
+        with open(path, "r", encoding="utf-8", newline="\n") as f:
+            if f.read() == string:
+                return
+    except FileNotFoundError:
+        pass
+
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(string)
+
+
 def generate_version_header(module_version_string=""):
     version_info = get_version_info(module_version_string)
 
-    # NOTE: It is safe to generate these files here, since this is still executed serially.
-
-    with open("core/version_generated.gen.h", "w", encoding="utf-8", newline="\n") as f:
-        f.write(
-            """\
+    version_info_header = """\
 /* THIS FILE IS GENERATED DO NOT EDIT */
 #ifndef VERSION_GENERATED_GEN_H
 #define VERSION_GENERATED_GEN_H
@@ -252,25 +285,24 @@ def generate_version_header(module_version_string=""):
 #define VERSION_DOCS_URL "https://docs.godotengine.org/en/" VERSION_DOCS_BRANCH
 #endif // VERSION_GENERATED_GEN_H
 """.format(
-                **version_info
-            )
-        )
+        **version_info
+    )
 
-    with open("core/version_hash.gen.cpp", "w", encoding="utf-8", newline="\n") as fhash:
-        fhash.write(
-            """\
+    version_hash_data = """\
 /* THIS FILE IS GENERATED DO NOT EDIT */
 #include "core/version.h"
 const char *const VERSION_HASH = "{git_hash}";
 const uint64_t VERSION_TIMESTAMP = {git_timestamp};
 """.format(
-                **version_info
-            )
-        )
+        **version_info
+    )
+
+    write_file_if_needed("core/version_generated.gen.h", version_info_header)
+    write_file_if_needed("core/version_hash.gen.cpp", version_hash_data)
 
 
 def parse_cg_file(fname, uniforms, sizes, conditionals):
-    with open(fname, "r") as fs:
+    with open(fname, "r", encoding="utf-8") as fs:
         line = fs.readline()
 
         while line:
@@ -385,15 +417,18 @@ def is_module(path):
 
 
 def write_disabled_classes(class_list):
-    with open("core/disabled_classes.gen.h", "w", encoding="utf-8", newline="\n") as f:
-        f.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
-        f.write("#ifndef DISABLED_CLASSES_GEN_H\n")
-        f.write("#define DISABLED_CLASSES_GEN_H\n\n")
-        for c in class_list:
-            cs = c.strip()
-            if cs != "":
-                f.write("#define ClassDB_Disable_" + cs + " 1\n")
-        f.write("\n#endif\n")
+    file_contents = ""
+
+    file_contents += "/* THIS FILE IS GENERATED DO NOT EDIT */\n"
+    file_contents += "#ifndef DISABLED_CLASSES_GEN_H\n"
+    file_contents += "#define DISABLED_CLASSES_GEN_H\n\n"
+    for c in class_list:
+        cs = c.strip()
+        if cs != "":
+            file_contents += "#define ClassDB_Disable_" + cs + " 1\n"
+    file_contents += "\n#endif\n"
+
+    write_file_if_needed("core/disabled_classes.gen.h", file_contents)
 
 
 def write_modules(modules):
@@ -435,9 +470,7 @@ void uninitialize_modules(ModuleInitializationLevel p_level) {
         uninitialize_cpp,
     )
 
-    # NOTE: It is safe to generate this file here, since this is still executed serially
-    with open("modules/register_module_types.gen.cpp", "w", encoding="utf-8", newline="\n") as f:
-        f.write(modules_cpp)
+    write_file_if_needed("modules/register_module_types.gen.cpp", modules_cpp)
 
 
 def convert_custom_modules_path(path):
@@ -826,14 +859,10 @@ def CommandNoCache(env, target, sources, command, **args):
     return result
 
 
-def Run(env, function, subprocess=True):
+def Run(env, function):
     from SCons.Script import Action
-    from platform_methods import run_in_subprocess
 
-    if not subprocess:
-        return Action(function, "$GENCOMSTR")
-    else:
-        return Action(run_in_subprocess(function), "$GENCOMSTR")
+    return Action(function, "$GENCOMSTR")
 
 
 def detect_darwin_sdk_path(platform, env):
@@ -1247,7 +1276,7 @@ def generate_vs_project(env, original_args, project_name="godot"):
     ).hexdigest()
 
     if os.path.exists(f"{project_name}.vcxproj.filters"):
-        with open(f"{project_name}.vcxproj.filters", "r") as file:
+        with open(f"{project_name}.vcxproj.filters", "r", encoding="utf-8") as file:
             existing_filters = file.read()
         match = re.search(r"(?ms)^<!-- CHECKSUM$.([0-9a-f]{32})", existing_filters)
         if match is not None and md5 == match.group(1):
@@ -1259,7 +1288,7 @@ def generate_vs_project(env, original_args, project_name="godot"):
     if not skip_filters:
         print(f"Regenerating {project_name}.vcxproj.filters")
 
-        with open("misc/msvs/vcxproj.filters.template", "r") as file:
+        with open("misc/msvs/vcxproj.filters.template", "r", encoding="utf-8") as file:
             filters_template = file.read()
         for i in range(1, 10):
             filters_template = filters_template.replace(f"%%UUID{i}%%", str(uuid.uuid4()))
@@ -1413,7 +1442,7 @@ def generate_vs_project(env, original_args, project_name="godot"):
             )
         output = f'bin\\godot{env["PROGSUFFIX"]}'
 
-        with open("misc/msvs/props.template", "r") as file:
+        with open("misc/msvs/props.template", "r", encoding="utf-8") as file:
             props_template = file.read()
 
         props_template = props_template.replace("%%VSCONF%%", vsconf)
@@ -1423,14 +1452,18 @@ def generate_vs_project(env, original_args, project_name="godot"):
 
         props_template = props_template.replace("%%OUTPUT%%", output)
 
-        props_template = props_template.replace(
-            "%%DEFINES%%", ";".join([format_key_value(v) for v in list(env["CPPDEFINES"])])
-        )
-        props_template = props_template.replace("%%INCLUDES%%", ";".join([str(j) for j in env["CPPPATH"]]))
-        props_template = props_template.replace(
-            "%%OPTIONS%%",
-            " ".join(env["CCFLAGS"]) + " " + " ".join([x for x in env["CXXFLAGS"] if not x.startswith("$")]),
-        )
+        proplist = [format_key_value(v) for v in list(env["CPPDEFINES"])]
+        proplist += [format_key_value(j) for j in env.get("VSHINT_DEFINES", [])]
+        props_template = props_template.replace("%%DEFINES%%", ";".join(proplist))
+
+        proplist = [str(j) for j in env["CPPPATH"]]
+        proplist += [str(j) for j in env.get("VSHINT_INCLUDES", [])]
+        props_template = props_template.replace("%%INCLUDES%%", ";".join(proplist))
+
+        proplist = env["CCFLAGS"]
+        proplist += [x for x in env["CXXFLAGS"] if not x.startswith("$")]
+        proplist += [str(j) for j in env.get("VSHINT_OPTIONS", [])]
+        props_template = props_template.replace("%%OPTIONS%%", " ".join(proplist))
 
         # Windows allows us to have spaces in paths, so we need
         # to double quote off the directory. However, the path ends
@@ -1482,7 +1515,7 @@ def generate_vs_project(env, original_args, project_name="godot"):
     sln_uuid = str(uuid.uuid4())
 
     if os.path.exists(f"{project_name}.sln"):
-        for line in open(f"{project_name}.sln", "r").read().splitlines():
+        for line in open(f"{project_name}.sln", "r", encoding="utf-8").read().splitlines():
             if line.startswith('Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}")'):
                 proj_uuid = re.search(
                     r"\"{(\b[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-\b[0-9a-fA-F]{12}\b)}\"$",
@@ -1571,7 +1604,7 @@ def generate_vs_project(env, original_args, project_name="godot"):
     section2 = sorted(section2)
 
     if not get_bool(original_args, "vsproj_props_only", False):
-        with open("misc/msvs/vcxproj.template", "r") as file:
+        with open("misc/msvs/vcxproj.template", "r", encoding="utf-8") as file:
             proj_template = file.read()
         proj_template = proj_template.replace("%%UUID%%", proj_uuid)
         proj_template = proj_template.replace("%%CONFS%%", "\n    ".join(configurations))
@@ -1583,7 +1616,7 @@ def generate_vs_project(env, original_args, project_name="godot"):
             f.write(proj_template)
 
     if not get_bool(original_args, "vsproj_props_only", False):
-        with open("misc/msvs/sln.template", "r") as file:
+        with open("misc/msvs/sln.template", "r", encoding="utf-8") as file:
             sln_template = file.read()
         sln_template = sln_template.replace("%%NAME%%", project_name)
         sln_template = sln_template.replace("%%UUID%%", proj_uuid)

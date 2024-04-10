@@ -141,6 +141,7 @@ static const char *android_perms[] = {
 	"MOUNT_UNMOUNT_FILESYSTEMS",
 	"NFC",
 	"PERSISTENT_ACTIVITY",
+	"POST_NOTIFICATIONS",
 	"PROCESS_OUTGOING_CALLS",
 	"READ_CALENDAR",
 	"READ_CALL_LOG",
@@ -1920,7 +1921,15 @@ bool EditorExportPlatformAndroid::get_export_option_visibility(const EditorExpor
 	bool advanced_options_enabled = p_preset->are_advanced_options_enabled();
 	if (p_option == "graphics/opengl_debug" ||
 			p_option == "command_line/extra_args" ||
-			p_option == "permissions/custom_permissions") {
+			p_option == "permissions/custom_permissions" ||
+			p_option == "gradle_build/compress_native_libraries" ||
+			p_option == "package/retain_data_on_uninstall" ||
+			p_option == "package/exclude_from_recents" ||
+			p_option == "package/show_in_app_library" ||
+			p_option == "package/show_as_launcher_app" ||
+			p_option == "apk_expansion/enable" ||
+			p_option == "apk_expansion/SALT" ||
+			p_option == "apk_expansion/public_key") {
 		return advanced_options_enabled;
 	}
 	if (p_option == "gradle_build/gradle_build_directory" || p_option == "gradle_build/android_source_template") {
@@ -1930,6 +1939,12 @@ bool EditorExportPlatformAndroid::get_export_option_visibility(const EditorExpor
 		// The APK templates are ignored if Gradle build is enabled.
 		return advanced_options_enabled && !bool(p_preset->get("gradle_build/use_gradle_build"));
 	}
+
+	// Hide .NET embedding option (always enabled).
+	if (p_option == "dotnet/embed_build_outputs") {
+		return false;
+	}
+
 	return true;
 }
 
@@ -3096,7 +3111,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 				return err;
 			}
 			if (user_data.libs.size() > 0) {
-				Ref<FileAccess> fa = FileAccess::open(GDEXTENSION_LIBS_PATH, FileAccess::WRITE);
+				Ref<FileAccess> fa = FileAccess::open(gdextension_libs_path, FileAccess::WRITE);
 				fa->store_string(JSON::stringify(user_data.libs, "\t"));
 			}
 		} else {

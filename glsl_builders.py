@@ -1,13 +1,7 @@
-"""Functions used to generate source files during build time
-
-All such functions are invoked in a subprocess on Windows to prevent build flakiness.
-
-"""
+"""Functions used to generate source files during build time"""
 
 import os.path
 from typing import Optional, Iterable
-
-from platform_methods import subprocess_main
 
 
 def generate_inline_code(input_lines: Iterable[str], insert_newline: bool = True):
@@ -44,7 +38,7 @@ class RDHeaderStruct:
 
 
 def include_file_in_rd_header(filename: str, header_data: RDHeaderStruct, depth: int) -> RDHeaderStruct:
-    with open(filename, "r") as fs:
+    with open(filename, "r", encoding="utf-8") as fs:
         line = fs.readline()
 
         while line:
@@ -178,7 +172,7 @@ class RAWHeaderStruct:
 
 
 def include_file_in_raw_header(filename: str, header_data: RAWHeaderStruct, depth: int) -> None:
-    with open(filename, "r") as fs:
+    with open(filename, "r", encoding="utf-8") as fs:
         line = fs.readline()
 
         while line:
@@ -227,7 +221,3 @@ static const char {out_file_base}[] = {{
 def build_raw_headers(target, source, env):
     for x in source:
         build_raw_header(filename=str(x))
-
-
-if __name__ == "__main__":
-    subprocess_main(globals())

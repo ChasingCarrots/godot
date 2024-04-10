@@ -33,7 +33,7 @@
 
 #include "core/templates/hash_map.h"
 #include "core/templates/rid_owner.h"
-#include "servers/native_menu.h"
+#include "servers/display/native_menu.h"
 
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
@@ -88,6 +88,7 @@ public:
 	virtual Size2 get_size(const RID &p_rid) const override;
 	virtual void popup(const RID &p_rid, const Vector2i &p_position) override;
 
+	virtual void set_interface_direction(const RID &p_rid, bool p_is_rtl) override;
 	virtual void set_popup_open_callback(const RID &p_rid, const Callable &p_callback) override;
 	virtual Callable get_popup_open_callback(const RID &p_rid) const override;
 	virtual void set_popup_close_callback(const RID &p_rid, const Callable &p_callback) override;

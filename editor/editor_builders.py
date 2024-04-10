@@ -1,8 +1,4 @@
-"""Functions used to generate source files during build time
-
-All such functions are invoked in a subprocess on Windows to prevent build flakiness.
-
-"""
+"""Functions used to generate source files during build time"""
 
 import os
 import os.path
@@ -11,16 +7,16 @@ import subprocess
 import tempfile
 import uuid
 import zlib
-from platform_methods import subprocess_main
 
 
 def make_doc_header(target, source, env):
-    dst = target[0]
+    dst = str(target[0])
     with open(dst, "w", encoding="utf-8", newline="\n") as g:
         buf = ""
         docbegin = ""
         docend = ""
         for src in source:
+            src = str(src)
             if not src.endswith(".xml"):
                 continue
             with open(src, "r", encoding="utf-8") as f:
@@ -49,14 +45,14 @@ def make_doc_header(target, source, env):
 
 
 def make_translations_header(target, source, env, category):
-    dst = target[0]
+    dst = str(target[0])
 
     with open(dst, "w", encoding="utf-8", newline="\n") as g:
         g.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
         g.write("#ifndef _{}_TRANSLATIONS_H\n".format(category.upper()))
         g.write("#define _{}_TRANSLATIONS_H\n".format(category.upper()))
 
-        sorted_paths = sorted(source, key=lambda path: os.path.splitext(os.path.basename(path))[0])
+        sorted_paths = sorted([str(x) for x in source], key=lambda path: os.path.splitext(os.path.basename(path))[0])
 
         msgfmt_available = shutil.which("msgfmt") is not None
 
@@ -65,7 +61,9 @@ def make_translations_header(target, source, env, category):
 
         xl_names = []
         for i in range(len(sorted_paths)):
-            if msgfmt_available:
+            name = os.path.splitext(os.path.basename(sorted_paths[i]))[0]
+            # msgfmt erases non-translated messages, so avoid using it if exporting the POT.
+            if msgfmt_available and name != category:
                 mo_path = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex + ".mo")
                 cmd = "msgfmt " + sorted_paths[i] + " --no-hash -o " + mo_path
                 try:
@@ -83,7 +81,7 @@ def make_translations_header(target, source, env, category):
                     try:
                         os.remove(mo_path)
                     except OSError as e:
-                        # Do not fail the entire build if it cannot delete a temporary file
+                        # Do not fail the entire build if it cannot delete a temporary file.
                         print(
                             "WARNING: Could not delete temporary .mo file: path=%r; [%s] %s"
                             % (mo_path, e.__class__.__name__, e)
@@ -92,11 +90,13 @@ def make_translations_header(target, source, env, category):
                 with open(sorted_paths[i], "rb") as f:
                     buf = f.read()
 
+                if name == category:
+                    name = "source"
+
             decomp_size = len(buf)
             # Use maximum zlib compression level to further reduce file size
             # (at the cost of initial build times).
             buf = zlib.compress(buf, zlib.Z_BEST_COMPRESSION)
-            name = os.path.splitext(os.path.basename(sorted_paths[i]))[0]
 
             g.write("static const unsigned char _{}_translation_{}_compressed[] = {{\n".format(category, name))
             for j in range(len(buf)):
@@ -139,7 +139,3 @@ def make_doc_translations_header(target, source, env):
 
 def make_extractable_translations_header(target, source, env):
     make_translations_header(target, source, env, "extractable")
-
-
-if __name__ == "__main__":
-    subprocess_main(globals())

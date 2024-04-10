@@ -1812,8 +1812,6 @@ bool SceneTreeDock::_check_node_path_recursive(Node *p_root_node, Variant &r_var
 			}
 		} break;
 
-// FIXME: This approach causes a significant performance regression, see GH-84910.
-#if 0
 		case Variant::OBJECT: {
 			Resource *resource = Object::cast_to<Resource>(r_variant);
 			if (!resource) {
@@ -1822,6 +1820,11 @@ bool SceneTreeDock::_check_node_path_recursive(Node *p_root_node, Variant &r_var
 
 			if (Object::cast_to<Animation>(resource)) {
 				// Animation resources are handled by animation editor.
+				break;
+			}
+
+			if (!resource->is_built_in()) {
+				// For performance reasons, assume that scene paths are no concern for external resources.
 				break;
 			}
 
@@ -1841,9 +1844,7 @@ bool SceneTreeDock::_check_node_path_recursive(Node *p_root_node, Variant &r_var
 					undo_redo->add_undo_property(resource, propertyname, old_variant);
 				}
 			}
-			break;
-		};
-#endif
+		} break;
 
 		default: {
 		}
@@ -3155,7 +3156,7 @@ void SceneTreeDock::_files_dropped(const Vector<String> &p_files, NodePath p_to,
 			const EditorPropertyNameProcessor::Style style = InspectorDock::get_singleton()->get_property_name_style();
 			menu_properties->clear();
 			for (const String &p : valid_properties) {
-				menu_properties->add_item(EditorPropertyNameProcessor::get_singleton()->process_name(p, style));
+				menu_properties->add_item(EditorPropertyNameProcessor::get_singleton()->process_name(p, style, p, node->get_class_name()));
 				menu_properties->set_item_metadata(-1, p);
 			}
 
@@ -3510,6 +3511,7 @@ void SceneTreeDock::_update_tree_menu() {
 	tree_menu->set_item_tooltip(tree_menu->get_item_index(TOOL_CENTER_PARENT), TTR("If enabled, Reparent to New Node will create the new node in the center of the selected nodes, if possible."));
 
 	PopupMenu *resource_list = memnew(PopupMenu);
+	resource_list->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	resource_list->connect("about_to_popup", callable_mp(this, &SceneTreeDock::_list_all_subresources).bind(resource_list));
 	resource_list->connect("index_pressed", callable_mp(this, &SceneTreeDock::_edit_subresource).bind(resource_list));
 	tree_menu->add_submenu_node_item(TTR("All Scene Sub-Resources"), resource_list);

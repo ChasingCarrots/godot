@@ -83,8 +83,7 @@ DisplayServerMacOS::WindowID DisplayServerMacOS::_create_window(WindowMode p_mod
 		Rect2i srect = screen_get_usable_rect(rq_screen);
 		Point2i wpos = p_rect.position;
 		if (srect != Rect2i()) {
-			wpos.x = CLAMP(wpos.x, srect.position.x, srect.position.x + srect.size.width - p_rect.size.width / 3);
-			wpos.y = CLAMP(wpos.y, srect.position.y, srect.position.y + srect.size.height - p_rect.size.height / 3);
+			wpos = wpos.clamp(srect.position, srect.position + srect.size - p_rect.size / 3);
 		}
 		// macOS native y-coordinate relative to _get_screens_origin() is negative,
 		// Godot passes a positive value.
@@ -289,6 +288,10 @@ void DisplayServerMacOS::_update_displays_arrangement() {
 		}
 	}
 	displays_arrangement_dirty = false;
+}
+
+void DisplayServerMacOS::set_menu_delegate(NSMenu *p_menu) {
+	[p_menu setDelegate:menu_delegate];
 }
 
 Point2i DisplayServerMacOS::_get_screens_origin() const {
@@ -515,7 +518,7 @@ void DisplayServerMacOS::_keyboard_layout_changed(CFNotificationCenterRef center
 NSImage *DisplayServerMacOS::_convert_to_nsimg(Ref<Image> &p_image) const {
 	p_image->convert(Image::FORMAT_RGBA8);
 	NSBitmapImageRep *imgrep = [[NSBitmapImageRep alloc]
-			initWithBitmapDataPlanes:NULL
+			initWithBitmapDataPlanes:nullptr
 						  pixelsWide:p_image->get_width()
 						  pixelsHigh:p_image->get_height()
 					   bitsPerSample:8
@@ -756,6 +759,8 @@ bool DisplayServerMacOS::has_feature(Feature p_feature) const {
 		case FEATURE_CURSOR_SHAPE:
 		case FEATURE_CUSTOM_CURSOR_SHAPE:
 		case FEATURE_NATIVE_DIALOG:
+		case FEATURE_NATIVE_DIALOG_INPUT:
+		case FEATURE_NATIVE_DIALOG_FILE:
 		case FEATURE_IME:
 		case FEATURE_WINDOW_TRANSPARENCY:
 		case FEATURE_HIDPI:
@@ -1877,8 +1882,7 @@ void DisplayServerMacOS::window_set_current_screen(int p_screen, WindowID p_wind
 	Size2i wsize = window_get_size(p_window);
 	wpos += srect.position;
 
-	wpos.x = CLAMP(wpos.x, srect.position.x, srect.position.x + srect.size.width - wsize.width / 3);
-	wpos.y = CLAMP(wpos.y, srect.position.y, srect.position.y + srect.size.height - wsize.height / 3);
+	wpos = wpos.clamp(srect.position, srect.position + srect.size - wsize / 3);
 	window_set_position(wpos, p_window);
 
 	if (was_fullscreen) {
@@ -1991,7 +1995,7 @@ void DisplayServerMacOS::window_set_position(const Point2i &p_position, WindowID
 	ERR_FAIL_COND(!windows.has(p_window));
 	WindowData &wd = windows[p_window];
 
-	if (NSEqualRects([wd.window_object frame], [[wd.window_object screen] visibleFrame])) {
+	if (wd.fullscreen) {
 		return;
 	}
 
@@ -2080,12 +2084,21 @@ Size2i DisplayServerMacOS::window_get_max_size(WindowID p_window) const {
 }
 
 void DisplayServerMacOS::update_presentation_mode() {
+	bool has_fs_windows = false;
 	for (const KeyValue<WindowID, WindowData> &wd : windows) {
-		if (wd.value.fullscreen && wd.value.exclusive_fullscreen) {
-			return;
+		if (wd.value.fullscreen) {
+			if (wd.value.exclusive_fullscreen) {
+				return;
+			} else {
+				has_fs_windows = true;
+			}
 		}
 	}
-	[NSApp setPresentationOptions:NSApplicationPresentationDefault];
+	if (has_fs_windows) {
+		[NSApp setPresentationOptions:NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideDock | NSApplicationPresentationFullScreen];
+	} else {
+		[NSApp setPresentationOptions:NSApplicationPresentationDefault];
+	}
 }
 
 void DisplayServerMacOS::window_set_min_size(const Size2i p_size, WindowID p_window) {
@@ -2309,8 +2322,7 @@ void DisplayServerMacOS::window_set_window_buttons_offset(const Vector2i &p_offs
 	WindowData &wd = windows[p_window];
 	float scale = screen_get_max_scale();
 	wd.wb_offset = p_offset / scale;
-	wd.wb_offset.x = MAX(wd.wb_offset.x, 12);
-	wd.wb_offset.y = MAX(wd.wb_offset.y, 12);
+	wd.wb_offset = wd.wb_offset.max(Vector2i(12, 12));
 	if (wd.window_button_view) {
 		[wd.window_button_view setOffset:NSMakePoint(wd.wb_offset.x, wd.wb_offset.y)];
 	}

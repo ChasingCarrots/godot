@@ -117,6 +117,7 @@ if env["builtin_harfbuzz"]:
         "src/hb-subset-cff1.cc",
         "src/hb-subset-cff2.cc",
         "src/hb-subset-input.cc",
+        "src/hb-subset-instancer-iup.cc",
         "src/hb-subset-instancer-solver.cc",
         "src/hb-subset-plan.cc",
         "src/hb-subset-repacker.cc",
@@ -531,6 +532,7 @@ module_obj = []
 
 if env["builtin_msdfgen"] and msdfgen_enabled:
     # Treat msdfgen headers as system headers to avoid raising warnings. Not supported on MSVC.
+    env_text_server_adv.Append(CPPDEFINES=[("MSDFGEN_PUBLIC", "")])
     if not env.msvc:
         env_text_server_adv.Append(CPPFLAGS=["-isystem", Dir("#thirdparty/msdfgen").path])
     else:

@@ -691,6 +691,59 @@ bool Object::has_method(const StringName &p_method) const {
 	return false;
 }
 
+int Object::_get_method_argument_count_bind(const StringName &p_method) const {
+	return get_method_argument_count(p_method);
+}
+
+int Object::get_method_argument_count(const StringName &p_method, bool *r_is_valid) const {
+	if (p_method == CoreStringNames::get_singleton()->_free) {
+		if (r_is_valid) {
+			*r_is_valid = true;
+		}
+		return 0;
+	}
+
+	if (script_instance) {
+		bool valid = false;
+		int ret = script_instance->get_method_argument_count(p_method, &valid);
+		if (valid) {
+			if (r_is_valid) {
+				*r_is_valid = true;
+			}
+			return ret;
+		}
+	}
+
+	{
+		bool valid = false;
+		int ret = ClassDB::get_method_argument_count(get_class_name(), p_method, &valid);
+		if (valid) {
+			if (r_is_valid) {
+				*r_is_valid = true;
+			}
+			return ret;
+		}
+	}
+
+	const Script *scr = Object::cast_to<Script>(this);
+	while (scr != nullptr) {
+		bool valid = false;
+		int ret = scr->get_script_method_argument_count(p_method, &valid);
+		if (valid) {
+			if (r_is_valid) {
+				*r_is_valid = true;
+			}
+			return ret;
+		}
+		scr = scr->get_base_script().ptr();
+	}
+
+	if (r_is_valid) {
+		*r_is_valid = false;
+	}
+	return 0;
+}
+
 Variant Object::getvar(const Variant &p_key, bool *r_valid) const {
 	if (r_valid) {
 		*r_valid = false;
@@ -1050,11 +1103,6 @@ bool Object::_has_user_signal(const StringName &p_name) const {
 	return signal_map[p_name].user.name.length() > 0;
 }
 
-struct _ObjectSignalDisconnectData {
-	StringName signal;
-	Callable callable;
-};
-
 Error Object::_emit_signal(const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 	if (unlikely(p_argcount < 1)) {
 		r_error.error = Callable::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS;
@@ -1103,26 +1151,43 @@ Error Object::emit_signalp(const StringName &p_name, const Variant **p_args, int
 	// which is needed in certain edge cases; e.g., https://github.com/godotengine/godot/issues/73889.
 	Ref<RefCounted> rc = Ref<RefCounted>(Object::cast_to<RefCounted>(this));
 
-	List<_ObjectSignalDisconnectData> disconnect_data;
-
 	// Ensure that disconnecting the signal or even deleting the object
 	// will not affect the signal calling.
-	LocalVector<Connection> slot_conns;
-	slot_conns.resize(s->slot_map.size());
-	{
-		uint32_t idx = 0;
-		for (const KeyValue<Callable, SignalData::Slot> &slot_kv : s->slot_map) {
-			slot_conns[idx++] = slot_kv.value.conn;
+	Callable *slot_callables = (Callable *)alloca(sizeof(Callable) * s->slot_map.size());
+	uint32_t *slot_flags = (uint32_t *)alloca(sizeof(uint32_t) * s->slot_map.size());
+	uint32_t slot_count = 0;
+
+	for (const KeyValue<Callable, SignalData::Slot> &slot_kv : s->slot_map) {
+		memnew_placement(&slot_callables[slot_count], Callable(slot_kv.value.conn.callable));
+		slot_flags[slot_count] = slot_kv.value.conn.flags;
+		++slot_count;
+	}
+
+	DEV_ASSERT(slot_count == s->slot_map.size());
+
+	// Disconnect all one-shot connections before emitting to prevent recursion.
+	for (uint32_t i = 0; i < slot_count; ++i) {
+		bool disconnect = slot_flags[i] & CONNECT_ONE_SHOT;
+#ifdef TOOLS_ENABLED
+		if (disconnect && (slot_flags[i] & CONNECT_PERSIST) && Engine::get_singleton()->is_editor_hint()) {
+			// This signal was connected from the editor, and is being edited. Just don't disconnect for now.
+			disconnect = false;
 		}
-		DEV_ASSERT(idx == s->slot_map.size());
+#endif
+		if (disconnect) {
+			_disconnect(p_name, slot_callables[i]);
+		}
 	}
 
 	OBJ_DEBUG_LOCK
 
 	Error err = OK;
 
-	for (const Connection &c : slot_conns) {
-		if (!c.callable.is_valid()) {
+	for (uint32_t i = 0; i < slot_count; ++i) {
+		const Callable &callable = slot_callables[i];
+		const uint32_t &flags = slot_flags[i];
+
+		if (!callable.is_valid()) {
 			// Target might have been deleted during signal callback, this is expected and OK.
 			continue;
 		}
@@ -1130,51 +1195,34 @@ Error Object::emit_signalp(const StringName &p_name, const Variant **p_args, int
 		const Variant **args = p_args;
 		int argc = p_argcount;
 
-		if (c.flags & CONNECT_DEFERRED) {
-			MessageQueue::get_singleton()->push_callablep(c.callable, args, argc, true);
+		if (flags & CONNECT_DEFERRED) {
+			MessageQueue::get_singleton()->push_callablep(callable, args, argc, true);
 		} else {
 			Callable::CallError ce;
 			_emitting = true;
 			Variant ret;
-			c.callable.callp(args, argc, ret, ce);
+			callable.callp(args, argc, ret, ce);
 			_emitting = false;
 
 			if (ce.error != Callable::CallError::CALL_OK) {
 #ifdef DEBUG_ENABLED
-				if (c.flags & CONNECT_PERSIST && Engine::get_singleton()->is_editor_hint() && (script.is_null() || !Ref<Script>(script)->is_tool())) {
+				if (flags & CONNECT_PERSIST && Engine::get_singleton()->is_editor_hint() && (script.is_null() || !Ref<Script>(script)->is_tool())) {
 					continue;
 				}
 #endif
-				Object *target = c.callable.get_object();
+				Object *target = callable.get_object();
 				if (ce.error == Callable::CallError::CALL_ERROR_INVALID_METHOD && target && !ClassDB::class_exists(target->get_class_name())) {
 					//most likely object is not initialized yet, do not throw error.
 				} else {
-					ERR_PRINT("Error calling from signal '" + String(p_name) + "' to callable: " + Variant::get_callable_error_text(c.callable, args, argc, ce) + ".");
+					ERR_PRINT("Error calling from signal '" + String(p_name) + "' to callable: " + Variant::get_callable_error_text(callable, args, argc, ce) + ".");
 					err = ERR_METHOD_NOT_FOUND;
 				}
 			}
 		}
-
-		bool disconnect = c.flags & CONNECT_ONE_SHOT;
-#ifdef TOOLS_ENABLED
-		if (disconnect && (c.flags & CONNECT_PERSIST) && Engine::get_singleton()->is_editor_hint()) {
-			//this signal was connected from the editor, and is being edited. just don't disconnect for now
-			disconnect = false;
-		}
-#endif
-		if (disconnect) {
-			_ObjectSignalDisconnectData dd;
-			dd.signal = p_name;
-			dd.callable = c.callable;
-			disconnect_data.push_back(dd);
-		}
 	}
 
-	while (!disconnect_data.is_empty()) {
-		const _ObjectSignalDisconnectData &dd = disconnect_data.front()->get();
-
-		_disconnect(dd.signal, dd.callable);
-		disconnect_data.pop_front();
+	for (uint32_t i = 0; i < slot_count; ++i) {
+		slot_callables[i].~Callable();
 	}
 
 	return err;
@@ -1485,9 +1533,9 @@ String Object::tr(const StringName &p_message, const StringName &p_context) cons
 		return p_message;
 	}
 
-	if (Engine::get_singleton()->is_editor_hint()) {
+	if (Engine::get_singleton()->is_editor_hint() || Engine::get_singleton()->is_project_manager_hint()) {
 		String tr_msg = TranslationServer::get_singleton()->extractable_translate(p_message, p_context);
-		if (!tr_msg.is_empty()) {
+		if (!tr_msg.is_empty() && tr_msg != p_message) {
 			return tr_msg;
 		}
 
@@ -1506,9 +1554,9 @@ String Object::tr_n(const StringName &p_message, const StringName &p_message_plu
 		return p_message_plural;
 	}
 
-	if (Engine::get_singleton()->is_editor_hint()) {
+	if (Engine::get_singleton()->is_editor_hint() || Engine::get_singleton()->is_project_manager_hint()) {
 		String tr_msg = TranslationServer::get_singleton()->extractable_translate_plural(p_message, p_message_plural, p_n, p_context);
-		if (!tr_msg.is_empty()) {
+		if (!tr_msg.is_empty() && tr_msg != p_message && tr_msg != p_message_plural) {
 			return tr_msg;
 		}
 
@@ -1646,6 +1694,8 @@ void Object::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("callv", "method", "arg_array"), &Object::callv);
 
 	ClassDB::bind_method(D_METHOD("has_method", "method"), &Object::has_method);
+
+	ClassDB::bind_method(D_METHOD("get_method_argument_count", "method"), &Object::_get_method_argument_count_bind);
 
 	ClassDB::bind_method(D_METHOD("has_signal", "signal"), &Object::has_signal);
 	ClassDB::bind_method(D_METHOD("get_signal_list"), &Object::_get_signal_list);

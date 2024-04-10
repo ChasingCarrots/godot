@@ -835,10 +835,13 @@ int RichTextLabel::_draw_line(ItemFrame *p_frame, int p_line, const Vector2 &p_o
 	// Draw dropcap.
 	int dc_lines = l.text_buf->get_dropcap_lines();
 	float h_off = l.text_buf->get_dropcap_size().x;
-	if (l.dc_ol_size > 0) {
-		l.text_buf->draw_dropcap_outline(ci, p_ofs + ((rtl) ? Vector2() : Vector2(l.offset.x, 0)), l.dc_ol_size, l.dc_ol_color);
+	bool skip_dc = (trim_chars && l.char_offset > visible_characters) || (trim_glyphs_ltr && (r_processed_glyphs >= visible_glyphs)) || (trim_glyphs_rtl && (r_processed_glyphs < total_glyphs - visible_glyphs));
+	if (!skip_dc) {
+		if (l.dc_ol_size > 0) {
+			l.text_buf->draw_dropcap_outline(ci, p_ofs + ((rtl) ? Vector2() : Vector2(l.offset.x, 0)), l.dc_ol_size, l.dc_ol_color);
+		}
+		l.text_buf->draw_dropcap(ci, p_ofs + ((rtl) ? Vector2() : Vector2(l.offset.x, 0)), l.dc_color);
 	}
-	l.text_buf->draw_dropcap(ci, p_ofs + ((rtl) ? Vector2() : Vector2(l.offset.x, 0)), l.dc_color);
 
 	int line_count = 0;
 	Size2 ctrl_size = get_size();
@@ -894,7 +897,8 @@ int RichTextLabel::_draw_line(ItemFrame *p_frame, int p_line, const Vector2 &p_o
 			} break;
 		}
 
-		if (!prefix.is_empty() && line == 0) {
+		bool skip_prefix = (visible_chars_behavior == TextServer::VC_CHARS_BEFORE_SHAPING && l.char_offset == visible_characters) || (trim_chars && l.char_offset > visible_characters) || (trim_glyphs_ltr && (r_processed_glyphs >= visible_glyphs)) || (trim_glyphs_rtl && (r_processed_glyphs < total_glyphs - visible_glyphs));
+		if (!prefix.is_empty() && line == 0 && !skip_prefix) {
 			Ref<Font> font = theme_cache.normal_font;
 			int font_size = theme_cache.normal_font_size;
 
@@ -935,13 +939,23 @@ int RichTextLabel::_draw_line(ItemFrame *p_frame, int p_line, const Vector2 &p_o
 		for (int i = 0; i < objects.size(); i++) {
 			Item *it = items.get_or_null(objects[i]);
 			if (it != nullptr) {
+				Vector2i obj_range = TS->shaped_text_get_object_range(rid, objects[i]);
+				if (trim_chars && l.char_offset + obj_range.y > visible_characters) {
+					continue;
+				}
+				if (trim_glyphs_ltr || trim_glyphs_rtl) {
+					int obj_glyph = r_processed_glyphs + TS->shaped_text_get_object_glyph(rid, objects[i]);
+					if ((trim_glyphs_ltr && (obj_glyph >= visible_glyphs)) || (trim_glyphs_rtl && (obj_glyph < total_glyphs - visible_glyphs))) {
+						continue;
+					}
+				}
 				Rect2 rect = TS->shaped_text_get_object_rect(rid, objects[i]);
 				//draw_rect(rect, Color(1,0,0), false, 2); //DEBUG_RECTS
 				switch (it->type) {
 					case ITEM_IMAGE: {
 						ItemImage *img = static_cast<ItemImage *>(it);
 						if (img->pad) {
-							Size2 pad_size = Size2(MIN(rect.size.x, img->image->get_width()), MIN(rect.size.y, img->image->get_height()));
+							Size2 pad_size = rect.size.min(img->image->get_size());
 							Vector2 pad_off = (rect.size - pad_size) / 2;
 							img->image->draw_rect(ci, Rect2(p_ofs + rect.position + off + pad_off, pad_size), false, img->color);
 						} else {

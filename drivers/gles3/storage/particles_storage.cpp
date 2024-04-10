@@ -32,6 +32,8 @@
 #ifdef GLES3_ENABLED
 
 #include "particles_storage.h"
+
+#include "config.h"
 #include "material_storage.h"
 #include "mesh_storage.h"
 #include "texture_storage.h"
@@ -121,6 +123,8 @@ void ParticlesStorage::particles_set_mode(RID p_particles, RS::ParticlesMode p_m
 }
 
 void ParticlesStorage::particles_set_emitting(RID p_particles, bool p_emitting) {
+	ERR_FAIL_COND_MSG(GLES3::Config::get_singleton()->adreno_3xx_compatibility, "Due to driver bugs, GPUParticles are not supported on Adreno 3XX devices. Please use CPUParticles instead.");
+
 	Particles *particles = particles_owner.get_or_null(p_particles);
 	ERR_FAIL_NULL(particles);
 
@@ -128,6 +132,10 @@ void ParticlesStorage::particles_set_emitting(RID p_particles, bool p_emitting) 
 }
 
 bool ParticlesStorage::particles_get_emitting(RID p_particles) {
+	if (GLES3::Config::get_singleton()->adreno_3xx_compatibility) {
+		return false;
+	}
+
 	ERR_FAIL_COND_V_MSG(RSG::threaded, false, "This function should never be used with threaded rendering, as it stalls the renderer.");
 	Particles *particles = particles_owner.get_or_null(p_particles);
 	ERR_FAIL_NULL_V(particles, false);
@@ -1005,6 +1013,12 @@ void ParticlesStorage::_particles_update_instance_buffer(Particles *particles, c
 
 void ParticlesStorage::update_particles() {
 	PROFILE_FUNCTION();
+	if (!particle_update_list.first()) {
+		// Return early to avoid unnecessary state changes.
+		return;
+	}
+
+	RENDER_TIMESTAMP("Update GPUParticles");
 	glEnable(GL_RASTERIZER_DISCARD);
 	glBindFramebuffer(GL_FRAMEBUFFER, GLES3::TextureStorage::system_fbo);
 

@@ -1,14 +1,8 @@
-"""Functions used to generate source files during build time
-
-All such functions are invoked in a subprocess on Windows to prevent build flakiness.
-
-"""
+"""Functions used to generate source files during build time"""
 
 import os.path
 
 from typing import Optional
-
-from platform_methods import subprocess_main
 
 
 class GLES3HeaderStruct:
@@ -37,7 +31,7 @@ class GLES3HeaderStruct:
 
 
 def include_file_in_gles3_header(filename: str, header_data: GLES3HeaderStruct, depth: int):
-    with open(filename, "r") as fs:
+    with open(filename, "r", encoding="utf-8") as fs:
         line = fs.readline()
 
         while line:
@@ -600,7 +594,3 @@ def build_gles3_header(
 def build_gles3_headers(target, source, env):
     for x in source:
         build_gles3_header(str(x), include="drivers/gles3/shader_gles3.h", class_suffix="GLES3")
-
-
-if __name__ == "__main__":
-    subprocess_main(globals())
