@@ -226,7 +226,7 @@ protected:
 	static void _bind_methods();
 
 public:
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || defined(PROFILING_ENABLED)
 	static String debug_get_script_name(const Ref<Script> &p_script);
 #endif
 

@@ -60,9 +60,29 @@
 #include "editor/editor_paths.h"
 #endif
 
+#include <core/string/string_buffer.h>
 #include <stdint.h>
 
 ///////////////////////////
+
+// this is a tradeoff between profiling readability and performance (BUT: only used in PROFILING builds!)
+inline const char* BuildStringForProfilingIdentifier(const StringName& functionName, const StringName& additionalIdentifyingName) {
+	const int BUFSIZE = 128;
+	thread_local char profilingFuncName[BUFSIZE];
+	const CharString funcNameAscii = static_cast<String>(functionName).ascii();
+	const CharString addNameAscii = static_cast<String>(additionalIdentifyingName).ascii();
+
+	int cpy_bytes = std::min(BUFSIZE, funcNameAscii.size());
+	memcpy(profilingFuncName, funcNameAscii.ptr(), cpy_bytes);
+
+	if(addNameAscii.size() > 0 && BUFSIZE - cpy_bytes > 5) {
+		int cpy_add_bytes = std::min(BUFSIZE-cpy_bytes, addNameAscii.size());
+		profilingFuncName[cpy_bytes-1] = '#';
+		memcpy(profilingFuncName+cpy_bytes, addNameAscii.ptr(), cpy_add_bytes);
+	}
+
+	return profilingFuncName;
+}
 
 GDScriptNativeClass::GDScriptNativeClass(const StringName &p_name) {
 	name = p_name;
@@ -101,7 +121,8 @@ Object *GDScriptNativeClass::instantiate() {
 }
 
 Variant GDScriptNativeClass::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
-	PROFILE_DYNAMIC_FUNCTION(((String)p_method).ascii().ptr())
+	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, name))
+
 	if (p_method == SNAME("new")) {
 		// Constructor.
 		return Object::callp(p_method, p_args, p_argcount, r_error);
@@ -874,7 +895,8 @@ void GDScript::unload_static() const {
 }
 
 Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
-	PROFILE_DYNAMIC_FUNCTION(((String)p_method).ascii().ptr())
+	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)))
+
 	GDScript *top = this;
 	while (top) {
 		HashMap<StringName, GDScriptFunction *>::Iterator E = top->member_functions.find(p_method);
@@ -1402,7 +1424,7 @@ void GDScript::_save_orphaned_subclasses(ClearData *p_clear_data) {
 	}
 }
 
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || defined(PROFILING_ENABLED)
 String GDScript::debug_get_script_name(const Ref<Script> &p_script) {
 	if (p_script.is_valid()) {
 		Ref<GDScript> gdscript = p_script;
@@ -1957,7 +1979,8 @@ int GDScriptInstance::get_method_argument_count(const StringName &p_method, bool
 }
 
 Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
-	PROFILE_DYNAMIC_FUNCTION(((String)p_method).ascii().ptr())
+	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script)))
+
 	GDScript *sptr = script.ptr();
 	if (unlikely(p_method == SNAME("_ready"))) {
 		// Call implicit ready first, including for the super classes.

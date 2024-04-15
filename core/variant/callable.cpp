@@ -45,10 +45,8 @@ void Callable::call_deferredp(const Variant **p_arguments, int p_argcount) const
 
 void Callable::callp(const Variant **p_arguments, int p_argcount, Variant &r_return_value, CallError &r_call_error) const {
 #ifdef PROFILING_ENABLED
-	auto name = (operator String()).ascii().ptr();
-	if(name == NULL)
-		name = "Unnamed Callable";
-	PROFILE_DYNAMIC_FUNCTION(name)
+	const CharString own_name = this->operator String().ascii();
+	PROFILE_DYNAMIC_FUNCTION(own_name.size() > 0 ? own_name.ptr() : "unnamed callable")
 #endif
 	if (is_null()) {
 		r_call_error.error = CallError::CALL_ERROR_INSTANCE_IS_NULL;
@@ -81,10 +79,8 @@ void Callable::callp(const Variant **p_arguments, int p_argcount, Variant &r_ret
 
 Variant Callable::callv(const Array &p_arguments) const {
 #ifdef PROFILING_ENABLED
-	auto name = (operator String()).ascii().ptr();
-	if(name == NULL)
-		name = "Unnamed Callable";
-	PROFILE_DYNAMIC_FUNCTION(name)
+	const CharString own_name = this->operator String().ascii();
+	PROFILE_DYNAMIC_FUNCTION(own_name.size() > 0 ? own_name.ptr() : "unnamed callable")
 #endif
 	int argcount = p_arguments.size();
 	const Variant **argptrs = nullptr;
