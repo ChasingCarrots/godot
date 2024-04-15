@@ -43,7 +43,7 @@ class GameObject : public Node2D {
 
 	OAHashMap<StringName, ObjectID> _childNodeWithMethodOrPropertyCache;
 
-	uint32_t calculateHashForModifiedValueCalculation(const String& modifierType, const Variant& baseValue, const TypedArray<String>& categories) {
+	uint32_t calculateHashForModifiedValueCalculation(const String& modifierType, const Variant& baseValue, const PackedStringArray& categories) {
 		uint32_t calculationHash = modifierType.hash();
 		calculationHash *= 16777619;
 		calculationHash ^= baseValue.hash();
@@ -52,6 +52,8 @@ class GameObject : public Node2D {
 			calculationHash += categories[i].hash();
 		}
 		for(const auto mod : _modifier) {
+			if(!mod->isRelevant(modifierType, categories))
+				continue;
 			calculationHash *= 7187;
 			calculationHash ^= mod->hash();
 		}

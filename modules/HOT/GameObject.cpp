@@ -302,11 +302,15 @@ void GameObject::triggerModifierUpdated(String modifierType) {
 
 Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValue, TypedArray<String> categories) {
 	PROFILE_FUNCTION();
+	PackedStringArray categoriesAsPackedStr;
+	categoriesAsPackedStr.resize(categories.size());
+	for (int i = 0; i < categories.size(); ++i)
+		categoriesAsPackedStr.set(i, categories[i]);
 	uint32_t calculationHash;
 	bool isFloat = baseValue.get_type() == Variant::FLOAT;
 	{
 		PROFILE_FUNCTION("ModValueCalculationHashing");
-		calculationHash = calculateHashForModifiedValueCalculation(modifierType, baseValue, categories);
+		calculationHash = calculateHashForModifiedValueCalculation(modifierType, baseValue, categoriesAsPackedStr);
 		if(isFloat) {
 			float cachedValue = 0;
 			if(CalculatedModifiedFloatValuesCache.lookup(calculationHash, cachedValue))
@@ -322,10 +326,6 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 	int baseValueInt = baseValue;
 	float baseValueFloat = baseValue;
 	float multiplier = 1;
-	PackedStringArray categoriesAsPackedStr;
-	categoriesAsPackedStr.resize(categories.size());
-	for (int i = 0; i < categories.size(); ++i)
-		categoriesAsPackedStr.set(i, categories[i]);
 
 	for(auto modifier : _modifier) {
 		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
