@@ -1771,7 +1771,7 @@ void RichTextLabel::_scroll_changed(double) {
 		return;
 	}
 
-	if (scroll_follow && vscroll->get_value() >= (vscroll->get_max() - vscroll->get_page())) {
+	if (scroll_follow && vscroll->get_value() >= (vscroll->get_max() - Math::round(vscroll->get_page()))) {
 		scroll_following = true;
 	} else {
 		scroll_following = false;
@@ -2239,6 +2239,7 @@ void RichTextLabel::gui_input(const Ref<InputEvent> &p_event) {
 			queue_redraw();
 		}
 
+		_find_click(main, m->get_position(), nullptr, nullptr, &c_item, nullptr, &outside, true);
 		Variant meta;
 		ItemMeta *item_meta;
 		if (c_item && !outside && _find_meta(c_item, &meta, &item_meta)) {
@@ -3121,6 +3122,8 @@ void RichTextLabel::_add_item(Item *p_item, bool p_enter, bool p_ensure_newline)
 		current_char_ofs += t->text.length();
 	} else if (p_item->type == ITEM_IMAGE) {
 		current_char_ofs++;
+	} else if (p_item->type == ITEM_NEWLINE) {
+		current_char_ofs++;
 	}
 
 	if (p_enter) {
@@ -3149,7 +3152,7 @@ void RichTextLabel::_add_item(Item *p_item, bool p_enter, bool p_ensure_newline)
 	queue_redraw();
 }
 
-void RichTextLabel::_remove_item(Item *p_item, const int p_line, const int p_subitem_line) {
+void RichTextLabel::_remove_item(Item *p_item, const int p_line) {
 	int size = p_item->subitems.size();
 	if (size == 0) {
 		p_item->parent->subitems.erase(p_item);
@@ -3158,7 +3161,7 @@ void RichTextLabel::_remove_item(Item *p_item, const int p_line, const int p_sub
 			current_frame->lines.remove_at(p_line);
 			if (p_line < (int)current_frame->lines.size() && current_frame->lines[p_line].from) {
 				for (List<Item *>::Element *E = current_frame->lines[p_line].from->E; E; E = E->next()) {
-					if (E->get()->line > p_subitem_line) {
+					if (E->get()->line > p_line) {
 						E->get()->line--;
 					}
 				}
@@ -3167,7 +3170,7 @@ void RichTextLabel::_remove_item(Item *p_item, const int p_line, const int p_sub
 	} else {
 		// First, remove all child items for the provided item.
 		while (p_item->subitems.size()) {
-			_remove_item(p_item->subitems.front()->get(), p_line, p_subitem_line);
+			_remove_item(p_item->subitems.front()->get(), p_line);
 		}
 		// Then remove the provided item itself.
 		p_item->parent->subitems.erase(p_item);
@@ -3375,7 +3378,10 @@ bool RichTextLabel::remove_paragraph(const int p_paragraph) {
 	for (int i = subitem_to_remove.size() - 1; i >= 0; i--) {
 		List<Item *>::Element *subitem = subitem_to_remove[i];
 		had_newline = had_newline || subitem->get()->type == ITEM_NEWLINE;
-		_remove_item(subitem->get(), subitem->get()->line, p_paragraph);
+		if (subitem->get() == current) {
+			pop();
+		}
+		_remove_item(subitem->get(), p_paragraph);
 	}
 
 	if (!had_newline) {

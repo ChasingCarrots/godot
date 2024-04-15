@@ -77,7 +77,7 @@
 # Mohammedi Mohammed Djawad <smallcloverstudio@gmail.com>, 2023.
 # Hamed Mohammed Almuslhi <wbk7777@hotmail.com>, 2023.
 # KhalilBenGaied <grozz1@yahoo.com>, 2023.
-# بسام العوفي <co-able@hotmail.com>, 2023.
+# بسام العوفي <co-able@hotmail.com>, 2023, 2024.
 # Abdulkarim <abwkhaldalhwsawy@gmail.com>, 2023.
 # Rémi Verschelde <remi@godotengine.org>, 2023.
 # Omran Alsaedi <Omran2222@outlook.sa>, 2023.
@@ -88,13 +88,14 @@
 # Jugy <hellowo038@gmail.com>, 2023.
 # 7D <miuatoro.exe@gmail.com>, 2023.
 # Emad Alhaddad <emad142240@gmail.com>, 2023.
+# Varga <vancouver_cliparf@simplelogin.com>, 2024.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine editor interface\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-11-16 16:21+0000\n"
-"Last-Translator: Emad Alhaddad <emad142240@gmail.com>\n"
+"PO-Revision-Date: 2024-02-21 09:02+0000\n"
+"Last-Translator: بسام العوفي <co-able@hotmail.com>\n"
 "Language-Team: Arabic <https://hosted.weblate.org/projects/godot-engine/godot/"
 "ar/>\n"
 "Language: ar\n"
@@ -103,10 +104,10 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && "
 "n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
-"X-Generator: Weblate 5.2\n"
+"X-Generator: Weblate 5.5-dev\n"
 
 msgid "Main Thread"
-msgstr "ثريد رئيسي"
+msgstr "النظيمة الرئيسة"
 
 msgid "Unset"
 msgstr "غير محدد"
@@ -1576,7 +1577,7 @@ msgid "Decompressing remote file system"
 msgstr "توسيع(ضغط) نظام الملفات البعيد"
 
 msgid "Scanning for local changes"
-msgstr "الفحص عن التغييرات القريبة"
+msgstr "البحث عن التغييرات القريبة"
 
 msgid "Sending list of changed files:"
 msgstr "إرسال قائمة بالملفات المتغيرة:"
@@ -1909,7 +1910,7 @@ msgid "Errors loading!"
 msgstr "اخطاء في التحميل!"
 
 msgid "Permanently delete %d item(s)? (No undo!)"
-msgstr "هل تريد حذف %d عنصر (عناصر) نهائيًا؟ (لا يمكن التراجع!)"
+msgstr "هل تريد حذف العناصر %d نهائيًا؟ (لا يمكن التراجع!)"
 
 msgid "Show Dependencies"
 msgstr "إظهار التبعيات"
@@ -1981,6 +1982,9 @@ msgstr "المطورون"
 msgid "Authors"
 msgstr "المالكون"
 
+msgid "Patrons"
+msgstr "رعاة"
+
 msgid "Platinum Sponsors"
 msgstr "الرعاة البلاتينيين"
 
@@ -1989,6 +1993,18 @@ msgstr "الرعاة الذهبيين"
 
 msgid "Silver Sponsors"
 msgstr "المانحين الفضيين"
+
+msgid "Diamond Members"
+msgstr "الرعاة الماسيين"
+
+msgid "Titanium Members"
+msgstr "الرعاة التيتانيوم"
+
+msgid "Platinum Members"
+msgstr "الرعاة البلاتينيين"
+
+msgid "Gold Members"
+msgstr "الرعاة الذهبيين"
 
 msgid "Donors"
 msgstr "مانحين"
@@ -2204,7 +2220,7 @@ msgid "Load an existing Bus Layout."
 msgstr "حمّلْ تخطيط صوت سابق."
 
 msgid "Save As"
-msgstr "حفظ بأسم"
+msgstr "حفظ باسم"
 
 msgid "Save this Bus Layout to a file."
 msgstr "احفظْ تخطيط هذا المقطع إلى ملف."
@@ -2636,7 +2652,7 @@ msgid "Save & Restart"
 msgstr "حفظ و إعادة تشغيل"
 
 msgid "ScanSources"
-msgstr "فحص المصادر"
+msgstr "البحث في المصادر"
 
 msgid ""
 "There are multiple importers for different types pointing to file %s, import "
@@ -2862,7 +2878,7 @@ msgid "Signal:"
 msgstr "إشارة:"
 
 msgid "Theme Item:"
-msgstr "إضافة عنصر مظهر واجهة المستخدم:"
+msgstr "عنصر النمط:"
 
 msgid "No description available."
 msgstr "لا يوجد وصف متاح."
@@ -2925,7 +2941,7 @@ msgid "Method"
 msgstr "دالة"
 
 msgid "Signal"
-msgstr "الإشاراة"
+msgstr "الإشارة"
 
 msgid "Annotation"
 msgstr "التوضيح"
@@ -2964,19 +2980,19 @@ msgstr[4] "(%d تغييرات)"
 msgstr[5] "(%d تغييرات)"
 
 msgid "Add element to property array with prefix %s."
-msgstr "أضف عنصراً غلى مصفوفة الخصائص مع البادئة %s."
+msgstr "أضف عنصراً إلى المصفوفة المخصوصة مع البادئة %s."
 
 msgid "Remove element %d from property array with prefix %s."
-msgstr "أزل العنصر %d من مصفوفة الخاصيات ذو البادئة %s."
+msgstr "أزل العنصر %d من المصفوفة المخصوصة مع البادئة %s."
 
 msgid "Move element %d to position %d in property array with prefix %s."
-msgstr "أنقل العنصر %d إلى الترتيب %d في مصفوفة الخاصيات، ذو البادئة %s."
+msgstr "انقل العنصر %d إلى الموضع %d في المصفوفة المخصوصة مع البادئة %s."
 
 msgid "Clear Property Array with Prefix %s"
-msgstr "إزاله خاصية المصفوفة ذات البادئة %s."
+msgstr "إزاله خاصية المصفوفة ذات البادئة %s"
 
 msgid "Resize Property Array with Prefix %s"
-msgstr "غير حجم مصفوفة باستعمال البادئة %s."
+msgstr "غير حجم مصفوفة باستعمال البادئة %s"
 
 msgid "Element %d: %s%d*"
 msgstr "العنصر %d: %s%d*"
@@ -3279,7 +3295,7 @@ msgid "Layout name not found!"
 msgstr "اسم النسق غير موجود!"
 
 msgid "Restored the Default layout to its base settings."
-msgstr "تم إسترجاع النسق الإفتراضي (Default layout) لاعدادتهِ الأساسية."
+msgstr "قد أُعيد التخطيط الافتراضي لإعدادتهِ الأساسية."
 
 msgid "This object is marked as read-only, so it's not editable."
 msgstr "تم وصف هذا الكائن على أنه للقراءة فقط، لذا لا يمكن تعديله."
@@ -3458,15 +3474,15 @@ msgstr ""
 "تعطيل الإضافة في '%s' لتجنب الأخطاء لاحقاً."
 
 msgid ""
-"Unable to load addon script from path: '%s' Base type is not EditorPlugin."
+"Unable to load addon script from path: '%s'. Base type is not 'EditorPlugin'."
 msgstr ""
-"غير قادر علي تحميل النص البرمجي الإضافي من المسار: '%s' النوع الأساسي ليس "
-"إضافة المُعدل."
+"غير قادر على تحميل البرنامج النصي الإضافي من المسار: '%s'. النوع الأساسي ليس "
+"\"EditorPlugin\"."
 
-msgid "Unable to load addon script from path: '%s' Script is not in tool mode."
+msgid "Unable to load addon script from path: '%s'. Script is not in tool mode."
 msgstr ""
-"غير قادر علي تحميل النص البرمجي الإضافي من المسار: '%s' النص البرمجي ليس في "
-"وضع الأداة."
+"غير قادر على تحميل البرنامج النصي الإضافي من المسار: '%s'. البرنامج النصي ليس "
+"في وضع الأداة."
 
 msgid ""
 "Scene '%s' was automatically imported, so it can't be modified.\n"
@@ -3585,6 +3601,15 @@ msgstr ""
 "غير قادر على الكتابة إلى الملف '%s', الملف يُستعمل الآن إما أنه مغلق أو أنه "
 "ينقصه الأذونات."
 
+msgid "Forward+"
+msgstr "المتقدم"
+
+msgid "Mobile"
+msgstr "المتنقل (كالجوال والأجهزة اللوحية والحواسب المحمولة الضعيفة)"
+
+msgid "Compatibility"
+msgstr "المتوافق"
+
 msgid "Pan View"
 msgstr "إظهار شامل"
 
@@ -3681,6 +3706,9 @@ msgstr "أدوات"
 msgid "Orphan Resource Explorer..."
 msgstr "متصفح الموارد اليتيمة..."
 
+msgid "Upgrade Mesh Surfaces..."
+msgstr "ترقية أسطح المجسم..."
+
 msgid "Reload Current Project"
 msgstr "إعادة تحميل/تشغيل المشروع الحالي"
 
@@ -3758,21 +3786,6 @@ msgstr "حول جَوْدَتْ"
 
 msgid "Support Godot Development"
 msgstr "ادعم تطوير جَوْدَتْ"
-
-msgid "Choose a renderer."
-msgstr "اخترْ نظام التكوين."
-
-msgid "Forward+"
-msgstr "تقدم+"
-
-msgid "Mobile"
-msgstr "المتنقل (كالجوال والأجهزة اللوحية والحواسب المحمولة الضعيفة)"
-
-msgid "Compatibility"
-msgstr "المتوافق"
-
-msgid "Changing the renderer requires restarting the editor."
-msgstr "تغييرنظام التكوين يتطلب استئناف المحرر."
 
 msgid "Update Continuously"
 msgstr "تحديث متواصل"
@@ -3880,7 +3893,7 @@ msgid "Create Version Control Metadata..."
 msgstr "إعداد إدارة الإصدارات لالبيانات الوصفية (Version Control)..."
 
 msgid "Version Control Settings..."
-msgstr "نظام التحكم بالإصدار ...VCS"
+msgstr "إعدادات التحكم في الإصدارات..."
 
 msgid "New Inherited"
 msgstr "موروث جديد"
@@ -5009,7 +5022,7 @@ msgid ""
 "Scanning Files,\n"
 "Please Wait..."
 msgstr ""
-"يفحص الملفات،\n"
+"البحث في الملفات،\n"
 "من فضلك انتظر..."
 
 msgid "Overwrite"
@@ -5670,7 +5683,7 @@ msgstr ""
 "خريطة-الرسمة-بدقات-متعددة (mipmap) وضغط نقش إلى %s."
 
 msgid "2D/3D (Auto-Detect)"
-msgstr "ثنائي الابعاد/ثلاثي الابعاد (تحقيق تلقائي)"
+msgstr "ثنائي /ثلاثي الأبعاد (تحقق تلقائي)"
 
 msgid "2D"
 msgstr "الثنائي"
@@ -6325,7 +6338,7 @@ msgid "Nodes Disconnected"
 msgstr "العُقد غير متصلة"
 
 msgid "Set Animation"
-msgstr "تحديد الرسومية المتحركة"
+msgstr "عينْ التحريك"
 
 msgid "Delete Node"
 msgstr "حذف العُقدة"
@@ -6621,7 +6634,7 @@ msgid "Display list of animations in player."
 msgstr "إظهار قائمة الحركات في المُشغل."
 
 msgid "Autoplay on Load"
-msgstr "تشغيل تلقائي حينما يتم التحميل"
+msgstr "تشغيل تلقائي عند التحميل"
 
 msgid "Enable Onion Skinning"
 msgstr "تفعيل تقشير البصل"
@@ -6911,7 +6924,7 @@ msgid "Search Templates, Projects, and Demos"
 msgstr "البحث في القوالب والمشاريع والأمثلة"
 
 msgid "Search Assets (Excluding Templates, Projects, and Demos)"
-msgstr "البحث في الملحقات (عدا القوالب، والمشاريع، والأمثلة)"
+msgstr "البحث في الأصول (عدا القوالب، والمشاريع، والأمثلة)"
 
 msgid "Import..."
 msgstr "استيراد..."
@@ -6973,7 +6986,8 @@ msgstr "خطوة التحجيم:"
 msgid ""
 "Children of a container get their position and size determined only by their "
 "parent."
-msgstr "أطفال الحاوية يتم تحديد موقعهم وحجمهم فقط من قبل والديهم."
+msgstr ""
+"فروع الحاوية لا يمكن تحديد مواقعها وأحجامها إلا من العقدة التي هي أًصل لها فقط."
 
 msgid "Move Node(s) to Position"
 msgstr "نقل العُقد إلى الموضع"
@@ -7012,10 +7026,10 @@ msgid "Move CanvasItem \"%s\" Anchor"
 msgstr "تحريك مرساة عنصر-اللوحة \"%s\""
 
 msgid "Scale Node2D \"%s\" to (%s, %s)"
-msgstr "تعديل حجم العقدة \"Node2D \"%s إلى (s, %s%)"
+msgstr "تعديل حجم العقدة \"Node2D \"%s إلى (%s,%s)"
 
 msgid "Resize Control \"%s\" to (%d, %d)"
-msgstr "تغيير حجم عنصر التحكم \"٪ s\" إلى (٪ d،٪ d)"
+msgstr "تغيير حجم عنصر التحكم \"%s\" إلى (%d،% d)"
 
 msgid "Scale %d CanvasItems"
 msgstr "تغيير حجم عناصر-اللوحة %d"
@@ -7027,7 +7041,7 @@ msgid "Move %d CanvasItems"
 msgstr "تحريك %d من عناصر-اللوحات"
 
 msgid "Move CanvasItem \"%s\" to (%d, %d)"
-msgstr "تحريك عنصر-اللوحة \"%s\" الى (%d, %d)"
+msgstr "نقل عنصر-اللوحة \"%s\" الى (%d, %d)"
 
 msgid "Locked"
 msgstr "مُقفل"
@@ -7378,7 +7392,7 @@ msgid "Drag and drop to add as child of current scene's root node."
 msgstr "اسحبْ وألقِ؛ لإضافته فرعا للعقدة الجذرية للمشهد الحالي."
 
 msgid "Hold %s when dropping to add as child of selected node."
-msgstr "اضغط باستمرار على %s عند الإسقاط للإضافة كفرع للعقدة المحددة."
+msgstr "علّق على %s عند الإسقاط؛ لإضافته \"فرعا\" للعقدة المحددة."
 
 msgid "Hold Shift when dropping to add as sibling of selected node."
 msgstr "اضغط مع الاستمرار على Shift عند الإسقاط للإضافة كأخ للعقدة المحددة."
@@ -7707,7 +7721,7 @@ msgstr ""
 "في المشروع المشغل."
 
 msgid "Debug CanvasItem Redraws"
-msgstr "تصحيح أخطاء إعادة رسم عنصر اللوحة القماشية"
+msgstr "تنقيح مرتسمات عنصر-اللوحة"
 
 msgid ""
 "When this option is enabled, redraw requests of 2D objects will become "
@@ -7991,7 +8005,7 @@ msgid "Reverse Gradient"
 msgstr "عكس التدرج"
 
 msgid "Reverse/Mirror Gradient"
-msgstr "التدرج العكسي/المناظِر."
+msgstr "التدرج العكسي/المناظِر"
 
 msgid "Move GradientTexture2D Fill Point"
 msgstr "نقل نقطة التعبئة Gradient Texture2D"
@@ -8401,10 +8415,10 @@ msgid "Top Perspective"
 msgstr "نظر من فوق"
 
 msgid "Bottom Orthogonal"
-msgstr "نظر من الاسفل (متعامد)"
+msgstr "نظر من الأسفل (متعامد)"
 
 msgid "Bottom Perspective"
-msgstr "نظر من الاسفل"
+msgstr "نظر من الأسفل"
 
 msgid "Left Orthogonal"
 msgstr "نظر من الشمال (متعامد/ليس له بعد ثالث)"
@@ -8431,7 +8445,7 @@ msgid "Rear Perspective"
 msgstr "نظر من الخلف"
 
 msgid " [auto]"
-msgstr " [auto]"
+msgstr " [تلقائي]"
 
 msgid "X-Axis Transform."
 msgstr "التحوّل المحوري X."
@@ -8482,28 +8496,28 @@ msgid "FPS: %d"
 msgstr "ط ث : %d"
 
 msgid "Top View."
-msgstr "الواجهة العلوية."
+msgstr "المنظر العُلوي."
 
 msgid "Bottom View."
-msgstr "الواجهة السفلية."
+msgstr "المنظر السُّفلي."
 
 msgid "Left View."
-msgstr "الواجهة اليُسرى."
+msgstr "المنظر الأيسر."
 
 msgid "Right View."
-msgstr "الواجهة اليُمنى."
+msgstr "المنظر الأيمن."
 
 msgid "Front View."
-msgstr "الواجهة الأمامية."
+msgstr "المنظر الأمامي."
 
 msgid "Rear View."
-msgstr "الواجهة الخلفية."
+msgstr "المنظر الخلفي."
 
 msgid "Align Transform with View"
-msgstr "محاذاة التحوّل مع الواجهة"
+msgstr "محاذاة التحوّل مع المنظر"
 
 msgid "Align Rotation with View"
-msgstr "محاذاة التدوير مع الواجهة"
+msgstr "محاذاة التدوير مع المنظر"
 
 msgid "Set Surface %d Override Material"
 msgstr "قم بتعيين مادة تجاوز السطح %d"
@@ -8628,7 +8642,7 @@ msgid "Internal Buffer"
 msgstr "المخزن المؤقت الداخلي"
 
 msgid "Display Advanced..."
-msgstr "عرض إعدادات متقدمه..."
+msgstr "عرض الإعدادات المتقدمة..."
 
 msgid "View Environment"
 msgstr "عرض البيئة"
@@ -9534,7 +9548,7 @@ msgid "JSON"
 msgstr "JSON"
 
 msgid "Connections to method:"
-msgstr "الاتصالات لدالة:"
+msgstr "الاتصالات بالدالة:"
 
 msgid "Source"
 msgstr "مصدر"
@@ -9737,7 +9751,7 @@ msgid "ShaderFile"
 msgstr "ملف المُظَلِّل"
 
 msgid "This skeleton has no bones, create some children Bone2D nodes."
-msgstr "لا يملك هذا الهكيل أيّة عظام، أنشئ بعض عُقد العظام ثنائية البُعد كأبناء."
+msgstr "لا يملك هذا الهكيل أيّة عظام، أنشئ عُقد عظم-ثنائي فرعية."
 
 msgid "Set Rest Pose to Bones"
 msgstr "تحديد وضعية الراحة على العظام"
@@ -9878,7 +9892,7 @@ msgid "Create LightOccluder2D Sibling"
 msgstr "أنشاء ضوء محجوب ثنائي الأبعاد"
 
 msgid "Sprite2D"
-msgstr "رسومية ثنائي الأبعاد"
+msgstr "أرسومة-ثنائية"
 
 msgid "Simplification:"
 msgstr "التبسيط:"
@@ -10344,13 +10358,13 @@ msgstr ""
 "ضف المزيد من العناصر يدوياً أو عن طريق استيرادها من ثيم آخر."
 
 msgid "Remove Theme Item"
-msgstr "إزالة غرض العنصر"
+msgstr "إزالة عنصر النمط"
 
 msgid "Add Theme Type"
 msgstr "إضافة نوع للسمة"
 
 msgid "Create Theme Item"
-msgstr "إنشاء عنصر الموضوع"
+msgstr "إنشاء عنصر النمط"
 
 msgid "Remove Theme Type"
 msgstr "إزالة نوع الموضوع"
@@ -10380,7 +10394,7 @@ msgid "Add Font Size Item"
 msgstr "إضافة عنصر حجم الخط"
 
 msgid "Add Icon Item"
-msgstr "إضافة عنصر العلامة/الايقونة"
+msgstr "إضافة عنصر العلامة/الأيقونة"
 
 msgid "Add Stylebox Item"
 msgstr "إضافة عنصر مربع المظهر"
@@ -10404,7 +10418,7 @@ msgid "Rename Stylebox Item"
 msgstr "اعادة تسمية عنصر مربع المظهر"
 
 msgid "Rename Theme Item"
-msgstr "إعادة تسمية عنصر السمه"
+msgstr "إعادة تسمية عنصر النمط"
 
 msgid "Invalid file, not a Theme resource."
 msgstr "الملف خطأ، ليس ملف مورد المظهر الكلي."
@@ -10443,7 +10457,7 @@ msgid "Remove All Items"
 msgstr "إزالة جميع العناصر"
 
 msgid "Add Theme Item"
-msgstr "إضافة عنصر مظهر واجهة المستخدم"
+msgstr "إضافة عنصر النمط"
 
 msgid "Old Name:"
 msgstr "الاسم القديم:"
@@ -10507,22 +10521,22 @@ msgid "Override All Default Theme Items"
 msgstr "تجاوز كافة عناصر السمة الافتراضية"
 
 msgid "Override Theme Item"
-msgstr "تجاوز عنصر السمه"
+msgstr "تجاوز عنصر النمط"
 
 msgid "Set Color Item in Theme"
-msgstr "تعيين عنصر اللون في السمه"
+msgstr "تعيين عنصر اللون في النمط"
 
 msgid "Set Constant Item in Theme"
-msgstr "تعيين عنصر ثابت في السمه"
+msgstr "تعيين عنصر ثابت في النمط"
 
 msgid "Set Font Size Item in Theme"
-msgstr "ضبط عنصر حجم الخط في السمة"
+msgstr "ضبط عنصر حجم الخط في النمط"
 
 msgid "Set Font Item in Theme"
-msgstr "تعيين عنصر الخط في السمه"
+msgstr "تعيين عنصر الخط في النمط"
 
 msgid "Set Icon Item in Theme"
-msgstr "تعيين أيقونة عنصر في السمة"
+msgstr "تعيين أيقونة عنصر في النمط"
 
 msgid "Set Stylebox Item in Theme"
 msgstr "تعيين عنصر مربع النمط في السمة"
@@ -11315,7 +11329,7 @@ msgstr "خطأ"
 
 msgid ""
 "Remote settings are empty. VCS features that use the network may not work."
-msgstr "الإعدادت عن بُعد فارغة. يمكن أنْ لا تعمل خصائص VCS التي تستخدم الشبكة."
+msgstr "الإعدادت عن بُعد فارغة. خصائص VCS التي تستخدم الشبكة قد لا تعمل."
 
 msgid "Commit"
 msgstr "ارتكاب"
@@ -11342,7 +11356,7 @@ msgid "Subtitle:"
 msgstr "عنوان جانبي:"
 
 msgid "Do you want to remove the %s branch?"
-msgstr "هل تريد إزالة فرع s%؟"
+msgstr "هل تريد إزالة فرع %s؟"
 
 msgid "Do you want to remove the %s remote?"
 msgstr "هل ترغب في حذف هذي النسخة %s؟"
@@ -13043,13 +13057,6 @@ msgstr ""
 "اللغة قد تغيرتْ.\n"
 "ستتحدث الواجهة بعد استئناف المُحرر أو مُدير المشروع."
 
-msgid ""
-"Are you sure to scan %s folders for existing Godot projects?\n"
-"This could take a while."
-msgstr ""
-"هل أنت متأكد من فحص %s من المجلدات بحثاً عن مشاريع جَوْدَتْ الحالية؟\n"
-"هذا قد يأخذ زمنا."
-
 msgctxt "Application"
 msgid "Project Manager"
 msgstr "مدير المشروع"
@@ -13061,7 +13068,7 @@ msgid "Import Project"
 msgstr "استيراد مشروع"
 
 msgid "Scan"
-msgstr "فحص"
+msgstr "البحث"
 
 msgid "Scan Projects"
 msgstr "البحث في المشاريع"
@@ -13107,7 +13114,7 @@ msgid "Restart Now"
 msgstr "إعادة التشغيل الآن"
 
 msgid "Select a Folder to Scan"
-msgstr "اختر مُجلداً لفحصه"
+msgstr "اختر مُجلداً للبحث فيه"
 
 msgid "Remove All"
 msgstr "مسح الكل"
@@ -13200,7 +13207,7 @@ msgid "Project Settings (project.godot)"
 msgstr "إعدادات المشروع (project.godot)"
 
 msgid "Advanced Settings"
-msgstr "إعدادات مُتقدمة"
+msgstr "الإعدادات المُتقدمة"
 
 msgid "Select a Setting or Type its Name"
 msgstr "اختر إعدادا أو اكتبْ اسمه"
@@ -13276,7 +13283,7 @@ msgid "Per-level Counter"
 msgstr "العداد وفق-المستوى"
 
 msgid "If set, the counter restarts for each group of child nodes."
-msgstr "إذا تم تحديده فإن العداد سيعيد البدء لكل مجموعة من العُقد الأبناء."
+msgstr "إذا حُدد، فإن العداد سوف يُعاد لكل مجموعة من فروع العقد."
 
 msgid "Initial value for the counter."
 msgstr "القيمة المبدئية للعداد."
@@ -13453,7 +13460,7 @@ msgid "Make node as Root"
 msgstr "اجعل العقدة جذرا"
 
 msgid "Delete %d nodes and any children?"
-msgstr "حذف العُقدة %d مع جميع فروعها؟"
+msgstr "حذف العُقد %d مع جميع فروعها؟"
 
 msgid "Delete %d nodes?"
 msgstr "حذف العُقد %d؟"
@@ -13503,9 +13510,9 @@ msgid ""
 "To save this branch into its own scene, open the original scene, right click "
 "on this branch, and select \"Save Branch as Scene\"."
 msgstr ""
-"لا يمكن حفظ فرع تابع لمشهد تم إنشاء مثيل له بالفعل.\n"
-"لحفظ هذا الفرع في المشهد الخاص به، افتح المشهد الأصلي، وانقر بزر الماوس "
-"الأيمن على هذا الفرع، ثم حدد \"حفظ الفرع كمشهد\"."
+"لا يمكن أن تحفظ فرعًا هو فرع في مشهد فرعي مستنسخ.\n"
+"لحفظ هذا الفرع في مشهده، افتح المشهد الأصلي، وانقر بزر الفأرة الأيمن على هذا "
+"الفرع، ثم اختر \"حفظ الفرع كمشهد\"."
 
 msgid ""
 "Can't save a branch which is part of an inherited scene.\n"
@@ -13529,8 +13536,8 @@ msgid ""
 "Enabling \"Load as Placeholder\" will disable \"Editable Children\" and cause "
 "all properties of the node to be reverted to their default."
 msgstr ""
-"سيؤدي تمكين \"التحميل كعنصر نائب\" إلى تعطيل \"العناصر الفرعية القابلة "
-"للتحرير\" ويتسبب في إعادة كافة خصائص العقدة إلى وضعها الافتراضي."
+"تمكين \"تحميله عنصرًا مناوبًا\" سوف يعطل \"فروع قابلة للتعديل\" ويُعيد كافة "
+"خصائص العقدة إلى وضعها الافتراضي."
 
 msgid "Make Local"
 msgstr "اجعله محلياً"
@@ -13622,7 +13629,7 @@ msgid "Editable Children"
 msgstr "فروع قابلة للتعديل"
 
 msgid "Load as Placeholder"
-msgstr "تحميله كعنصر نائب"
+msgstr "تحميله عنصرًا مناوِبًا"
 
 msgid "Auto Expand to Selected"
 msgstr "التوسيع التلقائي للمختارة"
@@ -13676,7 +13683,7 @@ msgid "Add Child Node..."
 msgstr "إضافة عقدة فرعية..."
 
 msgid "Instantiate Child Scene..."
-msgstr "إنشاء مشهد طفل..."
+msgstr "إلحاق مشهد فرعي..."
 
 msgid "Expand/Collapse Branch"
 msgstr "توسيع / طي الفروع"
@@ -13688,7 +13695,7 @@ msgid "Change Type..."
 msgstr "تغيير النوع..."
 
 msgid "Attach Script..."
-msgstr "إرفاق البرنامج النصي..."
+msgstr "إلحاق نص برمجي..."
 
 msgid "Extend Script..."
 msgstr "توسيع البرنامج النصي..."
@@ -13920,11 +13927,31 @@ msgstr "الاسم '%s' هو كلمة أساسية محجوزة في لغة ال
 msgid "Add Shader Global Parameter"
 msgstr "إضافة معلمة تظليل العالمية"
 
+msgid ""
+"This project uses meshes with an outdated mesh format from previous Godot "
+"versions. The engine needs to update the format in order to use those meshes. "
+"Please use the 'Upgrade Mesh Surfaces' tool from the 'Project > Tools' menu. "
+"You can ignore this message and keep using outdated meshes, but keep in mind "
+"that this leads to increased load times every time you load the project."
+msgstr ""
+"يستخدم هذا المشروع مجسمات ذات تنسيق نجسم قديم من إصدارات جودات السابقة. يحتاج "
+"المحرك إلى تحديث التنسيق لاستخدام تلك المجسمات. الرجاء استخدام أداة \"ترقية "
+"الأسطح المجسمات\" من قائمة \"المشروع > الأدوات\". يمكنك تجاهل هذه الرسالة "
+"والاستمرار في استخدام المجسمات القديمة، ولكن ضع في اعتبارك أن هذا يؤدي إلى "
+"زيادة أوقات التحميل في كل مرة تقوم فيها بتحميل المشروع."
+
+msgid ""
+"This project uses meshes with an outdated mesh format. Check the output log."
+msgstr "يستخدم هذا المشروع مجسمات ذات تنسيق مجسم قديم. تحقق من مخرجات السجل."
+
 msgid "Upgrading All Meshes in Project"
 msgstr "ترقية كافة المجسمات في المشروع"
 
 msgid "Attempting to re-save "
 msgstr "محاولة إعادة الحفظ. "
+
+msgid "Attempting to remove "
+msgstr "محاولة لإزالة "
 
 msgid "Restart & Upgrade"
 msgstr "إعادة التشغيل والترقية"
@@ -14525,13 +14552,6 @@ msgstr "الحرف '%s' لا يمكن أن يكون الحرف الأول من �
 msgid "The package must have at least one '.' separator."
 msgstr "يجب أن تتضمن الرزمة على الأقل واحد من الفواصل '.' ."
 
-msgid ""
-"The project name does not meet the requirement for the package name format. "
-"Please explicitly specify the package name."
-msgstr ""
-"اسم المشروع لا يلبي متطلبات تنسيق اسم الحزمة. الرجاء تحديد اسم الحزمة بشكل "
-"واضح."
-
 msgid "Invalid public key for APK expansion."
 msgstr "مفتاح عام غير صالح لأجل تصدير حزمة تطبيق أندرويد APK."
 
@@ -14542,7 +14562,7 @@ msgid "\"Use Gradle Build\" must be enabled to use the plugins."
 msgstr "يجب تفعيل \"‏use Custom Build\" لاستخدام المكونات الإضافية."
 
 msgid "OpenXR requires \"Use Gradle Build\" to be enabled"
-msgstr "يتطلب OpenXR تمكين \"‏use Gradle Build\"."
+msgstr "يتطلب OpenXR تمكين \"‏use Gradle Build\""
 
 msgid "\"Export AAB\" is only valid when \"Use Gradle Build\" is enabled."
 msgstr "يكون \"تصدير AAB\" صالحًا فقط عند تمكين \"استخدام Gradle Build\"."
@@ -14762,8 +14782,14 @@ msgstr "لا يمكن كتابة ملف الحزمة الإضافية!"
 msgid "Building Android Project (gradle)"
 msgstr "بناء مشروع الأندرويد (gradle)"
 
+msgid "Building of Android project failed, check output for the error:"
+msgstr "فشل إنشاء مشروع أندرويد، تحقق من الخطأ:"
+
 msgid "Moving output"
 msgstr "جاري تحريك المخرجات"
+
+msgid "Unable to copy and rename export file:"
+msgstr "غير قادر على نسخ وإعادة تسمية ملف التصدير:"
 
 msgid "Package not found: \"%s\"."
 msgstr "لم نجد الحزمة: \"%s\"."
@@ -15153,7 +15179,7 @@ msgid "Could not find template app to export: \"%s\"."
 msgstr "لا يُوجد \"تطبيق القالب\" لتصديره: \"%s\"."
 
 msgid "Invalid export format."
-msgstr "صيغة التصدير لا تصلح"
+msgstr "صيغة التصدير لا تصلح."
 
 msgid "Could not create directory: \"%s\"."
 msgstr "تعذر إنشاء مجلد: \"%s\"."
@@ -15683,6 +15709,13 @@ msgstr ""
 "لـ TileMap وجميع طبقاتها."
 
 msgid ""
+"External Skeleton3D node not set! Please set a path to an external Skeleton3D "
+"node."
+msgstr ""
+"لم يتم تعيين عقدة الهيكل العظمي الخارجي ثلاثي الابعاد! يرجى تعيين مسار إلى "
+"عقدة هيكل عظمي ثلاثي الابعاد خارجية."
+
+msgid ""
 "Parent node is not a Skeleton3D node! Please use an external Skeleton3D if "
 "you intend to use the BoneAttachment3D without it being a child of a "
 "Skeleton3D node."
@@ -15825,12 +15858,33 @@ msgstr ""
 "تصادم لوحدة معالجة الرسوميات GPUParticlesCollisionSDF3D.\n"
 "لحل هذه المشكلة، قم بتمكين بت واحد على الأقل في خاصية Bake Mask."
 
+msgid "A light's scale does not affect the visual size of the light."
+msgstr "لا يؤثر مقياس الضوء على الحجم المرئي للضوء."
+
 msgid ""
 "Projector textures are not supported when using the GL Compatibility backend "
 "yet. Support will be added in a future release."
 msgstr ""
 "لا يتم دعم زخارف جهاز العرض عند استخدام الواجهة الخلفية لتوافق GL حتى الآن. "
 "سيتم إضافة الدعم في إصدار مستقبلي."
+
+msgid "Preparing geometry %d/%d"
+msgstr "تحضير الهندسة %d/%d"
+
+msgid "Creating probes"
+msgstr "خلق تحقيقات"
+
+msgid "Preparing Lightmapper"
+msgstr "إعداد مخطط الضوء"
+
+msgid "Preparing Environment"
+msgstr "إعداد البيئة"
+
+msgid "Generating Probe Volumes"
+msgstr "توليد مجلدات التحقيق"
+
+msgid "Generating Probe Acceleration Structures"
+msgstr "توليد هياكل تسريع التحقيق"
 
 msgid ""
 "LightmapGI nodes are not supported when using the GL Compatibility backend "
@@ -15971,6 +16025,9 @@ msgstr "تخطيط المجسمات"
 msgid "Finishing Plot"
 msgstr "الانتهاء من التخطيط"
 
+msgid "Generating Distance Field"
+msgstr "توليد مجال المسافة"
+
 msgid ""
 "VoxelGI nodes are not supported when using the GL Compatibility backend yet. "
 "Support will be added in a future release."
@@ -15994,6 +16051,12 @@ msgstr ""
 "خصائصها، أو إضافة خاصية \"بيئة\" في خصائص عقدة \"الكامرة-الثلاثية\"، أو فيهما "
 "معا."
 
+msgid "No tracker name is set."
+msgstr "لم يتم تعيين اسم المتعقب."
+
+msgid "No pose is set."
+msgstr "لم يتم تعيين أي وضع."
+
 msgid ""
 "XR is not enabled in rendering project settings. Stereoscopic output is not "
 "supported unless this is enabled."
@@ -16009,6 +16072,9 @@ msgstr ""
 msgid "Animation not found: '%s'"
 msgstr "لم يتم إيجاد الرسم المتحرك: '%s'"
 
+msgid "Animation Apply Reset"
+msgstr "الرسوم المتحركة تطبيق إعادة تعيين"
+
 msgid "Nothing connected to input '%s' of node '%s'."
 msgstr "ليس هناك وصل بين أي من مُدخلات '%s' للعُقدة '%s'."
 
@@ -16022,6 +16088,12 @@ msgstr ""
 "تم تصميم ButtonGroup ليتم استخدامه فقط مع الأزرار التي تم ضبط toggle_mode على "
 "true."
 
+msgid "New Code Region"
+msgstr "منطقة الكود الجديدة"
+
+msgid "Copy this constructor in a script."
+msgstr "انسخ هذا المنشئ في برنامج نصي."
+
 msgid ""
 "Color: #%s\n"
 "LMB: Apply color\n"
@@ -16031,6 +16103,19 @@ msgstr ""
 "الزر الأيسر للفأرة: تطبيق اللون\n"
 "الزر الأيمن للفأرة: إزالة اللون المعد مسبقا"
 
+msgid ""
+"Color: #%s\n"
+"LMB: Apply color"
+msgstr ""
+"اللون: #%s\n"
+"الزر الأيسر للفأرة (LMB): تطبيق اللون"
+
+msgid "Pick a color from the screen."
+msgstr "اختر لونًا من الشاشة."
+
+msgid "Pick a color from the application window."
+msgstr "اختر لونًا من نافذة التطبيق."
+
 msgid "Select a picker shape."
 msgstr "اختر شكل الملقاط."
 
@@ -16039,6 +16124,9 @@ msgstr "اختر حالة الملقاط."
 
 msgid "Switch between hexadecimal and code values."
 msgstr "بدّل بين القيم البرمجية والسداسية العشرية."
+
+msgid "Hex code or named color"
+msgstr "رمز سداسي عشري أو لون مسمى"
 
 msgid "Add current color as a preset."
 msgstr "أضف اللون الحالي كإعداد مسبق."
@@ -16073,6 +16161,12 @@ msgstr "تنبيه!"
 msgid "Please Confirm..."
 msgstr "يُرجى التأكيد..."
 
+msgid "You don't have permission to access contents of this folder."
+msgstr "ليس لديك إذن للوصول إلى محتويات هذا المجلد."
+
+msgid "Invalid extension, or empty filename."
+msgstr "ملحق غير صالح، أو اسم ملف فارغ."
+
 msgid ""
 "Please be aware that GraphEdit and GraphNode will undergo extensive "
 "refactoring in a future 4.x version involving compatibility-breaking API "
@@ -16081,11 +16175,56 @@ msgstr ""
 "يرجى العلم أن GraphEdit وGraphNode سيخضعان لعملية إعادة بناء واسعة النطاق في "
 "إصدار 4.x مستقبلي يتضمن تغييرات في واجهة برمجة التطبيقات (API) تنتهك التوافق."
 
+msgid "Toggle the visual grid."
+msgstr "إظهار/إخفاء الشبكة المرئية."
+
+msgid "Change the snapping distance."
+msgstr "تغيير مسافة الالتقاط."
+
+msgid "Toggle the graph minimap."
+msgstr "تبديل الخريطة المصغرة للرسم البياني."
+
+msgid "Automatically arrange selected nodes."
+msgstr "ترتيب العقد المحددة تلقائيًا."
+
+msgid "Same as Layout Direction"
+msgstr "نفس اتجاه التخطيط"
+
+msgid "Auto-Detect Direction"
+msgstr "الكشف التلقائي عن الاتجاه"
+
 msgid "Left-to-Right"
 msgstr "من اليسار إلى اليمين"
 
 msgid "Right-to-Left"
 msgstr "من اليمين إلى اليسار"
+
+msgid "Left-to-Right Mark (LRM)"
+msgstr "العلامة من اليسار إلى اليمين (LRM)"
+
+msgid "Right-to-Left Mark (RLM)"
+msgstr "العلامة من اليمين إلى اليسار (RLM)"
+
+msgid "Arabic Letter Mark (ALM)"
+msgstr "علامة الحروف العربية (ALM)"
+
+msgid "Left-to-Right Isolate (LRI)"
+msgstr "عزل من اليسار إلى اليمين (LRI)"
+
+msgid "Right-to-Left Isolate (RLI)"
+msgstr "عزل من اليمين إلى اليسار (RLI)"
+
+msgid "First Strong Isolate (FSI)"
+msgstr "أول عزلة قوية (FSI)"
+
+msgid "Text Writing Direction"
+msgstr "اتجاه كتابة النص"
+
+msgid "Display Control Characters"
+msgstr "عرض أحرف التحكم"
+
+msgid "Insert Control Character"
+msgstr "إدراج حرف التحكم"
 
 msgid "If \"Exp Edit\" is enabled, \"Min Value\" must be greater than 0."
 msgstr "إذا تم تفعيل ال\"Exp Edit\" يجب على ان يكون \"Min Value\" اعلى من صفر."
@@ -16128,8 +16267,8 @@ msgid ""
 "Data from the original node is kept as a placeholder until this type of node "
 "is available again. It can hence be safely re-saved without risk of data loss."
 msgstr ""
-"يتم الاحتفاظ بالبيانات من العقدة الأصلية كعنصر نائب حتى يتوفر هذا النوع من "
-"العقد مرة أخرى. ومن ثم يمكن إعادة حفظها بأمان دون التعرض لخطر فقدان البيانات."
+"البيانات من العقدة الأصلية حُفظتْ \"عنصرا مناوبا\" حتى يتوفر هذا النوع من العقد "
+"مرة أخرى. ولذلك يمكن إعادة حفظها بأمان دون التعرض لخطر فقدان البيانات."
 
 msgid ""
 "This node is marked as deprecated and will be removed in future versions.\n"
@@ -16199,6 +16338,9 @@ msgstr "مصدر غير صالح للمعاينة."
 msgid "Invalid source for shader."
 msgstr "مصدر غير صالح لتظليل."
 
+msgid "Invalid operator for that type."
+msgstr "العامل غير صالح لهذا النوع."
+
 msgid "Default Color"
 msgstr "اللون الإفتراضي"
 
@@ -16210,6 +16352,45 @@ msgstr "كرر"
 
 msgid "Invalid comparison function for that type."
 msgstr "وظيفة برمجية مُقارِنة غير صالحة لأجل ذلك النوع."
+
+msgid "2D Mode"
+msgstr "وضع ثنائي الأبعاد"
+
+msgid "Use All Surfaces"
+msgstr "استخدم جميع الأسطح"
+
+msgid "Surface Index"
+msgstr "مؤشر السطح"
+
+msgid "A constant value cannot be passed for the '%s' parameter."
+msgstr "لا يمكن تمرير قيمة ثابتة للمعلمة '%s'."
+
+msgid "Invalid arguments for the built-in function: \"%s(%s)\"."
+msgstr "معامل غير صالح لإنشاء: \"(%s)%s\"."
+
+msgid "Recursion is not allowed."
+msgstr "التكرار غير مسموح به."
+
+msgid ""
+"Too few arguments for \"%s(%s)\" call. Expected at least %d but received %d."
+msgstr ""
+"هناك عدد قليل جدًا من الوسائط لاستدعاء \"%s(%s)\". كان من المتوقع %d على الأقل "
+"ولكن تم استلام %d."
+
+msgid ""
+"Too many arguments for \"%s(%s)\" call. Expected at most %d but received %d."
+msgstr ""
+"يوجد عدد كبير جدًا من الوسائط لاستدعاء \"%s(%s)\". من المتوقع على الأكثر %d "
+"ولكن تم استلام %d."
+
+msgid "Invalid assignment of '%s' to '%s'."
+msgstr "تعيين غير صالح لـ '%s' إلى '%s'."
+
+msgid "Expected constant expression."
+msgstr "التعبير المستمر المتوقع."
+
+msgid "Expected ',' or ')' after argument."
+msgstr "من المتوقع '،' أو ')' بعد المعامل."
 
 msgid "Assignment to function."
 msgstr "تكليفها لوظيفة برمجية."
@@ -16241,6 +16422,48 @@ msgstr ""
 "تم استدعاء وسيطة جهاز أخذ العينات %d للدالة '%s' أكثر من مرة باستخدام مكونات "
 "مضمنة مختلفة. يتم دعم الاتصال بنفس الجهاز المدمج فقط."
 
+msgid "Array size is already defined."
+msgstr "حجم الصفيف محدد بالفعل."
+
+msgid "Unknown array size is forbidden in that context."
+msgstr "حجم المصفوفة غير معروف محظور في هذا السياق."
+
+msgid "Array size expressions are not supported."
+msgstr "تعبيرات حجم الصفيف غير مدعومة."
+
+msgid "Expected a positive integer constant."
+msgstr "من المتوقع وجود عدد صحيح موجب ثابت."
+
+msgid "Invalid data type for the array."
+msgstr "نوع بيانات غير صالح للصفيف."
+
+msgid "Array size mismatch."
+msgstr "عدم تطابق حجم الصفيف."
+
+msgid "Expected array initialization."
+msgstr "التهيئة المتوقعة للصفيف."
+
+msgid "Cannot convert from '%s' to '%s'."
+msgstr "لا يمكن التحويل من '%s' إلى '%s'."
+
+msgid "Expected ')' in expression."
+msgstr "المتوقع ')' في التعبير."
+
+msgid "Void value not allowed in expression."
+msgstr "القيمة الفارغة غير مسموح بها في التعبير."
+
+msgid "Expected '(' after the type name."
+msgstr "من المتوقع '(' بعد اسم النوع."
+
+msgid "No matching constructor found for: '%s'."
+msgstr "لم يتم العثور على مُنشئ مطابق لـ: '%s'."
+
+msgid "Expected a function name."
+msgstr "من المتوقع اسم دالة."
+
+msgid "No matching function found for: '%s'."
+msgstr "لم يتم العثور على دالة مطابقة لـ: '%s'."
+
 msgid ""
 "Unable to pass a multiview texture sampler as a parameter to custom function. "
 "Consider to sample it in the main function and then pass the vector result to "
@@ -16249,6 +16472,9 @@ msgstr ""
 "غير قادر على تمرير أداة أخذ عينات نسيج متعددة طرق العرض كمعلمة إلى وظيفة "
 "مخصصة. فكر في أخذ عينات منها في الوظيفة الرئيسية ثم قم بتمرير نتيجة المتجه "
 "إليها."
+
+msgid "Unknown identifier in expression: '%s'."
+msgstr "معرف غير معروف في التعبير: '%s'."
 
 msgid ""
 "%s has been removed in favor of using hint_%s with a uniform.\n"
@@ -16260,20 +16486,209 @@ msgstr ""
 "%s :hint_%s, filter_linear_mipmap;' بالقرب من الجزء العلوي من التظليل الخاص "
 "بك."
 
+msgid "Can't use function as identifier: '%s'."
+msgstr "لا يمكن استخدام دلة كمعرف: '%s'."
+
 msgid "Only integer expressions are allowed for indexing."
 msgstr "الافراز يسمح فقط بتعابير الاعداد الصحيحة."
+
+msgid "Index [%d] out of range [%d..%d]."
+msgstr "الفهرس [%d] خارج النطاق [%d..%d]."
+
+msgid "Expected expression, found: '%s'."
+msgstr "تم العثور على التعبير المتوقع: '%s'."
 
 msgid "Empty statement. Remove ';' to fix this warning."
 msgstr "بيان فارغ. احذف علامة الفاصلة المنقوطة ';' لتجاوز هذا التحذير."
 
+msgid "Expected an identifier as a member."
+msgstr "من المتوقع معرف كعضو."
+
+msgid "Cannot combine symbols from different sets in expression '.%s'."
+msgstr "لا يمكن دمج الرموز من مجموعات مختلفة في التعبير '.%s'."
+
+msgid "Invalid member for '%s' expression: '.%s'."
+msgstr "عضو غير صالح لـ '%s' التعبير:'%s'."
+
+msgid "An object of type '%s' can't be indexed."
+msgstr "لا يمكن فهرسة كائن من النوع '%s'."
+
+msgid "Invalid base type for increment/decrement operator."
+msgstr "نوع أساسي غير صالح لعامل الزيادة/الإنقاص."
+
+msgid "Invalid use of increment/decrement operator in a constant expression."
+msgstr "استخدام غير صالح لعامل الزيادة/التناقص في تعبير ثابت."
+
+msgid "Invalid token for the operator: '%s'."
+msgstr "رمز مميز غير صالح لعامل التشغيل: '%s'."
+
+msgid "Unexpected end of expression."
+msgstr "نهاية غير متوقعة للتعبير."
+
+msgid "Invalid arguments to unary operator '%s': %s."
+msgstr "معامل غير صالح لإنشاء '%s':%s."
+
+msgid "Missing matching ':' for select operator."
+msgstr "المطابقة المفقودة ':' لعامل التشغيل المحدد."
+
+msgid "Invalid argument to ternary operator: '%s'."
+msgstr "وسيطة غير صالحة لعامل التشغيل الثلاثي: '%s'."
+
+msgid "Invalid arguments to operator '%s': '%s'."
+msgstr "وسائط غير صالحة لعامل التشغيل '%s': '%s'."
+
+msgid "Expected variable type after precision modifier."
+msgstr "نوع المتغير المتوقع بعد معدّل الدقة."
+
+msgid "Expected an identifier or '[' after type."
+msgstr "من المتوقع معرف أو \"[\" بعد النوع."
+
+msgid "Expected an identifier."
+msgstr "من المتوقع معرف."
+
+msgid "Expected array initializer."
+msgstr "مُهيئ الصفيف المتوقع."
+
+msgid "Expected data type after precision modifier."
+msgstr "نوع البيانات المتوقع بعد معدّل الدقة."
+
 msgid "Expected a constant expression."
 msgstr "توقع تعبير ثابت."
+
+msgid "Expected initialization of constant."
+msgstr "التهيئة المتوقعة للثابت."
+
+msgid "Expected constant expression for argument %d of function call after '='."
+msgstr "تعبير ثابت متوقع للوسيطة %d لاستدعاء الدالة بعد '='."
+
+msgid "Expected a boolean expression."
+msgstr "من المتوقع تعبير منطقي."
+
+msgid "Expected an integer expression."
+msgstr "من المتوقع تعبير عدد صحيح."
+
+msgid "Cases must be defined before default case."
+msgstr "يجب تحديد الحالات قبل الحالة الافتراضية."
+
+msgid "Default case must be defined only once."
+msgstr "يجب تحديد الحالة الافتراضية مرة واحدة فقط."
+
+msgid "Duplicated case label: %d."
+msgstr "تسمية الحالة المكررة: %d."
+
+msgid "'%s' must be placed within a '%s' block."
+msgstr "يجب وضع '%s' داخل كتلة '%s'."
+
+msgid "Expected an integer constant."
+msgstr "من المتوقع وجود عدد صحيح ثابت."
+
+msgid "Expected '%s' with an expression of type '%s'."
+msgstr "المتوقع '%s' بتعبير من النوع '%s'."
+
+msgid "Expected return with an expression of type '%s'."
+msgstr "الإرجاع المتوقع بتعبير من النوع '%s'."
+
+msgid "Use of '%s' is not allowed here."
+msgstr "استخدام '%s' غير مسموح به هنا."
+
+msgid "'%s' is not allowed outside of a loop or '%s' statement."
+msgstr "غير مسموح بـ '%s' خارج الحلقة أو عبارة '%s'."
 
 msgid "'%s' is not allowed outside of a loop."
 msgstr "'%s' غير صالح خارج بيانة التكرار."
 
+msgid "The middle expression is expected to be a boolean operator."
+msgstr "من المتوقع أن يكون التعبير الأوسط عاملاً منطقيًا."
+
+msgid "The left expression is expected to be a variable declaration."
+msgstr "من المتوقع أن يكون التعبير الأيسر عبارة عن إعلان متغير."
+
+msgid "The precision modifier cannot be used on structs."
+msgstr "لا يمكن استخدام مُعدِّل الدقة في البنيات."
+
+msgid "The precision modifier cannot be used on boolean types."
+msgstr "لا يمكن استخدام مُعدِّل الدقة على الأنواع المنطقية."
+
+msgid "Duplicated render mode: '%s'."
+msgstr "مضاعفة العُقد: '%s'."
+
+msgid "Invalid render mode: '%s'."
+msgstr "وضع التكوين غير صالح: '%s'."
+
+msgid "Unexpected token: '%s'."
+msgstr "رمز مميز غير متوقع: '%s'."
+
+msgid "Expected a struct identifier."
+msgstr "من المتوقع معرف البنية."
+
+msgid "Nested structs are not allowed."
+msgstr "غير مسموح بالبنيات المتداخلة."
+
+msgid "Expected data type."
+msgstr "نوع البيانات المتوقع."
+
+msgid "A '%s' data type is not allowed here."
+msgstr "نوع البيانات '%s' غير مسموح به هنا."
+
+msgid "Expected an identifier or '['."
+msgstr "من المتوقع معرف أو \"[\"."
+
+msgid "Empty structs are not allowed."
+msgstr "غير مسموح بالبنيات الفارغة."
+
+msgid "The '%s' data type is not supported for uniforms."
+msgstr "نوع البيانات '%s' غير معتمد للزي الرسمي."
+
+msgid "The '%s' data type is not allowed here."
+msgstr "نوع البيانات '%s' غير مسموح به هنا."
+
+msgid "Invalid data type for varying."
+msgstr "نوع بيانات غير صالح للتنويع."
+
+msgid "The '%s' qualifier is not supported for sampler types."
+msgstr "المؤهل '%s' غير مدعوم لأنواع العينات."
+
+msgid "The '%s' qualifier is not supported for matrix types."
+msgstr "المؤهل '%s' غير مدعوم لأنواع المصفوفات."
+
+msgid "The '%s' qualifier is not supported for uniform arrays."
+msgstr "المؤهل '%s' غير مدعوم للصفائف الموحدة."
+
+msgid "Expected valid type hint after ':'."
+msgstr "من المتوقع تلميح نوع صالح بعد ':'."
+
+msgid "This hint is not supported for uniform arrays."
+msgstr "هذا التلميح غير معتمد للصفائف الموحدة."
+
+msgid "Source color hint is for '%s', '%s' or sampler types only."
+msgstr "تلميح اللون المصدر مخصص لأنواع '%s' أو '%s' أو العينات فقط."
+
+msgid "Duplicated hint: '%s'."
+msgstr "تلميح مكرر: '%s'."
+
+msgid "Range hint is for '%s' and '%s' only."
+msgstr "تلميح النطاق مخصص لـ '%s' و'%s' فقط."
+
+msgid "Expected ',' after integer constant."
+msgstr "من المتوقع '،' بعد عدد صحيح ثابت."
+
+msgid "Expected an integer constant after ','."
+msgstr "من المتوقع وجود عدد صحيح ثابت بعد '،'."
+
+msgid "Can only specify '%s' once."
+msgstr "يمكن تحديد '%s' مرة واحدة فقط."
+
+msgid "The instance index can't be negative."
+msgstr "لا يمكن أن يكون فهرس المثيل سالبًا."
+
+msgid "This hint is only for sampler types."
+msgstr "هذا التلميح مخصص فقط لأنواع العينات."
+
 msgid "Duplicated filter mode: '%s'."
 msgstr "وضع التصفية المضاعف: \"%s\"."
+
+msgid "Duplicated repeat mode: '%s'."
+msgstr "مضاعفة العُقد: '%s'."
 
 msgid ""
 "Redefinition of repeat mode: '%s'. The repeat mode has already been set to "
@@ -16404,7 +16819,7 @@ msgid "Missing condition."
 msgstr "شرط مفقود."
 
 msgid "Condition evaluation error."
-msgstr "خطأ في تقييم الحالة"
+msgstr "خطأ في تقييم الحالة."
 
 msgid "Unmatched else."
 msgstr "آخر لا مثيل له."

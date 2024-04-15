@@ -306,13 +306,6 @@ namespace Godot.Bridge
 
                 _pathTypeBiMap.Add(scriptPathAttr.Path, type);
 
-                // This method may be called before initialization.
-                if (NativeFuncs.godotsharp_dotnet_module_is_initialized().ToBool() && Engine.IsEditorHint())
-                {
-                    using godot_string scriptPath = Marshaling.ConvertStringToNative(scriptPathAttr.Path);
-                    NativeFuncs.godotsharp_internal_editor_file_system_update_file(scriptPath);
-                }
-
                 if (AlcReloadCfg.IsAlcReloadingEnabled)
                 {
                     AddTypeForAlcReloading(type);
@@ -360,6 +353,16 @@ namespace Godot.Bridge
 
                         LookupScriptForClass(type);
                     }
+                }
+            }
+
+            // This method may be called before initialization.
+            if (NativeFuncs.godotsharp_dotnet_module_is_initialized().ToBool() && Engine.IsEditorHint())
+            {
+                foreach (var scriptPath in _pathTypeBiMap.Paths)
+                {
+                    using godot_string nativeScriptPath = Marshaling.ConvertStringToNative(scriptPath);
+                    NativeFuncs.godotsharp_internal_editor_file_system_update_file(nativeScriptPath);
                 }
             }
         }
@@ -657,6 +660,19 @@ namespace Godot.Bridge
                             var methodInfo = new Collections.Dictionary();
 
                             methodInfo.Add("name", method.Name);
+
+                            var returnVal = new Collections.Dictionary()
+                            {
+                                { "name", method.ReturnVal.Name },
+                                { "type", (int)method.ReturnVal.Type },
+                                { "usage", (int)method.ReturnVal.Usage }
+                            };
+                            if (method.ReturnVal.ClassName != null)
+                            {
+                                returnVal["class_name"] = method.ReturnVal.ClassName;
+                            }
+
+                            methodInfo.Add("return_val", returnVal);
 
                             var methodParams = new Collections.Array();
 

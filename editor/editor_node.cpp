@@ -993,7 +993,9 @@ void EditorNode::_fs_changed() {
 		if (err != OK) {
 			ERR_PRINT(export_error);
 			_exit_editor(EXIT_FAILURE);
-		} else if (!export_error.is_empty()) {
+			return;
+		}
+		if (!export_error.is_empty()) {
 			WARN_PRINT(export_error);
 		}
 		_exit_editor(EXIT_SUCCESS);
@@ -3007,6 +3009,16 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 		} break;
 		case SET_RENDERER_NAME_SAVE_AND_RESTART: {
 			ProjectSettings::get_singleton()->set("rendering/renderer/rendering_method", renderer_request);
+			if (renderer_request == "mobile" || renderer_request == "gl_compatibility") {
+				// Also change the mobile override if changing to a compatible rendering method.
+				// This prevents visual discrepancies between desktop and mobile platforms.
+				ProjectSettings::get_singleton()->set("rendering/renderer/rendering_method.mobile", renderer_request);
+			} else if (renderer_request == "forward_plus") {
+				// Use the equivalent mobile rendering method. This prevents the rendering method from staying
+				// on its old choice if moving from `gl_compatibility` to `forward_plus`.
+				ProjectSettings::get_singleton()->set("rendering/renderer/rendering_method.mobile", "mobile");
+			}
+
 			ProjectSettings::get_singleton()->save();
 
 			save_all_scenes();
@@ -3459,13 +3471,13 @@ void EditorNode::set_addon_plugin_enabled(const String &p_addon, bool p_enabled,
 		}
 
 		// Plugin init scripts must inherit from EditorPlugin and be tools.
-		if (String(scr->get_instance_base_type()) != "EditorPlugin") {
-			show_warning(vformat(TTR("Unable to load addon script from path: '%s' Base type is not EditorPlugin."), script_path));
+		if (!ClassDB::is_parent_class(scr->get_instance_base_type(), "EditorPlugin")) {
+			show_warning(vformat(TTR("Unable to load addon script from path: '%s'. Base type is not 'EditorPlugin'."), script_path));
 			return;
 		}
 
 		if (!scr->is_tool()) {
-			show_warning(vformat(TTR("Unable to load addon script from path: '%s' Script is not in tool mode."), script_path));
+			show_warning(vformat(TTR("Unable to load addon script from path: '%s'. Script is not in tool mode."), script_path));
 			return;
 		}
 	}
@@ -4728,14 +4740,15 @@ void EditorNode::_dock_floating_close_request(WindowWrapper *p_wrapper) {
 	// Give back the dock to the original owner.
 	Control *dock = p_wrapper->release_wrapped_control();
 
+	int target_index = MIN(dock_slot_index, dock_slot[dock_slot_num]->get_tab_count());
 	dock_slot[dock_slot_num]->add_child(dock);
-	dock_slot[dock_slot_num]->move_child(dock, MIN(dock_slot_index, dock_slot[dock_slot_num]->get_tab_count()));
-	dock_slot[dock_slot_num]->set_current_tab(dock_slot_index);
+	dock_slot[dock_slot_num]->move_child(dock, target_index);
+	dock_slot[dock_slot_num]->set_current_tab(target_index);
 
 	floating_docks.erase(p_wrapper);
 	p_wrapper->queue_free();
 
-	_update_dock_containers();
+	_update_dock_slots_visibility(true);
 
 	_edit_current();
 }
@@ -4779,36 +4792,11 @@ void EditorNode::_dock_make_float(Control *p_dock, int p_slot_index, bool p_show
 		wrapper->restore_window(Rect2i(dock_screen_pos, dock_size), get_window()->get_current_screen());
 	}
 
-	_update_dock_containers();
+	_update_dock_slots_visibility(true);
 
 	floating_docks.push_back(wrapper);
 
 	_edit_current();
-}
-
-void EditorNode::_update_dock_containers() {
-	for (int i = 0; i < DOCK_SLOT_MAX; i++) {
-		if (dock_slot[i]->get_tab_count() == 0 && dock_slot[i]->is_visible()) {
-			dock_slot[i]->hide();
-		}
-		if (dock_slot[i]->get_tab_count() > 0 && !dock_slot[i]->is_visible()) {
-			dock_slot[i]->show();
-		}
-	}
-	for (int i = 0; i < vsplits.size(); i++) {
-		bool in_use = dock_slot[i * 2 + 0]->get_tab_count() || dock_slot[i * 2 + 1]->get_tab_count();
-		if (in_use) {
-			vsplits[i]->show();
-		} else {
-			vsplits[i]->hide();
-		}
-	}
-
-	if (right_l_vsplit->is_visible() || right_r_vsplit->is_visible()) {
-		right_hsplit->show();
-	} else {
-		right_hsplit->hide();
-	}
 }
 
 void EditorNode::_dock_select_input(const Ref<InputEvent> &p_input) {
@@ -4849,7 +4837,7 @@ void EditorNode::_dock_select_input(const Ref<InputEvent> &p_input) {
 			dock_slot[nrect]->show();
 			dock_select->queue_redraw();
 
-			_update_dock_containers();
+			_update_dock_slots_visibility(true);
 
 			_edit_current();
 			_save_editor_layout();
@@ -5139,83 +5127,44 @@ void EditorNode::_update_dock_slots_visibility(bool p_keep_selected_tabs) {
 		right_hsplit->hide();
 	} else {
 		for (int i = 0; i < DOCK_SLOT_MAX; i++) {
-			int tabs_visible = 0;
+			int first_tab_visible = -1;
 			for (int j = 0; j < dock_slot[i]->get_tab_count(); j++) {
 				if (!dock_slot[i]->is_tab_hidden(j)) {
-					tabs_visible++;
+					first_tab_visible = j;
+					break;
 				}
 			}
-			if (tabs_visible) {
+			if (first_tab_visible >= 0) {
 				dock_slot[i]->show();
+				if (p_keep_selected_tabs) {
+					int current_tab = dock_slot[i]->get_current_tab();
+					if (dock_slot[i]->is_tab_hidden(current_tab)) {
+						dock_slot[i]->set_block_signals(true);
+						dock_slot[i]->select_next_available();
+						dock_slot[i]->set_block_signals(false);
+					}
+				} else {
+					dock_slot[i]->set_block_signals(true);
+					dock_slot[i]->set_current_tab(first_tab_visible);
+					dock_slot[i]->set_block_signals(false);
+				}
 			} else {
 				dock_slot[i]->hide();
 			}
 		}
 
 		for (int i = 0; i < vsplits.size(); i++) {
-			bool in_use = dock_slot[i * 2 + 0]->get_tab_count() || dock_slot[i * 2 + 1]->get_tab_count();
-			if (in_use) {
-				vsplits[i]->show();
-			} else {
-				vsplits[i]->hide();
-			}
+			bool in_use = dock_slot[i * 2 + 0]->is_visible() || dock_slot[i * 2 + 1]->is_visible();
+			vsplits[i]->set_visible(in_use);
 		}
 
-		if (!p_keep_selected_tabs) {
-			for (int i = 0; i < DOCK_SLOT_MAX; i++) {
-				if (dock_slot[i]->is_visible() && dock_slot[i]->get_tab_count()) {
-					dock_slot[i]->set_current_tab(0);
-				}
-			}
-		}
-
-		if (right_l_vsplit->is_visible() || right_r_vsplit->is_visible()) {
-			right_hsplit->show();
-		} else {
-			right_hsplit->hide();
-		}
+		right_hsplit->set_visible(right_l_vsplit->is_visible() || right_r_vsplit->is_visible());
 	}
 }
 
 void EditorNode::_dock_tab_changed(int p_tab) {
 	// Update visibility but don't set current tab.
-
-	if (!docks_visible) {
-		for (int i = 0; i < DOCK_SLOT_MAX; i++) {
-			dock_slot[i]->hide();
-		}
-
-		for (int i = 0; i < vsplits.size(); i++) {
-			vsplits[i]->hide();
-		}
-
-		right_hsplit->hide();
-		bottom_panel->hide();
-	} else {
-		for (int i = 0; i < DOCK_SLOT_MAX; i++) {
-			if (dock_slot[i]->get_tab_count()) {
-				dock_slot[i]->show();
-			} else {
-				dock_slot[i]->hide();
-			}
-		}
-
-		for (int i = 0; i < vsplits.size(); i++) {
-			bool in_use = dock_slot[i * 2 + 0]->get_tab_count() || dock_slot[i * 2 + 1]->get_tab_count();
-			if (in_use) {
-				vsplits[i]->show();
-			} else {
-				vsplits[i]->hide();
-			}
-		}
-		bottom_panel->show();
-
-		if (right_l_vsplit->is_visible() || right_r_vsplit->is_visible()) {
-			right_hsplit->show();
-		} else {
-			right_hsplit->hide();
-		}
-	}
+	_update_dock_slots_visibility(true);
 }
 
 void EditorNode::_restore_floating_dock(const Dictionary &p_dock_dump, Control *p_dock, int p_slot_index) {
@@ -5284,20 +5233,14 @@ void EditorNode::_load_docks_from_config(Ref<ConfigFile> p_layout, const String 
 			if (atidx == i) {
 				dock_slot[i]->move_child(node, 0);
 			} else if (atidx != -1) {
-				dock_slot[atidx]->remove_child(node);
-
-				if (dock_slot[atidx]->get_tab_count() == 0) {
-					dock_slot[atidx]->hide();
-				}
-				dock_slot[i]->add_child(node);
-				dock_slot[i]->move_child(node, 0);
-				dock_slot[i]->set_tab_title(0, TTRGET(node->get_name()));
-				dock_slot[i]->show();
+				dock_slot[i]->move_tab_from_tab_container(dock_slot[atidx], dock_slot[atidx]->get_tab_idx_from_control(node), 0);
 			}
 
 			WindowWrapper *wrapper = Object::cast_to<WindowWrapper>(node);
 			if (restore_window_on_load && floating_docks_dump.has(name)) {
-				_restore_floating_dock(floating_docks_dump[name], node, i);
+				if (!dock_slot[i]->is_tab_hidden(dock_slot[i]->get_tab_idx_from_control(node))) {
+					_restore_floating_dock(floating_docks_dump[name], node, i);
+				}
 			} else if (wrapper) {
 				wrapper->set_window_enabled(false);
 			}
@@ -5330,26 +5273,7 @@ void EditorNode::_load_docks_from_config(Ref<ConfigFile> p_layout, const String 
 		hsplits[i]->set_split_offset(ofs);
 	}
 
-	for (int i = 0; i < vsplits.size(); i++) {
-		bool in_use = dock_slot[i * 2 + 0]->get_tab_count() || dock_slot[i * 2 + 1]->get_tab_count();
-		if (in_use) {
-			vsplits[i]->show();
-		} else {
-			vsplits[i]->hide();
-		}
-	}
-
-	if (right_l_vsplit->is_visible() || right_r_vsplit->is_visible()) {
-		right_hsplit->show();
-	} else {
-		right_hsplit->hide();
-	}
-
-	for (int i = 0; i < DOCK_SLOT_MAX; i++) {
-		if (dock_slot[i]->is_visible() && dock_slot[i]->get_tab_count()) {
-			dock_slot[i]->set_current_tab(0);
-		}
-	}
+	_update_dock_slots_visibility(false);
 
 	// FileSystemDock.
 
@@ -5605,8 +5529,8 @@ void EditorNode::_update_layouts_menu() {
 	overridden_default_layout = -1;
 
 	editor_layouts->reset_size();
-	editor_layouts->add_shortcut(ED_SHORTCUT("layout/save", TTR("Save Layout")), SETTINGS_LAYOUT_SAVE);
-	editor_layouts->add_shortcut(ED_SHORTCUT("layout/delete", TTR("Delete Layout")), SETTINGS_LAYOUT_DELETE);
+	editor_layouts->add_shortcut(ED_SHORTCUT("layout/save", TTR("Save Layout...")), SETTINGS_LAYOUT_SAVE);
+	editor_layouts->add_shortcut(ED_SHORTCUT("layout/delete", TTR("Delete Layout...")), SETTINGS_LAYOUT_DELETE);
 	editor_layouts->add_separator();
 	editor_layouts->add_shortcut(ED_SHORTCUT("layout/default", TTR("Default")), SETTINGS_LAYOUT_DEFAULT);
 
@@ -6652,9 +6576,29 @@ void EditorNode::_renderer_selected(int p_which) {
 	}
 
 	renderer_request = rendering_method;
+	video_restart_dialog->set_text(
+			vformat(TTR("Changing the renderer requires restarting the editor.\n\nChoosing Save & Restart will change the rendering method to:\n- Desktop platforms: %s\n- Mobile platforms: %s\n- Web platform: gl_compatibility"),
+					renderer_request, renderer_request.replace("forward_plus", "mobile")));
 	video_restart_dialog->popup_centered();
 	renderer->select(renderer_current);
 	_update_renderer_color();
+}
+
+void EditorNode::_add_renderer_entry(const String &p_renderer_name, bool p_mark_overridden) {
+	String item_text;
+	if (p_renderer_name == "forward_plus") {
+		item_text = TTR("Forward+");
+	}
+	if (p_renderer_name == "mobile") {
+		item_text = TTR("Mobile");
+	}
+	if (p_renderer_name == "gl_compatibility") {
+		item_text = TTR("Compatibility");
+	}
+	if (p_mark_overridden) {
+		item_text += " " + TTR("(Overridden)");
+	}
+	renderer->add_item(item_text);
 }
 
 void EditorNode::_resource_saved(Ref<Resource> p_resource, const String &p_path) {
@@ -6676,6 +6620,10 @@ void EditorNode::_resource_loaded(Ref<Resource> p_resource, const String &p_path
 
 void EditorNode::_feature_profile_changed() {
 	Ref<EditorFeatureProfile> profile = feature_profile_manager->get_current_profile();
+	// FIXME: Close all floating docks to avoid crash.
+	for (WindowWrapper *wrapper : floating_docks) {
+		wrapper->set_window_enabled(false);
+	}
 	TabContainer *import_tabs = cast_to<TabContainer>(ImportDock::get_singleton()->get_parent());
 	TabContainer *node_tabs = cast_to<TabContainer>(NodeDock::get_singleton()->get_parent());
 	TabContainer *fs_tabs = cast_to<TabContainer>(FileSystemDock::get_singleton()->get_parent());
@@ -6915,7 +6863,9 @@ EditorNode::EditorNode() {
 	// Define a minimum window size to prevent UI elements from overlapping or being cut off.
 	Window *w = Object::cast_to<Window>(SceneTree::get_singleton()->get_root());
 	if (w) {
-		w->set_min_size(Size2(1024, 600) * EDSCALE);
+		const Size2 minimum_size = Size2(1024, 600) * EDSCALE;
+		w->set_min_size(minimum_size); // Calling it this early doesn't sync the property with DS.
+		DisplayServer::get_singleton()->window_set_min_size(minimum_size);
 	}
 
 	EditorFileDialog::set_default_show_hidden_files(EDITOR_GET("filesystem/file_dialog/show_hidden_files"));
@@ -7538,7 +7488,7 @@ EditorNode::EditorNode() {
 
 	help_menu->connect("id_pressed", callable_mp(this, &EditorNode::_menu_option));
 
-	ED_SHORTCUT_AND_COMMAND("editor/editor_help", TTR("Search Help"), Key::F1);
+	ED_SHORTCUT_AND_COMMAND("editor/editor_help", TTR("Search Help..."), Key::F1);
 	ED_SHORTCUT_OVERRIDE("editor/editor_help", "macos", KeyModifierMask::ALT | Key::SPACE);
 	help_menu->add_icon_shortcut(theme->get_icon(SNAME("HelpSearch"), EditorStringName(EditorIcons)), ED_GET_SHORTCUT("editor/editor_help"), HELP_SEARCH);
 	help_menu->add_separator();
@@ -7554,7 +7504,7 @@ EditorNode::EditorNode() {
 	help_menu->add_separator();
 	if (!global_menu || !OS::get_singleton()->has_feature("macos")) {
 		// On macOS  "Quit" and "About" options are in the "app" menu.
-		help_menu->add_icon_shortcut(theme->get_icon(SNAME("Godot"), EditorStringName(EditorIcons)), ED_SHORTCUT_AND_COMMAND("editor/about", TTR("About Godot")), HELP_ABOUT);
+		help_menu->add_icon_shortcut(theme->get_icon(SNAME("Godot"), EditorStringName(EditorIcons)), ED_SHORTCUT_AND_COMMAND("editor/about", TTR("About Godot...")), HELP_ABOUT);
 	}
 	help_menu->add_icon_shortcut(theme->get_icon(SNAME("Heart"), EditorStringName(EditorIcons)), ED_SHORTCUT_AND_COMMAND("editor/support_development", TTR("Support Godot Development")), HELP_SUPPORT_GODOT_DEVELOPMENT);
 
@@ -7577,10 +7527,9 @@ EditorNode::EditorNode() {
 	renderer->set_flat(true);
 	renderer->set_fit_to_longest_item(false);
 	renderer->set_focus_mode(Control::FOCUS_NONE);
-	renderer->connect("item_selected", callable_mp(this, &EditorNode::_renderer_selected));
 	renderer->add_theme_font_override("font", theme->get_font(SNAME("bold"), EditorStringName(EditorFonts)));
 	renderer->add_theme_font_size_override("font_size", theme->get_font_size(SNAME("bold_size"), EditorStringName(EditorFonts)));
-	renderer->set_tooltip_text(TTR("Choose a renderer."));
+	renderer->set_tooltip_text(TTR("Choose a rendering method.\n\nNotes:\n- On mobile platforms, the Mobile rendering method is used if Forward+ is selected here.\n- On the web platform, the Compatibility rendering method is always used."));
 
 	right_menu_hb->add_child(renderer);
 
@@ -7591,41 +7540,37 @@ EditorNode::EditorNode() {
 		title_bar->add_child(right_menu_spacer);
 	}
 
-	String current_renderer = GLOBAL_GET("rendering/renderer/rendering_method");
+	String current_renderer_ps = GLOBAL_GET("rendering/renderer/rendering_method");
+	current_renderer_ps = current_renderer_ps.to_lower();
+	String current_renderer_os = OS::get_singleton()->get_current_rendering_method().to_lower();
 
-	PackedStringArray renderers = ProjectSettings::get_singleton()->get_custom_property_info().get(StringName("rendering/renderer/rendering_method")).hint_string.split(",", false);
-
-	// As we are doing string comparisons, keep in standard case to prevent problems with capitals
-	// "vulkan" in particular uses lowercase "v" in the code, and uppercase in the UI.
-	current_renderer = current_renderer.to_lower();
-
-	for (int i = 0; i < renderers.size(); i++) {
-		String rendering_method = renderers[i];
-
-		// Add the renderers name to the UI.
-		if (rendering_method == "forward_plus") {
-			renderer->add_item(TTR("Forward+"));
+	// Add the renderers name to the UI.
+	if (current_renderer_ps == current_renderer_os) {
+		renderer->connect("item_selected", callable_mp(this, &EditorNode::_renderer_selected));
+		// As we are doing string comparisons, keep in standard case to prevent problems with capitals
+		// "vulkan" in particular uses lowercase "v" in the code, and uppercase in the UI.
+		PackedStringArray renderers = ProjectSettings::get_singleton()->get_custom_property_info().get(StringName("rendering/renderer/rendering_method")).hint_string.split(",", false);
+		for (int i = 0; i < renderers.size(); i++) {
+			String rendering_method = renderers[i];
+			_add_renderer_entry(rendering_method, false);
+			renderer->set_item_metadata(i, rendering_method);
+			// Lowercase for standard comparison.
+			rendering_method = rendering_method.to_lower();
+			if (current_renderer_ps == rendering_method) {
+				renderer->select(i);
+				renderer_current = i;
+			}
 		}
-		if (rendering_method == "mobile") {
-			renderer->add_item(TTR("Mobile"));
-		}
-		if (rendering_method == "gl_compatibility") {
-			renderer->add_item(TTR("Compatibility"));
-		}
-		renderer->set_item_metadata(i, rendering_method);
-
-		// Lowercase for standard comparison.
-		rendering_method = rendering_method.to_lower();
-
-		if (current_renderer == rendering_method) {
-			renderer->select(i);
-			renderer_current = i;
-		}
+	} else {
+		// It's an CLI-overridden rendering method.
+		_add_renderer_entry(current_renderer_os, true);
+		renderer->set_item_metadata(0, current_renderer_os);
+		renderer->select(0);
+		renderer_current = 0;
 	}
 	_update_renderer_color();
 
 	video_restart_dialog = memnew(ConfirmationDialog);
-	video_restart_dialog->set_text(TTR("Changing the renderer requires restarting the editor."));
 	video_restart_dialog->set_ok_button_text(TTR("Save & Restart"));
 	video_restart_dialog->connect("confirmed", callable_mp(this, &EditorNode::_menu_option).bind(SET_RENDERER_NAME_SAVE_AND_RESTART));
 	gui_base->add_child(video_restart_dialog);

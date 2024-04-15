@@ -105,6 +105,7 @@ EDITOR_CLASSES: List[str] = [
 CLASSES_WITH_CSHARP_DIFFERENCES: List[str] = [
     "@GlobalScope",
     "String",
+    "StringName",
     "NodePath",
     "Signal",
     "Callable",
@@ -1361,7 +1362,7 @@ def make_enum(t: str, is_bitfield: bool, state: State) -> str:
         if is_bitfield:
             if not state.classes[c].enums[e].is_bitfield:
                 print_error(f'{state.current_class}.xml: Enum "{t}" is not bitfield.', state)
-            return f"|bitfield|\<:ref:`{e}<enum_{c}_{e}>`\>"
+            return f"|bitfield|\\<:ref:`{e}<enum_{c}_{e}>`\\>"
         else:
             return f":ref:`{e}<enum_{c}_{e}>`"
 
@@ -1552,16 +1553,11 @@ def make_rst_index(grouped_classes: Dict[str, List[str]], dry_run: bool, output_
 
     f.write(".. _doc_class_reference:\n\n")
 
-    main_title = translate("All classes")
-    f.write(f"{main_title}\n")
-    f.write(f"{'=' * len(main_title)}\n\n")
+    f.write(make_heading("All classes", "="))
 
     for group_name in CLASS_GROUPS:
         if group_name in grouped_classes:
-            group_title = translate(CLASS_GROUPS[group_name])
-
-            f.write(f"{group_title}\n")
-            f.write(f"{'=' * len(group_title)}\n\n")
+            f.write(make_heading(CLASS_GROUPS[group_name], "="))
 
             f.write(".. toctree::\n")
             f.write("    :maxdepth: 1\n")
@@ -1695,6 +1691,7 @@ def format_text_block(
     inside_code_tag = ""
     inside_code_tabs = False
     ignore_code_warnings = False
+    code_warning_if_intended_string = "If this is intended, use [code skip-lint]...[/code]."
 
     pos = 0
     tag_depth = 0
@@ -1753,7 +1750,7 @@ def format_text_block(
                 else:
                     if not ignore_code_warnings and tag_state.closing:
                         print_warning(
-                            f'{state.current_class}.xml: Found a code string that looks like a closing tag "[{tag_state.raw}]" in {context_name}.',
+                            f'{state.current_class}.xml: Found a code string that looks like a closing tag "[{tag_state.raw}]" in {context_name}. {code_warning_if_intended_string}',
                             state,
                         )
 
@@ -1820,7 +1817,7 @@ def format_text_block(
 
                     if inside_code_text in state.classes:
                         print_warning(
-                            f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches one of the known classes in {context_name}.',
+                            f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches one of the known classes in {context_name}. {code_warning_if_intended_string}',
                             state,
                         )
 
@@ -1830,49 +1827,49 @@ def format_text_block(
 
                         if target_name in class_def.methods:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} method in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} method in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
                         elif target_name in class_def.constructors:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} constructor in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} constructor in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
                         elif target_name in class_def.operators:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} operator in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} operator in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
                         elif target_name in class_def.properties:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} member in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} member in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
                         elif target_name in class_def.signals:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} signal in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} signal in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
                         elif target_name in class_def.annotations:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} annotation in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} annotation in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
                         elif target_name in class_def.theme_items:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} theme item in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} theme item in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
                         elif target_name in class_def.constants:
                             print_warning(
-                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} constant in {context_name}.',
+                                f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} constant in {context_name}. {code_warning_if_intended_string}',
                                 state,
                             )
 
@@ -1880,7 +1877,7 @@ def format_text_block(
                             for enum in class_def.enums.values():
                                 if target_name in enum.values:
                                     print_warning(
-                                        f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} enum value in {context_name}.',
+                                        f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches the {target_class_name}.{target_name} enum value in {context_name}. {code_warning_if_intended_string}',
                                         state,
                                     )
                                     break
@@ -1891,7 +1888,7 @@ def format_text_block(
                         for param_def in context_params:
                             if param_def.name == inside_code_text:
                                 print_warning(
-                                    f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches one of the parameters in {context_name}.',
+                                    f'{state.current_class}.xml: Found a code string "{inside_code_text}" that matches one of the parameters in {context_name}. {code_warning_if_intended_string}',
                                     state,
                                 )
                                 break
@@ -2082,9 +2079,9 @@ def format_text_block(
                     post_text = text[endurl_pos + 6 :]
 
                     if pre_text and pre_text[-1] not in MARKUP_ALLOWED_PRECEDENT:
-                        pre_text += "\ "
+                        pre_text += "\\ "
                     if post_text and post_text[0] not in MARKUP_ALLOWED_SUBSEQUENT:
-                        post_text = "\ " + post_text
+                        post_text = "\\ " + post_text
 
                     text = pre_text + tag_text + post_text
                     pos = len(pre_text) + len(tag_text)
@@ -2162,9 +2159,9 @@ def format_text_block(
 
         # Properly escape things like `[Node]s`
         if escape_pre and pre_text and pre_text[-1] not in MARKUP_ALLOWED_PRECEDENT:
-            pre_text += "\ "
+            pre_text += "\\ "
         if escape_post and post_text and post_text[0] not in MARKUP_ALLOWED_SUBSEQUENT:
-            post_text = "\ " + post_text
+            post_text = "\\ " + post_text
 
         next_brac_pos = post_text.find("[", 0)
         iter_pos = 0
@@ -2172,7 +2169,7 @@ def format_text_block(
             iter_pos = post_text.find("*", iter_pos, next_brac_pos)
             if iter_pos == -1:
                 break
-            post_text = f"{post_text[:iter_pos]}\*{post_text[iter_pos + 1 :]}"
+            post_text = f"{post_text[:iter_pos]}\\*{post_text[iter_pos + 1 :]}"
             iter_pos += 2
 
         iter_pos = 0
@@ -2181,7 +2178,7 @@ def format_text_block(
             if iter_pos == -1:
                 break
             if not post_text[iter_pos + 1].isalnum():  # don't escape within a snake_case word
-                post_text = f"{post_text[:iter_pos]}\_{post_text[iter_pos + 1 :]}"
+                post_text = f"{post_text[:iter_pos]}\\_{post_text[iter_pos + 1 :]}"
                 iter_pos += 2
             else:
                 iter_pos += 1
@@ -2222,7 +2219,7 @@ def escape_rst(text: str, until_pos: int = -1) -> str:
         pos = text.find("*", pos, until_pos)
         if pos == -1:
             break
-        text = f"{text[:pos]}\*{text[pos + 1 :]}"
+        text = f"{text[:pos]}\\*{text[pos + 1 :]}"
         pos += 2
 
     # Escape _ character at the end of a word to avoid interpreting it as an inline hyperlink
@@ -2232,7 +2229,7 @@ def escape_rst(text: str, until_pos: int = -1) -> str:
         if pos == -1:
             break
         if not text[pos + 1].isalnum():  # don't escape within a snake_case word
-            text = f"{text[:pos]}\_{text[pos + 1 :]}"
+            text = f"{text[:pos]}\\_{text[pos + 1 :]}"
             pos += 2
         else:
             pos += 1

@@ -31,6 +31,7 @@
 #ifdef GLES3_ENABLED
 
 #include "mesh_storage.h"
+#include "config.h"
 #include "material_storage.h"
 #include "utilities.h"
 
@@ -285,8 +286,72 @@ void MeshStorage::mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface)
 
 	ERR_FAIL_COND_MSG(!new_surface.index_count && !new_surface.vertex_count, "Meshes must contain a vertex array, an index array, or both");
 
+	if (GLES3::Config::get_singleton()->generate_wireframes && s->primitive == RS::PRIMITIVE_TRIANGLES) {
+		// Generate wireframes. This is mostly used by the editor.
+		s->wireframe = memnew(Mesh::Surface::Wireframe);
+		Vector<uint32_t> wf_indices;
+		uint32_t &wf_index_count = s->wireframe->index_count;
+		uint32_t *wr = nullptr;
+
+		if (new_surface.format & RS::ARRAY_FORMAT_INDEX) {
+			wf_index_count = s->index_count * 2;
+			wf_indices.resize(wf_index_count);
+
+			Vector<uint8_t> ir = new_surface.index_data;
+			wr = wf_indices.ptrw();
+
+			if (new_surface.vertex_count < (1 << 16)) {
+				// Read 16 bit indices.
+				const uint16_t *src_idx = (const uint16_t *)ir.ptr();
+				for (uint32_t i = 0; i + 5 < wf_index_count; i += 6) {
+					// We use GL_LINES instead of GL_TRIANGLES for drawing these primitives later,
+					// so we need double the indices for each triangle.
+					wr[i + 0] = src_idx[i / 2];
+					wr[i + 1] = src_idx[i / 2 + 1];
+					wr[i + 2] = src_idx[i / 2 + 1];
+					wr[i + 3] = src_idx[i / 2 + 2];
+					wr[i + 4] = src_idx[i / 2 + 2];
+					wr[i + 5] = src_idx[i / 2];
+				}
+
+			} else {
+				// Read 32 bit indices.
+				const uint32_t *src_idx = (const uint32_t *)ir.ptr();
+				for (uint32_t i = 0; i + 5 < wf_index_count; i += 6) {
+					wr[i + 0] = src_idx[i / 2];
+					wr[i + 1] = src_idx[i / 2 + 1];
+					wr[i + 2] = src_idx[i / 2 + 1];
+					wr[i + 3] = src_idx[i / 2 + 2];
+					wr[i + 4] = src_idx[i / 2 + 2];
+					wr[i + 5] = src_idx[i / 2];
+				}
+			}
+		} else {
+			// Not using indices.
+			wf_index_count = s->vertex_count * 2;
+			wf_indices.resize(wf_index_count);
+			wr = wf_indices.ptrw();
+
+			for (uint32_t i = 0; i + 5 < wf_index_count; i += 6) {
+				wr[i + 0] = i / 2;
+				wr[i + 1] = i / 2 + 1;
+				wr[i + 2] = i / 2 + 1;
+				wr[i + 3] = i / 2 + 2;
+				wr[i + 4] = i / 2 + 2;
+				wr[i + 5] = i / 2;
+			}
+		}
+
+		s->wireframe->index_buffer_size = wf_index_count * sizeof(uint32_t);
+		glGenBuffers(1, &s->wireframe->index_buffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s->wireframe->index_buffer);
+		GLES3::Utilities::get_singleton()->buffer_allocate_data(GL_ELEMENT_ARRAY_BUFFER, s->wireframe->index_buffer, s->wireframe->index_buffer_size, wr, GL_STATIC_DRAW, "Mesh wireframe index buffer");
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // unbind
+	}
+
 	s->aabb = new_surface.aabb;
 	s->bone_aabbs = new_surface.bone_aabbs; //only really useful for returning them.
+	s->mesh_to_skeleton_xform = p_surface.mesh_to_skeleton_xform;
 
 	s->uv_scale = new_surface.uv_scale;
 
@@ -508,6 +573,7 @@ RS::SurfaceData MeshStorage::mesh_get_surface(RID p_mesh, int p_surface) const {
 	}
 
 	sd.bone_aabbs = s.bone_aabbs;
+	sd.mesh_to_skeleton_xform = s.mesh_to_skeleton_xform;
 
 	if (mesh->blend_shape_count) {
 		sd.blend_shape_data = Vector<uint8_t>();
@@ -561,15 +627,16 @@ AABB MeshStorage::mesh_get_aabb(RID p_mesh, RID p_skeleton) {
 
 	for (uint32_t i = 0; i < mesh->surface_count; i++) {
 		AABB laabb;
-		if ((mesh->surfaces[i]->format & RS::ARRAY_FORMAT_BONES) && mesh->surfaces[i]->bone_aabbs.size()) {
-			int bs = mesh->surfaces[i]->bone_aabbs.size();
-			const AABB *skbones = mesh->surfaces[i]->bone_aabbs.ptr();
+		const Mesh::Surface &surface = *mesh->surfaces[i];
+		if ((surface.format & RS::ARRAY_FORMAT_BONES) && surface.bone_aabbs.size()) {
+			int bs = surface.bone_aabbs.size();
+			const AABB *skbones = surface.bone_aabbs.ptr();
 
 			int sbs = skeleton->size;
 			ERR_CONTINUE(bs > sbs);
 			const float *baseptr = skeleton->data.ptr();
 
-			bool first = true;
+			bool found_bone_aabb = false;
 
 			if (skeleton->use_2d) {
 				for (int j = 0; j < bs; j++) {
@@ -589,11 +656,13 @@ AABB MeshStorage::mesh_get_aabb(RID p_mesh, RID p_skeleton) {
 					mtx.basis.rows[1][1] = dataptr[5];
 					mtx.origin.y = dataptr[7];
 
-					AABB baabb = mtx.xform(skbones[j]);
+					// Transform bounds to skeleton's space before applying animation data.
+					AABB baabb = surface.mesh_to_skeleton_xform.xform(skbones[j]);
+					baabb = mtx.xform(baabb);
 
-					if (first) {
+					if (!found_bone_aabb) {
 						laabb = baabb;
-						first = false;
+						found_bone_aabb = true;
 					} else {
 						laabb.merge_with(baabb);
 					}
@@ -621,21 +690,29 @@ AABB MeshStorage::mesh_get_aabb(RID p_mesh, RID p_skeleton) {
 					mtx.basis.rows[2][2] = dataptr[10];
 					mtx.origin.z = dataptr[11];
 
-					AABB baabb = mtx.xform(skbones[j]);
-					if (first) {
+					// Transform bounds to skeleton's space before applying animation data.
+					AABB baabb = surface.mesh_to_skeleton_xform.xform(skbones[j]);
+					baabb = mtx.xform(baabb);
+
+					if (!found_bone_aabb) {
 						laabb = baabb;
-						first = false;
+						found_bone_aabb = true;
 					} else {
 						laabb.merge_with(baabb);
 					}
 				}
 			}
 
+			if (found_bone_aabb) {
+				// Transform skeleton bounds back to mesh's space if any animated AABB applied.
+				laabb = surface.mesh_to_skeleton_xform.affine_inverse().xform(laabb);
+			}
+
 			if (laabb.size == Vector3()) {
-				laabb = mesh->surfaces[i]->aabb;
+				laabb = surface.aabb;
 			}
 		} else {
-			laabb = mesh->surfaces[i]->aabb;
+			laabb = surface.aabb;
 		}
 
 		if (i == 0) {
@@ -648,6 +725,20 @@ AABB MeshStorage::mesh_get_aabb(RID p_mesh, RID p_skeleton) {
 	mesh->aabb = aabb;
 	mesh->skeleton_aabb_version = skeleton->version;
 	return aabb;
+}
+
+void MeshStorage::mesh_set_path(RID p_mesh, const String &p_path) {
+	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
+	ERR_FAIL_NULL(mesh);
+
+	mesh->path = p_path;
+}
+
+String MeshStorage::mesh_get_path(RID p_mesh) const {
+	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
+	ERR_FAIL_NULL_V(mesh, String());
+
+	return mesh->path;
 }
 
 void MeshStorage::mesh_set_shadow_mesh(RID p_mesh, RID p_shadow_mesh) {
@@ -712,6 +803,11 @@ void MeshStorage::mesh_clear(RID p_mesh) {
 			memfree(s.versions); //reallocs, so free with memfree.
 		}
 
+		if (s.wireframe) {
+			GLES3::Utilities::get_singleton()->buffer_free_data(s.wireframe->index_buffer);
+			memdelete(s.wireframe);
+		}
+
 		if (s.lod_count) {
 			for (uint32_t j = 0; j < s.lod_count; j++) {
 				if (s.lods[j].index_buffer != 0) {
@@ -764,14 +860,17 @@ void MeshStorage::_mesh_surface_generate_version_for_input_mask(Mesh::Surface::V
 	int skin_stride = 0;
 
 	for (int i = 0; i < RS::ARRAY_INDEX; i++) {
+		attribs[i].enabled = false;
+		attribs[i].integer = false;
 		if (!(s->format & (1ULL << i))) {
-			attribs[i].enabled = false;
-			attribs[i].integer = false;
 			continue;
 		}
 
-		attribs[i].enabled = true;
-		attribs[i].integer = false;
+		if ((p_input_mask & (1ULL << i))) {
+			// Only enable if it matches input mask.
+			// Iterate over all anyway, so we can calculate stride.
+			attribs[i].enabled = true;
+		}
 
 		switch (i) {
 			case RS::ARRAY_VERTEX: {
@@ -1108,8 +1207,6 @@ void MeshStorage::_blend_shape_bind_mesh_instance_buffer(MeshInstance *p_mi, uin
 }
 
 void MeshStorage::_compute_skeleton(MeshInstance *p_mi, Skeleton *p_sk, uint32_t p_surface) {
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
 	// Add in the bones and weights.
 	glBindBuffer(GL_ARRAY_BUFFER, p_mi->mesh->surfaces[p_surface]->skin_buffer);
 
@@ -1200,9 +1297,8 @@ void MeshStorage::update_mesh_instances() {
 
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 				GLuint vertex_array_gl = 0;
-				uint64_t mask = ((1 << 10) - 1) << 3; // Mask from ARRAY_FORMAT_COLOR to ARRAY_FORMAT_INDEX.
-				mask = ~mask;
-				uint64_t format = mi->surfaces[i].format_cache & mask; // Format should only have vertex, normal, tangent (as necessary) + compressions.
+				uint64_t mask = RS::ARRAY_FORMAT_VERTEX | RS::ARRAY_FORMAT_NORMAL | RS::ARRAY_FORMAT_VERTEX;
+				uint64_t format = mi->mesh->surfaces[i]->format & mask; // Format should only have vertex, normal, tangent (as necessary).
 				mesh_surface_get_vertex_arrays_and_format(mi->mesh->surfaces[i], format, vertex_array_gl);
 				glBindVertexArray(vertex_array_gl);
 				glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, mi->surfaces[i].vertex_buffers[0]);
@@ -1315,9 +1411,8 @@ void MeshStorage::update_mesh_instances() {
 				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_OFFSET, inverse_transform[2], skeleton_shader.shader_version, variant, specialization);
 
 				GLuint vertex_array_gl = 0;
-				uint64_t mask = ((1 << 10) - 1) << 3; // Mask from ARRAY_FORMAT_COLOR to ARRAY_FORMAT_INDEX.
-				mask = ~mask;
-				uint64_t format = mi->surfaces[i].format_cache & mask; // Format should only have vertex, normal, tangent (as necessary) + compressions.
+				uint64_t mask = RS::ARRAY_FORMAT_VERTEX | RS::ARRAY_FORMAT_NORMAL | RS::ARRAY_FORMAT_VERTEX;
+				uint64_t format = mi->mesh->surfaces[i]->format & mask; // Format should only have vertex, normal, tangent (as necessary).
 				mesh_surface_get_vertex_arrays_and_format(mi->mesh->surfaces[i], format, vertex_array_gl);
 				glBindVertexArray(vertex_array_gl);
 				_compute_skeleton(mi, sk, i);

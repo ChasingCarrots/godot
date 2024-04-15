@@ -638,6 +638,10 @@ bool AnimationMixer::_update_caches() {
 
 				switch (track_type) {
 					case Animation::TYPE_VALUE: {
+						// If a value track without a key is cached first, the initial value cannot be determined.
+						// It is a corner case, but which may cause problems with blending.
+						ERR_CONTINUE_MSG(anim->track_get_key_count(i) == 0, "AnimationMixer: '" + String(E) + "', Value Track:  '" + String(path) + "' must have at least one key to cache for blending.");
+
 						TrackCacheValue *track_value = memnew(TrackCacheValue);
 
 						if (resource.is_valid()) {
@@ -654,9 +658,6 @@ bool AnimationMixer::_update_caches() {
 
 						track = track_value;
 
-						// If a value track without a key is cached first, the initial value cannot be determined.
-						// It is a corner case, but which may cause problems with blending.
-						ERR_CONTINUE_MSG(anim->track_get_key_count(i) == 0, "AnimationMixer: '" + String(E) + "', Value Track:  '" + String(path) + "' must have at least one key to cache for blending.");
 						track_value->init_value = anim->track_get_key_value(i, 0);
 						track_value->init_value.zero();
 
@@ -952,19 +953,12 @@ Variant AnimationMixer::post_process_key_value(const Ref<Animation> &p_anim, int
 }
 
 Variant AnimationMixer::_post_process_key_value(const Ref<Animation> &p_anim, int p_track, Variant p_value, const Object *p_object, int p_object_idx) {
-	switch (p_anim->track_get_type(p_track)) {
 #ifndef _3D_DISABLED
-		case Animation::TYPE_POSITION_3D: {
-			if (p_object_idx >= 0) {
-				const Skeleton3D *skel = Object::cast_to<Skeleton3D>(p_object);
-				return Vector3(p_value) * skel->get_motion_scale();
-			}
-			return p_value;
-		} break;
-#endif // _3D_DISABLED
-		default: {
-		} break;
+	if (p_object_idx >= 0 && p_anim->track_get_type(p_track) == Animation::TYPE_POSITION_3D) {
+		const Skeleton3D *skel = Object::cast_to<Skeleton3D>(p_object);
+		return Vector3(p_value) * skel->get_motion_scale();
 	}
+#endif // _3D_DISABLED
 	return p_value;
 }
 
@@ -1568,7 +1562,7 @@ void AnimationMixer::_blend_process(double p_delta, bool p_update_only) {
 					}
 				} break;
 				case Animation::TYPE_ANIMATION: {
-					if (p_update_only || Math::is_zero_approx(blend)) {
+					if (Math::is_zero_approx(blend)) {
 						continue;
 					}
 					TrackCacheAnimation *t = static_cast<TrackCacheAnimation *>(track);
@@ -1591,10 +1585,10 @@ void AnimationMixer::_blend_process(double p_delta, bool p_update_only) {
 						double at_anim_pos = 0.0;
 						switch (anim->get_loop_mode()) {
 							case Animation::LOOP_NONE: {
-								at_anim_pos = MAX((double)anim->get_length(), time - pos); //seek to end
+								at_anim_pos = MIN((double)anim->get_length(), time - pos); // Seek to end.
 							} break;
 							case Animation::LOOP_LINEAR: {
-								at_anim_pos = Math::fposmod(time - pos, (double)anim->get_length()); //seek to loop
+								at_anim_pos = Math::fposmod(time - pos, (double)anim->get_length()); // Seek to loop.
 							} break;
 							case Animation::LOOP_PINGPONG: {
 								at_anim_pos = Math::pingpong(time - pos, (double)a->get_length());
@@ -1602,14 +1596,14 @@ void AnimationMixer::_blend_process(double p_delta, bool p_update_only) {
 							default:
 								break;
 						}
-						if (player2->is_playing() || seeked) {
-							player2->seek(at_anim_pos);
+						if (player2->is_playing()) {
+							player2->seek(at_anim_pos, false, p_update_only);
 							player2->play(anim_name);
 							t->playing = true;
 							playing_caches.insert(t);
 						} else {
 							player2->set_assigned_animation(anim_name);
-							player2->seek(at_anim_pos, true);
+							player2->seek(at_anim_pos, true, p_update_only);
 						}
 					} else {
 						// Find stuff to play.
@@ -1985,6 +1979,7 @@ void AnimationMixer::reset() {
 }
 
 void AnimationMixer::restore(const Ref<AnimatedValuesBackup> &p_backup) {
+	ERR_FAIL_COND(p_backup.is_null());
 	track_cache = p_backup->get_data();
 	_blend_apply();
 	track_cache = HashMap<NodePath, AnimationMixer::TrackCache *>();

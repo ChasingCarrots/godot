@@ -96,35 +96,29 @@ Error SceneMultiplayer::poll() {
 #endif
 
 		if (pending_peers.has(sender)) {
-			if (pending_peers[sender].local) {
-				// If the auth is over, admit the peer at the first packet.
-				pending_peers.erase(sender);
-				_admit_peer(sender);
+			ERR_CONTINUE(len < 2 || (packet[0] & CMD_MASK) != NETWORK_COMMAND_SYS || packet[1] != SYS_COMMAND_AUTH);
+			// Auth message.
+			PackedByteArray pba;
+			pba.resize(len - 2);
+			if (pba.size()) {
+				memcpy(pba.ptrw(), &packet[2], len - 2);
+				// User callback
+				const Variant sv = sender;
+				const Variant pbav = pba;
+				const Variant *argv[2] = { &sv, &pbav };
+				Variant ret;
+				Callable::CallError ce;
+				auth_callback.callp(argv, 2, ret, ce);
+				ERR_CONTINUE_MSG(ce.error != Callable::CallError::CALL_OK, "Failed to call authentication callback");
 			} else {
-				ERR_CONTINUE(len < 2 || (packet[0] & CMD_MASK) != NETWORK_COMMAND_SYS || packet[1] != SYS_COMMAND_AUTH);
-				// Auth message.
-				PackedByteArray pba;
-				pba.resize(len - 2);
-				if (pba.size()) {
-					memcpy(pba.ptrw(), &packet[2], len - 2);
-					// User callback
-					const Variant sv = sender;
-					const Variant pbav = pba;
-					const Variant *argv[2] = { &sv, &pbav };
-					Variant ret;
-					Callable::CallError ce;
-					auth_callback.callp(argv, 2, ret, ce);
-					ERR_CONTINUE_MSG(ce.error != Callable::CallError::CALL_OK, "Failed to call authentication callback");
-				} else {
-					// Remote complete notification.
-					pending_peers[sender].remote = true;
-					if (pending_peers[sender].local) {
-						pending_peers.erase(sender);
-						_admit_peer(sender);
-					}
+				// Remote complete notification.
+				pending_peers[sender].remote = true;
+				if (pending_peers[sender].local) {
+					pending_peers.erase(sender);
+					_admit_peer(sender);
 				}
-				continue; // Auth in progress.
 			}
+			continue; // Auth in progress.
 		}
 
 		ERR_CONTINUE(!connected_peers.has(sender));
@@ -434,7 +428,7 @@ void SceneMultiplayer::disconnect_peer(int p_id) {
 	if (pending_peers.has(p_id)) {
 		pending_peers.erase(p_id);
 	} else if (connected_peers.has(p_id)) {
-		connected_peers.has(p_id);
+		connected_peers.erase(p_id);
 	}
 	multiplayer_peer->disconnect_peer(p_id);
 }
@@ -483,9 +477,14 @@ Error SceneMultiplayer::complete_auth(int p_peer) {
 	ERR_FAIL_COND_V(!pending_peers.has(p_peer), ERR_INVALID_PARAMETER);
 	ERR_FAIL_COND_V_MSG(pending_peers[p_peer].local, ERR_FILE_CANT_WRITE, "The authentication session was already marked as completed.");
 	pending_peers[p_peer].local = true;
+
 	// Notify the remote peer that the authentication has completed.
 	uint8_t buf[2] = { NETWORK_COMMAND_SYS, SYS_COMMAND_AUTH };
+	multiplayer_peer->set_target_peer(p_peer);
+	multiplayer_peer->set_transfer_channel(0);
+	multiplayer_peer->set_transfer_mode(MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 	Error err = _send(buf, 2);
+
 	// The remote peer already reported the authentication as completed, so admit the peer.
 	// May generate new packets, so it must happen after sending confirmation.
 	if (pending_peers[p_peer].remote) {

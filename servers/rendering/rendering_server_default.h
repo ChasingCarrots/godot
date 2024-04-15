@@ -315,6 +315,9 @@ public:
 	FUNC2(mesh_set_custom_aabb, RID, const AABB &)
 	FUNC1RC(AABB, mesh_get_custom_aabb, RID)
 
+	FUNC2(mesh_set_path, RID, const String &)
+	FUNC1RC(String, mesh_get_path, RID)
+
 	FUNC2(mesh_set_shadow_mesh, RID, RID)
 
 	FUNC1(mesh_clear, RID)
@@ -939,6 +942,8 @@ public:
 	FUNC2(canvas_occluder_polygon_set_cull_mode, RID, CanvasOccluderPolygonCullMode)
 
 	FUNC1(canvas_set_shadow_texture_size, int)
+
+	FUNC1R(Rect2, _debug_canvas_item_get_rect, RID)
 
 	/* GLOBAL SHADER UNIFORMS */
 

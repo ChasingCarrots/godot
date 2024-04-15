@@ -50,12 +50,12 @@ Vector2i TileMapLayer::_coords_to_debug_quadrant_coords(const Vector2i &p_coords
 			p_coords.y > 0 ? p_coords.y / TILE_MAP_DEBUG_QUADRANT_SIZE : (p_coords.y - (TILE_MAP_DEBUG_QUADRANT_SIZE - 1)) / TILE_MAP_DEBUG_QUADRANT_SIZE);
 }
 
-void TileMapLayer::_debug_update() {
+void TileMapLayer::_debug_update(bool p_force_cleanup) {
 	const Ref<TileSet> &tile_set = tile_map_node->get_tileset();
 	RenderingServer *rs = RenderingServer::get_singleton();
 
 	// Check if we should cleanup everything.
-	bool forced_cleanup = in_destructor || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid() || !tile_map_node->is_visible_in_tree();
+	bool forced_cleanup = p_force_cleanup || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid() || !tile_map_node->is_visible_in_tree();
 
 	if (forced_cleanup) {
 		for (KeyValue<Vector2i, Ref<DebugQuadrant>> &kv : debug_quadrant_map) {
@@ -178,12 +178,12 @@ void TileMapLayer::_debug_quadrants_update_cell(CellData &r_cell_data, SelfList<
 #endif // DEBUG_ENABLED
 
 /////////////////////////////// Rendering //////////////////////////////////////
-void TileMapLayer::_rendering_update() {
+void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 	const Ref<TileSet> &tile_set = tile_map_node->get_tileset();
 	RenderingServer *rs = RenderingServer::get_singleton();
 
 	// Check if we should cleanup everything.
-	bool forced_cleanup = in_destructor || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid() || !tile_map_node->is_visible_in_tree();
+	bool forced_cleanup = p_force_cleanup || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid() || !tile_map_node->is_visible_in_tree();
 
 	// ----------- Layer level processing -----------
 	if (forced_cleanup) {
@@ -447,9 +447,11 @@ void TileMapLayer::_rendering_update() {
 			for (KeyValue<Vector2i, CellData> &kv : tile_map) {
 				CellData &cell_data = kv.value;
 				for (const RID &occluder : cell_data.occluders) {
-					Transform2D xform(0, tile_map_node->map_to_local(kv.key));
-					rs->canvas_light_occluder_attach_to_canvas(occluder, tile_map_node->get_canvas());
-					rs->canvas_light_occluder_set_transform(occluder, tile_map_node->get_global_transform() * xform);
+					if (occluder.is_valid()) {
+						Transform2D xform(0, tile_map_node->map_to_local(kv.key));
+						rs->canvas_light_occluder_attach_to_canvas(occluder, tile_map_node->get_canvas());
+						rs->canvas_light_occluder_set_transform(occluder, tile_map_node->get_global_transform() * xform);
+					}
 				}
 			}
 		}
@@ -565,6 +567,15 @@ void TileMapLayer::_rendering_occluders_update_cell(CellData &r_cell_data) {
 	const Ref<TileSet> &tile_set = tile_map_node->get_tileset();
 	RenderingServer *rs = RenderingServer::get_singleton();
 
+	// Free unused occluders then resize the occluders array.
+	for (uint32_t i = tile_set->get_occlusion_layers_count(); i < r_cell_data.occluders.size(); i++) {
+		RID occluder_id = r_cell_data.occluders[i];
+		if (occluder_id.is_valid()) {
+			rs->free(occluder_id);
+		}
+	}
+	r_cell_data.occluders.resize(tile_set->get_occlusion_layers_count());
+
 	TileSetSource *source;
 	if (tile_set->has_source(r_cell_data.cell.source_id)) {
 		source = *tile_set->get_source(r_cell_data.cell.source_id);
@@ -580,18 +591,30 @@ void TileMapLayer::_rendering_occluders_update_cell(CellData &r_cell_data) {
 					tile_data = atlas_source->get_tile_data(r_cell_data.cell.get_atlas_coords(), r_cell_data.cell.alternative_tile);
 				}
 
-				// Update/create occluders.
-				for (int i = 0; i < tile_set->get_occlusion_layers_count(); i++) {
-					Transform2D xform;
-					xform.set_origin(tile_map_node->map_to_local(r_cell_data.coords));
-					if (tile_data->get_occluder(i).is_valid()) {
-						RID occluder_id = rs->canvas_light_occluder_create();
-						rs->canvas_light_occluder_set_enabled(occluder_id, node_visible);
-						rs->canvas_light_occluder_set_transform(occluder_id, tile_map_node->get_global_transform() * xform);
-						rs->canvas_light_occluder_set_polygon(occluder_id, tile_map_node->get_transformed_polygon(Ref<Resource>(tile_data->get_occluder(i)), r_cell_data.cell.alternative_tile)->get_rid());
-						rs->canvas_light_occluder_attach_to_canvas(occluder_id, tile_map_node->get_canvas());
-						rs->canvas_light_occluder_set_light_mask(occluder_id, tile_set->get_occlusion_layer_light_mask(i));
-						r_cell_data.occluders.push_back(occluder_id);
+				// Create, update or clear occluders.
+				for (uint32_t occlusion_layer_index = 0; occlusion_layer_index < r_cell_data.occluders.size(); occlusion_layer_index++) {
+					Ref<OccluderPolygon2D> occluder_polygon = tile_data->get_occluder(occlusion_layer_index);
+
+					RID &occluder = r_cell_data.occluders[occlusion_layer_index];
+
+					if (occluder_polygon.is_valid()) {
+						// Create or update occluder.
+						Transform2D xform;
+						xform.set_origin(tile_map_node->map_to_local(r_cell_data.coords));
+						if (!occluder.is_valid()) {
+							occluder = rs->canvas_light_occluder_create();
+						}
+						rs->canvas_light_occluder_set_enabled(occluder, node_visible);
+						rs->canvas_light_occluder_set_transform(occluder, tile_map_node->get_global_transform() * xform);
+						rs->canvas_light_occluder_set_polygon(occluder, tile_map_node->get_transformed_polygon(Ref<Resource>(tile_data->get_occluder(occlusion_layer_index)), r_cell_data.cell.alternative_tile)->get_rid());
+						rs->canvas_light_occluder_attach_to_canvas(occluder, tile_map_node->get_canvas());
+						rs->canvas_light_occluder_set_light_mask(occluder, tile_set->get_occlusion_layer_light_mask(occlusion_layer_index));
+					} else {
+						// Clear occluder.
+						if (occluder.is_valid()) {
+							rs->free(occluder);
+							occluder = RID();
+						}
 					}
 				}
 
@@ -654,11 +677,11 @@ void TileMapLayer::_rendering_draw_cell_debug(const RID &p_canvas_item, const Ve
 
 /////////////////////////////// Physics //////////////////////////////////////
 
-void TileMapLayer::_physics_update() {
+void TileMapLayer::_physics_update(bool p_force_cleanup) {
 	const Ref<TileSet> &tile_set = tile_map_node->get_tileset();
 
 	// Check if we should cleanup everything.
-	bool forced_cleanup = in_destructor || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid();
+	bool forced_cleanup = p_force_cleanup || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid();
 	if (forced_cleanup) {
 		// Clean everything.
 		for (KeyValue<Vector2i, CellData> &kv : tile_map) {
@@ -778,7 +801,7 @@ void TileMapLayer::_physics_update_cell(CellData &r_cell_data) {
 				}
 
 				// Free unused bodies then resize the bodies array.
-				for (unsigned int i = tile_set->get_physics_layers_count(); i < r_cell_data.bodies.size(); i++) {
+				for (uint32_t i = tile_set->get_physics_layers_count(); i < r_cell_data.bodies.size(); i++) {
 					RID body = r_cell_data.bodies[i];
 					if (body.is_valid()) {
 						bodies_coords.erase(body);
@@ -787,7 +810,7 @@ void TileMapLayer::_physics_update_cell(CellData &r_cell_data) {
 				}
 				r_cell_data.bodies.resize(tile_set->get_physics_layers_count());
 
-				for (int tile_set_physics_layer = 0; tile_set_physics_layer < tile_set->get_physics_layers_count(); tile_set_physics_layer++) {
+				for (uint32_t tile_set_physics_layer = 0; tile_set_physics_layer < (uint32_t)tile_set->get_physics_layers_count(); tile_set_physics_layer++) {
 					Ref<PhysicsMaterial> physics_material = tile_set->get_physics_layer_physics_material(tile_set_physics_layer);
 					uint32_t physics_layer = tile_set->get_physics_layer_collision_layer(tile_set_physics_layer);
 					uint32_t physics_mask = tile_set->get_physics_layer_collision_mask(tile_set_physics_layer);
@@ -921,13 +944,13 @@ void TileMapLayer::_physics_draw_cell_debug(const RID &p_canvas_item, const Vect
 
 /////////////////////////////// Navigation //////////////////////////////////////
 
-void TileMapLayer::_navigation_update() {
+void TileMapLayer::_navigation_update(bool p_force_cleanup) {
 	ERR_FAIL_NULL(NavigationServer2D::get_singleton());
 	const Ref<TileSet> &tile_set = tile_map_node->get_tileset();
 	NavigationServer2D *ns = NavigationServer2D::get_singleton();
 
 	// Check if we should cleanup everything.
-	bool forced_cleanup = in_destructor || !enabled || !navigation_enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid();
+	bool forced_cleanup = p_force_cleanup || !enabled || !navigation_enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid();
 
 	// ----------- Layer level processing -----------
 	if (forced_cleanup) {
@@ -998,7 +1021,7 @@ void TileMapLayer::_navigation_update() {
 void TileMapLayer::_navigation_clear_cell(CellData &r_cell_data) {
 	NavigationServer2D *ns = NavigationServer2D::get_singleton();
 	// Clear navigation shapes.
-	for (unsigned int i = 0; i < r_cell_data.navigation_regions.size(); i++) {
+	for (uint32_t i = 0; i < r_cell_data.navigation_regions.size(); i++) {
 		const RID &region = r_cell_data.navigation_regions[i];
 		if (region.is_valid()) {
 			ns->region_set_map(region, RID());
@@ -1031,7 +1054,7 @@ void TileMapLayer::_navigation_update_cell(CellData &r_cell_data) {
 				}
 
 				// Free unused regions then resize the regions array.
-				for (unsigned int i = tile_set->get_navigation_layers_count(); i < r_cell_data.navigation_regions.size(); i++) {
+				for (uint32_t i = tile_set->get_navigation_layers_count(); i < r_cell_data.navigation_regions.size(); i++) {
 					RID &region = r_cell_data.navigation_regions[i];
 					if (region.is_valid()) {
 						ns->region_set_map(region, RID());
@@ -1042,7 +1065,7 @@ void TileMapLayer::_navigation_update_cell(CellData &r_cell_data) {
 				r_cell_data.navigation_regions.resize(tile_set->get_navigation_layers_count());
 
 				// Create, update or clear regions.
-				for (unsigned int navigation_layer_index = 0; navigation_layer_index < r_cell_data.navigation_regions.size(); navigation_layer_index++) {
+				for (uint32_t navigation_layer_index = 0; navigation_layer_index < r_cell_data.navigation_regions.size(); navigation_layer_index++) {
 					Ref<NavigationPolygon> navigation_polygon;
 					navigation_polygon = tile_data->get_navigation_polygon(navigation_layer_index);
 					navigation_polygon = tile_map_node->get_transformed_polygon(Ref<Resource>(navigation_polygon), c.alternative_tile);
@@ -1187,11 +1210,11 @@ void TileMapLayer::_navigation_draw_cell_debug(const RID &p_canvas_item, const V
 
 /////////////////////////////// Scenes //////////////////////////////////////
 
-void TileMapLayer::_scenes_update() {
+void TileMapLayer::_scenes_update(bool p_force_cleanup) {
 	const Ref<TileSet> &tile_set = tile_map_node->get_tileset();
 
 	// Check if we should cleanup everything.
-	bool forced_cleanup = in_destructor || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid() || !tile_map_node->is_visible_in_tree();
+	bool forced_cleanup = p_force_cleanup || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid();
 
 	if (forced_cleanup) {
 		// Clean everything.
@@ -1314,11 +1337,11 @@ void TileMapLayer::_scenes_draw_cell_debug(const RID &p_canvas_item, const Vecto
 
 /////////////////////////////////////////////////////////////////////
 
-void TileMapLayer::_build_runtime_update_tile_data() {
+void TileMapLayer::_build_runtime_update_tile_data(bool p_force_cleanup) {
 	const Ref<TileSet> &tile_set = tile_map_node->get_tileset();
 
 	// Check if we should cleanup everything.
-	bool forced_cleanup = in_destructor || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid() || !tile_map_node->is_visible_in_tree();
+	bool forced_cleanup = p_force_cleanup || !enabled || !tile_map_node->is_inside_tree() || !tile_set.is_valid() || !tile_map_node->is_visible_in_tree();
 	if (!forced_cleanup) {
 		if (tile_map_node->GDVIRTUAL_IS_OVERRIDDEN(_use_tile_data_runtime_update) && tile_map_node->GDVIRTUAL_IS_OVERRIDDEN(_tile_data_runtime_update)) {
 			if (_runtime_update_tile_data_was_cleaned_up || dirty.flags[DIRTY_FLAGS_TILE_MAP_TILE_SET]) {
@@ -2006,18 +2029,18 @@ void TileMapLayer::notify_tile_map_change(DirtyFlags p_what) {
 	_physics_notify_tilemap_change(p_what);
 }
 
-void TileMapLayer::internal_update() {
+void TileMapLayer::internal_update(bool p_force_cleanup) {
 	// Find TileData that need a runtime modification.
 	// This may add cells to the dirty list is a runtime modification has been notified.
-	_build_runtime_update_tile_data();
+	_build_runtime_update_tile_data(p_force_cleanup);
 
 	// Update all subsystems.
-	_rendering_update();
-	_physics_update();
-	_navigation_update();
-	_scenes_update();
+	_rendering_update(p_force_cleanup);
+	_physics_update(p_force_cleanup);
+	_navigation_update(p_force_cleanup);
+	_scenes_update(p_force_cleanup);
 #ifdef DEBUG_ENABLED
-	_debug_update();
+	_debug_update(p_force_cleanup);
 #endif // DEBUG_ENABLED
 
 	_clear_runtime_update_tile_data();
@@ -2522,9 +2545,8 @@ TileMapLayer::~TileMapLayer() {
 		return;
 	}
 
-	in_destructor = true;
 	clear();
-	internal_update();
+	internal_update(true);
 }
 
 HashMap<Vector2i, TileSet::CellNeighbor> TerrainConstraint::get_overlapping_coords_and_peering_bits() const {
@@ -3000,6 +3022,8 @@ void TileMap::_notification(int p_what) {
 			for (Ref<TileMapLayer> &layer : layers) {
 				layer->notify_tile_map_change(TileMapLayer::DIRTY_FLAGS_TILE_MAP_IN_TREE);
 			}
+			// Update on exit to prevent threading problems, and force cleanup.
+			_internal_update(true);
 		} break;
 
 		case TileMap::NOTIFICATION_ENTER_CANVAS: {
@@ -3012,6 +3036,8 @@ void TileMap::_notification(int p_what) {
 			for (Ref<TileMapLayer> &layer : layers) {
 				layer->notify_tile_map_change(TileMapLayer::DIRTY_FLAGS_TILE_MAP_IN_CANVAS);
 			}
+			// Update on exit to prevent threading problems, and force cleanup.
+			_internal_update(true);
 		} break;
 
 		case NOTIFICATION_DRAW: {
@@ -3086,16 +3112,23 @@ void TileMap::queue_internal_update() {
 	if (pending_update) {
 		return;
 	}
-	pending_update = true;
-	callable_mp(this, &TileMap::_internal_update).call_deferred();
+	// Don't update when outside the tree, it doesn't do anything useful, and causes threading problems.
+	if (is_inside_tree()) {
+		pending_update = true;
+		callable_mp(this, &TileMap::_deferred_internal_update).call_deferred();
+	}
 }
 
-void TileMap::_internal_update() {
+void TileMap::_deferred_internal_update() {
 	// Other updates.
 	if (!pending_update) {
 		return;
 	}
 
+	_internal_update(false);
+}
+
+void TileMap::_internal_update(bool p_force_cleanup) {
 	// FIXME: This should only clear polygons that are no longer going to be used, but since it's difficult to determine,
 	// the cache is never cleared at runtime to prevent invalidating used polygons.
 	if (Engine::get_singleton()->is_editor_hint()) {
@@ -3103,7 +3136,7 @@ void TileMap::_internal_update() {
 	}
 	// Update dirty quadrants on layers.
 	for (Ref<TileMapLayer> &layer : layers) {
-		layer->internal_update();
+		layer->internal_update(p_force_cleanup);
 	}
 
 	pending_update = false;
@@ -3150,7 +3183,7 @@ int TileMap::get_rendering_quadrant_size() const {
 	return rendering_quadrant_size;
 }
 
-void TileMap::draw_tile(RID p_canvas_item, const Vector2 &p_position, const Ref<TileSet> p_tile_set, int p_atlas_source_id, const Vector2i &p_atlas_coords, int p_alternative_tile, int p_frame, Color p_modulation, const TileData *p_tile_data_override, real_t p_animation_offset) {
+void TileMap::draw_tile(RID p_canvas_item, const Vector2 &p_position, const Ref<TileSet> p_tile_set, int p_atlas_source_id, const Vector2i &p_atlas_coords, int p_alternative_tile, int p_frame, Color p_modulation, const TileData *p_tile_data_override, real_t p_normalized_animation_offset) {
 	ERR_FAIL_COND(!p_tile_set.is_valid());
 	ERR_FAIL_COND(!p_tile_set->has_source(p_atlas_source_id));
 	ERR_FAIL_COND(!p_tile_set->get_source(p_atlas_source_id)->has_tile(p_atlas_coords));
@@ -3215,6 +3248,7 @@ void TileMap::draw_tile(RID p_canvas_item, const Vector2 &p_position, const Ref<
 		} else {
 			real_t speed = atlas_source->get_tile_animation_speed(p_atlas_coords);
 			real_t animation_duration = atlas_source->get_tile_animation_total_duration(p_atlas_coords) / speed;
+			real_t animation_offset = p_normalized_animation_offset * animation_duration;
 			// Accumulate durations unaffected by the speed to avoid accumulating floating point division errors.
 			// Aka do `sum(duration[i]) / speed` instead of `sum(duration[i] / speed)`.
 			real_t time_unscaled = 0.0;
@@ -3222,7 +3256,7 @@ void TileMap::draw_tile(RID p_canvas_item, const Vector2 &p_position, const Ref<
 				real_t frame_duration_unscaled = atlas_source->get_tile_animation_frame_duration(p_atlas_coords, frame);
 				real_t slice_start = time_unscaled / speed;
 				real_t slice_end = (time_unscaled + frame_duration_unscaled) / speed;
-				RenderingServer::get_singleton()->canvas_item_add_animation_slice(p_canvas_item, animation_duration, slice_start, slice_end, p_animation_offset);
+				RenderingServer::get_singleton()->canvas_item_add_animation_slice(p_canvas_item, animation_duration, slice_start, slice_end, animation_offset);
 
 				Rect2i source_rect = atlas_source->get_runtime_tile_texture_region(p_atlas_coords, frame);
 				tex->draw_rect_region(p_canvas_item, dest_rect, source_rect, modulate, transpose, p_tile_set->is_uv_clipping());
@@ -3250,7 +3284,7 @@ void TileMap::add_layer(int p_to_pos) {
 	new_layer.instantiate();
 	new_layer->set_tile_map(this);
 	layers.insert(p_to_pos, new_layer);
-	for (unsigned int i = 0; i < layers.size(); i++) {
+	for (uint32_t i = 0; i < layers.size(); i++) {
 		layers[i]->set_layer_index_in_tile_map_node(i);
 	}
 	queue_internal_update();
@@ -3269,7 +3303,7 @@ void TileMap::move_layer(int p_layer, int p_to_pos) {
 	Ref<TileMapLayer> layer = layers[p_layer];
 	layers.insert(p_to_pos, layer);
 	layers.remove_at(p_to_pos < p_layer ? p_layer + 1 : p_layer);
-	for (unsigned int i = 0; i < layers.size(); i++) {
+	for (uint32_t i = 0; i < layers.size(); i++) {
 		layers[i]->set_layer_index_in_tile_map_node(i);
 	}
 	queue_internal_update();
@@ -3289,7 +3323,7 @@ void TileMap::remove_layer(int p_layer) {
 
 	// Clear before removing the layer.
 	layers.remove_at(p_layer);
-	for (unsigned int i = 0; i < layers.size(); i++) {
+	for (uint32_t i = 0; i < layers.size(); i++) {
 		layers[i]->set_layer_index_in_tile_map_node(i);
 	}
 	queue_internal_update();
@@ -3526,7 +3560,7 @@ Vector2i TileMap::get_coords_for_body_rid(RID p_physics_body) {
 }
 
 int TileMap::get_layer_for_body_rid(RID p_physics_body) {
-	for (unsigned int i = 0; i < layers.size(); i++) {
+	for (uint32_t i = 0; i < layers.size(); i++) {
 		if (layers[i]->has_body_rid(p_physics_body)) {
 			return i;
 		}
@@ -3551,8 +3585,7 @@ void TileMap::clear() {
 }
 
 void TileMap::update_internals() {
-	pending_update = true;
-	_internal_update();
+	_internal_update(false);
 }
 
 void TileMap::notify_runtime_tile_data_update(int p_layer) {
@@ -3576,7 +3609,7 @@ Rect2 TileMap::_edit_get_rect() const {
 	bool changed = false;
 	Rect2 rect = layers[0]->get_rect(changed);
 	any_changed |= changed;
-	for (unsigned int i = 1; i < layers.size(); i++) {
+	for (uint32_t i = 1; i < layers.size(); i++) {
 		rect = rect.merge(layers[i]->get_rect(changed));
 		any_changed |= changed;
 	}
@@ -3755,7 +3788,7 @@ void TileMap::_get_property_list(List<PropertyInfo> *p_list) const {
 		p_list->push_back(PropertyInfo(m_type, property_name, PROPERTY_HINT_NONE, m_hint, (get(property_name) == property_get_revert(property_name)) ? PROPERTY_USAGE_EDITOR : PROPERTY_USAGE_DEFAULT)); \
 	}
 
-	for (unsigned int i = 0; i < layers.size(); i++) {
+	for (uint32_t i = 0; i < layers.size(); i++) {
 		MAKE_LAYER_PROPERTY(Variant::STRING, "name", "");
 		MAKE_LAYER_PROPERTY(Variant::BOOL, "enabled", "");
 		MAKE_LAYER_PROPERTY(Variant::COLOR, "modulate", "");

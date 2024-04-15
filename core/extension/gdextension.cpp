@@ -794,6 +794,9 @@ void GDExtension::deinitialize_library(InitializationLevel p_level) {
 	ERR_FAIL_COND(p_level > int32_t(level_initialized));
 
 	level_initialized = int32_t(p_level) - 1;
+
+	ERR_FAIL_NULL(initialization.deinitialize);
+
 	initialization.deinitialize(initialization.userdata, GDExtensionInitializationLevel(p_level));
 }
 
@@ -910,6 +913,11 @@ Error GDExtensionResourceLoader::load_gdextension_resource(const String &p_path,
 		const String os_arch = OS::get_singleton()->get_name().to_lower() + "." + Engine::get_singleton()->get_architecture_name();
 		ERR_PRINT(vformat("No GDExtension library found for current OS and architecture (%s) in configuration file: %s", os_arch, p_path));
 		return ERR_FILE_NOT_FOUND;
+	}
+
+	if (library_path.get_file().begins_with("godot-jolt_") && compatibility_minimum[0] == 4 && compatibility_minimum[1] == 1) {
+		ERR_PRINT("Godot Jolt failed to load, as the currently installed version is incompatible with Godot 4.2. You can update it to a compatible version by deleting it and installing it again.");
+		return ERR_INVALID_DATA;
 	}
 
 	bool is_static_library = library_path.ends_with(".a") || library_path.ends_with(".xcframework");

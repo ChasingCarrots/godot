@@ -725,7 +725,8 @@ void DisplayServerMacOS::update_mouse_pos(DisplayServerMacOS::WindowData &p_wd, 
 }
 
 void DisplayServerMacOS::pop_last_key_event() {
-	if (key_event_pos > 0) {
+	// Does not pop last key event when it is an IME key event.
+	if (key_event_pos > 0 && key_event_buffer[key_event_pos - 1].raw) {
 		key_event_pos--;
 	}
 }
@@ -1636,6 +1637,10 @@ void DisplayServerMacOS::global_menu_set_item_text(const String &p_menu_root, in
 		NSMenuItem *menu_item = [menu itemAtIndex:p_idx];
 		if (menu_item) {
 			[menu_item setTitle:[NSString stringWithUTF8String:p_text.utf8().get_data()]];
+			NSMenu *sub_menu = [menu_item submenu];
+			if (sub_menu) {
+				[sub_menu setTitle:[NSString stringWithUTF8String:p_text.utf8().get_data()]];
+			}
 		}
 	}
 }
@@ -2697,6 +2702,7 @@ Color DisplayServerMacOS::screen_get_pixel(const Point2i &p_position) const {
 	position += _get_screens_origin();
 	position /= screen_get_max_scale();
 
+	Color color;
 	for (NSScreen *screen in [NSScreen screens]) {
 		NSRect frame = [screen frame];
 		if (NSMouseInRect(NSMakePoint(position.x, position.y), frame, NO)) {
@@ -2704,18 +2710,22 @@ Color DisplayServerMacOS::screen_get_pixel(const Point2i &p_position) const {
 			CGDirectDisplayID display_id = [[screenDescription objectForKey:@"NSScreenNumber"] unsignedIntValue];
 			CGImageRef image = CGDisplayCreateImageForRect(display_id, CGRectMake(position.x - frame.origin.x, frame.size.height - (position.y - frame.origin.y), 1, 1));
 			if (image) {
-				NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithCGImage:image];
-				CGImageRelease(image);
-				NSColor *color = [bitmap colorAtX:0 y:0];
-				if (color) {
-					CGFloat components[4];
-					[color getRed:&components[0] green:&components[1] blue:&components[2] alpha:&components[3]];
-					return Color(components[0], components[1], components[2], components[3]);
+				CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
+				if (color_space) {
+					uint8_t img_data[4];
+					CGContextRef context = CGBitmapContextCreate(img_data, 1, 1, 8, 4, color_space, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+					if (context) {
+						CGContextDrawImage(context, CGRectMake(0, 0, 1, 1), image);
+						color = Color(img_data[0] / 255.0f, img_data[1] / 255.0f, img_data[2] / 255.0f, img_data[3] / 255.0f);
+						CGContextRelease(context);
+					}
+					CGColorSpaceRelease(color_space);
 				}
+				CGImageRelease(image);
 			}
 		}
 	}
-	return Color();
+	return color;
 }
 
 Ref<Image> DisplayServerMacOS::screen_get_image(int p_screen) const {
@@ -3084,7 +3094,7 @@ void DisplayServerMacOS::window_set_position(const Point2i &p_position, WindowID
 	ERR_FAIL_COND(!windows.has(p_window));
 	WindowData &wd = windows[p_window];
 
-	if (NSEqualRects([wd.window_object frame], [[wd.window_object screen] visibleFrame])) {
+	if (wd.fullscreen) {
 		return;
 	}
 
@@ -3173,12 +3183,21 @@ Size2i DisplayServerMacOS::window_get_max_size(WindowID p_window) const {
 }
 
 void DisplayServerMacOS::update_presentation_mode() {
+	bool has_fs_windows = false;
 	for (const KeyValue<WindowID, WindowData> &wd : windows) {
-		if (wd.value.fullscreen && wd.value.exclusive_fullscreen) {
-			return;
+		if (wd.value.fullscreen) {
+			if (wd.value.exclusive_fullscreen) {
+				return;
+			} else {
+				has_fs_windows = true;
+			}
 		}
 	}
-	[NSApp setPresentationOptions:NSApplicationPresentationDefault];
+	if (has_fs_windows) {
+		[NSApp setPresentationOptions:NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideDock | NSApplicationPresentationFullScreen];
+	} else {
+		[NSApp setPresentationOptions:NSApplicationPresentationDefault];
+	}
 }
 
 void DisplayServerMacOS::window_set_min_size(const Size2i p_size, WindowID p_window) {

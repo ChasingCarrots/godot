@@ -84,6 +84,14 @@ struct Mesh {
 		uint32_t index_count = 0;
 		uint32_t index_buffer_size = 0;
 
+		struct Wireframe {
+			GLuint index_buffer = 0;
+			uint32_t index_count = 0;
+			uint32_t index_buffer_size = 0;
+		};
+
+		Wireframe *wireframe = nullptr;
+
 		struct LOD {
 			float edge_length = 0.0;
 			uint32_t index_count = 0;
@@ -97,6 +105,10 @@ struct Mesh {
 		AABB aabb;
 
 		Vector<AABB> bone_aabbs;
+
+		// Transform used in runtime bone AABBs compute.
+		// As bone AABBs are saved in Mesh space, but bones animation is in Skeleton space.
+		Transform3D mesh_to_skeleton_xform;
 
 		Vector4 uv_scale;
 
@@ -129,6 +141,8 @@ struct Mesh {
 
 	RID shadow_mesh;
 	HashSet<Mesh *> shadow_owners;
+
+	String path;
 
 	Dependency dependency;
 };
@@ -292,8 +306,11 @@ public:
 
 	virtual void mesh_set_custom_aabb(RID p_mesh, const AABB &p_aabb) override;
 	virtual AABB mesh_get_custom_aabb(RID p_mesh) const override;
-
 	virtual AABB mesh_get_aabb(RID p_mesh, RID p_skeleton = RID()) override;
+
+	virtual void mesh_set_path(RID p_mesh, const String &p_path) override;
+	virtual String mesh_get_path(RID p_mesh) const override;
+
 	virtual void mesh_set_shadow_mesh(RID p_mesh, RID p_shadow_mesh) override;
 	virtual void mesh_clear(RID p_mesh) override;
 
@@ -374,6 +391,16 @@ public:
 		} else {
 			return s->lods[p_lod - 1].index_buffer;
 		}
+	}
+
+	_FORCE_INLINE_ GLuint mesh_surface_get_index_buffer_wireframe(void *p_surface) const {
+		Mesh::Surface *s = reinterpret_cast<Mesh::Surface *>(p_surface);
+
+		if (s->wireframe) {
+			return s->wireframe->index_buffer;
+		}
+
+		return 0;
 	}
 
 	_FORCE_INLINE_ GLenum mesh_surface_get_index_type(void *p_surface) const {

@@ -612,6 +612,7 @@ private:
 
 	void _renderer_selected(int);
 	void _update_renderer_color();
+	void _add_renderer_entry(const String &p_renderer_name, bool p_mark_overridden);
 
 	void _exit_editor(int p_exit_code);
 
@@ -630,8 +631,6 @@ private:
 	void _save_scene_with_preview(String p_file, int p_idx = -1);
 
 	bool _find_scene_in_use(Node *p_node, const String &p_path) const;
-
-	void _update_dock_containers();
 
 	void _dock_select_input(const Ref<InputEvent> &p_input);
 	void _dock_move_left();

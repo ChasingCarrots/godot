@@ -90,17 +90,17 @@ ProjectExportTextureFormatError::ProjectExportTextureFormatError() {
 	fix_texture_format_button->connect("pressed", callable_mp(this, &ProjectExportTextureFormatError::_on_fix_texture_format_pressed));
 }
 
-void ProjectExportDialog::_theme_changed() {
-	duplicate_preset->set_icon(presets->get_editor_theme_icon(SNAME("Duplicate")));
-	delete_preset->set_icon(presets->get_editor_theme_icon(SNAME("Remove")));
-}
-
 void ProjectExportDialog::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			if (!is_visible()) {
 				EditorSettings::get_singleton()->set_project_metadata("dialog_bounds", "export", Rect2(get_position(), get_size()));
 			}
+		} break;
+
+		case NOTIFICATION_THEME_CHANGED: {
+			duplicate_preset->set_icon(presets->get_editor_theme_icon(SNAME("Duplicate")));
+			delete_preset->set_icon(presets->get_editor_theme_icon(SNAME("Remove")));
 		} break;
 
 		case NOTIFICATION_READY: {
@@ -1161,8 +1161,8 @@ ProjectExportDialog::ProjectExportDialog() {
 	set_clamp_to_embedder(true);
 
 	VBoxContainer *main_vb = memnew(VBoxContainer);
-	main_vb->connect("theme_changed", callable_mp(this, &ProjectExportDialog::_theme_changed));
 	add_child(main_vb);
+
 	HSplitContainer *hbox = memnew(HSplitContainer);
 	main_vb->add_child(hbox);
 	hbox->set_v_size_flags(Control::SIZE_EXPAND_FILL);
@@ -1274,6 +1274,7 @@ ProjectExportDialog::ProjectExportDialog() {
 	server_strip_message = memnew(Label);
 	server_strip_message->set_visible(false);
 	server_strip_message->set_autowrap_mode(TextServer::AUTOWRAP_WORD_SMART);
+	server_strip_message->set_custom_minimum_size(Size2(300 * EDSCALE, 1));
 	resources_vb->add_child(server_strip_message);
 
 	{

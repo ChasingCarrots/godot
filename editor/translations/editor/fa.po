@@ -29,7 +29,7 @@
 # Mitsuha Miamizu <mitsuha.miamizu4444@gmail.com>, 2022.
 # LordProfo <nimaentity30@gmail.com>, 2022.
 # LordProfo (Nima) <nimaentity30@gmail.com>, 2022, 2023.
-# John Smith <pkafsharix@gmail.com>, 2022, 2023.
+# John Smith <pkafsharix@gmail.com>, 2022, 2023, 2024.
 # Ali Jafari <ali.jafari.sn@gmail.com>, 2022.
 # Ali Almasi <A710almasi@gmail.com>, 2022.
 # 2g.2d.2t <2g.2d.2t@gmail.com>, 2022.
@@ -48,7 +48,7 @@ msgstr ""
 "Project-Id-Version: Godot Engine editor interface\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-11-26 13:51+0000\n"
+"PO-Revision-Date: 2024-02-17 15:01+0000\n"
 "Last-Translator: John Smith <pkafsharix@gmail.com>\n"
 "Language-Team: Persian <https://hosted.weblate.org/projects/godot-engine/"
 "godot/fa/>\n"
@@ -57,7 +57,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.2.1-rc\n"
+"X-Generator: Weblate 5.4\n"
 
 msgid "Main Thread"
 msgstr "موضوع اصلی"
@@ -2964,17 +2964,6 @@ msgid "Unable to load addon script from path: '%s'."
 msgstr "امکان بارگیری اسکریپت افزونه از مسیر وجود ندارد: '%s'."
 
 msgid ""
-"Unable to load addon script from path: '%s' Base type is not EditorPlugin."
-msgstr ""
-"امکان بارگیری اسکریپت افزونه از مسیر: '%s' وجود ندارد، نوع پایه EditorPlugin "
-"نیست."
-
-msgid "Unable to load addon script from path: '%s' Script is not in tool mode."
-msgstr ""
-"امکان بارگیری اسکریپت افزونه از مسیر: '%s' وجود ندارد، اسکریپت در حالت ابزار "
-"نیست."
-
-msgid ""
 "Error loading scene, it must be inside the project path. Use 'Import' to open "
 "the scene, then save it inside the project path."
 msgstr ""
@@ -3010,6 +2999,15 @@ msgstr "ذخیره و بستن"
 
 msgid "%d more folders"
 msgstr "%d پوشه‌های بیش تر"
+
+msgid "Forward+"
+msgstr "فوروارد+"
+
+msgid "Mobile"
+msgstr "موبایل"
+
+msgid "Compatibility"
+msgstr "سازگاری"
 
 msgid "Distraction Free Mode"
 msgstr "حالت بدون حواس‌پرتی"
@@ -3133,18 +3131,6 @@ msgstr "درباره گودو"
 
 msgid "Support Godot Development"
 msgstr "از توسعه گودو حمایت کنید"
-
-msgid "Choose a renderer."
-msgstr "یک رندرر(renderer) انتخاب کن."
-
-msgid "Forward+"
-msgstr "فوروارد+"
-
-msgid "Mobile"
-msgstr "موبایل"
-
-msgid "Compatibility"
-msgstr "سازگاری"
 
 msgid "Update Continuously"
 msgstr "بروزرسانی مستمر"
@@ -5874,13 +5860,6 @@ msgstr ""
 "زبان تغییر کرد.\n"
 "رابط پس از راه اندازی مجدد ویرایشگر یا مدیر پروژه به‌روز می‌شود."
 
-msgid ""
-"Are you sure to scan %s folders for existing Godot projects?\n"
-"This could take a while."
-msgstr ""
-"آیا مطمئن هستید که پوشه‌های %s را برای پروژه‌های گودوی موجود اسکن می‌کنید؟\n"
-"این کنش ممکن است مدتی طول بکشد."
-
 msgid "New Project"
 msgstr "پروژه جدید"
 
@@ -6269,6 +6248,14 @@ msgstr "در حال نصب در دستگاه، لطفا صبر کنید..."
 
 msgid "Could not install to device: %s"
 msgstr "در دستگاه نصب نشد: %s"
+
+msgid ""
+"The project name does not meet the requirement for the package name format "
+"and will be updated to \"%s\". Please explicitly specify the package name if "
+"needed."
+msgstr ""
+"نام پروژه نیازمندی‌ قالب نام بسته را برآورده نمی کند و به \"%s\" به روز می‌شود. "
+"لطفا در صورت نیاز نام بسته را به صراحت مشخص کنید."
 
 msgid "Verifying %s..."
 msgstr "در حال تایید %s..."
