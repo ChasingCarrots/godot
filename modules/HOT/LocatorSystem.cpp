@@ -41,7 +41,7 @@ void LocatorSystem::_bind_methods()
 {
     // Bind a method to this class.
     ClassDB::bind_method(D_METHOD("update"), &LocatorSystem::Update);
-    ClassDB::bind_method(D_METHOD("get_locators_in_circle", "poolName", "center", "radius"), &LocatorSystem::GetLocatorsInCircle);
+    ClassDB::bind_method(D_METHOD("get_locators_in_circle", "poolName", "center", "radius", "sort_by_distance"), &LocatorSystem::GetLocatorsInCircle, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("count_locators_in_circle", "poolName", "center", "radius"), &LocatorSystem::CountLocatorsInCircle);
     ClassDB::bind_method(D_METHOD("get_gameobjects_in_circle", "poolName", "center", "radius"), &LocatorSystem::GetGameObjectsInCircle);
     ClassDB::bind_method(D_METHOD("get_locators_outside_circle", "poolName", "center", "radius"), &LocatorSystem::GetLocatorsOutsideCircle);
@@ -145,7 +145,7 @@ void LocatorSystem::Update() {
     }
 }
 
-Array LocatorSystem::GetLocatorsInCircle(String poolName, Vector2 center, float radius) {
+Array LocatorSystem::GetLocatorsInCircle(String poolName, Vector2 center, float radius, bool sort_by_dist) {
 	PROFILE_FUNCTION()
     auto poolIter = GlobalLocatorPools.begin();
     while(poolIter != GlobalLocatorPools.end()) {
@@ -162,6 +162,7 @@ Array LocatorSystem::GetLocatorsInCircle(String poolName, Vector2 center, float 
     int maxY = int(ceil((center.y + radius)/GridSize));
 
     Array fillArray;
+	LocalVector<float> distSortVector;
 
     for(int x=minX; x <= maxX; x++) {
         for(int y=minY; y <= maxY; y++) {
@@ -174,8 +175,19 @@ Array LocatorSystem::GetLocatorsInCircle(String poolName, Vector2 center, float 
                     continue;
                 float checkDistSQ = radius + locator->GetRadius();
                 checkDistSQ *= checkDistSQ;
-                if(center.distance_squared_to(locator->get_global_position()) <= checkDistSQ)
-                    fillArray.append(locator);
+                if(center.distance_squared_to(locator->get_global_position()) <= checkDistSQ) {
+                	if(!sort_by_dist)
+						fillArray.append(locator);
+                	else {
+                		int sortIndex = 0;
+						for (; sortIndex < distSortVector.size(); ++sortIndex) {
+							if(distSortVector[sortIndex] > checkDistSQ)
+								break;
+						}
+                		distSortVector.insert(sortIndex, checkDistSQ);
+                		fillArray.insert(sortIndex, locator);
+                	}
+                }
             }
         }
     }

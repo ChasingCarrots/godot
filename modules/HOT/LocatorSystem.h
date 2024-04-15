@@ -26,7 +26,7 @@ protected:
 public:
     LocatorSystem();
 
-    Array GetLocatorsInCircle(String poolName, Vector2 center, float radius);
+    Array GetLocatorsInCircle(String poolName, Vector2 center, float radius, bool sort_by_dist = false);
     Array GetGameObjectsInCircle(String poolName, Vector2 center, float radius);
     int CountLocatorsInCircle(String poolName, Vector2 center, float radius);
 
