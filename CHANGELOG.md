@@ -7,7 +7,7 @@ previous feature release. It is equivalent to the listings on our
 Changelogs for earlier feature releases are available in their respective Git
 branches, and linked at the [end of this file](#Past-releases).
 
-## 4.2.2 - TBA
+## 4.2.2 - 2024-04-17
 
 - [Interactive changelog](https://godotengine.github.io/godot-interactive-changelog/#4.2.2)
 
@@ -218,7 +218,7 @@ branches, and linked at the [end of this file](#Past-releases).
 - Doc: Clarify some details about deferred calls ([GH-88961](https://github.com/godotengine/godot/pull/88961)).
 - [C#] Fix typo in `Color` documentation ([GH-89092](https://github.com/godotengine/godot/pull/89092)).
 - Address a few issues in Transform3D documentation ([GH-89147](https://github.com/godotengine/godot/pull/89147)).
-- Docs: C#] Use `PropertyName` constants in more places ([GH-89246](https://github.com/godotengine/godot/pull/89246)).
+- Docs: [C#] Use `PropertyName` constants in more places ([GH-89246](https://github.com/godotengine/godot/pull/89246)).
 - Doc: Clarify `bsearch(_custom)` behavior ([GH-89280](https://github.com/godotengine/godot/pull/89280)).
 - Doc: Clarify description for `get_unix_time_from_system` on UTC ([GH-89454](https://github.com/godotengine/godot/pull/89454)).
 - Doc: Clarify behavior of `String.format` with keys in replacements ([GH-89608](https://github.com/godotengine/godot/pull/89608)).
@@ -347,6 +347,7 @@ branches, and linked at the [end of this file](#Past-releases).
 - Properly calculate binormal when creating SurfaceTool from arrays ([GH-88725](https://github.com/godotengine/godot/pull/88725)).
 - Multiple fixes for compressed meshes ([GH-88738](https://github.com/godotengine/godot/pull/88738)).
 - Fix wrong indexing when generating dummy tangents in GLTF import ([GH-88931](https://github.com/godotengine/godot/pull/88931)).
+- Add `--import` command-line flag ([GH-90431](https://github.com/godotengine/godot/pull/90431)).
 
 #### Input
 
@@ -374,6 +375,7 @@ branches, and linked at the [end of this file](#Past-releases).
 #### Network
 
 - enet: Sync with upstream commit c44b7d0 ([GH-90244](https://github.com/godotengine/godot/pull/90244)).
+- Fix missing return in `StreamPeerTCP::poll` when connection is `STATUS_CONNECTED` ([GH-90471](https://github.com/godotengine/godot/pull/90741)).
 
 #### Particles
 
@@ -449,11 +451,14 @@ branches, and linked at the [end of this file](#Past-releases).
 - Fix 2D normals for transposed texture ([GH-87225](https://github.com/godotengine/godot/pull/87225)).
 - Disable scissor test after rendering batches in compatibility renderer ([GH-87489](https://github.com/godotengine/godot/pull/87489)).
 - Significantly improve the speed of shader compilation in compatibility backend ([GH-87553](https://github.com/godotengine/godot/pull/87553)).
+- Free dummy renderer objects ([GH-87710](https://github.com/godotengine/godot/pull/87710)).
 - Do not reflect the origin lines in a mirror ([GH-87757](https://github.com/godotengine/godot/pull/87757)).
+- Fix missing instance type in dummy renderer ([GH-88097](https://github.com/godotengine/godot/pull/88097)).
 - Make `RID_Owner<Texture>` threadsafe in `TextureStorage` for GLES3 ([GH-88205](https://github.com/godotengine/godot/pull/88205)).
 - Disable ReShade in the editor and project manager (if run via Vulkan) ([GH-88316](https://github.com/godotengine/godot/pull/88316)).
 - Make dummy rendering server appear as a high end platform to fix vulkan shader compile error when exporting ([GH-88409](https://github.com/godotengine/godot/pull/88409)).
 - Fix shader cache with transform feedback on some Android devices ([GH-88573](https://github.com/godotengine/godot/pull/88573)).
+- Fail early if shader mode is invalid in dummy renderer ([GH-88581](https://github.com/godotengine/godot/pull/88581)).
 - Add fix for TAA passes rendering black meshes on XR ([GH-88830](https://github.com/godotengine/godot/pull/88830)).
 - Make Overdraw, Lighting and Shadow Splits debug draw modes ignore decals ([GH-89253](https://github.com/godotengine/godot/pull/89253)).
 - Fix missed light clusters when inside clipped lights ([GH-89450](https://github.com/godotengine/godot/pull/89450)).
@@ -465,6 +470,8 @@ branches, and linked at the [end of this file](#Past-releases).
 
 - Fix visual shader's `screen_uv` input preview uses position of node rather than a sample area like uv ([GH-84348](https://github.com/godotengine/godot/pull/84348)).
 - Check if the ref shader is valid in visual shader's `_update_option_menu` ([GH-87356](https://github.com/godotengine/godot/pull/87356)).
+- Fully initialize all members of structs `IdentifierActions`, `GeneratedCode` and `DefaultIdentifierActions` ([GH-88021](https://github.com/godotengine/godot/pull/88021)).
+- Change shader compiler default setting to avoid doctool error ([GH-88996](https://github.com/godotengine/godot/pull/88996)).
 
 #### XR
 
