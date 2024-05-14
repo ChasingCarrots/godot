@@ -187,6 +187,21 @@ if env["builtin_zstd"]:
 
     env_thirdparty.add_source_files(thirdparty_obj, thirdparty_zstd_sources)
 
+if env["target"] == "template_profiling":
+    thirdparty_tracy_dir = "#thirdparty/tracy/public/"
+    thirdparty_tracy_sources = [
+        "TracyClient.cpp",
+    ]
+    thirdparty_tracy_sources = [thirdparty_tracy_dir + file for file in thirdparty_tracy_sources]
+
+    env_thirdparty.Prepend(CPPPATH=[thirdparty_tracy_dir])
+    env.Prepend(CPPPATH=thirdparty_tracy_dir)
+    env.Append(CPPDEFINES=["TRACY_ENABLE"])
+
+    env_thirdparty.add_source_files(thirdparty_obj, thirdparty_tracy_sources)  
+    env_thirdparty.Append(CPPDEFINES=["TRACY_ENABLE"])
+
+
 
 env.core_sources += thirdparty_obj
 
@@ -238,7 +253,6 @@ SConscript("templates/SCsub")
 SConscript("string/SCsub")
 SConscript("config/SCsub")
 SConscript("error/SCsub")
-SConscript("optick/SCsub")
 
 
 # Build it all as a library

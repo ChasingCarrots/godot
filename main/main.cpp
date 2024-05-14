@@ -4045,6 +4045,8 @@ bool Main::iteration() {
 		}
 	}
 
+	PROFILING_SEND_SCREENSHOT()
+
 	process_ticks = OS::get_singleton()->get_ticks_usec() - process_begin;
 	process_max = MAX(process_ticks, process_max);
 	uint64_t frame_time = OS::get_singleton()->get_ticks_usec() - ticks;
