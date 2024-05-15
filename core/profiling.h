@@ -4,6 +4,7 @@
 #ifdef PROFILING_ENABLED
 #include "tracy/Tracy.hpp"
 #include "common/TracySystem.hpp"
+#include <core/os/thread.h>
 
 #define PROFILE_FRAME(NAME) FrameMark;
 #define PROFILE_FUNCTION(...) ZoneScoped;
@@ -22,6 +23,7 @@
     };
 #define PROFILING_ALLOC(PTR , SIZE) TracyAlloc(PTR , SIZE);
 #define PROFILING_FREE(PTR) TracyFree(PTR);
+#define PROFILING_START() system("start cmd /c capture.exe -o output.tracy -f -s 5"); print_line("Started tracy capture");
 #else
 #define PROFILE_FRAME(NAME)
 #define PROFILE_FUNCTION(...)
@@ -32,6 +34,7 @@
 #define PROFILING_SEND_SCREENSHOT()
 #define PROFILING_ALLOC(...)
 #define PROFILING_FREE(...)
+#define PROFILING_START()
 #endif
 
 #endif //GODOT_SOURCE_PROFILING_H

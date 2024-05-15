@@ -13,6 +13,7 @@
 #include "ModifiedValues.h"
 #include "Modifier.h"
 #include "MonsterInput.h"
+#include "ProfilerTracy.h"
 #include "SpriteAnimationControl.h"
 #include "StaticValueHelper.h"
 #include "Statistics.h"
@@ -50,6 +51,7 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<AreaOfEffect>();
 	ClassDB::register_class<StaticValueHelper>();
 	ClassDB::register_class<Bullet>();
+	ClassDB::register_class<ProfilerTracy>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {
