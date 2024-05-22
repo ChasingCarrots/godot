@@ -13,7 +13,8 @@ class ThreadedObjectPool  : public RefCounted {
 public:
 	enum MaxInstancesReachedBehaviour {
 		ReturnNull,
-		RecycleOldest
+		RecycleOldest,
+		GrowPool
 	};
 
 protected:

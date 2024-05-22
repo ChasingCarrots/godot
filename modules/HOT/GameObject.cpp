@@ -42,6 +42,9 @@ void GameObject::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("_connect_child_entered_tree"), &GameObject::_connect_child_entered_tree);
 
+	ClassDB::bind_method(D_METHOD("managed_by_pool", "pool"), &GameObject::managed_by_pool);
+	ClassDB::bind_method(D_METHOD("recycle_pooled_object"), &GameObject::recycle_pooled_object);
+
 	ADD_SIGNAL(MethodInfo("ModifierUpdated", PropertyInfo(Variant::STRING_NAME, "type")));
 	ADD_SIGNAL(MethodInfo("Removed", PropertyInfo(Variant::OBJECT, "type", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
 
@@ -538,9 +541,21 @@ void GameObject::set_spawn_origin(Node *spawnOrigin) {
 	_spawn_origin = spawnOrigin;
 }
 
-Node* GameObject::get_spawn_origin() {
-	if(_spawn_origin.is_null())
+Node *GameObject::get_spawn_origin() {
+	if (_spawn_origin.is_null())
 		return nullptr;
-	return (Node*)_spawn_origin.get_validated_object();
+	return (Node *)_spawn_origin.get_validated_object();
+}
+void GameObject::managed_by_pool(ThreadedObjectPool *pool) {
+	for (int i = 0; i < get_child_count(); ++i)
+		if (get_child(i)->has_method("managed_by_pool")) {
+			get_child(i)->call("managed_by_pool", pool);
+		}
+}
+void GameObject::recycle_pooled_object() {
+	for (int i = 0; i < get_child_count(); ++i)
+		if (get_child(i)->has_method("recycle_pooled_object")) {
+			get_child(i)->call("recycle_pooled_object");
+		}
 }
 

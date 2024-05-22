@@ -1,5 +1,6 @@
 #include "ProfilerTracy.h"
 
+#include <core/os/time.h>
 #include <core/profiling.h>
 
 void ProfilerTracy::startProfiling() {

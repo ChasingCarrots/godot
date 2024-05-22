@@ -3,6 +3,7 @@
 #include <core/object/class_db.h>
 #include <core/object/object.h>
 #include <core/os/thread.h>
+#include <core/os/time.h>
 
 class ProfilerTracy : public Object {
 	GDCLASS(ProfilerTracy, Object);

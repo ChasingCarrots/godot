@@ -4,9 +4,11 @@
 void ThreadedObjectPool::_bind_methods() {
 	BIND_ENUM_CONSTANT(ReturnNull)
 	BIND_ENUM_CONSTANT(RecycleOldest)
+	BIND_ENUM_CONSTANT(GrowPool)
 
 	ClassDB::bind_method(D_METHOD("init_with_scene", "scenePath", "maxNumberOfInstances", "maxBehaviour"), &ThreadedObjectPool::init_with_scene);
 	ClassDB::bind_method(D_METHOD("get_instance", "instanceCreatedCallback"), &ThreadedObjectPool::get_instance);
+	ClassDB::bind_method(D_METHOD("get_instance_unthreaded"), &ThreadedObjectPool::get_instance_unthreaded);
 	ClassDB::bind_method(D_METHOD("return_instance", "instance"), &ThreadedObjectPool::return_instance);
 	ClassDB::bind_method(D_METHOD("run_callbacks"), &ThreadedObjectPool::run_callbacks);
 	ClassDB::bind_method(D_METHOD("clear_all_instances"), &ThreadedObjectPool::clear_all_instances);
@@ -178,6 +180,7 @@ Node* ThreadedObjectPool::get_instance_unthreaded() {
 	}
 
 	Node* new_object = _sceneToInstantiate->instantiate();
+
 	if (new_object->has_method("managed_by_pool")) {
 		new_object->call("managed_by_pool", this);
 	}

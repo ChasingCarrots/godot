@@ -891,7 +891,7 @@ void GDScriptAnalyzer::resolve_class_member(GDScriptParser::ClassNode *p_class, 
 			return;
 		}
 
-		ERR_FAIL_COND_MSG(!parser_ref->get_parser()->has_class(p_class), R"(Parser bug: Mismatched external parser.)");
+		ERR_FAIL_COND_MSG(!parser_ref->get_parser()->has_class(p_class), vformat(R"(Parser bug: Mismatched external parser. In %s)", script_path));
 
 		GDScriptAnalyzer *other_analyzer = parser_ref->get_analyzer();
 		GDScriptParser *other_parser = parser_ref->get_parser();

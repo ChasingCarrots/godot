@@ -4,7 +4,6 @@
 #ifdef PROFILING_ENABLED
 #include "tracy/Tracy.hpp"
 #include "common/TracySystem.hpp"
-#include <core/os/thread.h>
 
 #define PROFILE_FRAME(NAME) FrameMark;
 #define PROFILE_FUNCTION(...) ZoneScoped;
@@ -23,7 +22,10 @@
     };
 #define PROFILING_ALLOC(PTR , SIZE) TracyAlloc(PTR , SIZE);
 #define PROFILING_FREE(PTR) TracyFree(PTR);
-#define PROFILING_START() system("start cmd /c capture.exe -o output.tracy -f -s 5"); print_line("Started tracy capture");
+#define PROFILING_START() \
+    const Dictionary dir = Time::get_singleton()->get_datetime_dict_from_system(); \
+    system(vformat("start cmd /c capture.exe -o captures/%04d%02d%02d_%02d%02d_gem_pooling_output.tracy -f -s 5",dir["year"],dir["month"],dir["day"],dir["hour"],dir["minute"]).ascii()); \
+    print_line("Started tracy capture");
 #else
 #define PROFILE_FRAME(NAME)
 #define PROFILE_FUNCTION(...)

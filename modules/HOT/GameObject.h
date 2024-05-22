@@ -163,6 +163,10 @@ public:
 	// spawn origin
 	void set_spawn_origin(Node* spawnOrigin);
 	Node* get_spawn_origin();
+
+	//ThreadedPool methods
+	void managed_by_pool(ThreadedObjectPool* pool);
+	void recycle_pooled_object();
 };
 
 
