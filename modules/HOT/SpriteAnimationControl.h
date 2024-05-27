@@ -14,6 +14,8 @@ protected:
 	void _notification(int p_notification);
 
 	float AnimationSpeed = 1;
+	int OffsetFrames = 0;
+	bool ReverseAllAnims = false;
 	float WalkAnimationThreshold = 200;
 	bool FlashOnDamage = false;
 	float FlashIntensity = 1;
@@ -35,6 +37,10 @@ protected:
 
 	void set_AnimationSpeed(float animSpeed) { AnimationSpeed = animSpeed; }
 	float get_AnimationSpeed() { return AnimationSpeed; }
+	void set_ReverseAllAnims(bool reverse_all) { ReverseAllAnims = reverse_all; }
+	bool get_ReverseAllAnims() { return ReverseAllAnims; }
+	int get_OffsetFrames() const { return OffsetFrames; }
+	void set_OffsetFrames(int offsetFrames) { OffsetFrames = offsetFrames; }
 	void set_WalkAnimationThreshold(float walkAnimationThreshold) { WalkAnimationThreshold = walkAnimationThreshold; }
 	float get_WalkAnimationThreshold() { return WalkAnimationThreshold; }
 	void set_FlashOnDamage(bool flashOnDamage) { FlashOnDamage = flashOnDamage; }
@@ -82,6 +88,7 @@ protected:
 	float playbackSpeed = 1;
 	bool playsBackwards = false;
 	float frameTime = 0;
+	int currentFrameNumber = 0;
 
 	Ref<ShaderMaterial> shaderMaterial;
 

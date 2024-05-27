@@ -14,6 +14,12 @@ void SpriteAnimationControl::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_AnimationSpeed", "animationSpeed"), &SpriteAnimationControl::set_AnimationSpeed);
 	ClassDB::bind_method(D_METHOD("get_AnimationSpeed"), &SpriteAnimationControl::get_AnimationSpeed);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "AnimationSpeed"), "set_AnimationSpeed", "get_AnimationSpeed");
+	ClassDB::bind_method(D_METHOD("set_OffsetFrames", "offsetFrames"), &SpriteAnimationControl::set_OffsetFrames);
+	ClassDB::bind_method(D_METHOD("get_OffsetFrames"), &SpriteAnimationControl::get_OffsetFrames);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "OffsetFrames"), "set_OffsetFrames", "get_OffsetFrames");
+	ClassDB::bind_method(D_METHOD("set_ReverseAllAnims", "reverseAllAnims"), &SpriteAnimationControl::set_ReverseAllAnims);
+	ClassDB::bind_method(D_METHOD("get_ReverseAllAnims"), &SpriteAnimationControl::get_ReverseAllAnims);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ReverseAllAnims"), "set_ReverseAllAnims", "get_ReverseAllAnims");
 	ClassDB::bind_method(D_METHOD("set_WalkAnimationThreshold", "WalkAnimationThreshold"), &SpriteAnimationControl::set_WalkAnimationThreshold);
 	ClassDB::bind_method(D_METHOD("get_WalkAnimationThreshold"), &SpriteAnimationControl::get_WalkAnimationThreshold);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "WalkAnimationThreshold"), "set_WalkAnimationThreshold", "get_WalkAnimationThreshold");
@@ -181,13 +187,14 @@ void SpriteAnimationControl::_process_animation(float delta) {
 	frameTime += delta * playbackSpeed * AnimationSpeed;
 	if(frameTime >= secondsPerFrame) {
 		frameTime -= secondsPerFrame;
-		if(playsBackwards)
-			set_frame(Math::wrapi(get_frame() - 1, 0, frameCount));
+		if((playsBackwards && !ReverseAllAnims) || (!playsBackwards && ReverseAllAnims))
+			currentFrameNumber = Math::wrapi(currentFrameNumber - 1, 0, frameCount);
 		else
-			set_frame(Math::wrapi(get_frame() + 1, 0, frameCount));
-		if(get_frame() == 0) on_animation_finished();
+			currentFrameNumber = Math::wrapi(currentFrameNumber + 1, 0, frameCount);
+		set_frame(Math::wrapi(currentFrameNumber + OffsetFrames, 0, frameCount));
+		if(currentFrameNumber == 0) on_animation_finished();
 		if(shadow.is_valid()) {
-			shadow->set_frame(get_frame());
+			shadow->set_frame(Math::wrapi(currentFrameNumber + OffsetFrames, 0, frameCount));
 			if(FlippedSprites) shadow->set_flip_h(is_flipped_h());
 		}
 	}
@@ -200,27 +207,27 @@ void SpriteAnimationControl::_set_animation(const StringName &animationName, boo
 		return;
 	if(!sprite_frames->has_animation(animationName))
 		return;
-	int currentFrame = get_frame();
 	set_animation(animationName);
-	if(shadow.is_valid()) {
-		shadow->set_animation(animationName);
-		shadow->set_frame(currentFrame);
-		if (FlippedSprites)
-			shadow->set_flip_h(is_flipped_h());
-	}
+
 	frameCount = sprite_frames->get_frame_count(animationName);
 	secondsPerFrame = 1.0f / sprite_frames->get_animation_speed(animationName);
 	if(startAtFrameZero) {
 		if (playsBackwards) {
-			set_frame(frameCount - 1);
+			currentFrameNumber = frameCount - 1;
 			frameTime = secondsPerFrame;
 		} else {
-			set_frame(0);
+			currentFrameNumber = 0;
 			frameTime = 0.0;
 		}
 	}
-	else
-		set_frame(currentFrame);
+
+	set_frame(Math::wrapi(currentFrameNumber + OffsetFrames, 0, frameCount));
+	if(shadow.is_valid()) {
+		shadow->set_animation(animationName);
+		shadow->set_frame(Math::wrapi(currentFrameNumber + OffsetFrames, 0, frameCount));
+		if (FlippedSprites)
+			shadow->set_flip_h(is_flipped_h());
+	}
 }
 
 void SpriteAnimationControl::set_sprite_direction(Vector2 direction) {
