@@ -1,1 +1,1 @@
-scons target=template_profiling tools=no debug_symbols=yes d3d12=no compiledb=yes
+scons target=template_profiling tools=no debug_symbols=yes use_breakpad=yes d3d12=no compiledb=yes

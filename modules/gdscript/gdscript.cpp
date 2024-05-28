@@ -122,18 +122,24 @@ Object *GDScriptNativeClass::instantiate() {
 
 Variant GDScriptNativeClass::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, name))
+	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, name))
 
 	if (p_method == SNAME("new")) {
 		// Constructor.
+	PROFILE_DYNAMIC_FUNCTION_END()
 		return Object::callp(p_method, p_args, p_argcount, r_error);
 	}
 	MethodBind *method = ClassDB::get_method(name, p_method);
 	if (method && method->is_static()) {
 		// Native static method.
+		PROFILE_DYNAMIC_FUNCTION_END()
 		return method->call(nullptr, p_args, p_argcount, r_error);
 	}
 
 	r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
+
+	PROFILE_DYNAMIC_FUNCTION_END()
+
 	return Variant();
 }
 
@@ -896,6 +902,7 @@ void GDScript::unload_static() const {
 
 Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)))
+	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)))
 
 	GDScript *top = this;
 	while (top) {
@@ -903,12 +910,12 @@ Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int 
 		if (E) {
 			ERR_FAIL_COND_V_MSG(!E->value->is_static(), Variant(), "Can't call non-static function '" + String(p_method) + "' in script.");
 
+			PROFILE_DYNAMIC_FUNCTION_END()
 			return E->value->call(nullptr, p_args, p_argcount, r_error);
 		}
 		top = top->_base;
 	}
-
-	//none found, regular
+	PROFILE_DYNAMIC_FUNCTION_END()
 
 	return Script::callp(p_method, p_args, p_argcount, r_error);
 }
@@ -1979,7 +1986,16 @@ int GDScriptInstance::get_method_argument_count(const StringName &p_method, bool
 }
 
 Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
-	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script)))
+#ifdef PROFILING_ENABLED
+	PROFILE_DYNAMIC_FUNCTION()
+	const char* function_name = BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script));
+
+	// Allocate source location
+	uint64_t srcloc = ___tracy_alloc_srcloc_name(__LINE__, __FILE__, strlen(__FILE__), function_name, strlen(function_name), function_name, strlen(function_name));
+
+	// Begin profiling zone
+	TracyCZoneCtx ctx = ___tracy_emit_zone_begin_alloc(srcloc, true);
+#endif
 
 	GDScript *sptr = script.ptr();
 	if (unlikely(p_method == SNAME("_ready"))) {
@@ -1997,11 +2013,22 @@ Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_ar
 	while (sptr) {
 		HashMap<StringName, GDScriptFunction *>::Iterator E = sptr->member_functions.find(p_method);
 		if (E) {
+#ifdef PROFILING_ENABLED
+			// End profiling zone
+			___tracy_emit_zone_end(ctx);
+#endif
+
 			return E->value->call(this, p_args, p_argcount, r_error);
 		}
 		sptr = sptr->_base;
 	}
 	r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
+
+#ifdef PROFILING_ENABLED
+	// End profiling zone
+	___tracy_emit_zone_end(ctx);
+#endif
+
 	return Variant();
 }
 

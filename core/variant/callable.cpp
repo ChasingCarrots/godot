@@ -47,7 +47,9 @@ void Callable::callp(const Variant **p_arguments, int p_argcount, Variant &r_ret
 #ifdef PROFILING_ENABLED
 	const CharString own_name = this->operator String().ascii();
 	PROFILE_DYNAMIC_FUNCTION(own_name.size() > 0 ? own_name.ptr() : "unnamed callable")
+	PROFILE_DYNAMIC_FUNCTION_START(own_name.size() > 0 ? own_name.ptr() : "unnamed callable")
 #endif
+
 	if (is_null()) {
 		r_call_error.error = CallError::CALL_ERROR_INSTANCE_IS_NULL;
 		r_call_error.argument = 0;
@@ -59,6 +61,9 @@ void Callable::callp(const Variant **p_arguments, int p_argcount, Variant &r_ret
 			r_call_error.argument = 0;
 			r_call_error.expected = 0;
 			r_return_value = Variant();
+
+			PROFILE_DYNAMIC_FUNCTION_END()
+
 			return;
 		}
 		custom->call(p_arguments, p_argcount, r_return_value, r_call_error);
@@ -70,18 +75,25 @@ void Callable::callp(const Variant **p_arguments, int p_argcount, Variant &r_ret
 			r_call_error.argument = 0;
 			r_call_error.expected = 0;
 			r_return_value = Variant();
+
+			PROFILE_DYNAMIC_FUNCTION_END()
+
 			return;
 		}
 #endif
 		r_return_value = obj->callp(method, p_arguments, p_argcount, r_call_error);
 	}
+
+	PROFILE_DYNAMIC_FUNCTION_END()
 }
 
 Variant Callable::callv(const Array &p_arguments) const {
 #ifdef PROFILING_ENABLED
 	const CharString own_name = this->operator String().ascii();
 	PROFILE_DYNAMIC_FUNCTION(own_name.size() > 0 ? own_name.ptr() : "unnamed callable")
+	PROFILE_DYNAMIC_FUNCTION_START(own_name.size() > 0 ? own_name.ptr() : "unnamed callable")
 #endif
+
 	int argcount = p_arguments.size();
 	const Variant **argptrs = nullptr;
 	if (argcount) {
@@ -93,6 +105,9 @@ Variant Callable::callv(const Array &p_arguments) const {
 	CallError ce;
 	Variant ret;
 	callp(argptrs, argcount, ret, ce);
+
+	PROFILE_DYNAMIC_FUNCTION_END()
+
 	return ret;
 }
 

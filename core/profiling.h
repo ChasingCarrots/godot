@@ -4,10 +4,15 @@
 #ifdef PROFILING_ENABLED
 #include "tracy/Tracy.hpp"
 #include "common/TracySystem.hpp"
+#include "tracy/TracyC.h"
 
 #define PROFILE_FRAME(NAME) FrameMark;
-#define PROFILE_FUNCTION(...) ZoneScoped;
-#define PROFILE_DYNAMIC_FUNCTION(NAME) ZoneScoped; ZoneName(NAME, strlen(NAME)); ZoneColor(0x008000);
+#define PROFILE_FUNCTION(...) ZoneScoped; ZoneColor(0xFFA500);
+#define PROFILE_DYNAMIC_FUNCTION(...)
+#define PROFILE_DYNAMIC_FUNCTION_START(NAME) \
+        uint64_t srcloc = ___tracy_alloc_srcloc_name(__LINE__, __FILE__, strlen(__FILE__), NAME, strlen(NAME), NAME, strlen(NAME)); \
+        TracyCZoneCtx ctx = ___tracy_emit_zone_begin_alloc(srcloc, true);
+#define PROFILE_DYNAMIC_FUNCTION_END() ___tracy_emit_zone_end(ctx);
 #define PROFILING_THREAD(NAME)
 #define PROFILING_GPU_INIT_VULKAN(DEVICES, PHYSICAL_DEVICES, CMD_QUEUES, CMD_QUEUES_FAMILY, NUM_CMD_QUEUES, FUNCTIONS)
 #define PROFILING_GPU_FLIP(SWAP_CHAIN)
@@ -24,12 +29,14 @@
 #define PROFILING_FREE(PTR) TracyFree(PTR);
 #define PROFILING_START() \
     const Dictionary dir = Time::get_singleton()->get_datetime_dict_from_system(); \
-    system(vformat("start cmd /c capture.exe -o captures/%04d%02d%02d_%02d%02d_gem_pooling_output.tracy -f -s 5",dir["year"],dir["month"],dir["day"],dir["hour"],dir["minute"]).ascii()); \
+    system(vformat("start cmd /c capture.exe -o captures/%04d%02d%02d_%02d%02d_output.tracy -f -s 5",dir["year"],dir["month"],dir["day"],dir["hour"],dir["minute"]).ascii()); \
     print_line("Started tracy capture");
 #else
 #define PROFILE_FRAME(NAME)
 #define PROFILE_FUNCTION(...)
 #define PROFILE_DYNAMIC_FUNCTION(...)
+#define PROFILE_DYNAMIC_FUNCTION_START(...)
+#define PROFILE_DYNAMIC_FUNCTION_END()
 #define PROFILING_THREAD(NAME)
 #define PROFILING_GPU_INIT_VULKAN(...)
 #define PROFILING_GPU_FLIP(SWAP_CHAIN)
