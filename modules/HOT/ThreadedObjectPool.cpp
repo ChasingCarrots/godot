@@ -44,7 +44,7 @@ void ThreadedObjectPool::instance_creation_thread_loop(void *p_ud) {
 
 			if(workOnCreation.CreationCallback.is_valid()) {
 				{
-					PROFILE_FUNCTION("InstantiatePooledObject")
+					PROFILE_FUNCTION_NAMED("InstantiatePooledObject")
 					workOnCreation.CreatedInstance = pool->_sceneToInstantiate->instantiate();
 					if (workOnCreation.CreatedInstance->has_method("managed_by_pool")) {
 						workOnCreation.CreatedInstance->call("managed_by_pool", pool);

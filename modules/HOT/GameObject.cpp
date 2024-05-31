@@ -312,7 +312,7 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 	uint32_t calculationHash;
 	bool isFloat = baseValue.get_type() == Variant::FLOAT;
 	{
-		PROFILE_FUNCTION("ModValueCalculationHashing");
+		PROFILE_FUNCTION_NAMED("ModValueCalculationHashing");
 		calculationHash = calculateHashForModifiedValueCalculation(modifierType, baseValue, categoriesAsPackedStr);
 		if(isFloat) {
 			float cachedValue = 0;

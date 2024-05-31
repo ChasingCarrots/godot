@@ -7,7 +7,8 @@
 #include "tracy/TracyC.h"
 
 #define PROFILE_FRAME(NAME) FrameMark;
-#define PROFILE_FUNCTION(...) ZoneScoped; ZoneColor(0xFFA500);
+#define PROFILE_FUNCTION() ZoneScoped; ZoneColor(0x07631F);
+#define PROFILE_FUNCTION_NAMED(NAME) ZoneScopedN(NAME); ZoneColor(0x0BA032);
 #define PROFILE_DYNAMIC_FUNCTION(...)
 #define PROFILE_DYNAMIC_FUNCTION_START(NAME) \
         uint64_t srcloc = ___tracy_alloc_srcloc_name(__LINE__, __FILE__, strlen(__FILE__), NAME, strlen(NAME), NAME, strlen(NAME)); \
@@ -34,6 +35,7 @@
 #else
 #define PROFILE_FRAME(NAME)
 #define PROFILE_FUNCTION(...)
+#define PROFILE_FUNCTION_NAMED(...)
 #define PROFILE_DYNAMIC_FUNCTION(...)
 #define PROFILE_DYNAMIC_FUNCTION_START(...)
 #define PROFILE_DYNAMIC_FUNCTION_END()

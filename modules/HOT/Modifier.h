@@ -70,7 +70,7 @@ public:
 	}
 
 	bool isRelevant(const String& modifiedType, const PackedStringArray& categories) const {
-		PROFILE_FUNCTION("Modifier::isRelevant");
+		PROFILE_FUNCTION_NAMED("Modifier::isRelevant");
 		if(modifiedType != _modifiedType)
 			return false;
 		if(_modifierCategories.is_empty())

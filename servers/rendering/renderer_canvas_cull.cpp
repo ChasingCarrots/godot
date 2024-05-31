@@ -326,7 +326,7 @@ void RendererCanvasCull::_cull_canvas_item(Item *p_canvas_item, const Transform2
 	}
 
 	if (ci->sort_y) {
-		PROFILE_FUNCTION("ySorting")
+		PROFILE_FUNCTION_NAMED("ySorting")
 		if (p_allow_y_sort) {
 			if (ci->ysort_children_count == -1) {
 				ci->ysort_children_count = 0;
