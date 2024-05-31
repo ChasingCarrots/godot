@@ -797,6 +797,8 @@ private:
 #endif
 
 public:
+	RenderingContextDriver *get_context_driver() const { return context; }
+
 	const RDD::Capabilities &get_device_capabilities() const { return driver->get_capabilities(); }
 
 	bool has_feature(const Features p_feature) const;
@@ -1046,6 +1048,7 @@ private:
 			uint32_t pipeline_shader_layout_hash = 0;
 			RID vertex_array;
 			RID index_array;
+			uint32_t draw_count = 0;
 		} state;
 
 #ifdef DEBUG_ENABLED
@@ -1103,7 +1106,7 @@ private:
 
 public:
 	DrawListID draw_list_begin_for_screen(DisplayServer::WindowID p_screen = 0, const Color &p_clear_color = Color());
-	DrawListID draw_list_begin(RID p_framebuffer, InitialAction p_initial_color_action, FinalAction p_final_color_action, InitialAction p_initial_depth_action, FinalAction p_final_depth_action, const Vector<Color> &p_clear_color_values = Vector<Color>(), float p_clear_depth = 0.0, uint32_t p_clear_stencil = 0, const Rect2 &p_region = Rect2());
+	DrawListID draw_list_begin(RID p_framebuffer, InitialAction p_initial_color_action, FinalAction p_final_color_action, InitialAction p_initial_depth_action, FinalAction p_final_depth_action, const Vector<Color> &p_clear_color_values = Vector<Color>(), float p_clear_depth = 1.0, uint32_t p_clear_stencil = 0, const Rect2 &p_region = Rect2());
 
 	void draw_list_set_blend_constants(DrawListID p_list, const Color &p_color);
 	void draw_list_bind_render_pipeline(DrawListID p_list, RID p_render_pipeline);
@@ -1147,6 +1150,7 @@ private:
 			uint32_t local_group_size[3] = { 0, 0, 0 };
 			uint8_t push_constant_data[MAX_PUSH_CONSTANT_SIZE] = {};
 			uint32_t push_constant_size = 0;
+			uint32_t dispatch_count = 0;
 		} state;
 
 #ifdef DEBUG_ENABLED
@@ -1259,6 +1263,9 @@ private:
 		// Swap chains prepared for drawing during the frame that must be presented.
 		LocalVector<RDD::SwapChainID> swap_chains_to_present;
 
+		// Extra command buffer pool used for driver workarounds.
+		RDG::CommandBufferPool command_buffer_pool;
+
 		struct Timestamp {
 			String description;
 			uint64_t value = 0;
@@ -1352,6 +1359,8 @@ public:
 	String get_device_api_name() const;
 	String get_device_api_version() const;
 	String get_device_pipeline_cache_uuid() const;
+
+	bool is_composite_alpha_supported() const;
 
 	uint64_t get_driver_resource(DriverResource p_resource, RID p_rid = RID(), uint64_t p_index = 0);
 

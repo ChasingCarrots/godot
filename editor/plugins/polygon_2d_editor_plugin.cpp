@@ -212,7 +212,7 @@ void Polygon2DEditor::_update_bone_list() {
 			cb->set_pressed(true);
 		}
 
-		cb->connect("pressed", callable_mp(this, &Polygon2DEditor::_bone_paint_selected).bind(i));
+		cb->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_bone_paint_selected).bind(i));
 	}
 
 	uv_edit_draw->queue_redraw();
@@ -293,8 +293,7 @@ void Polygon2DEditor::_uv_edit_mode_select(int p_mode) {
 }
 
 void Polygon2DEditor::_uv_edit_popup_hide() {
-	EditorSettings::get_singleton()->set("interface/dialogs/uv_editor_bounds", Rect2(uv_edit->get_position(), uv_edit->get_size()));
-
+	EditorSettings::get_singleton()->set_project_metadata("dialog_bounds", "uv_editor", Rect2(uv_edit->get_position(), uv_edit->get_size()));
 	_cancel_editing();
 }
 
@@ -321,8 +320,9 @@ void Polygon2DEditor::_menu_option(int p_option) {
 				undo_redo->commit_action();
 			}
 
-			if (EditorSettings::get_singleton()->has_setting("interface/dialogs/uv_editor_bounds")) {
-				uv_edit->popup(EDITOR_GET("interface/dialogs/uv_editor_bounds"));
+			const Rect2 bounds = EditorSettings::get_singleton()->get_project_metadata("dialog_bounds", "uv_editor", Rect2());
+			if (bounds.has_area()) {
+				uv_edit->popup(bounds);
 			} else {
 				uv_edit->popup_centered_ratio(0.85);
 			}
@@ -1302,12 +1302,13 @@ Polygon2DEditor::Polygon2DEditor() {
 	button_uv->set_theme_type_variation("FlatButton");
 	add_child(button_uv);
 	button_uv->set_tooltip_text(TTR("Open Polygon 2D UV editor."));
-	button_uv->connect("pressed", callable_mp(this, &Polygon2DEditor::_menu_option).bind(MODE_EDIT_UV));
+	button_uv->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_menu_option).bind(MODE_EDIT_UV));
 
 	uv_mode = UV_MODE_EDIT_POINT;
 	uv_edit = memnew(AcceptDialog);
 	add_child(uv_edit);
 	uv_edit->set_title(TTR("Polygon 2D UV Editor"));
+	uv_edit->connect("confirmed", callable_mp(this, &Polygon2DEditor::_uv_edit_popup_hide));
 	uv_edit->connect("canceled", callable_mp(this, &Polygon2DEditor::_uv_edit_popup_hide));
 
 	VBoxContainer *uv_main_vb = memnew(VBoxContainer);
@@ -1340,10 +1341,10 @@ Polygon2DEditor::Polygon2DEditor() {
 	uv_edit_mode[2]->set_button_group(uv_edit_group);
 	uv_edit_mode[3]->set_button_group(uv_edit_group);
 
-	uv_edit_mode[0]->connect("pressed", callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(0));
-	uv_edit_mode[1]->connect("pressed", callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(1));
-	uv_edit_mode[2]->connect("pressed", callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(2));
-	uv_edit_mode[3]->connect("pressed", callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(3));
+	uv_edit_mode[0]->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(0));
+	uv_edit_mode[1]->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(1));
+	uv_edit_mode[2]->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(2));
+	uv_edit_mode[3]->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_uv_edit_mode_select).bind(3));
 
 	uv_mode_hb->add_child(memnew(VSeparator));
 
@@ -1353,7 +1354,7 @@ Polygon2DEditor::Polygon2DEditor() {
 		uv_button[i]->set_theme_type_variation("FlatButton");
 		uv_button[i]->set_toggle_mode(true);
 		uv_mode_hb->add_child(uv_button[i]);
-		uv_button[i]->connect("pressed", callable_mp(this, &Polygon2DEditor::_uv_mode).bind(i));
+		uv_button[i]->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_uv_mode).bind(i));
 		uv_button[i]->set_focus_mode(FOCUS_NONE);
 	}
 
@@ -1520,7 +1521,7 @@ Polygon2DEditor::Polygon2DEditor() {
 	sync_bones = memnew(Button(TTR("Sync Bones to Polygon")));
 	bone_scroll_main_vb->add_child(sync_bones);
 	sync_bones->set_h_size_flags(0);
-	sync_bones->connect("pressed", callable_mp(this, &Polygon2DEditor::_sync_bones));
+	sync_bones->connect(SceneStringName(pressed), callable_mp(this, &Polygon2DEditor::_sync_bones));
 	uv_main_hsc->add_child(bone_scroll_main_vb);
 	bone_scroll = memnew(ScrollContainer);
 	bone_scroll->set_v_scroll(true);
@@ -1533,9 +1534,9 @@ Polygon2DEditor::Polygon2DEditor() {
 	uv_panner.instantiate();
 	uv_panner->set_callbacks(callable_mp(this, &Polygon2DEditor::_uv_pan_callback), callable_mp(this, &Polygon2DEditor::_uv_zoom_callback));
 
-	uv_edit_draw->connect("draw", callable_mp(this, &Polygon2DEditor::_uv_draw));
-	uv_edit_draw->connect("gui_input", callable_mp(this, &Polygon2DEditor::_uv_input));
-	uv_edit_draw->connect("focus_exited", callable_mp(uv_panner.ptr(), &ViewPanner::release_pan_key));
+	uv_edit_draw->connect(SceneStringName(draw), callable_mp(this, &Polygon2DEditor::_uv_draw));
+	uv_edit_draw->connect(SceneStringName(gui_input), callable_mp(this, &Polygon2DEditor::_uv_input));
+	uv_edit_draw->connect(SceneStringName(focus_exited), callable_mp(uv_panner.ptr(), &ViewPanner::release_pan_key));
 	uv_edit_draw->set_focus_mode(FOCUS_CLICK);
 	uv_draw_zoom = 1.0;
 	point_drag_index = -1;

@@ -736,7 +736,7 @@ void NavMap::remove_link(NavLink *p_link) {
 }
 
 bool NavMap::has_agent(NavAgent *agent) const {
-	return (agents.find(agent) >= 0);
+	return agents.has(agent);
 }
 
 void NavMap::add_agent(NavAgent *agent) {
@@ -756,7 +756,7 @@ void NavMap::remove_agent(NavAgent *agent) {
 }
 
 bool NavMap::has_obstacle(NavObstacle *obstacle) const {
-	return (obstacles.find(obstacle) >= 0);
+	return obstacles.has(obstacle);
 }
 
 void NavMap::add_obstacle(NavObstacle *obstacle) {

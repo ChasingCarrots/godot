@@ -1,18 +1,19 @@
 import os
 import sys
+from typing import TYPE_CHECKING
 
 from emscripten_helpers import (
-    run_closure_compiler,
-    create_engine_file,
+    add_js_externs,
     add_js_libraries,
     add_js_pre,
-    add_js_externs,
+    create_engine_file,
     create_template_zip,
     get_template_zip_path,
+    run_closure_compiler,
 )
-from methods import get_compiler_version
 from SCons.Util import WhereIs
-from typing import TYPE_CHECKING
+
+from methods import get_compiler_version, print_error, print_warning
 
 if TYPE_CHECKING:
     from SCons.Script.SConscript import SConsEnvironment
@@ -64,37 +65,37 @@ def get_doc_path():
 
 
 def get_flags():
-    return [
-        ("arch", "wasm32"),
-        ("target", "template_debug"),
-        ("builtin_pcre2_with_jit", False),
-        ("vulkan", False),
+    return {
+        "arch": "wasm32",
+        "target": "template_debug",
+        "builtin_pcre2_with_jit": False,
+        "vulkan": False,
         # Embree is heavy and requires too much memory (GH-70621).
-        ("module_raycast_enabled", False),
+        "module_raycast_enabled": False,
         # Use -Os to prioritize optimizing for reduced file size. This is
         # particularly valuable for the web platform because it directly
         # decreases download time.
         # -Os reduces file size by around 5 MiB over -O3. -Oz only saves about
         # 100 KiB over -Os, which does not justify the negative impact on
         # run-time performance.
-        ("optimize", "size"),
-    ]
+        "optimize": "size",
+    }
 
 
 def configure(env: "SConsEnvironment"):
     # Validate arch.
     supported_arches = ["wasm32"]
     if env["arch"] not in supported_arches:
-        print(
+        print_error(
             'Unsupported CPU architecture "%s" for Web. Supported architectures are: %s.'
             % (env["arch"], ", ".join(supported_arches))
         )
-        sys.exit()
+        sys.exit(255)
 
     try:
         env["initial_memory"] = int(env["initial_memory"])
     except Exception:
-        print("Initial memory must be a valid integer")
+        print_error("Initial memory must be a valid integer")
         sys.exit(255)
 
     ## Build type
@@ -109,7 +110,7 @@ def configure(env: "SConsEnvironment"):
         env.Append(LINKFLAGS=["-s", "ASSERTIONS=1"])
 
     if env.editor_build and env["initial_memory"] < 64:
-        print('Note: Forcing "initial_memory=64" as it is required for the web editor.')
+        print("Note: Forcing `initial_memory=64` as it is required for the web editor.")
         env["initial_memory"] = 64
 
     env.Append(LINKFLAGS=["-s", "INITIAL_MEMORY=%sMB" % env["initial_memory"]])
@@ -180,7 +181,7 @@ def configure(env: "SConsEnvironment"):
     # Use TempFileMunge since some AR invocations are too long for cmd.exe.
     # Use POSIX-style paths, required with TempFileMunge.
     env["ARCOM_POSIX"] = env["ARCOM"].replace("$TARGET", "$TARGET.posix").replace("$SOURCES", "$SOURCES.posix")
-    env["ARCOM"] = "${TEMPFILE(ARCOM_POSIX)}"
+    env["ARCOM"] = "${TEMPFILE('$ARCOM_POSIX','$ARCOMSTR')}"
 
     # All intermediate files are just object files.
     env["OBJPREFIX"] = ""
@@ -227,7 +228,7 @@ def configure(env: "SConsEnvironment"):
         env.Append(LINKFLAGS=["-s", "PTHREAD_POOL_SIZE=8"])
         env.Append(LINKFLAGS=["-s", "WASM_MEM_MAX=2048MB"])
     elif env["proxy_to_pthread"]:
-        print('"threads=no" support requires "proxy_to_pthread=no", disabling proxy to pthread.')
+        print_warning('"threads=no" support requires "proxy_to_pthread=no", disabling proxy to pthread.')
         env["proxy_to_pthread"] = False
 
     if env["lto"] != "none":
@@ -240,11 +241,11 @@ def configure(env: "SConsEnvironment"):
 
     if env["dlink_enabled"]:
         if env["proxy_to_pthread"]:
-            print("GDExtension support requires proxy_to_pthread=no, disabling proxy to pthread.")
+            print_warning("GDExtension support requires proxy_to_pthread=no, disabling proxy to pthread.")
             env["proxy_to_pthread"] = False
 
         if cc_semver < (3, 1, 14):
-            print("GDExtension support requires emscripten >= 3.1.14, detected: %s.%s.%s" % cc_semver)
+            print_error("GDExtension support requires emscripten >= 3.1.14, detected: %s.%s.%s" % cc_semver)
             sys.exit(255)
 
         env.Append(CCFLAGS=["-s", "SIDE_MODULE=2"])

@@ -82,7 +82,13 @@ public:
 		OPENGL_CONTEXT,
 	};
 
-	typedef DisplayServer *(*CreateFunction)(const String &, WindowMode, VSyncMode, uint32_t, const Point2i *, const Size2i &, int p_screen, Error &r_error);
+	enum Context {
+		CONTEXT_EDITOR,
+		CONTEXT_PROJECTMAN,
+		CONTEXT_ENGINE,
+	};
+
+	typedef DisplayServer *(*CreateFunction)(const String &, WindowMode, VSyncMode, uint32_t, const Point2i *, const Size2i &, int p_screen, Context, Error &r_error);
 	typedef Vector<String> (*GetRenderingDriversFunction)();
 
 private:
@@ -559,31 +565,28 @@ public:
 	virtual void force_process_and_drop_events();
 
 	virtual void release_rendering_thread();
-	virtual void make_rendering_thread();
 	virtual void swap_buffers();
 
 	virtual void set_native_icon(const String &p_filename);
 	virtual void set_icon(const Ref<Image> &p_icon);
 
-	virtual IndicatorID create_status_indicator(const Ref<Image> &p_icon, const String &p_tooltip, const Callable &p_callback);
-	virtual void status_indicator_set_icon(IndicatorID p_id, const Ref<Image> &p_icon);
+	virtual IndicatorID create_status_indicator(const Ref<Texture2D> &p_icon, const String &p_tooltip, const Callable &p_callback);
+	virtual void status_indicator_set_icon(IndicatorID p_id, const Ref<Texture2D> &p_icon);
 	virtual void status_indicator_set_tooltip(IndicatorID p_id, const String &p_tooltip);
+	virtual void status_indicator_set_menu(IndicatorID p_id, const RID &p_menu_rid);
 	virtual void status_indicator_set_callback(IndicatorID p_id, const Callable &p_callback);
+	virtual Rect2 status_indicator_get_rect(IndicatorID p_id) const;
 	virtual void delete_status_indicator(IndicatorID p_id);
 
-	enum Context {
-		CONTEXT_EDITOR,
-		CONTEXT_PROJECTMAN,
-		CONTEXT_ENGINE,
-	};
-
 	virtual void set_context(Context p_context);
+
+	virtual bool is_window_transparency_available() const { return false; }
 
 	static void register_create_function(const char *p_name, CreateFunction p_function, GetRenderingDriversFunction p_get_drivers);
 	static int get_create_function_count();
 	static const char *get_create_function_name(int p_index);
 	static Vector<String> get_create_function_rendering_drivers(int p_index);
-	static DisplayServer *create(int p_index, const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, int p_screen, Error &r_error);
+	static DisplayServer *create(int p_index, const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, int p_screen, Context p_context, Error &r_error);
 
 	DisplayServer();
 	~DisplayServer();

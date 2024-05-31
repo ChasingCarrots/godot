@@ -941,6 +941,31 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 		to_reload_state.push_back(scr);
 	}
 
+	// Deserialize managed callables.
+	// This is done before reloading script's internal state, so potential callables invoked in properties work.
+	{
+		MutexLock lock(ManagedCallable::instances_mutex);
+
+		for (const KeyValue<ManagedCallable *, Array> &elem : ManagedCallable::instances_pending_reload) {
+			ManagedCallable *managed_callable = elem.key;
+			const Array &serialized_data = elem.value;
+
+			GCHandleIntPtr delegate = { nullptr };
+
+			bool success = GDMonoCache::managed_callbacks.DelegateUtils_TryDeserializeDelegateWithGCHandle(
+					&serialized_data, &delegate);
+
+			if (success) {
+				ERR_CONTINUE(delegate.value == nullptr);
+				managed_callable->delegate_handle = delegate;
+			} else if (OS::get_singleton()->is_stdout_verbose()) {
+				OS::get_singleton()->print("Failed to deserialize delegate\n");
+			}
+		}
+
+		ManagedCallable::instances_pending_reload.clear();
+	}
+
 	for (Ref<CSharpScript> &scr : to_reload_state) {
 		for (const ObjectID &obj_id : scr->pending_reload_instances) {
 			Object *obj = ObjectDB::get_instance(obj_id);
@@ -963,7 +988,7 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 					properties[G.first] = G.second;
 				}
 
-				// Restore serialized state and call OnAfterDeserialization
+				// Restore serialized state and call OnAfterDeserialize.
 				GDMonoCache::managed_callbacks.CSharpInstanceBridge_DeserializeState(
 						csi->get_gchandle_intptr(), &properties, &state_backup.event_signals);
 			}
@@ -971,30 +996,6 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 
 		scr->pending_reload_instances.clear();
 		scr->pending_reload_state.clear();
-	}
-
-	// Deserialize managed callables
-	{
-		MutexLock lock(ManagedCallable::instances_mutex);
-
-		for (const KeyValue<ManagedCallable *, Array> &elem : ManagedCallable::instances_pending_reload) {
-			ManagedCallable *managed_callable = elem.key;
-			const Array &serialized_data = elem.value;
-
-			GCHandleIntPtr delegate = { nullptr };
-
-			bool success = GDMonoCache::managed_callbacks.DelegateUtils_TryDeserializeDelegateWithGCHandle(
-					&serialized_data, &delegate);
-
-			if (success) {
-				ERR_CONTINUE(delegate.value == nullptr);
-				managed_callable->delegate_handle = delegate;
-			} else if (OS::get_singleton()->is_stdout_verbose()) {
-				OS::get_singleton()->print("Failed to deserialize delegate\n");
-			}
-		}
-
-		ManagedCallable::instances_pending_reload.clear();
 	}
 
 #ifdef TOOLS_ENABLED
@@ -1595,14 +1596,7 @@ void CSharpInstance::get_method_list(List<MethodInfo> *p_list) const {
 		return;
 	}
 
-	const CSharpScript *top = script.ptr();
-	while (top != nullptr) {
-		for (const CSharpScript::CSharpMethodInfo &E : top->methods) {
-			p_list->push_back(E.method_info);
-		}
-
-		top = top->base_script.ptr();
-	}
+	script->get_script_method_list(p_list);
 }
 
 bool CSharpInstance::has_method(const StringName &p_method) const {
@@ -1770,16 +1764,19 @@ void CSharpInstance::mono_object_disposed_baseref(GCHandleIntPtr p_gchandle_to_f
 }
 
 void CSharpInstance::connect_event_signals() {
-	// The script signals list includes the signals declared in base scripts.
-	for (CSharpScript::EventSignalInfo &signal : script->get_script_event_signals()) {
-		String signal_name = signal.name;
+	const CSharpScript *top = script.ptr();
+	while (top != nullptr && top->valid) {
+		for (const CSharpScript::EventSignalInfo &signal : top->event_signals) {
+			String signal_name = signal.name;
 
-		// TODO: Use pooling for ManagedCallable instances.
-		EventSignalCallable *event_signal_callable = memnew(EventSignalCallable(owner, signal_name));
+			// TODO: Use pooling for ManagedCallable instances.
+			EventSignalCallable *event_signal_callable = memnew(EventSignalCallable(owner, signal_name));
 
-		Callable callable(event_signal_callable);
-		connected_event_signals.push_back(callable);
-		owner->connect(signal_name, callable);
+			Callable callable(event_signal_callable);
+			connected_event_signals.push_back(callable);
+			owner->connect(signal_name, callable);
+		}
+		top = top->base_script.ptr();
 	}
 }
 
@@ -2518,13 +2515,20 @@ MethodInfo CSharpScript::get_method_info(const StringName &p_method) const {
 		return MethodInfo();
 	}
 
+	MethodInfo mi;
 	for (const CSharpMethodInfo &E : methods) {
 		if (E.name == p_method) {
-			return E.method_info;
+			if (mi.name == p_method) {
+				// We already found a method with the same name before so
+				// that means this method has overloads, the best we can do
+				// is return an empty MethodInfo.
+				return MethodInfo();
+			}
+			mi = E.method_info;
 		}
 	}
 
-	return MethodInfo();
+	return mi;
 }
 
 Variant CSharpScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
@@ -2616,25 +2620,33 @@ bool CSharpScript::has_script_signal(const StringName &p_signal) const {
 		}
 	}
 
+	if (base_script.is_valid()) {
+		return base_script->has_script_signal(p_signal);
+	}
+
 	return false;
 }
 
-void CSharpScript::get_script_signal_list(List<MethodInfo> *r_signals) const {
+void CSharpScript::_get_script_signal_list(List<MethodInfo> *r_signals, bool p_include_base) const {
 	if (!valid) {
 		return;
 	}
 
-	for (const EventSignalInfo &signal : get_script_event_signals()) {
+	for (const EventSignalInfo &signal : event_signals) {
 		r_signals->push_back(signal.method_info);
+	}
+
+	if (!p_include_base) {
+		return;
+	}
+
+	if (base_script.is_valid()) {
+		base_script->get_script_signal_list(r_signals);
 	}
 }
 
-Vector<CSharpScript::EventSignalInfo> CSharpScript::get_script_event_signals() const {
-	if (!valid) {
-		return Vector<EventSignalInfo>();
-	}
-
-	return event_signals;
+void CSharpScript::get_script_signal_list(List<MethodInfo> *r_signals) const {
+	_get_script_signal_list(r_signals, true);
 }
 
 bool CSharpScript::inherits_script(const Ref<Script> &p_script) const {

@@ -47,6 +47,7 @@
 #include "scene/gui/check_box.h"
 #include "scene/gui/label.h"
 #include "scene/gui/line_edit.h"
+#include "scene/gui/margin_container.h"
 #include "scene/gui/option_button.h"
 #include "scene/gui/popup_menu.h"
 #include "scene/gui/spin_box.h"
@@ -281,7 +282,7 @@ List<MethodInfo> ConnectDialog::_filter_method_list(const List<MethodInfo> &p_me
 	List<MethodInfo> ret;
 
 	for (const MethodInfo &mi : p_methods) {
-		if (!p_search_string.is_empty() && !mi.name.contains(p_search_string)) {
+		if (!p_search_string.is_empty() && !mi.name.containsn(p_search_string)) {
 			continue;
 		}
 
@@ -528,12 +529,13 @@ String ConnectDialog::get_signature(const MethodInfo &p_method, PackedStringArra
 	signature.append(p_method.name);
 	signature.append("(");
 
-	for (int i = 0; i < p_method.arguments.size(); i++) {
-		if (i > 0) {
+	int i = 0;
+	for (List<PropertyInfo>::ConstIterator itr = p_method.arguments.begin(); itr != p_method.arguments.end(); ++itr, ++i) {
+		if (itr != p_method.arguments.begin()) {
 			signature.append(", ");
 		}
 
-		const PropertyInfo &pi = p_method.arguments[i];
+		const PropertyInfo &pi = *itr;
 		String type_name;
 		switch (pi.type) {
 			case Variant::NIL:
@@ -719,7 +721,7 @@ ConnectDialog::ConnectDialog() {
 	Button *focus_current = memnew(Button);
 	hbc_filter->add_child(focus_current);
 	focus_current->set_text(TTR("Go to Source"));
-	focus_current->connect("pressed", callable_mp(this, &ConnectDialog::_focus_currently_connected));
+	focus_current->connect(SceneStringName(pressed), callable_mp(this, &ConnectDialog::_focus_currently_connected));
 
 	Node *mc = vbc_left->add_margin_child(TTR("Connect to Script:"), hbc_filter, false);
 	connect_to_label = Object::cast_to<Label>(vbc_left->get_child(mc->get_index() - 1));
@@ -766,13 +768,13 @@ ConnectDialog::ConnectDialog() {
 	method_vbc->add_child(script_methods_only);
 	script_methods_only->set_h_size_flags(Control::SIZE_SHRINK_END);
 	script_methods_only->set_pressed(EditorSettings::get_singleton()->get_project_metadata("editor_metadata", "show_script_methods_only", true));
-	script_methods_only->connect("pressed", callable_mp(this, &ConnectDialog::_method_check_button_pressed).bind(script_methods_only));
+	script_methods_only->connect(SceneStringName(pressed), callable_mp(this, &ConnectDialog::_method_check_button_pressed).bind(script_methods_only));
 
 	compatible_methods_only = memnew(CheckButton(TTR("Compatible Methods Only")));
 	method_vbc->add_child(compatible_methods_only);
 	compatible_methods_only->set_h_size_flags(Control::SIZE_SHRINK_END);
 	compatible_methods_only->set_pressed(EditorSettings::get_singleton()->get_project_metadata("editor_metadata", "show_compatible_methods_only", true));
-	compatible_methods_only->connect("pressed", callable_mp(this, &ConnectDialog::_method_check_button_pressed).bind(compatible_methods_only));
+	compatible_methods_only->connect(SceneStringName(pressed), callable_mp(this, &ConnectDialog::_method_check_button_pressed).bind(compatible_methods_only));
 
 	vbc_right = memnew(VBoxContainer);
 	main_hb->add_child(vbc_right);
@@ -798,13 +800,13 @@ ConnectDialog::ConnectDialog() {
 	Button *add_bind = memnew(Button);
 	add_bind->set_text(TTR("Add"));
 	add_bind_hb->add_child(add_bind);
-	add_bind->connect("pressed", callable_mp(this, &ConnectDialog::_add_bind));
+	add_bind->connect(SceneStringName(pressed), callable_mp(this, &ConnectDialog::_add_bind));
 	bind_controls.push_back(add_bind);
 
 	Button *del_bind = memnew(Button);
 	del_bind->set_text(TTR("Remove"));
 	add_bind_hb->add_child(del_bind);
-	del_bind->connect("pressed", callable_mp(this, &ConnectDialog::_remove_bind));
+	del_bind->connect(SceneStringName(pressed), callable_mp(this, &ConnectDialog::_remove_bind));
 	bind_controls.push_back(del_bind);
 
 	vbc_right->add_margin_child(TTR("Add Extra Call Argument:"), add_bind_hb);
@@ -832,13 +834,13 @@ ConnectDialog::ConnectDialog() {
 	open_method_tree = memnew(Button);
 	hbc_method->add_child(open_method_tree);
 	open_method_tree->set_text("Pick");
-	open_method_tree->connect("pressed", callable_mp(this, &ConnectDialog::_open_method_popup));
+	open_method_tree->connect(SceneStringName(pressed), callable_mp(this, &ConnectDialog::_open_method_popup));
 
 	advanced = memnew(CheckButton(TTR("Advanced")));
 	vbc_left->add_child(advanced);
 	advanced->set_h_size_flags(Control::SIZE_SHRINK_BEGIN | Control::SIZE_EXPAND);
 	advanced->set_pressed(EditorSettings::get_singleton()->get_project_metadata("editor_metadata", "use_advanced_connections", false));
-	advanced->connect("pressed", callable_mp(this, &ConnectDialog::_advanced_pressed));
+	advanced->connect(SceneStringName(pressed), callable_mp(this, &ConnectDialog::_advanced_pressed));
 
 	HBoxContainer *hbox = memnew(HBoxContainer);
 	vbc_right->add_child(hbox);
@@ -872,7 +874,13 @@ ConnectDialog::~ConnectDialog() {
 
 Control *ConnectionsDockTree::make_custom_tooltip(const String &p_text) const {
 	// If it's not a doc tooltip, fallback to the default one.
-	return p_text.contains("::") ? nullptr : memnew(EditorHelpTooltip(p_text));
+	if (p_text.contains("::")) {
+		return nullptr;
+	}
+
+	EditorHelpBit *help_bit = memnew(EditorHelpBit(p_text));
+	EditorHelpBitTooltip::show_tooltip(help_bit, const_cast<ConnectionsDockTree *>(this));
+	return memnew(Control); // Make the standard tooltip invisible.
 }
 
 struct _ConnectionsDockMethodInfoSort {
@@ -1101,9 +1109,9 @@ void ConnectionsDock::_open_connection_dialog(TreeItem &p_item) {
 	cd.signal = StringName(signal_name);
 	cd.target = dst_node;
 	cd.method = ConnectDialog::generate_method_callback_name(cd.source, signal_name, cd.target);
-	connect_dialog->popup_dialog(signal_name + "(" + String(", ").join(signal_args) + ")");
 	connect_dialog->init(cd, signal_args);
 	connect_dialog->set_title(TTR("Connect a Signal to a Method"));
+	connect_dialog->popup_dialog(signal_name + "(" + String(", ").join(signal_args) + ")");
 }
 
 /*
@@ -1458,8 +1466,8 @@ void ConnectionsDock::update_tree() {
 
 			section_item = tree->create_item(root);
 			section_item->set_text(0, class_name);
-			// `|` separators used in `EditorHelpTooltip` for formatting.
-			section_item->set_tooltip_text(0, "class|" + doc_class_name + "||");
+			// `|` separators used in `EditorHelpBit`.
+			section_item->set_tooltip_text(0, "class|" + doc_class_name + "|");
 			section_item->set_icon(0, class_icon);
 			section_item->set_selectable(0, false);
 			section_item->set_editable(0, false);
@@ -1490,8 +1498,8 @@ void ConnectionsDock::update_tree() {
 			sinfo["args"] = argnames;
 			signal_item->set_metadata(0, sinfo);
 			signal_item->set_icon(0, get_editor_theme_icon(SNAME("Signal")));
-			// `|` separators used in `EditorHelpTooltip` for formatting.
-			signal_item->set_tooltip_text(0, "signal|" + doc_class_name + "|" + String(signal_name) + "|" + signame.trim_prefix(mi.name));
+			// `|` separators used in `EditorHelpBit`.
+			signal_item->set_tooltip_text(0, "signal|" + doc_class_name + "|" + String(signal_name));
 
 			// List existing connections.
 			List<Object::Connection> existing_connections;
@@ -1575,7 +1583,7 @@ ConnectionsDock::ConnectionsDock() {
 	vbc->add_child(hb);
 	hb->add_spacer();
 	hb->add_child(connect_button);
-	connect_button->connect("pressed", callable_mp(this, &ConnectionsDock::_connect_pressed));
+	connect_button->connect(SceneStringName(pressed), callable_mp(this, &ConnectionsDock::_connect_pressed));
 
 	connect_dialog = memnew(ConnectDialog);
 	connect_dialog->connect("connected", callable_mp(NodeDock::get_singleton(), &NodeDock::restore_last_valid_node), CONNECT_DEFERRED);
@@ -1614,7 +1622,7 @@ ConnectionsDock::ConnectionsDock() {
 	connect_dialog->connect("connected", callable_mp(this, &ConnectionsDock::_make_or_edit_connection));
 	tree->connect("item_selected", callable_mp(this, &ConnectionsDock::_tree_item_selected));
 	tree->connect("item_activated", callable_mp(this, &ConnectionsDock::_tree_item_activated));
-	tree->connect("gui_input", callable_mp(this, &ConnectionsDock::_tree_gui_input));
+	tree->connect(SceneStringName(gui_input), callable_mp(this, &ConnectionsDock::_tree_gui_input));
 
 	add_theme_constant_override("separation", 3 * EDSCALE);
 }

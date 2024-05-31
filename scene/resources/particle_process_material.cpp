@@ -33,14 +33,12 @@
 #include "core/version.h"
 
 Mutex ParticleProcessMaterial::material_mutex;
-SelfList<ParticleProcessMaterial>::List *ParticleProcessMaterial::dirty_materials = nullptr;
+SelfList<ParticleProcessMaterial>::List ParticleProcessMaterial::dirty_materials;
 HashMap<ParticleProcessMaterial::MaterialKey, ParticleProcessMaterial::ShaderData, ParticleProcessMaterial::MaterialKey> ParticleProcessMaterial::shader_map;
 RBSet<String> ParticleProcessMaterial::min_max_properties;
 ParticleProcessMaterial::ShaderNames *ParticleProcessMaterial::shader_names = nullptr;
 
 void ParticleProcessMaterial::init_shaders() {
-	dirty_materials = memnew(SelfList<ParticleProcessMaterial>::List);
-
 	shader_names = memnew(ShaderNames);
 
 	shader_names->direction = "direction";
@@ -140,15 +138,13 @@ void ParticleProcessMaterial::init_shaders() {
 }
 
 void ParticleProcessMaterial::finish_shaders() {
-	memdelete(dirty_materials);
-	dirty_materials = nullptr;
+	dirty_materials.clear();
 
 	memdelete(shader_names);
+	shader_names = nullptr;
 }
 
 void ParticleProcessMaterial::_update_shader() {
-	dirty_materials->remove(&element);
-
 	MaterialKey mk = _compute_key();
 	if (mk == current_key) {
 		return; //no update required in the end
@@ -634,10 +630,10 @@ void ParticleProcessMaterial::_update_shader() {
 	if (emission_shape == EMISSION_SHAPE_RING) {
 		code += "		\n";
 		code += "		float ring_spawn_angle = rand_from_seed(alt_seed) * 2.0 * pi;\n";
-		code += "		float ring_random_radius = rand_from_seed(alt_seed) * (emission_ring_radius - emission_ring_inner_radius) + emission_ring_inner_radius;\n";
-		code += "		vec3 axis = normalize(emission_ring_axis);\n";
+		code += "		float ring_random_radius = sqrt(rand_from_seed(alt_seed) * (emission_ring_radius * emission_ring_radius - emission_ring_inner_radius * emission_ring_inner_radius) + emission_ring_inner_radius * emission_ring_inner_radius);\n";
+		code += "		vec3 axis = emission_ring_axis == vec3(0.0) ? vec3(0.0, 0.0, 1.0) : normalize(emission_ring_axis);\n";
 		code += "		vec3 ortho_axis = vec3(0.0);\n";
-		code += "		if (axis == vec3(1.0, 0.0, 0.0)) {\n";
+		code += "		if (abs(axis) == vec3(1.0, 0.0, 0.0)) {\n";
 		code += "			ortho_axis = cross(axis, vec3(0.0, 1.0, 0.0));\n";
 		code += "		} else {\n";
 		code += " 			ortho_axis = cross(axis, vec3(1.0, 0.0, 0.0));\n";
@@ -741,26 +737,33 @@ void ParticleProcessMaterial::_update_shader() {
 	code += "vec3 get_random_direction_from_spread(inout uint alt_seed, float spread_angle){\n";
 	code += "	float pi = 3.14159;\n";
 	code += "	float degree_to_rad = pi / 180.0;\n";
-	code += "	vec3 velocity = vec3(0.);\n";
 	code += "	float spread_rad = spread_angle * degree_to_rad;\n";
-	code += "	float angle1_rad = rand_from_seed_m1_p1(alt_seed) * spread_rad;\n";
-	code += "	float angle2_rad = rand_from_seed_m1_p1(alt_seed) * spread_rad * (1.0 - flatness);\n";
-	code += "	vec3 direction_xz = vec3(sin(angle1_rad), 0.0, cos(angle1_rad));\n";
-	code += "	vec3 direction_yz = vec3(0.0, sin(angle2_rad), cos(angle2_rad));\n";
-	code += "	direction_yz.z = direction_yz.z / max(0.0001,sqrt(abs(direction_yz.z))); // better uniform distribution\n";
-	code += "	vec3 spread_direction = vec3(direction_xz.x * direction_yz.z, direction_yz.y, direction_xz.z * direction_yz.z);\n";
-	code += "	vec3 direction_nrm = length(direction) > 0.0 ? normalize(direction) : vec3(0.0, 0.0, 1.0);\n";
-	code += "	// rotate spread to direction\n";
-	code += "	vec3 binormal = cross(vec3(0.0, 1.0, 0.0), direction_nrm);\n";
-	code += "	if (length(binormal) < 0.0001) {\n";
-	code += "		// direction is parallel to Y. Choose Z as the binormal.\n";
-	code += "		binormal = vec3(0.0, 0.0, 1.0);\n";
-	code += "	}\n";
-	code += "	binormal = normalize(binormal);\n";
-	code += "	vec3 normal = cross(binormal, direction_nrm);\n";
-	code += "	spread_direction = binormal * spread_direction.x + normal * spread_direction.y + direction_nrm * spread_direction.z;\n";
-	code += "	return spread_direction;\n";
-
+	if (particle_flags[PARTICLE_FLAG_DISABLE_Z]) {
+		// Spread calculation for 2D.
+		code += "	float angle1_rad = rand_from_seed_m1_p1(alt_seed) * spread_rad;\n";
+		code += "	angle1_rad += direction.x != 0.0 ? atan(direction.y, direction.x) : sign(direction.y) * (pi / 2.0);\n";
+		code += "	vec3 spread_direction = vec3(cos(angle1_rad), sin(angle1_rad), 0.0);\n";
+		code += "	return spread_direction;\n";
+	} else {
+		// Spread calculation for 3D.
+		code += "	float angle1_rad = rand_from_seed_m1_p1(alt_seed) * spread_rad;\n";
+		code += "	float angle2_rad = rand_from_seed_m1_p1(alt_seed) * spread_rad * (1.0 - flatness);\n";
+		code += "	vec3 direction_xz = vec3(sin(angle1_rad), 0.0, cos(angle1_rad));\n";
+		code += "	vec3 direction_yz = vec3(0.0, sin(angle2_rad), cos(angle2_rad));\n";
+		code += "	direction_yz.z = direction_yz.z / max(0.0001,sqrt(abs(direction_yz.z))); // better uniform distribution\n";
+		code += "	vec3 spread_direction = vec3(direction_xz.x * direction_yz.z, direction_yz.y, direction_xz.z * direction_yz.z);\n";
+		code += "	vec3 direction_nrm = length(direction) > 0.0 ? normalize(direction) : vec3(0.0, 0.0, 1.0);\n";
+		code += "	// rotate spread to direction\n";
+		code += "	vec3 binormal = cross(vec3(0.0, 1.0, 0.0), direction_nrm);\n";
+		code += "	if (length(binormal) < 0.0001) {\n";
+		code += "		// direction is parallel to Y. Choose Z as the binormal.\n";
+		code += "		binormal = vec3(0.0, 0.0, 1.0);\n";
+		code += "	}\n";
+		code += "	binormal = normalize(binormal);\n";
+		code += "	vec3 normal = cross(binormal, direction_nrm);\n";
+		code += "	spread_direction = binormal * spread_direction.x + normal * spread_direction.y + direction_nrm * spread_direction.z;\n";
+		code += "	return normalize(spread_direction);\n";
+	}
 	code += "}\n";
 
 	code += "vec3 process_radial_displacement(DynamicsParameters param, float lifetime, inout uint alt_seed, mat4 transform, mat4 emission_transform, float delta){\n";
@@ -988,13 +991,15 @@ void ParticleProcessMaterial::_update_shader() {
 	code += "	\n";
 	if (collision_mode == COLLISION_RIGID) {
 		code += "	if (COLLIDED) {\n";
-		code += "		if (length(VELOCITY) > 3.0) {\n";
-		code += "			TRANSFORM[3].xyz += COLLISION_NORMAL * COLLISION_DEPTH;\n";
-		code += "			VELOCITY -= COLLISION_NORMAL * dot(COLLISION_NORMAL, VELOCITY) * (1.0 + collision_bounce);\n";
-		code += "			VELOCITY = mix(VELOCITY,vec3(0.0),clamp(collision_friction, 0.0, 1.0));\n";
-		code += "		} else {\n";
-		code += "			VELOCITY = vec3(0.0);\n";
-		code += "		}\n";
+		code += "		float collision_response = dot(COLLISION_NORMAL, VELOCITY);\n";
+		code += "		float slide_to_bounce_trigger = step(2.0/clamp(collision_bounce + 1.0, 1.0, 2.0), abs(collision_response));\n";
+		code += "		TRANSFORM[3].xyz += COLLISION_NORMAL * COLLISION_DEPTH;\n";
+		code += "		// Remove all components of VELOCITY that is not tangent to COLLISION_NORMAL\n";
+		code += "		VELOCITY -= COLLISION_NORMAL * collision_response;\n";
+		code += "		// Apply friction only to VELOCITY across the surface (Effectively decouples friction and bounce behavior).\n";
+		code += "		VELOCITY = mix(VELOCITY,vec3(0.0),clamp(collision_friction, 0.0, 1.0));\n";
+		code += "		// Add bounce velocity to VELOCITY\n";
+		code += "		VELOCITY -= COLLISION_NORMAL * collision_response * (collision_bounce * slide_to_bounce_trigger);\n";
 		code += "	}\n";
 	} else if (collision_mode == COLLISION_HIDE_ON_CONTACT) {
 		code += "	if (COLLIDED) {\n";
@@ -1129,9 +1134,9 @@ void ParticleProcessMaterial::_update_shader() {
 				code += "	if (COLLIDED) emit_count = sub_emitter_amount_at_collision;\n";
 			} break;
 			case SUB_EMITTER_AT_END: {
-				code += "	float unit_delta = DELTA/LIFETIME;\n";
-				code += "	float end_time = CUSTOM.w * 0.95;\n"; // if we do at the end we might miss it, as it can just get deactivated by emitter
-				code += "	if (CUSTOM.y < end_time && (CUSTOM.y + unit_delta) >= end_time) emit_count = sub_emitter_amount_at_end;\n";
+				code += "	if ((CUSTOM.y / CUSTOM.w * LIFETIME) > (LIFETIME - DELTA)) {\n";
+				code += "		emit_count = sub_emitter_amount_at_end;\n";
+				code += "	}\n";
 			} break;
 			default: {
 			}
@@ -1163,8 +1168,9 @@ void ParticleProcessMaterial::_update_shader() {
 void ParticleProcessMaterial::flush_changes() {
 	MutexLock lock(material_mutex);
 
-	while (dirty_materials->first()) {
-		dirty_materials->first()->self()->_update_shader();
+	while (dirty_materials.first()) {
+		dirty_materials.first()->self()->_update_shader();
+		dirty_materials.first()->remove_from_list();
 	}
 }
 
@@ -1172,14 +1178,8 @@ void ParticleProcessMaterial::_queue_shader_change() {
 	MutexLock lock(material_mutex);
 
 	if (_is_initialized() && !element.in_list()) {
-		dirty_materials->add(&element);
+		dirty_materials.add(&element);
 	}
-}
-
-bool ParticleProcessMaterial::_is_shader_dirty() const {
-	MutexLock lock(material_mutex);
-
-	return element.in_list();
 }
 
 bool ParticleProcessMaterial::has_min_max_property(const String &p_name) {
@@ -2323,7 +2323,7 @@ ParticleProcessMaterial::ParticleProcessMaterial() :
 
 	current_key.invalid_key = 1;
 
-	_mark_initialized(callable_mp(this, &ParticleProcessMaterial::_queue_shader_change));
+	_mark_initialized(callable_mp(this, &ParticleProcessMaterial::_queue_shader_change), callable_mp(this, &ParticleProcessMaterial::_update_shader));
 }
 
 ParticleProcessMaterial::~ParticleProcessMaterial() {

@@ -37,6 +37,7 @@
 #include "editor/editor_command_palette.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
+#include "editor/engine_update_label.h"
 #include "editor/gui/editor_toaster.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/box_container.h"
@@ -264,7 +265,7 @@ EditorBottomPanel::EditorBottomPanel() {
 		build_date = TTR("(unknown)");
 	}
 	version_btn->set_tooltip_text(vformat(TTR("Git commit date: %s\nClick to copy the version information."), build_date));
-	version_btn->connect("pressed", callable_mp(this, &EditorBottomPanel::_version_button_pressed));
+	version_btn->connect(SceneStringName(pressed), callable_mp(this, &EditorBottomPanel::_version_button_pressed));
 	version_btn->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
 	bottom_hbox->add_child(version_btn);
 

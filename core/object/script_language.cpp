@@ -31,7 +31,6 @@
 #include "script_language.h"
 
 #include "core/config/project_settings.h"
-#include "core/core_string_names.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/debugger/script_debugger.h"
 #include "core/io/resource_loader.h"
@@ -51,7 +50,7 @@ void Script::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_POSTINITIALIZE: {
 			if (EngineDebugger::is_active()) {
-				EngineDebugger::get_script_debugger()->set_break_language(get_language());
+				callable_mp(this, &Script::_set_debugger_break_language).call_deferred();
 			}
 		} break;
 	}
@@ -101,6 +100,12 @@ Dictionary Script::_get_script_constant_map() {
 		ret[E.key] = E.value;
 	}
 	return ret;
+}
+
+void Script::_set_debugger_break_language() {
+	if (EngineDebugger::is_active()) {
+		EngineDebugger::get_script_debugger()->set_break_language(get_language());
+	}
 }
 
 int Script::get_script_method_argument_count(const StringName &p_method, bool *r_is_valid) const {
@@ -251,8 +256,8 @@ void ScriptServer::init_languages() {
 		if (ProjectSettings::get_singleton()->has_setting("_global_script_classes")) {
 			Array script_classes = GLOBAL_GET("_global_script_classes");
 
-			for (int i = 0; i < script_classes.size(); i++) {
-				Dictionary c = script_classes[i];
+			for (const Variant &script_class : script_classes) {
+				Dictionary c = script_class;
 				if (!c.has("class") || !c.has("language") || !c.has("path") || !c.has("base")) {
 					continue;
 				}
@@ -263,8 +268,8 @@ void ScriptServer::init_languages() {
 #endif
 
 		Array script_classes = ProjectSettings::get_singleton()->get_global_class_list();
-		for (int i = 0; i < script_classes.size(); i++) {
-			Dictionary c = script_classes[i];
+		for (const Variant &script_class : script_classes) {
+			Dictionary c = script_class;
 			if (!c.has("class") || !c.has("language") || !c.has("path") || !c.has("base")) {
 				continue;
 			}
@@ -463,8 +468,8 @@ void ScriptServer::save_global_classes() {
 	Dictionary class_icons;
 
 	Array script_classes = ProjectSettings::get_singleton()->get_global_class_list();
-	for (int i = 0; i < script_classes.size(); i++) {
-		Dictionary d = script_classes[i];
+	for (const Variant &script_class : script_classes) {
+		Dictionary d = script_class;
 		if (!d.has("name") || !d.has("icon")) {
 			continue;
 		}
@@ -531,6 +536,7 @@ void ScriptLanguage::get_core_type_words(List<String> *p_core_type_words) const 
 	p_core_type_words->push_back("PackedVector2Array");
 	p_core_type_words->push_back("PackedVector3Array");
 	p_core_type_words->push_back("PackedColorArray");
+	p_core_type_words->push_back("PackedVector4Array");
 }
 
 void ScriptLanguage::frame() {

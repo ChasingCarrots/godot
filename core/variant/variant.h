@@ -31,6 +31,7 @@
 #ifndef VARIANT_H
 #define VARIANT_H
 
+#include "core/core_string_names.h"
 #include "core/input/input_enums.h"
 #include "core/io/ip_address.h"
 #include "core/math/aabb.h"
@@ -75,6 +76,7 @@ typedef Vector<String> PackedStringArray;
 typedef Vector<Vector2> PackedVector2Array;
 typedef Vector<Vector3> PackedVector3Array;
 typedef Vector<Color> PackedColorArray;
+typedef Vector<Vector4> PackedVector4Array;
 
 class Variant {
 public:
@@ -126,6 +128,7 @@ public:
 		PACKED_VECTOR2_ARRAY,
 		PACKED_VECTOR3_ARRAY,
 		PACKED_COLOR_ARRAY,
+		PACKED_VECTOR4_ARRAY,
 
 		VARIANT_MAX
 	};
@@ -162,8 +165,10 @@ private:
 
 	friend struct _VariantCall;
 	friend class VariantInternal;
-	// Variant takes 20 bytes when real_t is float, and 36 if double
-	// it only allocates extra memory for aabb/matrix.
+	// Variant takes 24 bytes when real_t is float, and 40 bytes if double.
+	// It only allocates extra memory for AABB/Transform2D (24, 48 if double),
+	// Basis/Transform3D (48, 96 if double), Projection (64, 128 if double),
+	// and PackedArray/Array/Dictionary (platform-dependent).
 
 	Type type = NIL;
 
@@ -297,6 +302,7 @@ private:
 			true, //PACKED_VECTOR2_ARRAY,
 			true, //PACKED_VECTOR3_ARRAY,
 			true, //PACKED_COLOR_ARRAY,
+			true, //PACKED_VECTOR4_ARRAY,
 		};
 
 		if (unlikely(needs_deinit[type])) { // Make it fast for types that don't need deinit.
@@ -349,6 +355,7 @@ public:
 	bool is_zero() const;
 	bool is_one() const;
 	bool is_null() const;
+	bool is_read_only() const;
 
 	// Make sure Variant is not implicitly cast when accessing it with bracket notation (GH-49469).
 	Variant &operator[](const Variant &p_key) = delete;
@@ -408,6 +415,7 @@ public:
 	operator PackedVector3Array() const;
 	operator PackedVector2Array() const;
 	operator PackedColorArray() const;
+	operator PackedVector4Array() const;
 
 	operator Vector<::RID>() const;
 	operator Vector<Plane>() const;
@@ -473,6 +481,7 @@ public:
 	Variant(const PackedVector2Array &p_vector2_array);
 	Variant(const PackedVector3Array &p_vector3_array);
 	Variant(const PackedColorArray &p_color_array);
+	Variant(const PackedVector4Array &p_vector4_array);
 
 	Variant(const Vector<::RID> &p_array); // helper
 	Variant(const Vector<Plane> &p_array); // helper
@@ -483,8 +492,8 @@ public:
 	Variant(const IPAddress &p_address);
 
 #define VARIANT_ENUM_CLASS_CONSTRUCTOR(m_enum) \
-	Variant(m_enum p_value) {                  \
-		type = INT;                            \
+	Variant(m_enum p_value) :                  \
+			type(INT) {                        \
 		_data._int = (int64_t)p_value;         \
 	}
 
@@ -788,7 +797,8 @@ public:
 	static void unregister_types();
 
 	Variant(const Variant &p_variant);
-	_FORCE_INLINE_ Variant() {}
+	_FORCE_INLINE_ Variant() :
+			type(NIL) {}
 	_FORCE_INLINE_ ~Variant() {
 		clear();
 	}
@@ -797,12 +807,23 @@ public:
 //typedef Dictionary Dictionary; no
 //typedef Array Array;
 
-Vector<Variant> varray();
-Vector<Variant> varray(const Variant &p_arg1);
-Vector<Variant> varray(const Variant &p_arg1, const Variant &p_arg2);
-Vector<Variant> varray(const Variant &p_arg1, const Variant &p_arg2, const Variant &p_arg3);
-Vector<Variant> varray(const Variant &p_arg1, const Variant &p_arg2, const Variant &p_arg3, const Variant &p_arg4);
-Vector<Variant> varray(const Variant &p_arg1, const Variant &p_arg2, const Variant &p_arg3, const Variant &p_arg4, const Variant &p_arg5);
+template <typename... VarArgs>
+Vector<Variant> varray(VarArgs... p_args) {
+	Vector<Variant> v;
+
+	Variant args[sizeof...(p_args) + 1] = { p_args..., Variant() }; // +1 makes sure zero sized arrays are also supported.
+	uint32_t argc = sizeof...(p_args);
+
+	if (argc > 0) {
+		v.resize(argc);
+		Variant *vw = v.ptrw();
+
+		for (uint32_t i = 0; i < argc; i++) {
+			vw[i] = args[i];
+		}
+	}
+	return v;
+}
 
 struct VariantHasher {
 	static _FORCE_INLINE_ uint32_t hash(const Variant &p_variant) { return p_variant.hash(); }
@@ -863,6 +884,58 @@ Callable Callable::bind(VarArgs... p_args) const {
 		argptrs[i] = &args[i];
 	}
 	return bindp(sizeof...(p_args) == 0 ? nullptr : (const Variant **)argptrs, sizeof...(p_args));
+}
+
+Variant &Array::Iterator::operator*() const {
+	if (unlikely(read_only)) {
+		*read_only = *element_ptr;
+		return *read_only;
+	}
+	return *element_ptr;
+}
+
+Variant *Array::Iterator::operator->() const {
+	if (unlikely(read_only)) {
+		*read_only = *element_ptr;
+		return read_only;
+	}
+	return element_ptr;
+}
+
+Array::Iterator &Array::Iterator::operator++() {
+	element_ptr++;
+	return *this;
+}
+
+Array::Iterator &Array::Iterator::operator--() {
+	element_ptr--;
+	return *this;
+}
+
+const Variant &Array::ConstIterator::operator*() const {
+	if (unlikely(read_only)) {
+		*read_only = *element_ptr;
+		return *read_only;
+	}
+	return *element_ptr;
+}
+
+const Variant *Array::ConstIterator::operator->() const {
+	if (unlikely(read_only)) {
+		*read_only = *element_ptr;
+		return read_only;
+	}
+	return element_ptr;
+}
+
+Array::ConstIterator &Array::ConstIterator::operator++() {
+	element_ptr++;
+	return *this;
+}
+
+Array::ConstIterator &Array::ConstIterator::operator--() {
+	element_ptr--;
+	return *this;
 }
 
 #endif // VARIANT_H

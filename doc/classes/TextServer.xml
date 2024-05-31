@@ -5,6 +5,16 @@
 	</brief_description>
 	<description>
 		[TextServer] is the API backend for managing fonts and rendering text.
+		[b]Note:[/b] This is a low-level API, consider using [TextLine], [TextParagraph], and [Font] classes instead.
+		This is an abstract class, so to get the currently active [TextServer] instance, use the following code:
+		[codeblocks]
+		[gdscript]
+		var ts = TextServerManager.get_primary_interface()
+		[/gdscript]
+		[csharp]
+		var ts = TextServerManager.GetPrimaryInterface();
+		[/csharp]
+		[/codeblocks]
 	</description>
 	<tutorials>
 	</tutorials>
@@ -1103,6 +1113,13 @@
 				- May contain Unicode characters of class XID_Continue in the other positions.
 			</description>
 		</method>
+		<method name="is_valid_letter" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="unicode" type="int" />
+			<description>
+				Returns [code]true[/code] if the given code point is a valid letter, i.e. it belongs to the Unicode category "L".
+			</description>
+		</method>
 		<method name="load_support_data">
 			<return type="bool" />
 			<param index="0" name="filename" type="String" />
@@ -1505,6 +1522,7 @@
 			<return type="PackedInt32Array" />
 			<param index="0" name="shaped" type="RID" />
 			<param index="1" name="grapheme_flags" type="int" enum="TextServer.GraphemeFlag" is_bitfield="true" default="264" />
+			<param index="2" name="skip_grapheme_flags" type="int" enum="TextServer.GraphemeFlag" is_bitfield="true" default="4" />
 			<description>
 				Breaks text into words and returns array of character ranges. Use [param grapheme_flags] to set what characters are used for breaking (see [enum GraphemeFlag]).
 			</description>

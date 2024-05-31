@@ -53,7 +53,7 @@ void FileDialog::_focus_file_text() {
 	int lp = file->get_text().rfind(".");
 	if (lp != -1) {
 		file->select(0, lp);
-		if (file->is_inside_tree() && !get_tree()->is_node_being_edited(file)) {
+		if (file->is_inside_tree() && !is_part_of_edited_scene()) {
 			file->grab_focus();
 		}
 	}
@@ -1255,52 +1255,6 @@ int FileDialog::get_option_count() const {
 	return options.size();
 }
 
-bool FileDialog::_set(const StringName &p_name, const Variant &p_value) {
-	Vector<String> components = String(p_name).split("/", true, 2);
-	if (components.size() >= 2 && components[0].begins_with("option_") && components[0].trim_prefix("option_").is_valid_int()) {
-		int item_index = components[0].trim_prefix("option_").to_int();
-		String property = components[1];
-		if (property == "name") {
-			set_option_name(item_index, p_value);
-			return true;
-		} else if (property == "values") {
-			set_option_values(item_index, p_value);
-			return true;
-		} else if (property == "default") {
-			set_option_default(item_index, p_value);
-			return true;
-		}
-	}
-	return false;
-}
-
-bool FileDialog::_get(const StringName &p_name, Variant &r_ret) const {
-	Vector<String> components = String(p_name).split("/", true, 2);
-	if (components.size() >= 2 && components[0].begins_with("option_") && components[0].trim_prefix("option_").is_valid_int()) {
-		int item_index = components[0].trim_prefix("option_").to_int();
-		String property = components[1];
-		if (property == "name") {
-			r_ret = get_option_name(item_index);
-			return true;
-		} else if (property == "values") {
-			r_ret = get_option_values(item_index);
-			return true;
-		} else if (property == "default") {
-			r_ret = get_option_default(item_index);
-			return true;
-		}
-	}
-	return false;
-}
-
-void FileDialog::_get_property_list(List<PropertyInfo> *p_list) const {
-	for (int i = 0; i < options.size(); i++) {
-		p_list->push_back(PropertyInfo(Variant::STRING, vformat("option_%d/name", i)));
-		p_list->push_back(PropertyInfo(Variant::PACKED_STRING_ARRAY, vformat("option_%d/values", i)));
-		p_list->push_back(PropertyInfo(Variant::INT, vformat("option_%d/default", i)));
-	}
-}
-
 void FileDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_cancel_pressed"), &FileDialog::_cancel_pressed);
 
@@ -1386,6 +1340,14 @@ void FileDialog::_bind_methods() {
 	BIND_THEME_ITEM_EXT(Theme::DATA_TYPE_COLOR, FileDialog, icon_hover_color, "font_hover_color", "Button");
 	BIND_THEME_ITEM_EXT(Theme::DATA_TYPE_COLOR, FileDialog, icon_focus_color, "font_focus_color", "Button");
 	BIND_THEME_ITEM_EXT(Theme::DATA_TYPE_COLOR, FileDialog, icon_pressed_color, "font_pressed_color", "Button");
+
+	Option defaults;
+
+	base_property_helper.set_prefix("option_");
+	base_property_helper.set_array_length_getter(&FileDialog::get_option_count);
+	base_property_helper.register_property(PropertyInfo(Variant::STRING, "name"), defaults.name, &FileDialog::set_option_name, &FileDialog::get_option_name);
+	base_property_helper.register_property(PropertyInfo(Variant::PACKED_STRING_ARRAY, "values"), defaults.values, &FileDialog::set_option_values, &FileDialog::get_option_values);
+	base_property_helper.register_property(PropertyInfo(Variant::INT, "default"), defaults.default_idx, &FileDialog::set_option_default, &FileDialog::get_option_default);
 }
 
 void FileDialog::set_show_hidden_files(bool p_show) {
@@ -1447,9 +1409,9 @@ FileDialog::FileDialog() {
 	hbc->add_child(dir_prev);
 	hbc->add_child(dir_next);
 	hbc->add_child(dir_up);
-	dir_prev->connect("pressed", callable_mp(this, &FileDialog::_go_back));
-	dir_next->connect("pressed", callable_mp(this, &FileDialog::_go_forward));
-	dir_up->connect("pressed", callable_mp(this, &FileDialog::_go_up));
+	dir_prev->connect(SceneStringName(pressed), callable_mp(this, &FileDialog::_go_back));
+	dir_next->connect(SceneStringName(pressed), callable_mp(this, &FileDialog::_go_forward));
+	dir_up->connect(SceneStringName(pressed), callable_mp(this, &FileDialog::_go_up));
 
 	hbc->add_child(memnew(Label(ETR("Path:"))));
 
@@ -1468,7 +1430,7 @@ FileDialog::FileDialog() {
 	refresh = memnew(Button);
 	refresh->set_theme_type_variation("FlatButton");
 	refresh->set_tooltip_text(ETR("Refresh files."));
-	refresh->connect("pressed", callable_mp(this, &FileDialog::update_file_list));
+	refresh->connect(SceneStringName(pressed), callable_mp(this, &FileDialog::update_file_list));
 	hbc->add_child(refresh);
 
 	show_hidden = memnew(Button);
@@ -1485,7 +1447,7 @@ FileDialog::FileDialog() {
 	makedir = memnew(Button);
 	makedir->set_theme_type_variation("FlatButton");
 	makedir->set_tooltip_text(ETR("Create a new folder."));
-	makedir->connect("pressed", callable_mp(this, &FileDialog::_make_dir));
+	makedir->connect(SceneStringName(pressed), callable_mp(this, &FileDialog::_make_dir));
 	hbc->add_child(makedir);
 	vbox->add_child(hbc);
 
@@ -1563,6 +1525,8 @@ FileDialog::FileDialog() {
 	if (register_func) {
 		register_func(this);
 	}
+
+	property_helper.setup_for_instance(base_property_helper, this);
 }
 
 FileDialog::~FileDialog() {

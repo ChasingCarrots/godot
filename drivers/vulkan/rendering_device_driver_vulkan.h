@@ -87,6 +87,7 @@ class RenderingDeviceDriverVulkan : public RenderingDeviceDriver {
 
 		Size2i min_texel_size;
 		Size2i max_texel_size;
+		Size2i max_fragment_size;
 
 		Size2i texel_size; // The texel size we'll use
 	};
@@ -493,6 +494,7 @@ private:
 	static int caching_instance_count;
 	PipelineCache pipelines_cache;
 	String pipeline_cache_id;
+	HashMap<uint64_t, bool> has_comp_alpha;
 
 public:
 	virtual void pipeline_free(PipelineID p_pipeline) override final;
@@ -625,6 +627,8 @@ public:
 	virtual String get_api_version() const override final;
 	virtual String get_pipeline_cache_uuid() const override final;
 	virtual const Capabilities &get_capabilities() const override final;
+
+	virtual bool is_composite_alpha_supported(CommandQueueID p_queue) const override final;
 
 private:
 	/*********************/

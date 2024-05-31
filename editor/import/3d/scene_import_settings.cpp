@@ -144,7 +144,7 @@ class SceneImportSettingsData : public Object {
 						List<StringName> anim_names;
 						library->get_animation_list(&anim_names);
 						if (anim_names.size() == 1) {
-							(*settings)["rest_pose/selected_animation"] = String(anim_names[0]);
+							(*settings)["rest_pose/selected_animation"] = String(anim_names.front()->get());
 						}
 						for (StringName anim_name : anim_names) {
 							hint_string += "," + anim_name; // Include preceding, as a catch-all.
@@ -411,7 +411,7 @@ void SceneImportSettingsDialog::_fill_scene(Node *p_node, TreeItem *p_parent_ite
 				category = ResourceImporterScene::INTERNAL_IMPORT_CATEGORY_ANIMATION_NODE;
 
 				animation_player = Object::cast_to<AnimationPlayer>(p_node);
-				animation_player->connect(SNAME("animation_finished"), callable_mp(this, &SceneImportSettingsDialog::_animation_finished));
+				animation_player->connect(SceneStringName(animation_finished), callable_mp(this, &SceneImportSettingsDialog::_animation_finished));
 			} else if (Object::cast_to<Skeleton3D>(p_node)) {
 				category = ResourceImporterScene::INTERNAL_IMPORT_CATEGORY_SKELETON_3D_NODE;
 				skeletons.push_back(Object::cast_to<Skeleton3D>(p_node));
@@ -1111,10 +1111,24 @@ void SceneImportSettingsDialog::_scene_tree_selected() {
 void SceneImportSettingsDialog::_cleanup() {
 	skeletons.clear();
 	if (animation_player != nullptr) {
-		animation_player->disconnect(SNAME("animation_finished"), callable_mp(this, &SceneImportSettingsDialog::_animation_finished));
+		animation_player->disconnect(SceneStringName(animation_finished), callable_mp(this, &SceneImportSettingsDialog::_animation_finished));
 		animation_player = nullptr;
 	}
 	set_process(false);
+}
+
+void SceneImportSettingsDialog::_on_light_1_switch_pressed() {
+	light1->set_visible(light_1_switch->is_pressed());
+}
+
+void SceneImportSettingsDialog::_on_light_2_switch_pressed() {
+	light2->set_visible(light_2_switch->is_pressed());
+}
+
+void SceneImportSettingsDialog::_on_light_rotate_switch_pressed() {
+	bool light_top_level = !light_rotate_switch->is_pressed();
+	light1->set_as_top_level_keep_local(light_top_level);
+	light2->set_as_top_level_keep_local(light_top_level);
 }
 
 void SceneImportSettingsDialog::_viewport_input(const Ref<InputEvent> &p_input) {
@@ -1232,6 +1246,13 @@ void SceneImportSettingsDialog::_re_import() {
 	EditorFileSystem::get_singleton()->reimport_file_with_custom_parameters(base_path, editing_animation ? "animation_library" : "scene", main_settings);
 }
 
+void SceneImportSettingsDialog::_update_theme_item_cache() {
+	ConfirmationDialog::_update_theme_item_cache();
+	theme_cache.light_1_icon = get_editor_theme_icon(SNAME("MaterialPreviewLight1"));
+	theme_cache.light_2_icon = get_editor_theme_icon(SNAME("MaterialPreviewLight2"));
+	theme_cache.rotate_icon = get_editor_theme_icon(SNAME("PreviewRotate"));
+}
+
 void SceneImportSettingsDialog::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
@@ -1242,7 +1263,7 @@ void SceneImportSettingsDialog::_notification(int p_what) {
 			action_menu->begin_bulk_theme_override();
 			action_menu->add_theme_style_override("normal", get_theme_stylebox("normal", "Button"));
 			action_menu->add_theme_style_override("hover", get_theme_stylebox("hover", "Button"));
-			action_menu->add_theme_style_override("pressed", get_theme_stylebox("pressed", "Button"));
+			action_menu->add_theme_style_override(SceneStringName(pressed), get_theme_stylebox(SceneStringName(pressed), "Button"));
 			action_menu->end_bulk_theme_override();
 
 			if (animation_player != nullptr && animation_player->is_playing()) {
@@ -1251,6 +1272,10 @@ void SceneImportSettingsDialog::_notification(int p_what) {
 				animation_play_button->set_icon(get_editor_theme_icon(SNAME("MainPlay")));
 			}
 			animation_stop_button->set_icon(get_editor_theme_icon(SNAME("Stop")));
+
+			light_1_switch->set_icon(theme_cache.light_1_icon);
+			light_2_switch->set_icon(theme_cache.light_2_icon);
+			light_rotate_switch->set_icon(theme_cache.rotate_icon);
 		} break;
 
 		case NOTIFICATION_PROCESS: {
@@ -1605,7 +1630,7 @@ SceneImportSettingsDialog::SceneImportSettingsDialog() {
 	vp_container->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	vp_container->set_custom_minimum_size(Size2(10, 10));
 	vp_container->set_stretch(true);
-	vp_container->connect("gui_input", callable_mp(this, &SceneImportSettingsDialog::_viewport_input));
+	vp_container->connect(SceneStringName(gui_input), callable_mp(this, &SceneImportSettingsDialog::_viewport_input));
 	vp_vb->add_child(vp_container);
 
 	base_viewport = memnew(SubViewport);
@@ -1624,13 +1649,13 @@ SceneImportSettingsDialog::SceneImportSettingsDialog() {
 	animation_play_button->set_flat(true);
 	animation_play_button->set_focus_mode(Control::FOCUS_NONE);
 	animation_play_button->set_shortcut(ED_SHORTCUT("scene_import_settings/play_selected_animation", TTR("Selected Animation Play/Pause"), Key::SPACE));
-	animation_play_button->connect(SNAME("pressed"), callable_mp(this, &SceneImportSettingsDialog::_play_animation));
+	animation_play_button->connect(SceneStringName(pressed), callable_mp(this, &SceneImportSettingsDialog::_play_animation));
 
 	animation_stop_button = memnew(Button);
 	animation_hbox->add_child(animation_stop_button);
 	animation_stop_button->set_flat(true);
 	animation_stop_button->set_focus_mode(Control::FOCUS_NONE);
-	animation_stop_button->connect(SNAME("pressed"), callable_mp(this, &SceneImportSettingsDialog::_stop_current_animation));
+	animation_stop_button->connect(SceneStringName(pressed), callable_mp(this, &SceneImportSettingsDialog::_stop_current_animation));
 
 	animation_slider = memnew(HSlider);
 	animation_hbox->add_child(animation_slider);
@@ -1644,6 +1669,40 @@ SceneImportSettingsDialog::SceneImportSettingsDialog() {
 
 	base_viewport->set_use_own_world_3d(true);
 
+	HBoxContainer *viewport_hbox = memnew(HBoxContainer);
+	vp_container->add_child(viewport_hbox);
+	viewport_hbox->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT, Control::PRESET_MODE_MINSIZE, 2);
+
+	viewport_hbox->add_spacer();
+
+	VBoxContainer *vb_light = memnew(VBoxContainer);
+	vb_light->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	viewport_hbox->add_child(vb_light);
+
+	light_rotate_switch = memnew(Button);
+	light_rotate_switch->set_theme_type_variation("PreviewLightButton");
+	light_rotate_switch->set_toggle_mode(true);
+	light_rotate_switch->set_pressed(true);
+	light_rotate_switch->set_tooltip_text(TTR("Rotate Lights With Model"));
+	light_rotate_switch->connect(SceneStringName(pressed), callable_mp(this, &SceneImportSettingsDialog::_on_light_rotate_switch_pressed));
+	vb_light->add_child(light_rotate_switch);
+
+	light_1_switch = memnew(Button);
+	light_1_switch->set_theme_type_variation("PreviewLightButton");
+	light_1_switch->set_toggle_mode(true);
+	light_1_switch->set_pressed(true);
+	light_1_switch->set_tooltip_text(TTR("Primary Light"));
+	light_1_switch->connect(SceneStringName(pressed), callable_mp(this, &SceneImportSettingsDialog::_on_light_1_switch_pressed));
+	vb_light->add_child(light_1_switch);
+
+	light_2_switch = memnew(Button);
+	light_2_switch->set_theme_type_variation("PreviewLightButton");
+	light_2_switch->set_toggle_mode(true);
+	light_2_switch->set_pressed(true);
+	light_2_switch->set_tooltip_text(TTR("Secondary Light"));
+	light_2_switch->connect(SceneStringName(pressed), callable_mp(this, &SceneImportSettingsDialog::_on_light_2_switch_pressed));
+	vb_light->add_child(light_2_switch);
+
 	camera = memnew(Camera3D);
 	base_viewport->add_child(camera);
 	camera->make_current();
@@ -1653,10 +1712,37 @@ SceneImportSettingsDialog::SceneImportSettingsDialog() {
 		camera->set_attributes(camera_attributes);
 	}
 
-	light = memnew(DirectionalLight3D);
-	light->set_transform(Transform3D().looking_at(Vector3(-1, -2, -0.6), Vector3(0, 1, 0)));
-	base_viewport->add_child(light);
-	light->set_shadow(true);
+	// Use a grayscale gradient sky to avoid skewing the preview towards a specific color,
+	// but still allow shaded areas to be easily distinguished (using the ambient and reflected light).
+	// This also helps the user orient themselves in the preview, since the bottom of the sky is black
+	// and the top of the sky is white.
+	procedural_sky_material.instantiate();
+	procedural_sky_material->set_sky_top_color(Color(1, 1, 1));
+	procedural_sky_material->set_sky_horizon_color(Color(0.5, 0.5, 0.5));
+	procedural_sky_material->set_ground_horizon_color(Color(0.5, 0.5, 0.5));
+	procedural_sky_material->set_ground_bottom_color(Color(0, 0, 0));
+	procedural_sky_material->set_sky_curve(2.0);
+	procedural_sky_material->set_ground_curve(0.5);
+	// Hide the sun from the sky.
+	procedural_sky_material->set_sun_angle_max(0.0);
+	sky.instantiate();
+	sky->set_material(procedural_sky_material);
+	environment.instantiate();
+	environment->set_background(Environment::BG_SKY);
+	environment->set_sky(sky);
+	// A custom FOV must be specified, as an orthogonal camera is used for the preview.
+	environment->set_sky_custom_fov(50.0);
+	camera->set_environment(environment);
+
+	light1 = memnew(DirectionalLight3D);
+	light1->set_transform(Transform3D(Basis::looking_at(Vector3(-1, -1, -1))));
+	light1->set_shadow(true);
+	camera->add_child(light1);
+
+	light2 = memnew(DirectionalLight3D);
+	light2->set_transform(Transform3D(Basis::looking_at(Vector3(0, 1, 0), Vector3(0, 0, 1))));
+	light2->set_color(Color(0.5f, 0.5f, 0.5f));
+	camera->add_child(light2);
 
 	{
 		Ref<StandardMaterial3D> selection_mat;
