@@ -769,6 +769,7 @@ void Object::setvar(const Variant &p_key, const Variant &p_value, bool *r_valid)
 }
 
 Variant Object::callv(const StringName &p_method, const Array &p_args) {
+	PROFILE_DYNAMIC_FUNCTION_START(static_cast<String>(p_method).ascii())
 	const Variant **argptrs = nullptr;
 
 	if (p_args.size() > 0) {
@@ -783,6 +784,7 @@ Variant Object::callv(const StringName &p_method, const Array &p_args) {
 	if (ce.error != Callable::CallError::CALL_OK) {
 		ERR_FAIL_V_MSG(Variant(), "Error calling method from 'callv': " + Variant::get_call_error_text(this, p_method, argptrs, p_args.size(), ce) + ".");
 	}
+	PROFILE_DYNAMIC_FUNCTION_END()
 	return ret;
 }
 
