@@ -21,6 +21,7 @@ public:
 	float StopWhenInRange = 0.0;
 	bool KillSelfWhenInStopRange = false;
 	int MovePattern = 0;
+	int remaining_frames_to_update = 0;
 	float MovementCurvatureAngle = 30.0;
 	float MovementCurvatureDistance = 300.0;
 	float MinOffsetX = -64.0;

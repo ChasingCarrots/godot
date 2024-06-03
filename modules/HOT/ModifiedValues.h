@@ -16,7 +16,7 @@ class ModifiedIntValue : public RefCounted {
 	ModifiedValueType _type = ModifiedValueType::NormalCalculation;
 	int _baseValue = 0;
 	int _currentModifiedValue = 0;
-	String _modifiedBy;
+	StringName _modifiedBy;
 	GameObject* _gameObject = nullptr;
 	Variant _gameObjectChecker;
 	inline bool IsGameObjectValid() {
@@ -29,23 +29,23 @@ class ModifiedIntValue : public RefCounted {
 			return false;
 		return true;
 	}
-	String _rankModifierStr;
-	TypedArray<String> _modifierCategories;
+	StringName _rankModifierStr;
+	TypedArray<StringName> _modifierCategories;
 
 protected:
 	// Required entry point that the API calls to bind our class to Godot.
 	static void _bind_methods();
 
 public:
-	void _init(int baseVal, String modifierName, Variant gameObject, String rankModifier);
-	void _initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier);
-	void setModifierCategories(TypedArray<String> categories);
-	TypedArray<String> getModifierCategories() { return _modifierCategories.duplicate(); }
+	void _init(int baseVal, const StringName& modifierName, Variant gameObject, const StringName& rankModifier);
+	void _initAsAdditiveOnly(const StringName& modifierName, Variant gameObject, const StringName& rankModifier);
+	void setModifierCategories(TypedArray<StringName> categories);
+	TypedArray<StringName> getModifierCategories() { return _modifierCategories.duplicate(); }
 	void updateManually();
-	void updateModifier(String mod);
+	void updateModifier(const StringName& mod);
 	int Value();
 	int BaseValue() { return _baseValue; }
-	String ModifiedBy() { return _modifiedBy; }
+	StringName ModifiedBy() { return _modifiedBy; }
 };
 
 class ModifiedFloatValue : public RefCounted {
@@ -54,7 +54,7 @@ class ModifiedFloatValue : public RefCounted {
 	ModifiedValueType _type = ModifiedValueType::NormalCalculation;
 	float _baseValue = 0;
 	float _currentModifiedValue = 0;
-	String _modifiedBy;
+	StringName _modifiedBy;
 	GameObject* _gameObject = nullptr;
 	Variant _gameObjectChecker;
 	inline bool IsGameObjectValid() {
@@ -67,24 +67,24 @@ class ModifiedFloatValue : public RefCounted {
 			return false;
 		return true;
 	}
-	String _rankModifierStr;
-	TypedArray<String> _modifierCategories;
+	StringName _rankModifierStr;
+	TypedArray<StringName> _modifierCategories;
 
 protected:
 	// Required entry point that the API calls to bind our class to Godot.
 	static void _bind_methods();
 
 public:
-	void _init(float baseVal, String modifierName, Variant gameObject, String rankModifier);
-	void _initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier);
-	void _initAsMultiplicativeOnly(String modifierName, Variant gameObject, String rankModifier);
-	void setModifierCategories(TypedArray<String> categories);
-	TypedArray<String> getModifierCategories() { return _modifierCategories.duplicate(); }
+	void _init(float baseVal, const StringName& modifierName, Variant gameObject, const StringName& rankModifier);
+	void _initAsAdditiveOnly(const StringName& modifierName, Variant gameObject, const StringName& rankModifier);
+	void _initAsMultiplicativeOnly(const StringName& modifierName, Variant gameObject, const StringName& rankModifier);
+	void setModifierCategories(TypedArray<StringName> categories);
+	TypedArray<StringName> getModifierCategories() { return _modifierCategories.duplicate(); }
 	void updateManually();
-	void updateModifier(String mod);
+	void updateModifier(const StringName& mod);
 	float Value();
 	float BaseValue() { return _baseValue; }
-	String ModifiedBy() { return _modifiedBy; }
+	StringName ModifiedBy() { return _modifiedBy; }
 };
 
 #endif //GODOT_SOURCE_MODIFIEDVALUES_H

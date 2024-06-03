@@ -16,7 +16,7 @@ void ModifiedIntValue::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("ValueUpdated", PropertyInfo(Variant::INT, "oldValue"), PropertyInfo(Variant::INT, "newValue")));
 }
 
-void ModifiedIntValue::_init(int baseVal, String modifierName, Variant gameObject, String rankModifier) {
+void ModifiedIntValue::_init(int baseVal, const StringName& modifierName, Variant gameObject, const StringName& rankModifier) {
 	PROFILE_FUNCTION();
 	_gameObjectChecker = gameObject;
 	if (!IsGameObjectValid()) {
@@ -35,12 +35,12 @@ void ModifiedIntValue::_init(int baseVal, String modifierName, Variant gameObjec
 	updateModifier(modifierName);
 }
 
-void ModifiedIntValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier) {
+void ModifiedIntValue::_initAsAdditiveOnly(const StringName& modifierName, Variant gameObject, const StringName& rankModifier) {
 	_type = ModifiedValueType::AdditiveOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
 
-void ModifiedIntValue::setModifierCategories(TypedArray<String> categories) {
+void ModifiedIntValue::setModifierCategories(TypedArray<StringName> categories) {
 	_modifierCategories = categories;
 	updateManually();
 }
@@ -49,7 +49,7 @@ void ModifiedIntValue::updateManually() {
 	updateModifier(_modifiedBy);
 }
 
-void ModifiedIntValue::updateModifier(String mod) {
+void ModifiedIntValue::updateModifier(const StringName& mod) {
 	if (_gameObject == nullptr || !IsGameObjectValid()) {
 		_gameObject = nullptr;
 		return;
@@ -75,7 +75,7 @@ void ModifiedIntValue::updateModifier(String mod) {
 }
 
 int ModifiedIntValue::Value() {
-	if(_rankModifierStr.is_empty())
+	if(_rankModifierStr == "")
 		return _currentModifiedValue;
 	return Math::round(static_cast<float>(_currentModifiedValue) * static_cast<float>(StaticValueHelper::get_value(_rankModifierStr)));
 }
@@ -96,7 +96,7 @@ void ModifiedFloatValue::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("ValueUpdated", PropertyInfo(Variant::FLOAT, "oldValue"), PropertyInfo(Variant::FLOAT, "newValue")));
 }
 
-void ModifiedFloatValue::_init(float baseVal, String modifierName, Variant gameObject, String rankModifier) {
+void ModifiedFloatValue::_init(float baseVal, const StringName& modifierName, Variant gameObject, const StringName& rankModifier) {
 	PROFILE_FUNCTION()
 	_gameObjectChecker = gameObject;
 	if (!IsGameObjectValid()) {
@@ -115,17 +115,17 @@ void ModifiedFloatValue::_init(float baseVal, String modifierName, Variant gameO
 	updateModifier(modifierName);
 }
 
-void ModifiedFloatValue::_initAsMultiplicativeOnly(String modifierName, Variant gameObject, String rankModifier) {
+void ModifiedFloatValue::_initAsMultiplicativeOnly(const StringName& modifierName, Variant gameObject, const StringName& rankModifier) {
 	_type = ModifiedValueType::MultiplicativeOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
 
-void ModifiedFloatValue::_initAsAdditiveOnly(String modifierName, Variant gameObject, String rankModifier) {
+void ModifiedFloatValue::_initAsAdditiveOnly(const StringName& modifierName, Variant gameObject, const StringName& rankModifier) {
 	_type = ModifiedValueType::AdditiveOnly;
 	_init(0, modifierName, gameObject, rankModifier);
 }
 
-void ModifiedFloatValue::setModifierCategories(TypedArray<String> categories) {
+void ModifiedFloatValue::setModifierCategories(TypedArray<StringName> categories) {
 	_modifierCategories = categories;
 	updateManually();
 }
@@ -134,7 +134,7 @@ void ModifiedFloatValue::updateManually() {
 	updateModifier(_modifiedBy);
 }
 
-void ModifiedFloatValue::updateModifier(String mod) {
+void ModifiedFloatValue::updateModifier(const StringName& mod) {
 	if (_gameObject == nullptr || !IsGameObjectValid()) {
 		_gameObject = nullptr;
 		return;
@@ -160,7 +160,7 @@ void ModifiedFloatValue::updateModifier(String mod) {
 }
 
 float ModifiedFloatValue::Value() {
-	if(_rankModifierStr.is_empty())
+	if(_rankModifierStr == "")
 		return _currentModifiedValue;
 	return _currentModifiedValue * static_cast<float>(StaticValueHelper::get_value(_rankModifierStr));
 }

@@ -14,7 +14,7 @@
 #include <scene/main/window.h>
 
 struct SignalCallable {
-	String SignalName;
+	StringName SignalName;
 	Callable CallableConnection;
 };
 
@@ -43,7 +43,7 @@ class GameObject : public Node2D {
 
 	OAHashMap<StringName, ObjectID> _childNodeWithMethodOrPropertyCache;
 
-	uint32_t calculateHashForModifiedValueCalculation(const String& modifierType, const Variant& baseValue, const PackedStringArray& categories) {
+	uint32_t calculateHashForModifiedValueCalculation(const StringName& modifierType, const Variant& baseValue, const PackedStringArray& categories) {
 		uint32_t calculationHash = modifierType.hash();
 		calculationHash *= 16777619;
 		calculationHash ^= baseValue.hash();
@@ -128,10 +128,10 @@ public:
 	}
 
     // collective signal system
-    void connectToSignal(String signalName, Callable callable);
-    void disconnectFromSignal(String signalName, Callable callable);
-    bool hasSignal(String signalName);
-    void injectEmitSignal(String signalName, Array parameters);
+    void connectToSignal(const StringName &signalName, const Callable &callable);
+    void disconnectFromSignal(const StringName& signalName, const Callable &callable);
+    bool hasSignal(const StringName& signalName);
+    void injectEmitSignal(const StringName& signalName, Array parameters);
 
     // collective child nodes system
     Node* getChildNodeWithMethod(const StringName& methodName);
@@ -142,19 +142,19 @@ public:
 
 	// modifier system
 	void setInheritModifierFrom(GameObject* otherGameObject, bool automaticallyKeepUpdated = false);
-	void triggerModifierUpdated(String modifierType);
-	Variant calculateModifiedValue(String modifierType, Variant baseValue, TypedArray<String> categories);
-	float getAdditiveModifier(String modifierType, TypedArray<String> categories);
-	float getMultiplicativeModifier(String modifierType, TypedArray<String> categories);
+	void triggerModifierUpdated(const StringName& modifierType);
+	Variant calculateModifiedValue(const StringName& modifierType, Variant baseValue, TypedArray<StringName> categories);
+	float getAdditiveModifier(const StringName& modifierType, TypedArray<StringName> categories);
+	float getMultiplicativeModifier(const StringName& modifierType, TypedArray<StringName> categories);
 	GameObject* getInheritModifierFrom();
 	void registerModifier(Modifier* modifier);
 	void unregisterModifier(Modifier* modifier);
-	Array getModifiers(String modifierType, TypedArray<String> categories);
+	Array getModifiers(const StringName& modifierType, TypedArray<StringName> categories);
 
 	// effect system
 	Node* add_effect(PackedScene* effectScene, GameObject* externalSource);
-	Node* add_effect_from_pool(Ref<ThreadedObjectPool> pool, GameObject* externalSource);
-	Node* find_effect(String effectID);
+	Node* add_effect_from_pool(const Ref<ThreadedObjectPool> &pool, GameObject* externalSource);
+	Node* find_effect(const StringName& effectID);
 
 	// sourcetree system
 	GameObject* get_rootSourceGameObject();

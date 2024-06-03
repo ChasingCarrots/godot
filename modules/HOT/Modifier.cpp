@@ -14,9 +14,9 @@ void Modifier::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("getMultiplierMod"), &Modifier::getMultiplierModifier);
 }
 
-void Modifier::_init(String modifierName, Variant gameObject) {
+void Modifier::_init(const StringName &modifiedType, const Variant &gameObject) {
 	_hash = 0;
-	_modifiedType = modifierName;
+	_modifiedType = modifiedType;
 	if (gameObject.get_type() != Variant::OBJECT)
 		return;
 	Object* gameObjectAsPtr = gameObject.get_validated_object();
@@ -39,7 +39,7 @@ Modifier::~Modifier() {
 	static_cast<GameObject*>(gameObjectAsPtr)->unregisterModifier(this);
 }
 
-void Modifier::allowCategories(TypedArray<String> categories) {
+void Modifier::allowCategories(TypedArray<StringName> categories) {
 	_modifierCategories.resize(categories.size());
 	for (int i = 0; i < categories.size(); ++i) {
 		_modifierCategories.set(i, categories[i]);

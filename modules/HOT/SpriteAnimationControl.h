@@ -27,10 +27,10 @@ protected:
 	NodePath CustomFacingProviderPath;
 	SafeObjectPointer<Node> CustomFacingProvider;
 
-	String IdleAnimationName = "idle";
-	String WalkAnimationName = "walk";
-	TypedArray<String> AttackAnimationNames;
-	String InitialAnimation;
+	StringName IdleAnimationName = "idle";
+	StringName WalkAnimationName = "walk";
+	TypedArray<StringName> AttackAnimationNames;
+	StringName InitialAnimation;
 
 
 	void set_AnimationSpeed(float animSpeed) { AnimationSpeed = animSpeed; }
@@ -55,14 +55,14 @@ protected:
 	bool get_UpperBodyLowerBodySetup() { return UpperBodyLowerBodySetup; }
 	void set_CustomFacingProvider(const NodePath& customFacingProviderPath) { CustomFacingProviderPath = customFacingProviderPath; }
 	NodePath get_CustomFacingProvider() { return CustomFacingProviderPath; }
-	void set_IdleAnimationName(String idleAnimationName) { IdleAnimationName = idleAnimationName; }
-	String get_IdleAnimationName() { return IdleAnimationName; }
-	void set_WalkAnimationName(String walkAnimationName) { WalkAnimationName = walkAnimationName; }
-	String get_WalkAnimationName() { return WalkAnimationName; }
-	void set_AttackAnimationNames(TypedArray<String> attackAnimationNames) { AttackAnimationNames = attackAnimationNames; }
-	TypedArray<String> get_AttackAnimationNames() { return AttackAnimationNames; }
-	void set_InitialAnimation(String initialAnimation) { InitialAnimation = initialAnimation; }
-	String get_InitialAnimation() { return InitialAnimation; }
+	void set_IdleAnimationName(StringName idleAnimationName) { IdleAnimationName = idleAnimationName; }
+	StringName get_IdleAnimationName() { return IdleAnimationName; }
+	void set_WalkAnimationName(StringName walkAnimationName) { WalkAnimationName = walkAnimationName; }
+	StringName get_WalkAnimationName() { return WalkAnimationName; }
+	void set_AttackAnimationNames(TypedArray<StringName> attackAnimationNames) { AttackAnimationNames = attackAnimationNames; }
+	TypedArray<StringName> get_AttackAnimationNames() { return AttackAnimationNames; }
+	void set_InitialAnimation(StringName initialAnimation) { InitialAnimation = initialAnimation; }
+	StringName get_InitialAnimation() { return InitialAnimation; }
 
 
 	DirectionsUtil::Dir directionState = DirectionsUtil::S;
@@ -76,7 +76,7 @@ protected:
 	int flash_timer = 0;
 
 	// state of currently played animation
-	String animationState = "idle";
+	StringName animationState = "idle";
 	float secondsPerFrame = 1.0f / 15.0f;
 	int frameCount = 1;
 	float playbackSpeed = 1;
@@ -94,9 +94,9 @@ public:
 	void _ready();
 	void _process(float delta);
 	void _process_animation(float delta);
-	void _set_animation(String animationName, bool startAtFrameZero);
+	void _set_animation(const StringName &animationName, bool startAtFrameZero);
 	void set_sprite_direction(Vector2 direction);
-	void set_sprite_animation_state(String animationName, bool startAtFrameZero, bool backwards = false);
+	void set_sprite_animation_state(const StringName &animationName, bool startAtFrameZero, bool backwards = false);
 	void update_animation_state(bool startAtFrameZero);
 	void update_animation_state_unflipped(bool startAtFrameZero);
 	void update_animation_state_flipped(bool startAtFrameZero);

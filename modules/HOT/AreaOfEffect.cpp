@@ -140,27 +140,30 @@ void AreaOfEffect::UpdateAllAreaOfEffects(float delta) {
 			else
 				LocatorSystem::FillWithGameObjectsInCircle(area->LocatorPoolName, position, area->Radius, tempHits);
 
+			if(tempHits.is_empty() || area->_modifiedDamage->Value() <= 0)
+				continue;
+
 			GameObject* mySource = area->_gameObject->get_rootSourceGameObject();
 			for(auto hitObj : tempHits) {
 				if(area->ProbabilityToApply < 1 && VariantUtilityFunctions::randf() > area->ProbabilityToApply)
 					continue;
-				if(area->_modifiedDamage->Value() > 0) {
-					Node* healthComp = hitObj->getChildNodeWithMethod("applyDamage");
-					if(healthComp != nullptr) {
-						Array damageReturn = healthComp->call("applyDamage", area->_modifiedDamage->Value(), mySource, false, area->_weapon_index);
-						if(mySource != nullptr && VariantUtilityFunctions::is_instance_valid(mySource)) {
-							Array params;
-							params.append(area->DamageCategories);
-							params.append(area->_modifiedDamage->Value());
-							params.append(damageReturn);
-							params.append(hitObj);
-							params.append(false);
-							mySource->injectEmitSignal("DamageApplied", params);
-							if(mySource != area->_gameObject.get_nocheck())
-								area->emit_signal("DamageApplied", area->DamageCategories, area->_modifiedDamage->Value(), damageReturn, hitObj, false);
-						}
+
+				Node* healthComp = hitObj->getChildNodeWithMethod("applyDamage");
+				if(healthComp != nullptr) {
+					Array damageReturn = healthComp->call("applyDamage", area->_modifiedDamage->Value(), mySource, false, area->_weapon_index);
+					if(mySource != nullptr && VariantUtilityFunctions::is_instance_valid(mySource)) {
+						Array params;
+						params.append(area->DamageCategories);
+						params.append(area->_modifiedDamage->Value());
+						params.append(damageReturn);
+						params.append(hitObj);
+						params.append(false);
+						mySource->injectEmitSignal("DamageApplied", params);
+						if(mySource != area->_gameObject.get_nocheck())
+							area->emit_signal("DamageApplied", area->DamageCategories, area->_modifiedDamage->Value(), damageReturn, hitObj, false);
 					}
 				}
+
 				if(area->ApplyNode.is_valid()) {
 					Node* spawnedNode = area->ApplyNode->instantiate();
 					hitObj->add_child(spawnedNode);

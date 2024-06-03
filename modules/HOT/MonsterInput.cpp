@@ -1,9 +1,13 @@
 #include "MonsterInput.h"
 
 #include <core/variant/variant_utility.h>
+#include <modules/HOT/NoiseFunction.h>
 #include <scene/main/window.h>
 
+#include <string>
+
 LocalVector<MonsterInput*> MonsterInput::_allMonsterInputs;
+using namespace godot;
 
 void MonsterInput::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_SetPlayerAsTargetOnSpawn", "setPlayerAsTargetOnSpawn"), &MonsterInput::SetSetPlayerAsTargetOnSpawn);
@@ -148,81 +152,90 @@ Vector2 getPosOfPosProvider(SafeObjectPointer<Node>& posProvider) {
 }
 
 void MonsterInput::updateAllMonsterInputs(float delta) {
+	static uint32_t _noise_count = 3;
+
 	PROFILE_FUNCTION();
 	NodePosCache.clear();
 	for(int monster_index= static_cast<int>(_allMonsterInputs.size()) -1; monster_index >= 0; --monster_index) {
 		MonsterInput* monster = _allMonsterInputs[monster_index];
-		Vector2 newInputDir;
-		if(monster->_targetPosProvider.is_valid() && !monster->_targetPosProvider->is_queued_for_deletion()) {
-			bool hasOverridePos = monster->_targetOverrideProvider.is_valid() && monster->_targetOverrideProvider->call("has_override_target_position");
-			Vector2 targetPos;
-			if(!hasOverridePos)
-				targetPos = getPosOfPosProvider(monster->_targetPosProvider);
-			else
-				targetPos = monster->_targetOverrideProvider->call("get_override_target_position");
-			Vector2 monsterPos = monster->get_gameobject_worldposition();
+		if(monster->remaining_frames_to_update <= 0) {
+			_noise_count = GenerateNoise(_noise_count);
+			monster->remaining_frames_to_update = _noise_count % 3 + 2;
 
-			if(hasOverridePos || monster->MovePattern == 0)
-				// linear movement
-					newInputDir = targetPos - monsterPos;
-			else if(monster->MovePattern == 1) {
-				// curved movement
-				Vector2 target_vector = targetPos - monsterPos;
-				float curve_factor = std::min(1.0f, std::max(0.0f,
-					Math::inverse_lerp(8.0f, monster->MovementCurvatureDistance, target_vector.length())));
-				newInputDir = target_vector.rotated(Math::deg_to_rad(Math::lerp(0.0f, monster->MovementCurvatureAngle, curve_factor)));
-			}
-			else if(monster->MovePattern == 2)
-				// offset movement
-					newInputDir = targetPos - monsterPos + monster->targetOffset;
-			else if(monster->MovePattern == 3) {
-				// lane movement
-				Vector2 target_vector = targetPos - monsterPos;
-				Vector2 laneInputDir = monster->LaneDirection * VariantUtilityFunctions::signf(target_vector.dot(monster->LaneDirection));
-				if(monster->LaneDivergenceMaxRange > 0.0) {
-					float directionWeight = std::min(1.0f, std::max(0.0f,
-						Math::inverse_lerp(monster->LaneDivergenceMinRange,	monster->LaneDivergenceMaxRange, target_vector.length())));
-					newInputDir = target_vector.slerp(laneInputDir, directionWeight);
+			Vector2 newInputDir;
+			if(monster->_targetPosProvider.is_valid() && !monster->_targetPosProvider->is_queued_for_deletion()) {
+				bool hasOverridePos = monster->_targetOverrideProvider.is_valid() && monster->_targetOverrideProvider->call("has_override_target_position");
+				Vector2 targetPos;
+				if(!hasOverridePos)
+					targetPos = getPosOfPosProvider(monster->_targetPosProvider);
+				else
+					targetPos = monster->_targetOverrideProvider->call("get_override_target_position");
+				Vector2 monsterPos = monster->get_gameobject_worldposition();
+
+				if(hasOverridePos || monster->MovePattern == 0)
+					// linear movement
+						newInputDir = targetPos - monsterPos;
+				else if(monster->MovePattern == 1) {
+					// curved movement
+					Vector2 target_vector = targetPos - monsterPos;
+					float curve_factor = std::min(1.0f, std::max(0.0f,
+						Math::inverse_lerp(8.0f, monster->MovementCurvatureDistance, target_vector.length())));
+					newInputDir = target_vector.rotated(Math::deg_to_rad(Math::lerp(0.0f, monster->MovementCurvatureAngle, curve_factor)));
+				}
+				else if(monster->MovePattern == 2)
+					// offset movement
+						newInputDir = targetPos - monsterPos + monster->targetOffset;
+				else if(monster->MovePattern == 3) {
+					// lane movement
+					Vector2 target_vector = targetPos - monsterPos;
+					Vector2 laneInputDir = monster->LaneDirection * VariantUtilityFunctions::signf(target_vector.dot(monster->LaneDirection));
+					if(monster->LaneDivergenceMaxRange > 0.0) {
+						float directionWeight = std::min(1.0f, std::max(0.0f,
+							Math::inverse_lerp(monster->LaneDivergenceMinRange,	monster->LaneDivergenceMaxRange, target_vector.length())));
+						newInputDir = target_vector.slerp(laneInputDir, directionWeight);
+					}
+					else
+						newInputDir = laneInputDir;
+				}
+
+				if((newInputDir - monster->targetOffset).length() <= monster->StopWhenInRange) {
+					if(monster->KillSelfWhenInStopRange) {
+						Array params;
+						params.append(monster->_gameObject.get());
+						monster->_gameObject->injectEmitSignal("Killed", params);
+						// we also destroy the gameobject!
+						monster->_gameObject->queue_free();
+						return;
+					}
+					else {
+						monster->targetFacingSetter->call("set_facingDirection", newInputDir);
+						newInputDir = Vector2();
+					}
 				}
 				else
-					newInputDir = laneInputDir;
-			}
+					newInputDir = newInputDir.normalized();
 
-			if((newInputDir - monster->targetOffset).length() <= monster->StopWhenInRange) {
-				if(monster->KillSelfWhenInStopRange) {
-					Array params;
-					params.append(monster->_gameObject.get());
-					monster->_gameObject->injectEmitSignal("Killed", params);
-					// we also destroy the gameobject!
-					monster->_gameObject->queue_free();
-					return;
-				}
-				else {
-					monster->targetFacingSetter->call("set_facingDirection", newInputDir);
-					newInputDir = Vector2();
-				}
-			}
-			else
-				newInputDir = newInputDir.normalized();
-
-			if(monster->MaxLoiteringDuration > 0.0f) {
-				if(monster->loitering_counter == 0.0f)
-					monster->loitering_counter = VariantUtilityFunctions::randf_range(monster->MinLoiteringDuration, monster->MaxLoiteringDuration);
-				else if(monster->loitering_counter > 0.0f) {
-					monster->loitering_counter = std::max(0.0f, std::min(9999.0f, monster->loitering_counter - delta));
-					monster->targetFacingSetter->call("set_facingDirection", newInputDir);
-					newInputDir = Vector2();
+				if(monster->MaxLoiteringDuration > 0.0f) {
 					if(monster->loitering_counter == 0.0f)
-						monster->loitering_counter = -VariantUtilityFunctions::randf_range(monster->MinMotionDuration, monster->MaxMotionDuration);
+						monster->loitering_counter = VariantUtilityFunctions::randf_range(monster->MinLoiteringDuration, monster->MaxLoiteringDuration);
+					else if(monster->loitering_counter > 0.0f) {
+						monster->loitering_counter = std::max(0.0f, std::min(9999.0f, monster->loitering_counter - delta));
+						monster->targetFacingSetter->call("set_facingDirection", newInputDir);
+						newInputDir = Vector2();
+						if(monster->loitering_counter == 0.0f)
+							monster->loitering_counter = -VariantUtilityFunctions::randf_range(monster->MinMotionDuration, monster->MaxMotionDuration);
+					}
+					else if(monster->loitering_counter < 0.0)
+						monster->loitering_counter = std::max(-9999.0f, std::min(0.0f, monster->loitering_counter + delta));
 				}
-				else if(monster->loitering_counter < 0.0)
-					monster->loitering_counter = std::max(-9999.0f, std::min(0.0f, monster->loitering_counter + delta));
 			}
-		}
-		if(newInputDir != monster->input_direction) {
-			monster->input_direction = newInputDir;
-			monster->emit_signal("input_dir_changed", monster->input_direction);
-			monster->targetDirectionSetter->call("set_targetDirection", monster->input_direction);
+			if(newInputDir != monster->input_direction) {
+				monster->input_direction = newInputDir;
+				monster->emit_signal("input_dir_changed", monster->input_direction);
+				monster->targetDirectionSetter->call("set_targetDirection", monster->input_direction);
+			}
+		} else {
+			monster->remaining_frames_to_update--;
 		}
 	}
 }

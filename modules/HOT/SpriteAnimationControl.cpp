@@ -111,7 +111,7 @@ void SpriteAnimationControl::_ready() {
 	}
 	pause();
 
-	if(!InitialAnimation.is_empty())
+	if(InitialAnimation != "")
 		set_sprite_animation_state(InitialAnimation, true);
 
 	if(has_node(NodePath("shadow"))){
@@ -193,7 +193,7 @@ void SpriteAnimationControl::_process_animation(float delta) {
 	}
 }
 
-void SpriteAnimationControl::_set_animation(String animationName, bool startAtFrameZero) {
+void SpriteAnimationControl::_set_animation(const StringName &animationName, bool startAtFrameZero) {
 	PROFILE_FUNCTION();
 	auto sprite_frames = get_sprite_frames();
 	if(!sprite_frames.is_valid())
@@ -237,7 +237,7 @@ void SpriteAnimationControl::set_sprite_direction(Vector2 direction) {
 	}
 }
 
-void SpriteAnimationControl::set_sprite_animation_state(String animationName, bool startAtFrameZero, bool backwards) {
+void SpriteAnimationControl::set_sprite_animation_state(const StringName &animationName, bool startAtFrameZero, bool backwards) {
 	PROFILE_FUNCTION();
 	if(ReactToAttack) {
 		if(current_attack_animation_index >= 0 && !AttackAnimationNames.has(animationName))
@@ -258,22 +258,22 @@ void SpriteAnimationControl::update_animation_state(bool startAtFrameZero) {
 void SpriteAnimationControl::update_animation_state_unflipped(bool startAtFrameZero) {
 	PROFILE_FUNCTION();
 	switch(directionState) {
-		case DirectionsUtil::Dir::S: _set_animation(animationState+"_S", startAtFrameZero); break;
-		case DirectionsUtil::Dir::SSE: _set_animation(animationState+"_SSE", startAtFrameZero); break;
-		case DirectionsUtil::Dir::SE: _set_animation(animationState+"_SE", startAtFrameZero); break;
-		case DirectionsUtil::Dir::SEE: _set_animation(animationState+"_SEE", startAtFrameZero); break;
-		case DirectionsUtil::Dir::E: _set_animation(animationState+"_E", startAtFrameZero); break;
-		case DirectionsUtil::Dir::NEE: _set_animation(animationState+"_NEE", startAtFrameZero); break;
-		case DirectionsUtil::Dir::NE: _set_animation(animationState+"_NE", startAtFrameZero); break;
-		case DirectionsUtil::Dir::NNE: _set_animation(animationState+"_NNE", startAtFrameZero); break;
-		case DirectionsUtil::Dir::N: _set_animation(animationState+"_N", startAtFrameZero); break;
-		case DirectionsUtil::Dir::NNW: _set_animation(animationState+"_NNW", startAtFrameZero); break;
-		case DirectionsUtil::Dir::NW: _set_animation(animationState+"_NW", startAtFrameZero); break;
-		case DirectionsUtil::Dir::NWW: _set_animation(animationState+"_NWW", startAtFrameZero); break;
-		case DirectionsUtil::Dir::W: _set_animation(animationState+"_W", startAtFrameZero); break;
-		case DirectionsUtil::Dir::SWW: _set_animation(animationState+"_SWW", startAtFrameZero); break;
-		case DirectionsUtil::Dir::SW: _set_animation(animationState+"_SW", startAtFrameZero); break;
-		case DirectionsUtil::Dir::SSW: _set_animation(animationState+"_SSW", startAtFrameZero); break;
+		case DirectionsUtil::Dir::S: _set_animation(static_cast<String>(animationState)+"_S", startAtFrameZero); break;
+		case DirectionsUtil::Dir::SSE: _set_animation(static_cast<String>(animationState)+"_SSE", startAtFrameZero); break;
+		case DirectionsUtil::Dir::SE: _set_animation(static_cast<String>(animationState)+"_SE", startAtFrameZero); break;
+		case DirectionsUtil::Dir::SEE: _set_animation(static_cast<String>(animationState)+"_SEE", startAtFrameZero); break;
+		case DirectionsUtil::Dir::E: _set_animation(static_cast<String>(animationState)+"_E", startAtFrameZero); break;
+		case DirectionsUtil::Dir::NEE: _set_animation(static_cast<String>(animationState)+"_NEE", startAtFrameZero); break;
+		case DirectionsUtil::Dir::NE: _set_animation(static_cast<String>(animationState)+"_NE", startAtFrameZero); break;
+		case DirectionsUtil::Dir::NNE: _set_animation(static_cast<String>(animationState)+"_NNE", startAtFrameZero); break;
+		case DirectionsUtil::Dir::N: _set_animation(static_cast<String>(animationState)+"_N", startAtFrameZero); break;
+		case DirectionsUtil::Dir::NNW: _set_animation(static_cast<String>(animationState)+"_NNW", startAtFrameZero); break;
+		case DirectionsUtil::Dir::NW: _set_animation(static_cast<String>(animationState)+"_NW", startAtFrameZero); break;
+		case DirectionsUtil::Dir::NWW: _set_animation(static_cast<String>(animationState)+"_NWW", startAtFrameZero); break;
+		case DirectionsUtil::Dir::W: _set_animation(static_cast<String>(animationState)+"_W", startAtFrameZero); break;
+		case DirectionsUtil::Dir::SWW: _set_animation(static_cast<String>(animationState)+"_SWW", startAtFrameZero); break;
+		case DirectionsUtil::Dir::SW: _set_animation(static_cast<String>(animationState)+"_SW", startAtFrameZero); break;
+		case DirectionsUtil::Dir::SSW: _set_animation(static_cast<String>(animationState)+"_SSW", startAtFrameZero); break;
 	}
 }
 
@@ -281,67 +281,67 @@ void SpriteAnimationControl::update_animation_state_flipped(bool startAtFrameZer
 	PROFILE_FUNCTION();
 	switch(directionState) {
 		case DirectionsUtil::Dir::S:
-			_set_animation(animationState+"_S", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_S", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::SSE:
-			_set_animation(animationState+"_SSE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_SSE", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::SE:
-			_set_animation(animationState+"_SE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_SE", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::SEE:
-			_set_animation(animationState+"_SEE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_SEE", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::E:
-			_set_animation(animationState+"_E", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_E", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::NEE:
-			_set_animation(animationState+"_NEE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_NEE", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::NE:
-			_set_animation(animationState+"_NE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_NE", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::NNE:
-			_set_animation(animationState+"_NNE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_NNE", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::N:
-			_set_animation(animationState+"_N", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_N", startAtFrameZero);
 			set_flip_h(false);
 			break;
 		case DirectionsUtil::Dir::NNW:
-			_set_animation(animationState+"_NNE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_NNE", startAtFrameZero);
 			set_flip_h(true);
 			break;
 		case DirectionsUtil::Dir::NW:
-			_set_animation(animationState+"_NE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_NE", startAtFrameZero);
 			set_flip_h(true);
 			break;
 		case DirectionsUtil::Dir::NWW:
-			_set_animation(animationState+"_NEE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_NEE", startAtFrameZero);
 			set_flip_h(true);
 			break;
 		case DirectionsUtil::Dir::W:
-			_set_animation(animationState+"_E", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_E", startAtFrameZero);
 			set_flip_h(true);
 			break;
 		case DirectionsUtil::Dir::SWW:
-			_set_animation(animationState+"_SEE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_SEE", startAtFrameZero);
 			set_flip_h(true);
 			break;
 		case DirectionsUtil::Dir::SW:
-			_set_animation(animationState+"_SE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_SE", startAtFrameZero);
 			set_flip_h(true);
 			break;
 		case DirectionsUtil::Dir::SSW:
-			_set_animation(animationState+"_SSE", startAtFrameZero);
+			_set_animation(static_cast<String>(animationState)+"_SSE", startAtFrameZero);
 			set_flip_h(true);
 			break;
 	}

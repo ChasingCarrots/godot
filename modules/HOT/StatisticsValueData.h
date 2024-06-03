@@ -45,10 +45,10 @@ public:
 
 	String DisplayName;
 	String StatisticsCategory;
-	TypedArray<String> ModifierKeys;
+	TypedArray<StringName> ModifierKeys;
 	float BaseValue = 0;
 	float FinalValue = 0;
-	TypedArray<String> Categories;
+	TypedArray<StringName> Categories;
 	StatisticsFormatTypes FormatType;
 	StatisticsSpecialInfoTypes SpecialInfoType;
 	StatisticsDisplayFlags DisplayFlags = NoFlags;
@@ -57,14 +57,14 @@ public:
 	void SetDisplayName(const String &displayName) { DisplayName = displayName; }
 	[[nodiscard]] String GetStatisticsCategory() const { return StatisticsCategory; }
 	void SetStatisticsCategory(const String &statisticsCategory) { StatisticsCategory = statisticsCategory; }
-	[[nodiscard]] TypedArray<String> GetModifierKeys() const { return ModifierKeys; }
-	void SetModifierKeys(const TypedArray<String> &modifierKeys) { ModifierKeys = modifierKeys; }
+	[[nodiscard]] TypedArray<StringName> GetModifierKeys() const { return ModifierKeys; }
+	void SetModifierKeys(const TypedArray<StringName> &modifierKeys) { ModifierKeys = modifierKeys; }
 	[[nodiscard]] float GetBaseValue() const { return BaseValue; }
 	void SetBaseValue(float baseValue) { BaseValue = baseValue; }
 	[[nodiscard]] float GetFinalValue() const { return FinalValue; }
 	void SetFinalValue(float finalValue) { FinalValue = finalValue; }
-	[[nodiscard]] TypedArray<String> GetCategories() const { return Categories; }
-	void SetCategories(const TypedArray<String> &categories) { Categories = categories; }
+	[[nodiscard]] TypedArray<StringName> GetCategories() const { return Categories; }
+	void SetCategories(const TypedArray<StringName> &categories) { Categories = categories; }
 	[[nodiscard]] StatisticsFormatTypes GetFormatType() const { return FormatType; }
 	void SetFormatType(StatisticsFormatTypes formatType) { FormatType = formatType; }
 	[[nodiscard]] StatisticsSpecialInfoTypes GetSpecialInfoType() const { return SpecialInfoType; }
@@ -72,8 +72,8 @@ public:
 	[[nodiscard]] StatisticsDisplayFlags GetDisplayFlags() const { return DisplayFlags; }
 	void SetDisplayFlags(StatisticsDisplayFlags display_flags) { DisplayFlags = display_flags; }
 
-	static Ref<StatisticsValueData> createFromModifiedValue(Variant modifiedValue, const String& displayName, const String& statsCategory, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags = NoFlags);
-	static Ref<StatisticsValueData> createNew(const String& displayName, const String& statsCategory, Variant modifierKeys, float baseVal, float finalVal, const TypedArray<String>& categories, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags = NoFlags);
+	static Ref<StatisticsValueData> createFromModifiedValue(Variant modifiedValue, const String& displayName, const StringName& statsCategory, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags = NoFlags);
+	static Ref<StatisticsValueData> createNew(const String& displayName, const String& statsCategory, Variant modifierKeys, float baseVal, float finalVal, const TypedArray<StringName>& categories, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags = NoFlags);
 };
 
 VARIANT_ENUM_CAST(StatisticsValueData::StatisticsFormatTypes);

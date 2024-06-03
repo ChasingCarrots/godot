@@ -15,10 +15,10 @@ class Modifier : public RefCounted {
 
 	float _additiveMod = 0;
 	float _multiplierMod = 0;
-	String _modifiedType;
-	String _modifierName = "Unnamed Modifier";
+	StringName _modifiedType;
+	StringName _modifierName = "Unnamed Modifier";
 	Variant _gameObject;
-	PackedStringArray _modifierCategories;
+	Vector<StringName> _modifierCategories;
 	mutable uint32_t _hash = 0;
 
 protected:
@@ -28,23 +28,23 @@ protected:
 public:
 	~Modifier();
 
-	static Modifier* create(String modifiedType, Variant gameObject) {
-		Modifier* mod = memnew(Modifier);
+	static Modifier *create(const StringName &modifiedType, const Variant &gameObject) {
+		Modifier *mod = memnew(Modifier);
 		mod->_init(modifiedType, gameObject);
 		return mod;
 	}
-	void _init(String modifiedType, Variant gameObject);
+	void _init(const StringName &modifiedType, const Variant &gameObject);
 
-	void setModifierName(String modifierName) {
+	void setModifierName(const StringName &modifierName) {
 		_modifierName = modifierName;
 		_hash = 0;
 	}
-	String getModifierName() {
+	StringName getModifierName() {
 		return _modifierName;
 	}
 
 	uint32_t hash() const {
-		if(_hash != 0)
+		if (_hash != 0)
 			return _hash;
 		_hash = _modifiedType.hash();
 		_hash *= 7919;
@@ -52,14 +52,14 @@ public:
 		_hash *= 7717;
 		_hash ^= hash_murmur3_one_float(_multiplierMod);
 		_hash *= 7753;
-		for(const auto& s : _modifierCategories) {
+		for (const auto &s : _modifierCategories) {
 			_hash *= 6121;
 			_hash ^= s.hash();
 		}
 		return _hash;
 	}
 
-	void allowCategories(TypedArray<String> categories);
+	void allowCategories(TypedArray<StringName> categories);
 	void setAdditiveMod(float additive) {
 		_additiveMod = additive;
 		_hash = 0;
@@ -69,11 +69,11 @@ public:
 		_hash = 0;
 	}
 
-	bool isRelevant(const String& modifiedType, const PackedStringArray& categories) const {
+	bool isRelevant(const StringName &modifiedType, const PackedStringArray &categories) const {
 		PROFILE_FUNCTION_NAMED("Modifier::isRelevant");
-		if(modifiedType != _modifiedType)
+		if (modifiedType != _modifiedType)
 			return false;
-		if(_modifierCategories.is_empty())
+		if (_modifierCategories.is_empty())
 			return true;
 		for (int i = 0; i < _modifierCategories.size(); ++i) {
 			if (categories.has(_modifierCategories[i]))
@@ -81,7 +81,7 @@ public:
 		}
 		return false;
 	}
-	float getAdditiveModifier()  {
+	float getAdditiveModifier() {
 		return _additiveMod;
 	}
 	float getMultiplierModifier() {

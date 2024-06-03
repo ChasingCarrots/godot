@@ -61,7 +61,7 @@ void StatisticsValueData::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "DisplayFlags", PROPERTY_HINT_FLAGS, "NoFlags,NoBaseValue"), "set_DisplayFlags", "get_DisplayFlags");
 }
 
-Ref<StatisticsValueData> StatisticsValueData::createFromModifiedValue(Variant modifiedValue, const String &displayName, const String &statsCategory, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags) {
+Ref<StatisticsValueData> StatisticsValueData::createFromModifiedValue(Variant modifiedValue, const String &displayName, const StringName &statsCategory, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags) {
 	if(modifiedValue.is_null()) {
 		print_error("StatisticsValueData::createFromModifiedValue called with a null value!");
 		return {};
@@ -105,7 +105,7 @@ Ref<StatisticsValueData> StatisticsValueData::createFromModifiedValue(Variant mo
 	return {};
 }
 
-Ref<StatisticsValueData> StatisticsValueData::createNew(const String &displayName, const String &statsCategory, Variant modifierKeys, float baseVal, float finalVal, const TypedArray<String> &categories, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags) {
+Ref<StatisticsValueData> StatisticsValueData::createNew(const String &displayName, const String &statsCategory, Variant modifierKeys, float baseVal, float finalVal, const TypedArray<StringName> &categories, StatisticsFormatTypes format, StatisticsSpecialInfoTypes specialInfo, StatisticsDisplayFlags display_flags) {
 	Ref<StatisticsValueData> newStatsValueData;
 	newStatsValueData.instantiate();
 	newStatsValueData->DisplayName = displayName;

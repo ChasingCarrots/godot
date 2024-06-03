@@ -113,7 +113,7 @@ void GameObject::populateTempNodesWithAllChildren() {
 	}
 }
 
-void GameObject::connectToSignal(String signalName, Callable callable) {
+void GameObject::connectToSignal(const StringName& signalName, const Callable &callable) {
 	PROFILE_FUNCTION()
 	_connectedSignals.push_back({
 			signalName,
@@ -128,7 +128,7 @@ void GameObject::connectToSignal(String signalName, Callable callable) {
 	}
 }
 
-void GameObject::disconnectFromSignal(String signalName, Callable callable) {
+void GameObject::disconnectFromSignal(const StringName& signalName, const Callable &callable) {
 	PROFILE_FUNCTION()
 	int connectedSignalsIndex = 0;
 	auto connectedSignalsIter = _connectedSignals.begin();
@@ -147,7 +147,7 @@ void GameObject::disconnectFromSignal(String signalName, Callable callable) {
 	}
 }
 
-bool GameObject::hasSignal(String signalName) {
+bool GameObject::hasSignal(const StringName& signalName) {
 	PROFILE_FUNCTION()
 	populateTempNodesWithAllChildren();
 	for(auto child : _tempNodeArray) {
@@ -157,7 +157,7 @@ bool GameObject::hasSignal(String signalName) {
 	return false;
 }
 
-void GameObject::injectEmitSignal(String signalName, Array parameters) {
+void GameObject::injectEmitSignal(const StringName& signalName, Array parameters) {
 	PROFILE_FUNCTION()
 	for(auto& signalConnection : _connectedSignals) {
 		if(signalConnection.SignalName == signalName && signalConnection.CallableConnection.is_valid())
@@ -298,12 +298,12 @@ GameObject *GameObject::getInheritModifierFrom() {
 	return getValidatedInheritModifierFrom();
 }
 
-void GameObject::triggerModifierUpdated(String modifierType) {
+void GameObject::triggerModifierUpdated(const StringName& modifierType) {
 	PROFILE_FUNCTION();
 	emit_signal("ModifierUpdated", modifierType);
 }
 
-Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValue, TypedArray<String> categories) {
+Variant GameObject::calculateModifiedValue(const StringName& modifierType, Variant baseValue, TypedArray<StringName> categories) {
 	PROFILE_FUNCTION();
 	PackedStringArray categoriesAsPackedStr;
 	categoriesAsPackedStr.resize(categories.size());
@@ -361,7 +361,7 @@ Variant GameObject::calculateModifiedValue(String modifierType, Variant baseValu
 	return calculatedIntValue;
 }
 
-float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> categories) {
+float GameObject::getAdditiveModifier(const StringName& modifierType, TypedArray<StringName> categories) {
 	PROFILE_FUNCTION();
 	PackedStringArray categoriesAsPackedStr;
 	categoriesAsPackedStr.resize(categories.size());
@@ -386,7 +386,7 @@ float GameObject::getAdditiveModifier(String modifierType, TypedArray<String> ca
 	return additiveModifierSum;
 }
 
-float GameObject::getMultiplicativeModifier(String modifierType, TypedArray<String> categories) {
+float GameObject::getMultiplicativeModifier(const StringName& modifierType, TypedArray<StringName> categories) {
 	PROFILE_FUNCTION();
 	PackedStringArray categoriesAsPackedStr;
 	categoriesAsPackedStr.resize(categories.size());
@@ -433,7 +433,7 @@ void GameObject::unregisterModifier(Modifier *modifier) {
 	}
 }
 
-Array GameObject::getModifiers(String modifierType, TypedArray<String> categories) {
+Array GameObject::getModifiers(const StringName& modifierType, TypedArray<StringName> categories) {
 	PROFILE_FUNCTION();
 	PackedStringArray categoriesAsPackedStr;
 	categoriesAsPackedStr.resize(categories.size());
@@ -462,7 +462,7 @@ Node* GameObject::add_effect(PackedScene *effectScene, GameObject *externalSourc
 	return add_effect_from_pool(effect_object_pool, externalSource);
 }
 
-Node *GameObject::add_effect_from_pool(Ref<ThreadedObjectPool> effect_object_pool, GameObject *externalSource) {
+Node *GameObject::add_effect_from_pool(const Ref<ThreadedObjectPool> &effect_object_pool, GameObject *externalSource) {
 	PROFILE_FUNCTION();
 	Node* effect_instance = effect_object_pool->get_instance_unthreaded();
 
@@ -475,7 +475,7 @@ Node *GameObject::add_effect_from_pool(Ref<ThreadedObjectPool> effect_object_poo
 		return nullptr;
 	}
 
-	String effectID = effect_instance->call("get_effectID");
+	StringName effectID = effect_instance->call("get_effectID");
 	Variant questPool = Global()->get("QuestPool");
 	if(questPool.has_method("notify_effect_applied"))
 		questPool.call("notify_effect_applied", effectID);
@@ -500,7 +500,7 @@ Node *GameObject::add_effect_from_pool(Ref<ThreadedObjectPool> effect_object_poo
 	return effect_instance;
 }
 
-Node* GameObject::find_effect(String effectID) {
+Node* GameObject::find_effect(const StringName& effectID) {
 	PROFILE_FUNCTION();
 
 	SafeObjectPointer<Node> already_applied_effect;
