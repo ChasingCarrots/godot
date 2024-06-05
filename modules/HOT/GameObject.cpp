@@ -156,9 +156,9 @@ bool GameObject::hasSignal(String signalName) {
 
 void GameObject::injectEmitSignal(String signalName, Array parameters) {
 	PROFILE_FUNCTION()
-	for(auto& signalConnection : _connectedSignals) {
-		if(signalConnection.SignalName == signalName && signalConnection.CallableConnection.is_valid())
-			signalConnection.CallableConnection.callv(parameters);
+	for (uint32_t i = 0; i < _connectedSignals.size(); ++i) {
+		if(_connectedSignals[i].SignalName == signalName && _connectedSignals[i].CallableConnection.is_valid())
+			_connectedSignals[i].CallableConnection.callv(parameters);
 	}
 }
 
