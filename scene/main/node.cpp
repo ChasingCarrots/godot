@@ -2902,7 +2902,6 @@ void Node::_duplicate_properties(const Node *p_root, const Node *p_original, Nod
 				if (property_node && (p_root == property_node || p_root->is_ancestor_of(property_node))) {
 					out_value = p_copy->get_node_or_null(p_original->get_path_to(property_node));
 				}
-				p_copy->set(name, out_value);
 			} else if (value.get_type() == Variant::ARRAY) {
 				Array arr = value;
 				if (arr.get_typed_builtin() == Variant::OBJECT) {
@@ -2913,11 +2912,9 @@ void Node::_duplicate_properties(const Node *p_root, const Node *p_original, Nod
 						}
 					}
 					value = arr;
-					p_copy->set(name, value);
 				}
-			} else {
-				p_copy->set(name, value);
 			}
+			p_copy->set(name, value);
 		}
 	}
 
