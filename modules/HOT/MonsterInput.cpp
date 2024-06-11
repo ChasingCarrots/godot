@@ -122,7 +122,7 @@ void MonsterInput::_ready() {
 	targetDirectionSetter = _gameObject->getChildNodeWithMethod("set_targetDirection");
 	targetFacingSetter = _gameObject->getChildNodeWithMethod("set_facingDirection");
 	_targetOverrideProvider = _gameObject->getChildNodeWithMethod("get_override_target_position");
-	if (GameObject::World() == nullptr) {
+	if (GameObject::World() == nullptr || GameObject::World()->get("Player").get_validated_object() == nullptr) {
 		return;
 	}
 	GameObject* player = cast_to<GameObject>(GameObject::World()->get("Player"));

@@ -9,6 +9,7 @@
 #include "SafeObjectPointer.h"
 #include "ThreadedObjectPool.h"
 
+#include <core/os/time.h>
 #include <core/profiling.h>
 #include <core/templates/oa_hash_map.h>
 #include <scene/main/window.h>
@@ -23,7 +24,10 @@ class GameObject : public Node2D {
 
 	Variant _spawn_origin;
 	Variant _inheritModifierFrom;
-	GameObject* getValidatedInheritModifierFrom() {
+
+	Vector2 _trackedGlobalPosition;
+
+	GameObject * getValidatedInheritModifierFrom() {
 		if (_inheritModifierFrom.get_type() != Variant::OBJECT)
 			return nullptr;
 		Object* gameObjectAsPtr = _inheritModifierFrom.get_validated_object();
@@ -167,6 +171,14 @@ public:
 	//ThreadedPool methods
 	void managed_by_pool(ThreadedObjectPool* pool);
 	void recycle_pooled_object();
+
+	//tracked global position
+	void set_tracked_global_position(const Vector2 &tracked_global_position) { _trackedGlobalPosition = tracked_global_position; }
+	Vector2 get_tracked_global_position() const {
+		check_tracked_pos();
+		return _trackedGlobalPosition;
+	}
+	bool check_tracked_pos() const;
 };
 
 

@@ -51,9 +51,8 @@ public:
 
 	Vector2 get_gameobject_worldposition() {
 		PROFILE_FUNCTION();
-		if(_positionProvider.is_valid())
-			return _positionProvider->call("get_worldPosition");
-		return {};
+		ERR_FAIL_COND_V_MSG(_positionProvider.is_valid() && _gameObject->get_tracked_global_position() != _positionProvider->call("get_worldPosition"), {}, ("Tracked position != _positionProvider position in: " + _gameObject->get_scene_file_path()));
+		return _gameObject->get_tracked_global_position();
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
@@ -140,9 +139,8 @@ public:
 
 	Vector2 get_gameobject_worldposition() {
 		PROFILE_FUNCTION();
-		if(_positionProvider.is_valid())
-			return _positionProvider->call("get_worldPosition");
-		return {};
+		ERR_FAIL_COND_V_MSG(_positionProvider.is_valid() && _gameObject->get_tracked_global_position() != _positionProvider->call("get_worldPosition"), {}, ("Error in gameObjectComponent: Tracked position != _positionProvider position in: " + _gameObject->get_scene_file_path()));
+		return _gameObject->get_tracked_global_position();
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
@@ -226,9 +224,8 @@ public:
 
 	Vector2 get_gameobject_worldposition() {
 		PROFILE_FUNCTION()
-		if(_positionProvider.is_valid())
-			return _positionProvider->call("get_worldPosition");
-		return {};
+		ERR_FAIL_COND_V_MSG(_positionProvider.is_valid() && _gameObject->get_tracked_global_position() != _positionProvider->call("get_worldPosition"), {}, ("Tracked position != _positionProvider position in: " + _gameObject->get_scene_file_path()));
+		return _gameObject->get_tracked_global_position();
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
@@ -310,9 +307,8 @@ public:
 
 	Vector2 get_gameobject_worldposition() {
 		PROFILE_FUNCTION();
-		if(_positionProvider.is_valid())
-			return _positionProvider->call("get_worldPosition");
-		return {};
+		ERR_FAIL_COND_V_MSG(_positionProvider.is_valid() && _gameObject->get_tracked_global_position() != _positionProvider->call("get_worldPosition"), {}, ("Tracked position != _positionProvider position in: " + _gameObject->get_scene_file_path()));
+		return _gameObject->get_tracked_global_position();
 	}
 
 	void set_gameobject(GameObject* gameobject)  {
@@ -395,9 +391,8 @@ public:
 
 	Vector2 get_gameobject_worldposition() {
 		PROFILE_FUNCTION();
-		if(_positionProvider.is_valid())
-			return _positionProvider->call("get_worldPosition");
-		return {};
+		ERR_FAIL_COND_V_MSG(_positionProvider.is_valid() && _gameObject->get_tracked_global_position() != _positionProvider->call("get_worldPosition"), {}, ("Tracked position != _positionProvider position in: " + _gameObject->get_scene_file_path()));
+		return _gameObject->get_tracked_global_position();
 	}
 
 	void set_gameobject(GameObject* gameobject)  {

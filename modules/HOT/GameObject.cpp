@@ -45,6 +45,10 @@ void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("managed_by_pool", "pool"), &GameObject::managed_by_pool);
 	ClassDB::bind_method(D_METHOD("recycle_pooled_object"), &GameObject::recycle_pooled_object);
 
+	ClassDB::bind_method(D_METHOD("set_tracked_global_position", "trackedGlobalPosition"), &GameObject::set_tracked_global_position);
+	ClassDB::bind_method(D_METHOD("get_tracked_global_position"), &GameObject::get_tracked_global_position);
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "trackedGlobalPosition", PROPERTY_HINT_NONE, "suffix:px"), "set_tracked_global_position", "get_tracked_global_position");
+
 	ADD_SIGNAL(MethodInfo("ModifierUpdated", PropertyInfo(Variant::STRING_NAME, "type")));
 	ADD_SIGNAL(MethodInfo("Removed", PropertyInfo(Variant::OBJECT, "type", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
 
@@ -557,5 +561,27 @@ void GameObject::recycle_pooled_object() {
 		if (get_child(i)->has_method("recycle_pooled_object")) {
 			get_child(i)->call("recycle_pooled_object");
 		}
+}
+bool GameObject::check_tracked_pos() const {
+	TypedArray<Node> children = get_children();
+	Variant* selectedChild = nullptr;
+
+	for (int i = 0; i < children.size(); ++i) {
+		if(children[i].has_method("get_worldPosition")) {
+			selectedChild = &children[i];
+			break;
+		}
+	}
+
+	if(selectedChild == nullptr) {
+		return false;
+	}
+
+	ERR_FAIL_COND_V_MSG(
+		_trackedGlobalPosition != selectedChild->call("get_worldPosition"),
+		false,
+		"Error in gameObject: Tracked position != _positionProvider position in: " + get_scene_file_path());
+
+	return true;
 }
 

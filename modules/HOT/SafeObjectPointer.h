@@ -23,7 +23,7 @@ public:
 	}
 
 	bool is_valid() const {
-		PROFILE_FUNCTION()
+		//PROFILE_FUNCTION()
 		return _pointedObject != nullptr && ObjectDB::get_instance(_objectID) != nullptr;
 	}
 

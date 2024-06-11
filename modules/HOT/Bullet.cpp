@@ -183,9 +183,9 @@ void Bullet::updateAllBullets(float delta) {
 				Math::deg_to_rad(bullet->MovementCurvatureAngle) / (bullet->MovementCurvatureDistance * delta)));
 		}
 
-		if(bullet->_directionSetter.is_valid() && bullet->_targetPositionProvider.is_valid())
+		if(bullet->_directionSetter.is_valid() && bullet->_target.is_valid())
 			bullet->_directionSetter->call("set_targetDirection",
-				(static_cast<Vector2>(bullet->_targetPositionProvider->call("get_worldPosition")) - bullet->get_gameobject_worldposition()).normalized());
+				(static_cast<Vector2>(bullet->_target->get_tracked_global_position()) - bullet->get_gameobject_worldposition()).normalized());
 
 		if(bullet->get_maximum_distance() > 0) {
 			if(bullet->_speedProvider.is_valid() && bullet->_speedProvider->has_method("get_current_speed")) {
@@ -298,8 +298,8 @@ void Bullet::endLifePart2() {
 }
 
 
-void Bullet::set_homing_target(Node *targetPositionProvider) {
-	_targetPositionProvider = targetPositionProvider;
+void Bullet::set_homing_target(GameObject *target) {
+	_target = target;
 }
 
 float Bullet::get_maximum_distance() {

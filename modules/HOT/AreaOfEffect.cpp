@@ -132,7 +132,7 @@ void AreaOfEffect::UpdateAllAreaOfEffects(float delta) {
 			if(area->_is_harmless || area->_modifiedAttackSpeed->Value() == 0)
 				continue;
 			area->_remainingTimeToNextTrigger += 1.0f / area->_modifiedAttackSpeed->Value();
-			Vector2 position = area->_positionProvider->call("get_worldPosition");
+			Vector2 position = area->get_gameobject_worldposition();
 
 			tempHits.clear();
 			if(area->UseModifiedArea)

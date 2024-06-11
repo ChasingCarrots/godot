@@ -42,7 +42,7 @@ protected:
 
 	SafeObjectPointer<Node> _directionSetter;
 	SafeObjectPointer<Node> _speedProvider;
-	SafeObjectPointer<Node> _targetPositionProvider;
+	SafeObjectPointer<GameObject> _target;
 
 
 	StatisticsValueData::StatisticsTypes StatsDisplayType = StatisticsValueData::PlayerBaseStats;
@@ -63,7 +63,7 @@ public:
 	void sizeWasUpdated(float sizebefore, float newSize);
 	void collisionWithNode(Node* node);
 	void endLife();
-	void set_homing_target(Node* targetPositionProvider);
+	void set_homing_target(GameObject* target);
 	float get_maximum_distance();
 	void _on_hit_damage_applied(const TypedArray<String> &damageCategories, float _damageAmount, const Array &applyReturn, GameObject *_targetNode, bool _isCritical);
 

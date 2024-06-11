@@ -146,6 +146,8 @@ void FastRaybasedMover::_ready() {
 
 	_currentSpeed = _randomizedSpeed;
 	_currentAcceleration = _randomizedAcceleration;
+
+	_gameObject->set_tracked_global_position(get_global_position());
 }
 
 TypedArray<StatisticsValueData> FastRaybasedMover::get_display_stats() {
@@ -234,6 +236,7 @@ void FastRaybasedMover::updateAllFastRaybasedMovers(float delta) {
 				mover->_lastHitObjects.push_back(SafeObjectPointer(hitGameObj));
 		}
 		mover->set_global_position(moverPos + motion);
+		mover->_gameObject->set_tracked_global_position(mover->get_global_position());
 
 		for(auto &node : mover->_lastHitObjects) {
 			if(!node.is_valid() || node->is_queued_for_deletion())
