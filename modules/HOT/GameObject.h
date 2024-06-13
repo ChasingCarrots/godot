@@ -172,9 +172,15 @@ public:
 	void managed_by_pool(ThreadedObjectPool* pool);
 	void recycle_pooled_object();
 
+	bool vector_approx_equal(const Vector2 &vecA, const Vector2 &vecB) const;
+
 	//tracked global position
-	void set_tracked_global_position(const Vector2 &tracked_global_position) { _trackedGlobalPosition = tracked_global_position; }
+	void set_tracked_global_position(const Vector2 &tracked_global_position) {
+		PROFILE_FUNCTION()
+		_trackedGlobalPosition = tracked_global_position;
+	}
 	Vector2 get_tracked_global_position() const {
+		PROFILE_FUNCTION()
 		check_tracked_pos();
 		return _trackedGlobalPosition;
 	}

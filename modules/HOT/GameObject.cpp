@@ -562,6 +562,16 @@ void GameObject::recycle_pooled_object() {
 			get_child(i)->call("recycle_pooled_object");
 		}
 }
+bool GameObject::vector_approx_equal(const Vector2 &vecA, const Vector2 &vecB) const{
+	if(Math::is_equal_approx(vecA.x,vecB.x) && Math::is_equal_approx(vecA.y,vecB.y)) {
+		if(vecA != vecB) {
+			WARN_PRINT("Vectors don't exactly match in scene: " + get_scene_file_path());
+		}
+		return true;
+	}
+	return false;
+}
+
 bool GameObject::check_tracked_pos() const {
 	TypedArray<Node> children = get_children();
 	Variant* selectedChild = nullptr;
@@ -576,9 +586,8 @@ bool GameObject::check_tracked_pos() const {
 	if(selectedChild == nullptr) {
 		return false;
 	}
-
 	ERR_FAIL_COND_V_MSG(
-		_trackedGlobalPosition != selectedChild->call("get_worldPosition"),
+		!vector_approx_equal(_trackedGlobalPosition,selectedChild->call("get_worldPosition")),
 		false,
 		"Error in gameObject: Tracked position != _positionProvider position in: " + get_scene_file_path());
 
