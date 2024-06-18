@@ -83,7 +83,7 @@ public:
 	float get_current_speed() { return _currentSpeed; }
 	void set_current_speed(float newSpeed) { _currentSpeed = newSpeed; }
 	Vector2 get_worldPosition() { return get_global_position(); }
-	void set_worldPosition(Vector2 newWorldPos) { _gameObject->set_tracked_global_position(newWorldPos); set_global_position(newWorldPos); }
+	void set_worldPosition(Vector2 newWorldPos) { if(!_gameObject.is_valid()){return;};_gameObject->set_tracked_global_position(newWorldPos); set_global_position(newWorldPos); }
 	float get_current_acceleration() { return _currentAcceleration; }
 	void set_current_acceleration(float newAccel) { _currentAcceleration = newAccel; }
 	float get_randomized_speed() { return _randomizedSpeed; }

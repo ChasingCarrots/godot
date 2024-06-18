@@ -181,9 +181,13 @@ public:
 	}
 	Vector2 get_tracked_global_position() const {
 		PROFILE_FUNCTION()
+
+#if DEBUG_ENABLED
 		check_tracked_pos();
+#endif
 		return _trackedGlobalPosition;
 	}
+
 	bool check_tracked_pos() const;
 };
 

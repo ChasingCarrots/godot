@@ -47,7 +47,7 @@ void GameObject::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_tracked_global_position", "trackedGlobalPosition"), &GameObject::set_tracked_global_position);
 	ClassDB::bind_method(D_METHOD("get_tracked_global_position"), &GameObject::get_tracked_global_position);
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "trackedGlobalPosition", PROPERTY_HINT_NONE, "suffix:px"), "set_tracked_global_position", "get_tracked_global_position");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "trackedGlobalPosition", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_tracked_global_position", "get_tracked_global_position");
 
 	ADD_SIGNAL(MethodInfo("ModifierUpdated", PropertyInfo(Variant::STRING_NAME, "type")));
 	ADD_SIGNAL(MethodInfo("Removed", PropertyInfo(Variant::OBJECT, "type", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
@@ -62,6 +62,9 @@ void GameObject::_notification(int p_notification) {
 			// directly get called for all the existing children!
 			// (especially problematic when removing and readding a gameobject)
 			call_deferred("_connect_child_entered_tree");
+			break;
+		case NOTIFICATION_READY:
+			_trackedGlobalPosition = get_global_position();
 			break;
 		case NOTIFICATION_EXIT_TREE:
 			_exit_tree();
@@ -569,6 +572,9 @@ bool GameObject::vector_approx_equal(const Vector2 &vecA, const Vector2 &vecB) c
 		}
 		return true;
 	}
+	WARN_PRINT(vformat("vecA:	%f, %f \n", vecA.x, vecA.y));
+	WARN_PRINT(vformat("vecB:	%f, %f \n", vecB.x, vecB.y));
+
 	return false;
 }
 
