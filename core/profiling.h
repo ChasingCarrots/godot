@@ -28,9 +28,8 @@
     };
 #define PROFILING_ALLOC(PTR , SIZE) TracyAlloc(PTR , SIZE);
 #define PROFILING_FREE(PTR) TracyFree(PTR);
-#define PROFILING_START() \
-    const Dictionary dir = Time::get_singleton()->get_datetime_dict_from_system(); \
-    system(vformat("start cmd /c capture.exe -o captures/%04d%02d%02d_%02d%02d_output.tracy -f -s 5",dir["year"],dir["month"],dir["day"],dir["hour"],dir["minute"]).ascii()); \
+#define PROFILING_START_CAPTURE(NAME) \
+    system(vformat("start cmd /c capture.exe -o %s.tracy -f -s 5", NAME).ascii()); \
     print_line("Started tracy capture");
 #else
 #define PROFILE_FRAME(NAME)
@@ -45,7 +44,7 @@
 #define PROFILING_SEND_SCREENSHOT()
 #define PROFILING_ALLOC(...)
 #define PROFILING_FREE(...)
-#define PROFILING_START()
+#define PROFILING_START_CAPTURE(...)
 #endif
 
 #endif //GODOT_SOURCE_PROFILING_H

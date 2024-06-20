@@ -14,7 +14,7 @@ protected:
 	static void _bind_methods();
 
 public:
-	static void startProfiling();
+	static void startProfiling(const String &name);
 };
 
 #endif //PROFILERTRACY_H
