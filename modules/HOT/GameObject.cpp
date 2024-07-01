@@ -572,8 +572,8 @@ bool GameObject::vector_approx_equal(const Vector2 &vecA, const Vector2 &vecB) c
 		}
 		return true;
 	}
-	WARN_PRINT(vformat("vecA:	%f, %f \n", vecA.x, vecA.y));
 	WARN_PRINT(vformat("vecB:	%f, %f \n", vecB.x, vecB.y));
+	WARN_PRINT(vformat("vecA:	%f, %f \n", vecA.x, vecA.y));
 
 	return false;
 }

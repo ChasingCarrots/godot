@@ -26,6 +26,8 @@ class GameObject : public Node2D {
 	Variant _inheritModifierFrom;
 
 	Vector2 _trackedGlobalPosition;
+	SafeObjectPointer<Node2D> _positionProvider;
+	bool _usingPosProvider = true;
 
 	GameObject * getValidatedInheritModifierFrom() {
 		if (_inheritModifierFrom.get_type() != Variant::OBJECT)
@@ -179,13 +181,27 @@ public:
 		PROFILE_FUNCTION()
 		_trackedGlobalPosition = tracked_global_position;
 	}
-	Vector2 get_tracked_global_position() const {
+	Vector2 get_tracked_global_position() {
 		PROFILE_FUNCTION()
 
 #if DEBUG_ENABLED
-		check_tracked_pos();
+		//check_tracked_pos();
 #endif
-		return _trackedGlobalPosition;
+		if(_usingPosProvider && !_positionProvider.is_valid()) {
+			_positionProvider.set(static_cast<Node2D*>(getChildNodeWithMethod("get_worldPosition")));
+
+			if(!_positionProvider.is_valid()) {
+#if DEBUG_ENABLED
+				WARN_PRINT("No positionProvider in GameObject: " + get_scene_file_path() + ". Global Position was returned: " + get_global_position());
+#endif
+				_usingPosProvider = false;
+			}
+		}
+
+		if(_usingPosProvider) {
+			return _positionProvider->get_global_position();
+		}
+		return get_global_position();
 	}
 
 	bool check_tracked_pos() const;
