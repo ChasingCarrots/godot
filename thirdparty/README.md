@@ -902,7 +902,7 @@ instead of `miniz.h` as an external dependency.
 ## thorvg
 
 - Upstream: https://github.com/thorvg/thorvg
-- Version: 0.13.7 (d2c0428a99f7305c086caffe0c730add601ebd6e, 2024)
+- Version: 0.14.0 (ae4e9d003c93325f1eba64319fa9852a0d764b4c, 2024)
 - License: MIT
 
 Files extracted from upstream source:
@@ -1024,6 +1024,8 @@ Files extracted from upstream source:
 - `unstable/relative-pointer/relative-pointer-unstable-v1.xml`
 - `unstable/tablet/README`
 - `unstable/tablet/tablet-unstable-v2.xml`
+- `unstable/text-input/README`
+- `unstable/text-input/text-input-unstable-v3.xml`
 - `unstable/xdg-decoration/README`
 - `unstable/xdg-decoration/xdg-decoration-unstable-v1.xml`
 - `unstable/xdg-foreign/README`
