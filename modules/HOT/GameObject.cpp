@@ -49,6 +49,9 @@ void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tracked_global_position"), &GameObject::get_tracked_global_position);
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "trackedGlobalPosition", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_tracked_global_position", "get_tracked_global_position");
 
+	ClassDB::bind_method(D_METHOD("set_position_provider", "positionProvider"), &GameObject::set_position_provider);
+	ClassDB::bind_method(D_METHOD("get_position_provider"), &GameObject::get_position_provider);
+
 	ADD_SIGNAL(MethodInfo("ModifierUpdated", PropertyInfo(Variant::STRING_NAME, "type")));
 	ADD_SIGNAL(MethodInfo("Removed", PropertyInfo(Variant::OBJECT, "type", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
 
@@ -100,8 +103,8 @@ void GameObject::_child_entered_tree(Node* childNode) {
 	}
 }
 
-void fillArrayWithChildrenOfNode(Node* node, LocalVector<Node*>& array) {
-	for(int i=0; i < node->get_child_count(); ++i)
+void fillArrayWithChildrenOfNode(Node *node, LocalVector<Node *> &array) {
+	for (int i = 0; i < node->get_child_count(); ++i)
 		array.push_back(node->get_child(i));
 }
 
@@ -564,39 +567,5 @@ void GameObject::recycle_pooled_object() {
 		if (get_child(i)->has_method("recycle_pooled_object")) {
 			get_child(i)->call("recycle_pooled_object");
 		}
-}
-bool GameObject::vector_approx_equal(const Vector2 &vecA, const Vector2 &vecB) const{
-	if(Math::is_equal_approx(vecA.x,vecB.x) && Math::is_equal_approx(vecA.y,vecB.y)) {
-		if(vecA != vecB) {
-			WARN_PRINT("Vectors don't exactly match in scene: " + get_scene_file_path());
-		}
-		return true;
-	}
-	WARN_PRINT(vformat("vecB:	%f, %f \n", vecB.x, vecB.y));
-	WARN_PRINT(vformat("vecA:	%f, %f \n", vecA.x, vecA.y));
-
-	return false;
-}
-
-bool GameObject::check_tracked_pos() const {
-	TypedArray<Node> children = get_children();
-	Variant* selectedChild = nullptr;
-
-	for (int i = 0; i < children.size(); ++i) {
-		if(children[i].has_method("get_worldPosition")) {
-			selectedChild = &children[i];
-			break;
-		}
-	}
-
-	if(selectedChild == nullptr) {
-		return false;
-	}
-	ERR_FAIL_COND_V_MSG(
-		!vector_approx_equal(_trackedGlobalPosition,selectedChild->call("get_worldPosition")),
-		false,
-		"Error in gameObject: Tracked position != _positionProvider position in: " + get_scene_file_path());
-
-	return true;
 }
 

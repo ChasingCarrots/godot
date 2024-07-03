@@ -27,6 +27,7 @@ class GameObject : public Node2D {
 
 	Vector2 _trackedGlobalPosition;
 	SafeObjectPointer<Node2D> _positionProvider;
+
 	bool _usingPosProvider = true;
 
 	GameObject * getValidatedInheritModifierFrom() {
@@ -205,6 +206,14 @@ public:
 	}
 
 	bool check_tracked_pos() const;
+
+	void set_position_provider(Node2D* position_provider){	_positionProvider.set(position_provider); }
+	Node2D*  get_position_provider() {
+		if(!_positionProvider.is_valid()) {
+			_positionProvider.set(static_cast<Node2D*>(getChildNodeWithMethod("get_worldPosition")));
+		}
+		return _positionProvider.get();
+	}
 };
 
 
