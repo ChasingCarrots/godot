@@ -121,7 +121,12 @@ void MonsterInput::_ready() {
 	if (GameObject::World() == nullptr) {
 		return;
 	}
-	GameObject* player = cast_to<GameObject>(GameObject::World()->get("Player"));
+	GameObject* player = nullptr;
+	if(GameObject::World() != nullptr) {
+		auto playerNode = GameObject::World()->get("Player").get_validated_object();
+		if(playerNode != nullptr)
+			player = static_cast<GameObject *>(playerNode);
+	}
 
 	if (SetPlayerAsTargetOnSpawn && player != nullptr && !player->is_queued_for_deletion())
 		set_target(player);
