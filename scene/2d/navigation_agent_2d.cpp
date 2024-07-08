@@ -673,8 +673,6 @@ void NavigationAgent2D::_update_navigation() {
 		return;
 	}
 
-	update_frame_id = Engine::get_singleton()->get_physics_frames();
-
 	Vector2 origin = agent_parent->get_global_position();
 
 	bool reload_path = false;
@@ -769,7 +767,6 @@ void NavigationAgent2D::_request_repath() {
 	target_reached = false;
 	navigation_finished = false;
 	last_waypoint_reached = false;
-	update_frame_id = 0;
 }
 
 bool NavigationAgent2D::_is_last_waypoint() const {
