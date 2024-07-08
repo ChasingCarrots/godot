@@ -36,6 +36,8 @@ class GameObject : public Node2D {
 	LocalVector<SignalCallable> _connectedSignals;
 	LocalVector<Variant> _sourceTree;
 	LocalVector<Modifier*> _modifier;
+	float _negativeModMultiplier = 1;
+	float _positiveModMultiplier = 1;
 	OAHashMap<uint32_t, SafeObjectPointer<Node>> _current_effects;
 
 	LocalVector<Node*> _tempNodeArray;
@@ -150,6 +152,11 @@ public:
 	void registerModifier(Modifier* modifier);
 	void unregisterModifier(Modifier* modifier);
 	Array getModifiers(String modifierType, TypedArray<String> categories);
+
+	float GetNegativeModMultiplier() const { return _negativeModMultiplier; }
+	void SetNegativeModMultiplier(float negativeModMultiplier) { _negativeModMultiplier = negativeModMultiplier; }
+	float GetPositiveModMultiplier() const { return _positiveModMultiplier; }
+	void SetPositiveModMultiplier(float positiveModMultiplier) { _positiveModMultiplier = positiveModMultiplier; }
 
 	// effect system
 	Node* add_effect(PackedScene* effectScene, GameObject* externalSource);
