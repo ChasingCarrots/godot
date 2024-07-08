@@ -29,6 +29,12 @@ void GameObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("triggerModifierUpdated", "modifierType"), &GameObject::triggerModifierUpdated);
 	ClassDB::bind_method(D_METHOD("calculateModifiedValue", "modifierType", "baseValue", "categories"), &GameObject::calculateModifiedValue);
 	ClassDB::bind_method(D_METHOD("getModifiers", "modifierType", "categories"), &GameObject::getModifiers);
+	ClassDB::bind_method(D_METHOD("set_negative_mod_multiplier", "negative_mod_multiplier"), &GameObject::SetNegativeModMultiplier);
+	ClassDB::bind_method(D_METHOD("get_negative_mod_multiplier"), &GameObject::GetNegativeModMultiplier);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "negative_mod_multiplier"), "set_negative_mod_multiplier", "get_negative_mod_multiplier");
+	ClassDB::bind_method(D_METHOD("set_positive_mod_multiplier", "positive_mod_multiplier"), &GameObject::SetPositiveModMultiplier);
+	ClassDB::bind_method(D_METHOD("get_positive_mod_multiplier"), &GameObject::GetPositiveModMultiplier);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "positive_mod_multiplier"), "set_positive_mod_multiplier", "get_positive_mod_multiplier");
 
 	ClassDB::bind_method(D_METHOD("add_effect", "effectScene", "externalSource"), &GameObject::add_effect);
 	ClassDB::bind_method(D_METHOD("add_effect_from_pool", "objectPool", "externalSource"), &GameObject::add_effect_from_pool);
@@ -340,22 +346,35 @@ Variant GameObject::calculateModifiedValue(const StringName& modifierType, Varia
 	float baseValueFloat = baseValue;
 	float multiplier = 1;
 
+	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
+	float neg_mult = validatedInheritModifierFrom != nullptr
+		? validatedInheritModifierFrom->_negativeModMultiplier
+		: _negativeModMultiplier;
+	float pos_mult = validatedInheritModifierFrom != nullptr
+		? validatedInheritModifierFrom->_positiveModMultiplier
+		: _positiveModMultiplier;
+
 	for(auto modifier : _modifier) {
 		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
-		baseValueInt += (int)modifier->getAdditiveModifier();
-		baseValueFloat += modifier->getAdditiveModifier();
-		multiplier += modifier->getMultiplierModifier();
+		float mod_value = modifier->getAdditiveModifier();
+		baseValueInt += (int)(mod_value * (mod_value < 0 ? neg_mult : pos_mult));
+		mod_value = modifier->getAdditiveModifier();
+		baseValueFloat += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
+		mod_value = modifier->getMultiplierModifier();
+		multiplier += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
 	}
 
-	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
 			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
-			baseValueInt += (int)modifier->getAdditiveModifier();
-			baseValueFloat += modifier->getAdditiveModifier();
-			multiplier += modifier->getMultiplierModifier();
+			float mod_value = modifier->getAdditiveModifier();
+			baseValueInt += (int)(mod_value * (mod_value < 0 ? neg_mult : pos_mult));
+			mod_value = modifier->getAdditiveModifier();
+			baseValueFloat += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
+			mod_value = modifier->getMultiplierModifier();
+			multiplier += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
 		}
 	}
 
@@ -378,18 +397,28 @@ float GameObject::getAdditiveModifier(const StringName& modifierType, TypedArray
 	for (int i = 0; i < categories.size(); ++i)
 		categoriesAsPackedStr.set(i, categories[i]);
 	float additiveModifierSum = 0;
+
+	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
+	float neg_mult = validatedInheritModifierFrom != nullptr
+		? validatedInheritModifierFrom->_negativeModMultiplier
+		: _negativeModMultiplier;
+	float pos_mult = validatedInheritModifierFrom != nullptr
+		? validatedInheritModifierFrom->_positiveModMultiplier
+		: _positiveModMultiplier;
+
 	for(auto modifier : _modifier) {
 		if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 			continue ;
-		additiveModifierSum += modifier->getAdditiveModifier();
+		float mod_value = modifier->getAdditiveModifier();
+		additiveModifierSum += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
 	}
 
-	GameObject* validatedInheritModifierFrom = getValidatedInheritModifierFrom();
 	if(validatedInheritModifierFrom != nullptr && !validatedInheritModifierFrom->is_queued_for_deletion()) {
 		for(auto modifier : validatedInheritModifierFrom->_modifier) {
 			if(!modifier->isRelevant(modifierType, categoriesAsPackedStr))
 				continue ;
-			additiveModifierSum += modifier->getAdditiveModifier();
+			float mod_value = modifier->getAdditiveModifier();
+			additiveModifierSum += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
 		}
 	}
 
