@@ -15,62 +15,7 @@ void ThreadedObjectPool::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_max_number_of_instances", "max_num_instances"), &ThreadedObjectPool::set_max_number_of_instances);
 }
 
-void ThreadedObjectPool::instance_creation_thread_loop(void *p_ud) {
-	// the scene instantiation calls some methods that are deemed unsafe, so we have to
-	// disable the thread safety for us...
-	set_current_thread_safe_for_nodes(true);
-
-	ThreadedObjectPool* pool = static_cast<ThreadedObjectPool *>(p_ud);
-	while(!pool->_endThread) {
-		pool->_instanceCreationSemaphore.wait();
-		if(pool->_endThread)
-			break;
-
-		while(true) {
-			InstanceCreationData workOnCreation;
-
-			{
-				MutexLock lock(pool->_instanceListMutex);
-				for (uint32_t i = 0; i < pool->_instanceCreationQueue.size(); ++i) {
-					if (pool->_instanceCreationQueue[i].CreatedInstance == nullptr) {
-						// we'll remove this one from the queue, so that
-						// we can work on it without holding the lock!
-						workOnCreation = pool->_instanceCreationQueue[i];
-						pool->_instanceCreationQueue.remove_at_unordered(i);
-						break;
-					}
-				}
-			}
-
-			if(workOnCreation.CreationCallback.is_valid()) {
-				{
-					PROFILE_FUNCTION_NAMED("InstantiatePooledObject")
-					workOnCreation.CreatedInstance = pool->_sceneToInstantiate->instantiate();
-					if (workOnCreation.CreatedInstance->has_method("managed_by_pool")) {
-						workOnCreation.CreatedInstance->call("managed_by_pool", pool);
-					}
-				}
-				// our work is done! let's put it back on the queue, so the main thread
-				// can trigger the callback and remove it from the queue for good.
-				{
-					MutexLock lock(pool->_instanceListMutex);
-					pool->_instanceCreationQueue.push_back(workOnCreation);
-				}
-			}
-			else {
-				// no more creation jobs in the queue! let's break this loop!
-				break;
-			}
-		}
-	}
-}
-
 ThreadedObjectPool::~ThreadedObjectPool() {
-	if(_instanceCreationThread.is_started()) {
-		_endThread = true;
-		_instanceCreationSemaphore.post();
-		_instanceCreationThread.wait_to_finish();
-	}
 	clear_all_instances();
 }
 
@@ -80,7 +25,6 @@ void ThreadedObjectPool::init_with_scene_res(Ref<PackedScene> sceneRes, int maxN
 	_sceneToInstantiate = sceneRes;
 	if(!_sceneToInstantiate.is_valid())
 		return;
-	_instanceCreationThread.start(instance_creation_thread_loop, this);
 }
 
 void ThreadedObjectPool::init_with_scene(String scenePath, int maxNumberOfInstances, ThreadedObjectPool::MaxInstancesReachedBehaviour maxBehaviour) {
@@ -89,11 +33,12 @@ void ThreadedObjectPool::init_with_scene(String scenePath, int maxNumberOfInstan
 	_sceneToInstantiate = ResourceLoader::load(scenePath);
 	if(!_sceneToInstantiate.is_valid())
 		return;
-	_instanceCreationThread.start(instance_creation_thread_loop, this);
 }
 
 void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 	PROFILE_FUNCTION()
+	ERR_FAIL_COND_MSG(!_sceneToInstantiate.is_valid(),"_instanceCreationQue empty in WorkerThread");
+
 	if(_availableObjects.is_empty() && _inUseObjects.size() >= _maxNumberOfInstances) {
 		switch(_maxBehaviour) {
 			case ReturnNull:
@@ -135,9 +80,42 @@ void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 	}
 	InstanceCreationData creationData;
 	creationData.CreationCallback = instanceCreatedCallback;
-	MutexLock lock(_instanceListMutex);
-	_instanceCreationQueue.push_back(creationData);
-	_instanceCreationSemaphore.post();
+	{
+		MutexLock lock(_instanceListMutex);
+		_instanceCreationQueue.push_back(creationData);
+
+		_taskIDsInQueue.push_back(
+			WorkerThreadPool::get_singleton()->add_task(
+			callable_mp(this, &ThreadedObjectPool::handleCreationQueueElement), false, "instantiate in ThreadPool"));
+	}
+}
+
+void ThreadedObjectPool::handleCreationQueueElement() {
+	if(_is_clearing_instances) {
+		return;
+	}
+	InstanceCreationData workOnCreation;
+	{
+		MutexLock lock(_instanceListMutex);
+		ERR_FAIL_COND_MSG(_instanceCreationQueue.is_empty(),"_instanceCreationQue empty in WorkerThread");
+		workOnCreation = _instanceCreationQueue[0];
+		_instanceCreationQueue.remove_at(0);
+	}
+
+	if(workOnCreation.CreationCallback.is_valid()) {
+		{
+			workOnCreation.CreatedInstance = _sceneToInstantiate->instantiate();
+			if (workOnCreation.CreatedInstance->has_method("managed_by_pool")) {
+				workOnCreation.CreatedInstance->call("managed_by_pool", this);
+			}
+		}
+		// our work is done! let's put it back on the queue, so the main thread
+		// can trigger the callback and remove it from the queue for good.
+		{
+			MutexLock lock(_instanceListMutex);
+			_finishedCreations.push_back(workOnCreation);
+		}
+	}
 }
 
 Node* ThreadedObjectPool::get_instance_unthreaded() {
@@ -206,37 +184,44 @@ void ThreadedObjectPool::run_callbacks() {
 	PROFILE_FUNCTION()
 	MutexLock lock(_instanceListMutex);
 	uint32_t i = 0;
-	while(i < _instanceCreationQueue.size()) {
-		if(_instanceCreationQueue[i].CreatedInstance != nullptr) {
-			if(_instanceCreationQueue[i].CreatedInstance->has_method("recycle_pooled_object"))
-				_instanceCreationQueue[i].CreatedInstance->call("recycle_pooled_object");
-			_inUseObjects.push_back(_instanceCreationQueue[i].CreatedInstance->get_instance_id());
-			_instanceCreationQueue[i].CreationCallback.call(_instanceCreationQueue[i].CreatedInstance);
-			_instanceCreationQueue.remove_at_unordered(i);
+	while(i < _finishedCreations.size()) {
+		if(_finishedCreations[i].CreatedInstance != nullptr) {
+			if(_finishedCreations[i].CreatedInstance->has_method("recycle_pooled_object"))
+				_finishedCreations[i].CreatedInstance->call("recycle_pooled_object");
+			_inUseObjects.push_back(_finishedCreations[i].CreatedInstance->get_instance_id());
+			_finishedCreations[i].CreationCallback.call(_finishedCreations[i].CreatedInstance);
+			_finishedCreations.remove_at_unordered(i);
 		}
 		else {
 			++i;
 		}
 	}
+	i = 0;
+	while(i < _taskIDsInQueue.size()) {
+		if(WorkerThreadPool::get_singleton()->is_task_completed(_taskIDsInQueue[i])) {
+			WorkerThreadPool::get_singleton()->wait_for_task_completion(_taskIDsInQueue[i]);
+			_taskIDsInQueue.remove_at_unordered(i);
+		} else {
+			i++;
+		}
+	}
 }
 void ThreadedObjectPool::clear_all_instances() {
 	_is_clearing_instances = true;
-	// don't leave the thread running while we clear the instances
-	// (could lead to strange race conditions!)
-	bool restartThread = false;
-	if(_instanceCreationThread.is_started()) {
-		_endThread = true;
-		_instanceCreationSemaphore.post();
-		_instanceCreationThread.wait_to_finish();
-		restartThread = true;
-	}
 
 	MutexLock lock(_instanceListMutex);
-	for(auto& creationData : _instanceCreationQueue) {
+	while(_taskIDsInQueue.size() > 0) {
+		WorkerThreadPool::get_singleton()->wait_for_task_completion(_taskIDsInQueue[0]);
+		_taskIDsInQueue.remove_at_unordered(0);
+	}
+
+	for(auto& creationData : _finishedCreations) {
 		if(creationData.CreatedInstance != nullptr)
 			creationData.CreatedInstance->queue_free();
 	}
 	_instanceCreationQueue.clear();
+	_finishedCreations.clear();
+
 	for(ObjectID objId : _inUseObjects) {
 		Node* obj = Object::cast_to<Node>(ObjectDB::get_instance(objId));
 		if(obj == nullptr)
@@ -253,9 +238,4 @@ void ThreadedObjectPool::clear_all_instances() {
 	_availableObjects.clear();
 
 	_is_clearing_instances = false;
-
-	if(restartThread && _sceneToInstantiate.is_valid()) {
-		_endThread = false;
-		_instanceCreationThread.start(instance_creation_thread_loop, this);
-	}
 }
