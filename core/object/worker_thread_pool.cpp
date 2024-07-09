@@ -51,6 +51,7 @@ thread_local uintptr_t WorkerThreadPool::unlockable_mutexes[MAX_UNLOCKABLE_MUTEX
 
 void WorkerThreadPool::_process_task(Task *p_task) {
 #ifdef THREADS_ENABLED
+	PROFILE_DYNAMIC_FUNCTION_START(vformat("WorkerThreadPool::_process_task -> [%s]", p_task->description).ascii())
 	int pool_thread_index = thread_ids[Thread::get_caller_id()];
 	ThreadData &curr_thread = threads[pool_thread_index];
 	Task *prev_task = nullptr; // In case this is recursively called.
@@ -173,6 +174,8 @@ void WorkerThreadPool::_process_task(Task *p_task) {
 
 	set_current_thread_safe_for_nodes(safe_for_nodes_backup);
 	MessageQueue::set_thread_singleton_override(call_queue_backup);
+
+	PROFILE_DYNAMIC_FUNCTION_END()
 #endif
 }
 

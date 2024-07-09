@@ -42,10 +42,10 @@ void AreaOfEffect::_bind_methods() {
 	ADD_PROPERTY_DEFAULT("ProbabilityToApply", 1.0f);
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "modifierCategories"), &AreaOfEffect::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &AreaOfEffect::GetModifierCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), "set_ModifierCategories", "get_ModifierCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "ModifierCategories"), "set_ModifierCategories", "get_ModifierCategories");
 	ClassDB::bind_method(D_METHOD("set_DamageCategories", "damageCategories"), &AreaOfEffect::SetDamageCategories);
 	ClassDB::bind_method(D_METHOD("get_DamageCategories"), &AreaOfEffect::GetDamageCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "DamageCategories", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), "set_DamageCategories", "get_DamageCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "DamageCategories"), "set_DamageCategories", "get_DamageCategories");
 	ClassDB::bind_method(D_METHOD("set_UseModifiedArea", "useModifiedArea"), &AreaOfEffect::SetUseModifiedArea);
 	ClassDB::bind_method(D_METHOD("get_UseModifiedArea"), &AreaOfEffect::GetUseModifiedArea);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "UseModifiedArea"), "set_UseModifiedArea", "get_UseModifiedArea");

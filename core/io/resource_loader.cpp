@@ -477,8 +477,9 @@ Ref<ResourceLoader::LoadToken> ResourceLoader::_load_start(const String &p_path,
 				// The token is dying (reached 0 on another thread).
 				// Ensure it's killed now so the path can be safely reused right away.
 				thread_load_tasks[local_path].load_token->clear();
+			} else {
+				return load_token;
 			}
-			return load_token;
 		}
 
 		load_token.instantiate();
