@@ -163,13 +163,17 @@ bool Resource::editor_can_reload_from_file() {
 
 void Resource::connect_changed(const Callable &p_callable, uint32_t p_flags) {
 	if (!is_connected(CoreStringName(changed), p_callable) || p_flags & CONNECT_REFERENCE_COUNTED) {
+		mutex.lock();
 		connect(CoreStringName(changed), p_callable, p_flags);
+		mutex.unlock();
 	}
 }
 
 void Resource::disconnect_changed(const Callable &p_callable) {
 	if (is_connected(CoreStringName(changed), p_callable)) {
+		mutex.lock();
 		disconnect(CoreStringName(changed), p_callable);
+		mutex.unlock();
 	}
 }
 
