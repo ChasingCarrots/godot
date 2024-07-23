@@ -141,9 +141,12 @@ void CollisionShape2D::set_shape(const Ref<Shape2D> &p_shape) {
 	if (p_shape == shape) {
 		return;
 	}
+#ifdef TOOLS_ENABLED
 	if (shape.is_valid()) {
 		shape->disconnect_changed(callable_mp(this, &CollisionShape2D::_shape_changed));
 	}
+#endif
+
 	shape = p_shape;
 	queue_redraw();
 	if (collision_object) {
@@ -154,10 +157,11 @@ void CollisionShape2D::set_shape(const Ref<Shape2D> &p_shape) {
 		_update_in_shape_owner();
 	}
 
+#ifdef TOOLS_ENABLED
 	if (shape.is_valid()) {
 		shape->connect_changed(callable_mp(this, &CollisionShape2D::_shape_changed));
 	}
-
+#endif
 	update_configuration_warnings();
 }
 

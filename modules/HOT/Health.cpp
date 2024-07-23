@@ -24,7 +24,7 @@ void Health::_bind_methods() {
 	
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "modifierCategories"), &Health::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &Health::GetModifierCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), "set_ModifierCategories", "get_ModifierCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "ModifierCategories"), "set_ModifierCategories", "get_ModifierCategories");
 	ClassDB::bind_method(D_METHOD("set_StartHealth", "startHealth"), &Health::SetStartHealth);
 	ClassDB::bind_method(D_METHOD("get_StartHealth"), &Health::GetStartHealth);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "StartHealth"), "set_StartHealth", "get_StartHealth");

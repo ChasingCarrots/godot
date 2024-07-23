@@ -1,1 +1,1 @@
-scons target=template_release debug_symbols=yes tools=no
+scons target=template_release debug_symbols=yes tools=no use_breakpad=yes

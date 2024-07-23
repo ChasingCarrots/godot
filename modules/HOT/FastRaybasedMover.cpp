@@ -35,13 +35,13 @@ void FastRaybasedMover::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "alignTransformWithMovement"), "set_AlignTransformWithMovement", "get_AlignTransformWithMovement");
 	ClassDB::bind_method(D_METHOD("set_HitLocatorPools", "hitLocatorPools"), &FastRaybasedMover::SetHitLocatorPools);
 	ClassDB::bind_method(D_METHOD("get_HitLocatorPools"), &FastRaybasedMover::GetHitLocatorPools);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "HitLocatorPools", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), "set_HitLocatorPools", "get_HitLocatorPools");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "HitLocatorPools"), "set_HitLocatorPools", "get_HitLocatorPools");
 	ClassDB::bind_method(D_METHOD("set_RotationOverTime", "rotationOverTime"), &FastRaybasedMover::SetRotationOverTime);
 	ClassDB::bind_method(D_METHOD("get_RotationOverTime"), &FastRaybasedMover::GetRotationOverTime);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "rotationOverTime"), "set_RotationOverTime", "get_RotationOverTime");
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "modifierCategories"), &FastRaybasedMover::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &FastRaybasedMover::GetModifierCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), "set_ModifierCategories", "get_ModifierCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "ModifierCategories"), "set_ModifierCategories", "get_ModifierCategories");
 	ClassDB::bind_method(D_METHOD("set_SpeedModifier", "speedModifier"), &FastRaybasedMover::SetSpeedModifier);
 	ClassDB::bind_method(D_METHOD("get_SpeedModifier"), &FastRaybasedMover::GetSpeedModifier);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "speedModifier"), "set_SpeedModifier", "get_SpeedModifier");

@@ -35,7 +35,7 @@ void Bullet::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "newModifierCategories"), &Bullet::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &Bullet::GetModifierCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), "set_ModifierCategories", "get_ModifierCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "ModifierCategories"), "set_ModifierCategories", "get_ModifierCategories");
 
 	ClassDB::bind_method(D_METHOD("set_IsCharacterBaseNode", "newIsCharacterBaseNode"), &Bullet::SetIsCharacterBaseNode);
 	ClassDB::bind_method(D_METHOD("get_IsCharacterBaseNode"), &Bullet::GetIsCharacterBaseNode);
