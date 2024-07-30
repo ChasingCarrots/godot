@@ -71,9 +71,9 @@ void MonsterInput::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_Input_Direction", "input_direction"), &MonsterInput::SetInputDirection);
 	ClassDB::bind_method(D_METHOD("get_Input_Direction"), &MonsterInput::GetInputDirection);
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "input_Direction", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_Input_Direction", "get_Input_Direction");
-	ClassDB::bind_method(D_METHOD("set_Loitering_Counter", "loitering_counter"), &MonsterInput::SetLoiteringCounter);
-	ClassDB::bind_method(D_METHOD("get_Loitering_Counter"), &MonsterInput::GetLoiteringCounter);
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "loitering_counter", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_Loitering_Counter", "get_Loitering_Counter");
+	ClassDB::bind_method(D_METHOD("set_Loitering_Start_Time", "loitering_start_time"), &MonsterInput::SetLoiteringStartTime);
+	ClassDB::bind_method(D_METHOD("get_Loitering_Start_Time"), &MonsterInput::GetLoiteringStartTime);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "loitering_start_time", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_Loitering_Start_Time", "get_Loitering_Start_Time");
 	ClassDB::bind_method(D_METHOD("set_target", "targetNode"), &MonsterInput::SetTargetPosProvider);
 	ClassDB::bind_method(D_METHOD("get_TargetPosProvider"), &MonsterInput::GetTargetPosProvider);
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "_targetPosProvider", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_target", "get_TargetPosProvider");
@@ -161,6 +161,7 @@ void MonsterInput::updateAllMonsterInputs(float delta) {
 
 	PROFILE_FUNCTION();
 	NodePosCache.clear();
+	float now = static_cast<float>(GameObject::World()->get("current_world_time"));
 	for(int monster_index= static_cast<int>(_allMonsterInputs.size()) -1; monster_index >= 0; --monster_index) {
 		MonsterInput* monster = _allMonsterInputs[monster_index];
 		if(monster->remaining_frames_to_update <= 0) {
@@ -221,17 +222,19 @@ void MonsterInput::updateAllMonsterInputs(float delta) {
 					newInputDir = newInputDir.normalized();
 
 				if(monster->MaxLoiteringDuration > 0.0f) {
-					if(monster->loitering_counter == 0.0f)
-						monster->loitering_counter = VariantUtilityFunctions::randf_range(monster->MinLoiteringDuration, monster->MaxLoiteringDuration);
-					else if(monster->loitering_counter > 0.0f) {
-						monster->loitering_counter = std::max(0.0f, std::min(9999.0f, monster->loitering_counter - delta));
+					if (now > (monster->loitering_start_time + monster->loitering_duration + monster->motion_duration))
+					{
+						// motion phase is finished, reroll loitering duration and reset the loitering start time --> start loitering
+						monster->loitering_start_time = now;
+						monster->loitering_duration = VariantUtilityFunctions::randf_range(monster->MinLoiteringDuration, monster->MaxLoiteringDuration);
+						monster->motion_duration = VariantUtilityFunctions::randf_range(monster->MinMotionDuration, monster->MaxMotionDuration);
+					}
+					else if (now < (monster->loitering_start_time + monster->loitering_duration))
+					{
+						// don't move during loitering phase
 						monster->targetFacingSetter->call("set_facingDirection", newInputDir);
 						newInputDir = Vector2();
-						if(monster->loitering_counter == 0.0f)
-							monster->loitering_counter = -VariantUtilityFunctions::randf_range(monster->MinMotionDuration, monster->MaxMotionDuration);
 					}
-					else if(monster->loitering_counter < 0.0)
-						monster->loitering_counter = std::max(-9999.0f, std::min(0.0f, monster->loitering_counter + delta));
 				}
 			}
 			if(newInputDir != monster->input_direction) {

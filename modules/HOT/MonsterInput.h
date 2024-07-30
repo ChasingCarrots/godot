@@ -39,7 +39,7 @@ public:
 	SafeObjectPointer<Node> targetDirectionSetter;
 	SafeObjectPointer<Node> targetFacingSetter;
 	Vector2 input_direction;
-	float loitering_counter = 0;
+	float loitering_start_time = 0;
 	SafeObjectPointer<Node> _targetPosProvider;
 	Vector2 targetOffset;
 	SafeObjectPointer<Node> _targetOverrideProvider;
@@ -49,6 +49,8 @@ public:
 	void set_target(GameObject* targetNode);
 	Vector2 get_inputWalkDir();
 	Vector2 get_aimDirection();
+	float loitering_duration;
+	float motion_duration;
 
 	[[nodiscard]] bool GetSetPlayerAsTargetOnSpawn() const { return SetPlayerAsTargetOnSpawn; }
 	void SetSetPlayerAsTargetOnSpawn(bool setPlayerAsTargetOnSpawn) { SetPlayerAsTargetOnSpawn = setPlayerAsTargetOnSpawn; }
@@ -90,8 +92,8 @@ public:
 	void SetTargetFacingSetter(Node* newTargetFacingSetter) { targetFacingSetter = newTargetFacingSetter; }
 	[[nodiscard]] Vector2 GetInputDirection() const { return input_direction; }
 	void SetInputDirection(const Vector2 &inputDirection) { input_direction = inputDirection; }
-	[[nodiscard]] float GetLoiteringCounter() const { return loitering_counter; }
-	void SetLoiteringCounter(float loiteringCounter) { loitering_counter = loiteringCounter; }
+	[[nodiscard]] float GetLoiteringStartTime() const { return loitering_start_time; }
+	void SetLoiteringStartTime(float loiteringStartTime) { loitering_start_time = loiteringStartTime; }
 	[[nodiscard]] Node* GetTargetPosProvider() { return _targetPosProvider.get(); }
 	void SetTargetPosProvider(Node* targetPosProvider) { _targetPosProvider = targetPosProvider; }
 	[[nodiscard]] Vector2 GetTargetOffset() const { return targetOffset; }
