@@ -39,7 +39,7 @@ public:
 	SafeObjectPointer<Node> targetDirectionSetter;
 	SafeObjectPointer<Node> targetFacingSetter;
 	Vector2 input_direction;
-	float loitering_start_time = 0;
+	float loitering_start_time = 1.0;
 	SafeObjectPointer<Node> _targetPosProvider;
 	Vector2 targetOffset;
 	SafeObjectPointer<Node> _targetOverrideProvider;
@@ -49,8 +49,8 @@ public:
 	void set_target(GameObject* targetNode);
 	Vector2 get_inputWalkDir();
 	Vector2 get_aimDirection();
-	float loitering_duration;
-	float motion_duration;
+	float loitering_duration = 1.0;
+	float motion_duration = 1.0;
 
 	[[nodiscard]] bool GetSetPlayerAsTargetOnSpawn() const { return SetPlayerAsTargetOnSpawn; }
 	void SetSetPlayerAsTargetOnSpawn(bool setPlayerAsTargetOnSpawn) { SetPlayerAsTargetOnSpawn = setPlayerAsTargetOnSpawn; }
