@@ -184,6 +184,21 @@ if env["builtin_zstd"]:
 
     env_thirdparty.add_source_files(thirdparty_obj, thirdparty_zstd_sources)
 
+if env["target"] == "template_profiling":
+    thirdparty_tracy_dir = "#thirdparty/tracy/public/"
+
+    env_thirdparty.Prepend(CPPPATH=[thirdparty_tracy_dir])
+    env.Prepend(CPPPATH=thirdparty_tracy_dir)
+    env.Append(CPPDEFINES=["TRACY_ENABLE"])
+    env.Append(CPPDEFINES=["TRACY_ON_DEMAND"])
+    env.Append(CPPDEFINES=["TRACY_IMPORTS"])
+    env.Append(LIBPATH=['#thirdparty/tracy/library/win32/'])
+    env.Append(LIBS=['TracyProfiler'])
+
+    env_thirdparty.Append(CPPDEFINES=["TRACY_ENABLE"])
+    env_thirdparty.Append(CPPDEFINES=["TRACY_ON_DEMAND"])
+    env_thirdparty.Append(CPPDEFINES=["TRACY_IMPORTS"])
+
 
 env.core_sources += thirdparty_obj
 
