@@ -30,6 +30,7 @@
 
 #include "main.h"
 
+#include "core/profiling.h"
 #include "core/config/project_settings.h"
 #include "core/core_globals.h"
 #include "core/crypto/crypto.h"
@@ -4391,6 +4392,7 @@ static uint64_t navigation_process_max = 0;
 // will terminate the program. In case of failure, the OS exit code needs
 // to be set explicitly here (defaults to EXIT_SUCCESS).
 bool Main::iteration() {
+	PROFILE_FRAME("MainThread")
 	iterating++;
 
 	const uint64_t ticks = OS::get_singleton()->get_ticks_usec();
@@ -4528,6 +4530,8 @@ bool Main::iteration() {
 			force_redraw_requested = false;
 		}
 	}
+
+	PROFILING_SEND_SCREENSHOT()
 
 	process_ticks = OS::get_singleton()->get_ticks_usec() - process_begin;
 	process_max = MAX(process_ticks, process_max);

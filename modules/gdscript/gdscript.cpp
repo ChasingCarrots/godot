@@ -46,6 +46,8 @@
 #include "tests/gdscript_test_runner.h"
 #endif
 
+#include "core/profiling.h"
+
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/core_constants.h"
@@ -62,6 +64,25 @@
 #include <stdint.h>
 
 ///////////////////////////
+
+// this is a tradeoff between profiling readability and performance (BUT: only used in PROFILING builds!)
+inline const char* BuildStringForProfilingIdentifier(const StringName& functionName, const StringName& additionalIdentifyingName) {
+	const int BUFSIZE = 128;
+	thread_local char profilingFuncName[BUFSIZE];
+	const CharString funcNameAscii = static_cast<String>(functionName).ascii();
+	const CharString addNameAscii = static_cast<String>(additionalIdentifyingName).ascii();
+
+	int cpy_bytes = std::min(BUFSIZE, funcNameAscii.size());
+	memcpy(profilingFuncName, funcNameAscii.ptr(), cpy_bytes);
+
+	if(addNameAscii.size() > 0 && BUFSIZE - cpy_bytes > 5) {
+		int cpy_add_bytes = std::min(BUFSIZE-cpy_bytes, addNameAscii.size());
+		profilingFuncName[cpy_bytes-1] = '#';
+		memcpy(profilingFuncName+cpy_bytes, addNameAscii.ptr(), cpy_add_bytes);
+	}
+
+	return profilingFuncName;
+}
 
 GDScriptNativeClass::GDScriptNativeClass(const StringName &p_name) {
 	name = p_name;
@@ -107,17 +128,25 @@ Object *GDScriptNativeClass::instantiate() {
 }
 
 Variant GDScriptNativeClass::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, name))
+	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, name))
+
 	if (p_method == SNAME("new")) {
 		// Constructor.
+		PROFILE_DYNAMIC_FUNCTION_END()
 		return Object::callp(p_method, p_args, p_argcount, r_error);
 	}
 	MethodBind *method = ClassDB::get_method(name, p_method);
 	if (method && method->is_static()) {
 		// Native static method.
+		PROFILE_DYNAMIC_FUNCTION_END()
 		return method->call(nullptr, p_args, p_argcount, r_error);
 	}
 
 	r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
+
+	PROFILE_DYNAMIC_FUNCTION_END()
+
 	return Variant();
 }
 
@@ -408,6 +437,7 @@ bool GDScript::get_property_default_value(const StringName &p_property, Variant 
 
 ScriptInstance *GDScript::instance_create(Object *p_this) {
 	ERR_FAIL_COND_V_MSG(!valid, nullptr, "Script is invalid!");
+	PROFILE_FUNCTION()
 
 	GDScript *top = this;
 	while (top->_base) {
@@ -748,6 +778,7 @@ Error GDScript::reload(bool p_keep_state) {
 	if (reloading) {
 		return OK;
 	}
+	PROFILE_FUNCTION()
 	reloading = true;
 
 	bool has_instances;
@@ -933,6 +964,8 @@ void GDScript::unload_static() const {
 }
 
 Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)))
+	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)))
 	GDScript *top = this;
 	while (top) {
 		if (likely(top->valid)) {
@@ -940,12 +973,13 @@ Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int 
 			if (E) {
 				ERR_FAIL_COND_V_MSG(!E->value->is_static(), Variant(), "Can't call non-static function '" + String(p_method) + "' in script.");
 
+				PROFILE_DYNAMIC_FUNCTION_END()
 				return E->value->call(nullptr, p_args, p_argcount, r_error);
 			}
 		}
 		top = top->_base;
 	}
-
+	PROFILE_DYNAMIC_FUNCTION_END()
 	//none found, regular
 
 	return Script::callp(p_method, p_args, p_argcount, r_error);
@@ -1483,7 +1517,7 @@ void GDScript::_save_orphaned_subclasses(ClearData *p_clear_data) {
 	}
 }
 
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || defined(PROFILING_ENABLED)
 String GDScript::debug_get_script_name(const Ref<Script> &p_script) {
 	if (p_script.is_valid()) {
 		Ref<GDScript> gdscript = p_script;
@@ -2030,7 +2064,7 @@ bool GDScriptInstance::has_method(const StringName &p_method) const {
 	return false;
 }
 
-int GDScriptInstance::get_method_argument_count(const StringName &p_method, bool *r_is_valid) const {
+int GDScriptInstance::get_method_argument_count(const StringName &p_method, bool *r_is_valid) const {	
 	const GDScript *sptr = script.ptr();
 	while (sptr) {
 		HashMap<StringName, GDScriptFunction *>::ConstIterator E = sptr->member_functions.find(p_method);
@@ -2061,6 +2095,8 @@ void GDScriptInstance::_call_implicit_ready_recursively(GDScript *p_script) {
 }
 
 Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script)));
+	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script)))
 	GDScript *sptr = script.ptr();
 	if (unlikely(p_method == SceneStringName(_ready))) {
 		// Call implicit ready first, including for the super classes recursively.
@@ -2070,6 +2106,7 @@ Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_ar
 		if (likely(sptr->valid)) {
 			HashMap<StringName, GDScriptFunction *>::Iterator E = sptr->member_functions.find(p_method);
 			if (E) {
+				PROFILE_DYNAMIC_FUNCTION_END()
 				return E->value->call(this, p_args, p_argcount, r_error);
 			}
 		}
@@ -2077,6 +2114,7 @@ Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_ar
 	}
 
 	r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
+	PROFILE_DYNAMIC_FUNCTION_END()
 	return Variant();
 }
 

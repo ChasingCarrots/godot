@@ -42,6 +42,7 @@ thread_local Thread::ID Thread::caller_id = Thread::id_counter.increment();
 
 #endif
 
+#include <core/profiling.h>
 Thread::PlatformFunctions Thread::platform_functions;
 
 void Thread::_set_platform_functions(const PlatformFunctions &p_functions) {
@@ -58,6 +59,7 @@ void Thread::callback(ID p_caller_id, const Settings &p_settings, Callback p_cal
 		platform_functions.init();
 	}
 	ScriptServer::thread_enter(); // Scripts may need to attach a stack.
+	PROFILING_THREAD(itos(Thread::caller_id).ascii().ptr())
 	if (platform_functions.wrapper) {
 		platform_functions.wrapper(p_callback, p_userdata);
 	} else {

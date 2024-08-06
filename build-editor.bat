@@ -1,0 +1,1 @@
+scons target=editor debug_symbols=yes compiledb=yes
