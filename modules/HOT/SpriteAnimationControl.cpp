@@ -52,7 +52,7 @@ void SpriteAnimationControl::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "WalkAnimationName"), "set_WalkAnimationName", "get_WalkAnimationName");
 	ClassDB::bind_method(D_METHOD("set_AttackAnimationNames", "AttackAnimationNames"), &SpriteAnimationControl::set_AttackAnimationNames);
 	ClassDB::bind_method(D_METHOD("get_AttackAnimationNames"), &SpriteAnimationControl::get_AttackAnimationNames);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "AttackAnimationNames", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("String")), "set_AttackAnimationNames", "get_AttackAnimationNames");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "AttackAnimationNames"), "set_AttackAnimationNames", "get_AttackAnimationNames");
 	ClassDB::bind_method(D_METHOD("set_InitialAnimation", "InitialAnimation"), &SpriteAnimationControl::set_InitialAnimation);
 	ClassDB::bind_method(D_METHOD("get_InitialAnimation"), &SpriteAnimationControl::get_InitialAnimation);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "InitialAnimation"), "set_InitialAnimation", "get_InitialAnimation");

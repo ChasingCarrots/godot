@@ -29,7 +29,7 @@ protected:
 
 	StringName IdleAnimationName = "idle";
 	StringName WalkAnimationName = "walk";
-	TypedArray<StringName> AttackAnimationNames;
+	PackedStringArray AttackAnimationNames;
 	StringName InitialAnimation;
 
 
@@ -59,8 +59,8 @@ protected:
 	StringName get_IdleAnimationName() { return IdleAnimationName; }
 	void set_WalkAnimationName(StringName walkAnimationName) { WalkAnimationName = walkAnimationName; }
 	StringName get_WalkAnimationName() { return WalkAnimationName; }
-	void set_AttackAnimationNames(TypedArray<StringName> attackAnimationNames) { AttackAnimationNames = attackAnimationNames; }
-	TypedArray<StringName> get_AttackAnimationNames() { return AttackAnimationNames; }
+	void set_AttackAnimationNames(PackedStringArray attackAnimationNames) { AttackAnimationNames = attackAnimationNames; }
+	PackedStringArray get_AttackAnimationNames() { return AttackAnimationNames; }
 	void set_InitialAnimation(StringName initialAnimation) { InitialAnimation = initialAnimation; }
 	StringName get_InitialAnimation() { return InitialAnimation; }
 
