@@ -59,6 +59,7 @@ public:
 	float _damageTakenBeforeInvincibility = 0;
 	int _hitCount = 0;
 	float _regenBucket = 0;
+	float _addHealthBucket = 0;
 
 	Ref<ModifiedIntValue> _modifiedMaxHealth;
 	Ref<ModifiedFloatValue> _modifiedChanceToBlock;
@@ -67,6 +68,7 @@ public:
 	Ref<ModifiedFloatValue> _modifiedRegeneration;
 	Ref<ModifiedFloatValue> _modifiedDamageFromEffectsFactor;
 	Ref<ModifiedIntValue> _modifiedDefense;
+	Ref<ModifiedFloatValue> _modifiedHealFactor;
 
 	StatisticsValueData::StatisticsTypes StatsDisplayType = StatisticsValueData::PlayerBaseStats;
 	String StatsCategory = "Defensive Values";

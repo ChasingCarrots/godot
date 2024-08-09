@@ -239,6 +239,7 @@ void Health::_ready() {
 	_modifiedChanceToBlock = create_modified_float_value(BaseChanceToBlock, "BlockChance");
 	_modifiedBlockValue = create_modified_int_value(BaseBlockValue, "BlockValue");
 	_modifiedDamageFactor = create_modified_float_value(BaseDamageFactor, "DamageFactor");
+	_modifiedHealFactor = create_modified_float_value(1, "HealFactor");
 	_modifiedDamageFromEffectsFactor = create_modified_float_value(BaseDamageFactor, "DamageFromEffectsFactor");
 
 	_fx = get_tree()->get_root()->get_node(NodePath("Fx"));
@@ -304,6 +305,7 @@ void Health::_exit_tree() {
 	_modifiedChanceToBlock.unref();
 	_modifiedBlockValue.unref();
 	_modifiedDamageFactor.unref();
+	_modifiedHealFactor.unref();
 	_modifiedRegeneration.unref();
 	_modifiedDamageFromEffectsFactor.unref();
 	_modifiedDefense.unref();
@@ -410,6 +412,17 @@ void Health::add_health(int add, Node *byNode) {
 		print_error("add_health only supports positive numbers, use applyDamage instead...");
 		return;
 	}
+	float healFactor = _modifiedHealFactor->Value();
+	if(healFactor != 1) {
+		float modAdd = static_cast<float>(add) * healFactor;
+		add = static_cast<int>(floor(modAdd));
+		_addHealthBucket += modAdd - add;
+		if(_addHealthBucket >= 1) {
+			int bucketOverflow = static_cast<int>(floor(_addHealthBucket));
+			add += bucketOverflow;
+			_addHealthBucket -= bucketOverflow;
+		}
+	}
 	int actualAdd = add;
 	if(_currentHealth + add > get_maxHealth()) {
 		actualAdd = get_maxHealth() - _currentHealth;
@@ -423,7 +436,7 @@ void Health::add_health(int add, Node *byNode) {
 		emit_signal("HealthChanged", _currentHealth, actualAdd);
 	emit_signal("OnHealed", actualAdd, byNode);
 
-	if(ShowHealNumbers && _positionProvider.is_valid()) {
+	if(add > 0 && ShowHealNumbers && _positionProvider.is_valid()) {
 		_fx->call("show_text_indicator",
 			get_gameobject_worldposition() + Vector2(0,-1) * 20.0f,
 			String::num_int64(add), 2, 1.5f, Color(0, 1, 0, 1));
