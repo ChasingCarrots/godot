@@ -269,6 +269,7 @@ void FastRaybasedMover::updateAllFastRaybasedMovers(float delta) {
 }
 
 void FastRaybasedMover::initialize_modifiers(Node *referenceParent) {
+	ERR_FAIL_NULL_MSG(referenceParent, "FastRaybasedMover::initialize_modifiers called with a null reference parent!");
 	PROFILE_FUNCTION();
 	if(!speedModifier.is_empty())
 		_modifiedMovementSpeed = referenceParent->call("createModifiedFloatValue", movementSpeed, speedModifier);

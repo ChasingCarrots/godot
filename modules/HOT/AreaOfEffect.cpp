@@ -208,6 +208,7 @@ TypedArray<StatisticsValueData> AreaOfEffect::get_display_stats() {
 }
 
 void AreaOfEffect::initialize_modifiers(Node *referenceParent) {
+	ERR_FAIL_NULL_MSG(referenceParent, "AreaOfEffect::initialize_modifiers called with a null reference parent!");
 	if(!RankDamageModifierMethod.is_empty() && GameObject::World() != nullptr) {
 		_damageModifier.reference_ptr(Modifier::create("Damage", referenceParent->get("_gameObject")));
 		_damageModifier->setModifierName("Torment Scaling");
