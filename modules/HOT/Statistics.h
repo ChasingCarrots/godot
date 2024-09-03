@@ -29,13 +29,13 @@ public:
 
 	static Array GetDamagingWeaponIndices();
 
-	static int GetTotalDamageOfWeapon(int weaponIndex);
+	static int64_t GetTotalDamageOfWeapon(int weaponIndex);
 
 	static float GetMaxDPSOfWeapon(int weaponIndex);
 
 	static Array GetHealingWeaponIndices();
 
-	static int GetTotalHealingOfWeapon(int weaponIndex);
+	static int64_t GetTotalHealingOfWeapon(int weaponIndex);
 
 };
 

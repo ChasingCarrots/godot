@@ -5,13 +5,13 @@
 #include <core/profiling.h>
 
 struct WeaponIndexData {
-	int TotalDamageDealt;
+	int64_t TotalDamageDealt;
 	float DamageLast30Seconds;
 	float Max30SecondDamage;
 };
 std::unordered_map<int, WeaponIndexData> GlobalWeaponData;
 using WeaponDataIter = std::unordered_map<int, WeaponIndexData>::iterator;
-std::unordered_map<int, int> GlobalHealingData;
+std::unordered_map<int, int64_t> GlobalHealingData;
 float TotalDamageLast30Seconds;
 float Max30SecondDamage;
 // don't access anything on this pointer, it is only there to compare a gameobject to!
@@ -92,7 +92,7 @@ Array Stats::GetDamagingWeaponIndices() {
 	return allWeaponIndices;
 }
 
-int Stats::GetTotalDamageOfWeapon(int weaponIndex) {
+int64_t Stats::GetTotalDamageOfWeapon(int weaponIndex) {
 	WeaponDataIter weaponData = GlobalWeaponData.find(weaponIndex);
 	if(weaponData == GlobalWeaponData.end()) {
 		// print_error(String("There are no statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
@@ -117,7 +117,7 @@ Array Stats::GetHealingWeaponIndices() {
 	return allWeaponIndices;
 }
 
-int Stats::GetTotalHealingOfWeapon(int weaponIndex) {
+int64_t Stats::GetTotalHealingOfWeapon(int weaponIndex) {
 	auto healingDataIter = GlobalHealingData.find(weaponIndex);
 	if(healingDataIter == GlobalHealingData.end()) {
 		// print_error(String("There are no healing statistics for this weapon index! weaponIndex=")+ itos(weaponIndex));
