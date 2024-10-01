@@ -35,7 +35,10 @@ void Bullet::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "newModifierCategories"), &Bullet::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &Bullet::GetModifierCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "ModifierCategories"), "set_ModifierCategories", "get_ModifierCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"), "set_ModifierCategories", "get_ModifierCategories");
+	TypedArray<StringName> defaultModifierCategories;
+	defaultModifierCategories.append("Projectile");
+	ADD_PROPERTY_DEFAULT("ModifierCategories", defaultModifierCategories);
 
 	ClassDB::bind_method(D_METHOD("set_IsCharacterBaseNode", "newIsCharacterBaseNode"), &Bullet::SetIsCharacterBaseNode);
 	ClassDB::bind_method(D_METHOD("get_IsCharacterBaseNode"), &Bullet::GetIsCharacterBaseNode);
@@ -236,13 +239,10 @@ void Bullet::initialize_modifiers(Node *referenceParent) {
 }
 
 void Bullet::applyModifierCategories() {
-	Array modifierCatAsArr;
-	for(const auto& modCat : ModifierCategories) modifierCatAsArr.append(modCat);
-
-	_modifiedNumberOfHits->setModifierCategories(modifierCatAsArr);
-	_modifiedMaxDistance->setModifierCategories(modifierCatAsArr);
-	_modifiedSize->setModifierCategories(modifierCatAsArr);
-	_modifiedLifetime->setModifierCategories(modifierCatAsArr);
+	_modifiedNumberOfHits->setModifierCategories(ModifierCategories);
+	_modifiedMaxDistance->setModifierCategories(ModifierCategories);
+	_modifiedSize->setModifierCategories(ModifierCategories);
+	_modifiedLifetime->setModifierCategories(ModifierCategories);
 }
 
 void Bullet::transformCategories(String onlyWithModifierCategory, TypedArray<String> addModifierCategories, TypedArray<String> removeModifierCategories, TypedArray<String> addDamageCategories, TypedArray<String> removeDamageCategories) {

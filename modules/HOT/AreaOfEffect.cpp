@@ -42,7 +42,10 @@ void AreaOfEffect::_bind_methods() {
 	ADD_PROPERTY_DEFAULT("ProbabilityToApply", 1.0f);
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "modifierCategories"), &AreaOfEffect::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &AreaOfEffect::GetModifierCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "ModifierCategories"), "set_ModifierCategories", "get_ModifierCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"), "set_ModifierCategories", "get_ModifierCategories");
+	TypedArray<StringName> defaultModifierCategories;
+	defaultModifierCategories.append("Summon");
+	ADD_PROPERTY_DEFAULT("ModifierCategories", defaultModifierCategories);
 	ClassDB::bind_method(D_METHOD("set_DamageCategories", "damageCategories"), &AreaOfEffect::SetDamageCategories);
 	ClassDB::bind_method(D_METHOD("get_DamageCategories"), &AreaOfEffect::GetDamageCategories);
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "DamageCategories"), "set_DamageCategories", "get_DamageCategories");
@@ -230,9 +233,9 @@ void AreaOfEffect::initialize_modifiers(Node *referenceParent) {
 }
 
 void AreaOfEffect::applyModifierCategories() {
-	_modifiedDamage->setModifierCategories(static_cast<TypedArray<String>>(ModifierCategories));
-	_modifiedAttackSpeed->setModifierCategories(static_cast<TypedArray<String>>(ModifierCategories));
-	_modifiedArea->setModifierCategories(static_cast<TypedArray<String>>(ModifierCategories));
+	_modifiedDamage->setModifierCategories(ModifierCategories);
+	_modifiedAttackSpeed->setModifierCategories(ModifierCategories);
+	_modifiedArea->setModifierCategories(ModifierCategories);
 }
 
 void AreaOfEffect::attackSpeedWasChanged(float oldValue, float newValue) {

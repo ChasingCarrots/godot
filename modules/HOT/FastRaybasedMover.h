@@ -55,7 +55,7 @@ public:
 	bool alignTransformWithMovement = true;
 	PackedStringArray HitLocatorPools = { "Enemies", "Breakables" };
 	float rotationOverTime = 0;
-	PackedStringArray ModifierCategories = { "Projectile" };
+	TypedArray<StringName> ModifierCategories;
 	String speedModifier;
 	String accelerationModifier;
 	String dampingModifier;
@@ -112,8 +112,8 @@ public:
 	void SetHitLocatorPools(const PackedStringArray &hitLocatorPools) { HitLocatorPools = hitLocatorPools; }
 	[[nodiscard]] float GetRotationOverTime() const { return rotationOverTime; }
 	void SetRotationOverTime(float new_rotationOverTime) { this->rotationOverTime = new_rotationOverTime; }
-	[[nodiscard]] PackedStringArray GetModifierCategories() const { return ModifierCategories; }
-	void SetModifierCategories(const PackedStringArray &modifierCategories) { ModifierCategories = modifierCategories; }
+	[[nodiscard]] TypedArray<StringName> GetModifierCategories() const { return ModifierCategories; }
+	void SetModifierCategories(const TypedArray<StringName> &modifierCategories) { ModifierCategories = modifierCategories; }
 	[[nodiscard]] String GetSpeedModifier() const { return speedModifier; }
 	void SetSpeedModifier(const String &new_speedModifier) { this->speedModifier = new_speedModifier; }
 	[[nodiscard]] String GetAccelerationModifier() const { return accelerationModifier; }

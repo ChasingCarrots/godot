@@ -21,7 +21,7 @@ protected:
 	float endLifeAfterDistance = 0;
 	String endLifeAfterDistanceModifier = "Range";
 	bool endLifeWhenBlocked = true;
-	PackedStringArray ModifierCategories = {"Projectile"};
+	TypedArray<StringName> ModifierCategories;
 	bool IsCharacterBaseNode = false;
 	bool DelayEndOfLifeByOneFrame = false;
 	bool UseModifiedArea = true;
@@ -81,8 +81,8 @@ public:
 	void SetEndLifeAfterDistanceModifier(const String &new_endLifeAfterDistanceModifier) { this->endLifeAfterDistanceModifier = new_endLifeAfterDistanceModifier; }
 	[[nodiscard]] bool GetEndLifeWhenBlocked() const { return endLifeWhenBlocked; }
 	void SetEndLifeWhenBlocked(bool new_endLifeWhenBlocked) { this->endLifeWhenBlocked = new_endLifeWhenBlocked; }
-	[[nodiscard]] PackedStringArray GetModifierCategories() const { return ModifierCategories; }
-	void SetModifierCategories(const PackedStringArray &modifierCategories) { ModifierCategories = modifierCategories; }
+	[[nodiscard]] TypedArray<StringName> GetModifierCategories() const { return ModifierCategories; }
+	void SetModifierCategories(const TypedArray<StringName> &modifierCategories) { ModifierCategories = modifierCategories; }
 	[[nodiscard]] bool GetIsCharacterBaseNode() const { return IsCharacterBaseNode; }
 	void SetIsCharacterBaseNode(bool new_isCharacterBaseNode) { IsCharacterBaseNode = new_isCharacterBaseNode; }
 	[[nodiscard]] bool GetDelayEndOfLifeByOneFrame() const { return DelayEndOfLifeByOneFrame; }

@@ -30,7 +30,7 @@ protected:
 	float Radius = 30;
 	float TriggerEverySeconds = 0;
 	float ProbabilityToApply = 1;
-	PackedStringArray ModifierCategories = { "Summon" };
+	TypedArray<StringName> ModifierCategories;
 	PackedStringArray DamageCategories;
 	bool UseModifiedArea = false;
 
@@ -75,8 +75,8 @@ public:
 	void SetTriggerEverySeconds(float triggerEverySeconds) { TriggerEverySeconds = triggerEverySeconds; }
 	[[nodiscard]] float GetProbabilityToApply() const { return ProbabilityToApply; }
 	void SetProbabilityToApply(float probabilityToApply) { ProbabilityToApply = probabilityToApply; }
-	[[nodiscard]] PackedStringArray GetModifierCategories() const { return ModifierCategories; }
-	void SetModifierCategories(const PackedStringArray &modifierCategories) { ModifierCategories = modifierCategories; }
+	[[nodiscard]] TypedArray<StringName> GetModifierCategories() const { return ModifierCategories; }
+	void SetModifierCategories(const TypedArray<StringName> &modifierCategories) { ModifierCategories = modifierCategories; }
 	[[nodiscard]] PackedStringArray GetDamageCategories() const { return DamageCategories; }
 	void SetDamageCategories(const PackedStringArray &damageCategories) { DamageCategories = damageCategories; }
 	[[nodiscard]] bool GetUseModifiedArea() const { return UseModifiedArea; }

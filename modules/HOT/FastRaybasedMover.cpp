@@ -41,7 +41,10 @@ void FastRaybasedMover::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "rotationOverTime"), "set_RotationOverTime", "get_RotationOverTime");
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "modifierCategories"), &FastRaybasedMover::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &FastRaybasedMover::GetModifierCategories);
-	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "ModifierCategories"), "set_ModifierCategories", "get_ModifierCategories");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"), "set_ModifierCategories", "get_ModifierCategories");
+	TypedArray<StringName> defaultModifierCategories;
+	defaultModifierCategories.append("Projectile");
+	ADD_PROPERTY_DEFAULT("ModifierCategories", defaultModifierCategories);
 	ClassDB::bind_method(D_METHOD("set_SpeedModifier", "speedModifier"), &FastRaybasedMover::SetSpeedModifier);
 	ClassDB::bind_method(D_METHOD("get_SpeedModifier"), &FastRaybasedMover::GetSpeedModifier);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "speedModifier"), "set_SpeedModifier", "get_SpeedModifier");
@@ -283,17 +286,15 @@ void FastRaybasedMover::initialize_modifiers(Node *referenceParent) {
 
 void FastRaybasedMover::applyModifierCategories() {
 	PROFILE_FUNCTION();
-	Array modifierCatAsArr;
-	for(const auto& modCat : ModifierCategories) modifierCatAsArr.append(modCat);
 
 	if(_modifiedMovementSpeed.is_valid())
-		_modifiedMovementSpeed->setModifierCategories(modifierCatAsArr);
+		_modifiedMovementSpeed->setModifierCategories(ModifierCategories);
 	if(_modifiedAcceleration.is_valid())
-		_modifiedAcceleration->setModifierCategories(modifierCatAsArr);
+		_modifiedAcceleration->setModifierCategories(ModifierCategories);
 	if(_modifiedDamping.is_valid())
-		_modifiedDamping->setModifierCategories(modifierCatAsArr);
+		_modifiedDamping->setModifierCategories(ModifierCategories);
 	if(_modifiedRotationOverTime.is_valid())
-		_modifiedRotationOverTime->setModifierCategories(modifierCatAsArr);
+		_modifiedRotationOverTime->setModifierCategories(ModifierCategories);
 }
 
 float FastRaybasedMover::get_movement_speed() {
