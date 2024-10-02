@@ -56,6 +56,11 @@ protected:
 public:
 	static void updateAllBullets(float delta);
 
+	// workaround for correct default values of arrays...
+	Bullet() {
+		ModifierCategories.append("Projectile");
+	}
+
 	TypedArray<StatisticsValueData> get_display_stats();
 	void initialize_modifiers(Node* referenceParent);
 	void applyModifierCategories();

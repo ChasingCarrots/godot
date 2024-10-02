@@ -45,6 +45,10 @@ private:
 	TypedArray<String> get_add_loca_msgids();
 
 public:
+	// workaround for correct default values of arrays...
+	FastRaybasedMover() {
+		ModifierCategories.append("Projectile");
+	}
 	float Radius = 10;
 	float movementSpeed = 100;
 	float acceleration = 0;
