@@ -293,7 +293,7 @@ void Health::_world_ready() {
 		value_key = RankDefenseModifierMethod.substr(4);
 	else
 		value_key = RankDefenseModifierMethod;
-	if (value_key.is_empty() && StaticValueHelper::has_value(value_key))
+	if (!value_key.is_empty() && StaticValueHelper::has_value(value_key))
 		_modifiedDefense = create_modified_int_value(
 				BaseDefense + static_cast<float>(StaticValueHelper::get_value(value_key)), "Defense");
 	else if(_modifiedDefense.is_null())
