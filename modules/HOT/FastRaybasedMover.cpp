@@ -282,6 +282,7 @@ void FastRaybasedMover::initialize_modifiers(Node *referenceParent) {
 		_modifiedDamping = referenceParent->call("createModifiedFloatValue", damping, dampingModifier);
 	if(!rotationModifier.is_empty())
 		_modifiedRotationOverTime = referenceParent->call("createModifiedFloatValue", rotationOverTime, rotationModifier);
+	applyModifierCategories();
 }
 
 void FastRaybasedMover::applyModifierCategories() {
