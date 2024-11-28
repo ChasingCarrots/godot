@@ -111,6 +111,8 @@ public:
 	void SetStatsCategory(const String &statsCategory) { StatsCategory = statsCategory; }
 	[[nodiscard]] bool GetHideDamage() const { return HideDamage; }
 	void SetHideDamage(bool hideDamage) { HideDamage = hideDamage; }
+	[[nodiscard]] float GetTimeStarted() const { return _time_started; }
+	void SetTimeStarted(float timeStarted) { _time_started = timeStarted; }
 };
 
 

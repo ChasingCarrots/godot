@@ -94,6 +94,10 @@ void ApplyDamageOnHit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_HideDamage"), &ApplyDamageOnHit::GetHideDamage);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "HideDamage"), "set_HideDamage", "get_HideDamage");
 
+	ClassDB::bind_method(D_METHOD("set_TimeStarted", "timeStarted"), &ApplyDamageOnHit::SetTimeStarted);
+	ClassDB::bind_method(D_METHOD("get_TimeStarted"), &ApplyDamageOnHit::GetTimeStarted);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "_time_started"), "set_TimeStarted", "get_TimeStarted");
+	
 	ClassDB::bind_method(D_METHOD("get_display_stats"), &ApplyDamageOnHit::get_display_stats);
 	ClassDB::bind_method(D_METHOD("get_bonus_value", "original_value", "targetNode", "bonusType"), &ApplyDamageOnHit::get_bonus_value);
 	ClassDB::bind_method(D_METHOD("get_totalCritChance"), &ApplyDamageOnHit::get_totalCritChance);
