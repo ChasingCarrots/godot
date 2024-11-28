@@ -125,6 +125,7 @@ void FastRaybasedMover::_notification(int p_notification) {
 }
 
 void FastRaybasedMover::_exit_tree() {
+	PROFILE_FUNCTION();
 	_allFastRaybasedMovers.erase(this);
 }
 

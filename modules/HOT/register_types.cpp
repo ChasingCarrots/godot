@@ -19,6 +19,13 @@
 #include "Statistics.h"
 #include "StatisticsValueData.h"
 #include "ThreadedObjectPool.h"
+#include "ApplyEffectOnCollision.h"
+#include "ApplyEffectOnDamage.h"
+#include "ApplyEffectOnHitReceived.h"
+#include "ApplyEffectOnSignal.h"
+#include "ApplyDamageOnHit.h"
+#include "FadeoutAdditiveOverTimeAnimatedSprite2D.h"
+#include "FadeoutAdditiveOverTimeSprite2D.h"
 #include <core/object/class_db.h>
 
 // don't want to add a StaticValueHelper.cpp, just to do this:
@@ -52,6 +59,13 @@ void initialize_HOT_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<StaticValueHelper>();
 	ClassDB::register_class<Bullet>();
 	ClassDB::register_class<ProfilerTracy>();
+	ClassDB::register_class<ApplyEffectOnCollision>();
+	ClassDB::register_class<ApplyEffectOnDamage>();
+	ClassDB::register_class<ApplyEffectOnHitReceived>();
+	ClassDB::register_class<ApplyEffectOnSignal>();
+	ClassDB::register_class<ApplyDamageOnHit>();
+	ClassDB::register_class<FadeoutAdditiveOverTimeAnimatedSprite2D>();
+	ClassDB::register_class<FadeoutAdditiveOverTimeSprite2D>();
 }
 
 void uninitialize_HOT_module(ModuleInitializationLevel p_level) {
