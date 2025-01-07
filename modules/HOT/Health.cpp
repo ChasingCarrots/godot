@@ -76,6 +76,9 @@ void Health::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_RankDefenseModifierMethod", "rankDefenseModifierMethod"), &Health::SetRankDefenseModifierMethod);
 	ClassDB::bind_method(D_METHOD("get_RankDefenseModifierMethod"), &Health::GetRankDefenseModifierMethod);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "RankDefenseModifierMethod"), "set_RankDefenseModifierMethod", "get_RankDefenseModifierMethod");
+	ClassDB::bind_method(D_METHOD("set_RankBlockModifierMethod", "rankBlockModifierMethod"), &Health::SetRankBlockModifierMethod);
+	ClassDB::bind_method(D_METHOD("get_RankBlockModifierMethod"), &Health::GetRankBlockModifierMethod);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "RankBlockModifierMethod"), "set_RankBlockModifierMethod", "get_RankBlockModifierMethod");
 	ClassDB::bind_method(D_METHOD("set_StatsDisplayType", "statsDisplayType"), &Health::SetStatsDisplayType);
 	ClassDB::bind_method(D_METHOD("get_StatsDisplayType"), &Health::GetStatsDisplayType);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "StatsDisplayType", PROPERTY_HINT_ENUM, "PlayerBaseStats,AbilityStats"), "set_StatsDisplayType", "get_StatsDisplayType");
@@ -237,7 +240,6 @@ void Health::_ready() {
 	_remainingInvincibilityAfterDamage = InitialInvincibilityTime;
 	_damageTakenBeforeInvincibility = 9999999;
 	_modifiedChanceToBlock = create_modified_float_value(BaseChanceToBlock, "BlockChance");
-	_modifiedBlockValue = create_modified_int_value(BaseBlockValue, "BlockValue");
 	_modifiedDamageFactor = create_modified_float_value(BaseDamageFactor, "DamageFactor");
 	_modifiedHealFactor = create_modified_float_value(1, "HealFactor");
 	_modifiedDamageFromEffectsFactor = create_modified_float_value(BaseDamageFactor, "DamageFromEffectsFactor");
@@ -250,6 +252,8 @@ void Health::_ready() {
 		_modifiedMaxHealth = create_modified_int_value(StartHealth, "MaxHealth");
 	if (RankDefenseModifierMethod.is_empty())
 		_modifiedDefense = create_modified_int_value(BaseDefense, "Defense");
+	if (RankBlockModifierMethod.is_empty())
+		_modifiedBlockValue = create_modified_int_value(BaseBlockValue, "BlockValue");
 
 	if (GameObject::Global()->call("is_world_ready"))
 		_world_ready();
@@ -298,6 +302,16 @@ void Health::_world_ready() {
 				BaseDefense + static_cast<float>(StaticValueHelper::get_value(value_key)), "Defense");
 	else if(_modifiedDefense.is_null())
 		_modifiedDefense = create_modified_int_value(BaseDefense, "Defense");
+
+	if(RankBlockModifierMethod.begins_with("get_"))
+		value_key = RankBlockModifierMethod.substr(4);
+	else
+		value_key = RankBlockModifierMethod;
+	if (!value_key.is_empty() && StaticValueHelper::has_value(value_key))
+		_modifiedBlockValue = create_modified_int_value(
+				BaseBlockValue + static_cast<float>(StaticValueHelper::get_value(value_key)), "BlockValue");
+	else if(_modifiedBlockValue.is_null())
+		_modifiedBlockValue = create_modified_int_value(BaseBlockValue, "BlockValue");
 }
 
 void Health::_exit_tree() {

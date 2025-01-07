@@ -34,7 +34,7 @@ public:
 		None, Burn, Electrify, Frost
 	};
 
-	TypedArray<String> ModifierCategories;
+	TypedArray<StringName> ModifierCategories;
 	int StartHealth = 100;
 	String RankHealthModifierMethod;
 	bool DestroyWhenKilled = true;
@@ -52,6 +52,7 @@ public:
 	float BaseRegenerationPerSecond = 0;
 	int BaseDefense = 0;
 	String RankDefenseModifierMethod;
+	String RankBlockModifierMethod;
 
 	int _currentHealth = 0;
 	TypedArray<float> _invincibilityStacks;
@@ -116,8 +117,8 @@ public:
 
 
 
-	[[nodiscard]] TypedArray<String> GetModifierCategories() const { return ModifierCategories; }
-	void SetModifierCategories(const TypedArray<String> &modifierCategories) { ModifierCategories = modifierCategories; }
+	[[nodiscard]] TypedArray<StringName> GetModifierCategories() const { return ModifierCategories; }
+	void SetModifierCategories(const TypedArray<StringName> &modifierCategories) { ModifierCategories = modifierCategories; }
 	[[nodiscard]] int GetStartHealth() const { return StartHealth; }
 	void SetStartHealth(int startHealth) { StartHealth = startHealth; }
 	[[nodiscard]] String GetRankHealthModifierMethod() const { return RankHealthModifierMethod; }
@@ -152,6 +153,8 @@ public:
 	void SetBaseDefense(int baseDefense) { BaseDefense = baseDefense; }
 	[[nodiscard]] String GetRankDefenseModifierMethod() const { return RankDefenseModifierMethod; }
 	void SetRankDefenseModifierMethod(const String &rankDefenseModifierMethod) { RankDefenseModifierMethod = rankDefenseModifierMethod; }
+	[[nodiscard]] String GetRankBlockModifierMethod() const { return RankBlockModifierMethod; }
+	void SetRankBlockModifierMethod(const String &rankBlockModifierMethod) { RankBlockModifierMethod = rankBlockModifierMethod; }
 	[[nodiscard]] int GetCurrentHealth() const { return _currentHealth; }
 	void SetCurrentHealth(int currentHealth) { _currentHealth = currentHealth; }
 	[[nodiscard]] TypedArray<float> GetInvincibilityStacks() const { return _invincibilityStacks; }
