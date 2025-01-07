@@ -385,6 +385,8 @@ Error OS_Windows::open_dynamic_library(const String &p_path, void *&p_library_ha
 		//this code exists so gdextension can load .dll files from within the executable path
 		path = get_executable_path().get_base_dir().path_join(p_path.get_file());
 	}
+	// Path to load from may be different from original if we make copies.
+	String load_path = path;
 
 	ERR_FAIL_COND_V(!FileAccess::exists(path), ERR_FILE_NOT_FOUND);
 
@@ -393,25 +395,22 @@ Error OS_Windows::open_dynamic_library(const String &p_path, void *&p_library_ha
 	if (p_data != nullptr && p_data->generate_temp_files) {
 		// Copy the file to the same directory as the original with a prefix in the name.
 		// This is so relative path to dependencies are satisfied.
-		String copy_path = path.get_base_dir().path_join("~" + path.get_file());
+		load_path = path.get_base_dir().path_join("~" + path.get_file());
 
 		// If there's a left-over copy (possibly from a crash) then delete it first.
-		if (FileAccess::exists(copy_path)) {
-			DirAccess::remove_absolute(copy_path);
+		if (FileAccess::exists(load_path)) {
+			DirAccess::remove_absolute(load_path);
 		}
 
-		Error copy_err = DirAccess::copy_absolute(path, copy_path);
+		Error copy_err = DirAccess::copy_absolute(path, load_path);
 		if (copy_err) {
 			ERR_PRINT("Error copying library: " + path);
 			return ERR_CANT_CREATE;
 		}
 
-		FileAccess::set_hidden_attribute(copy_path, true);
+		FileAccess::set_hidden_attribute(load_path, true);
 
-		// Save the copied path so it can be deleted later.
-		path = copy_path;
-
-		Error pdb_err = WindowsUtils::copy_and_rename_pdb(path);
+		Error pdb_err = WindowsUtils::copy_and_rename_pdb(load_path);
 		if (pdb_err != OK && pdb_err != ERR_SKIP) {
 			WARN_PRINT(vformat("Failed to rename the PDB file. The original PDB file for '%s' will be loaded.", path));
 		}
@@ -427,21 +426,22 @@ Error OS_Windows::open_dynamic_library(const String &p_path, void *&p_library_ha
 	DLL_DIRECTORY_COOKIE cookie = nullptr;
 
 	if (p_data != nullptr && p_data->also_set_library_path && has_dll_directory_api) {
-		cookie = add_dll_directory((LPCWSTR)(path.get_base_dir().utf16().get_data()));
+		String dll_dir = ProjectSettings::get_singleton()->globalize_path(load_path.get_base_dir());
+		cookie = add_dll_directory((LPCWSTR)(dll_dir.utf16().get_data()));
 	}
 
-	p_library_handle = (void *)LoadLibraryExW((LPCWSTR)(path.utf16().get_data()), nullptr, (p_data != nullptr && p_data->also_set_library_path && has_dll_directory_api) ? LOAD_LIBRARY_SEARCH_DEFAULT_DIRS : 0);
+	p_library_handle = (void *)LoadLibraryExW((LPCWSTR)(load_path.utf16().get_data()), nullptr, (p_data != nullptr && p_data->also_set_library_path && has_dll_directory_api) ? LOAD_LIBRARY_SEARCH_DEFAULT_DIRS : 0);
 	if (!p_library_handle) {
 		if (p_data != nullptr && p_data->generate_temp_files) {
-			DirAccess::remove_absolute(path);
+			DirAccess::remove_absolute(load_path);
 		}
 
 #ifdef DEBUG_ENABLED
 		DWORD err_code = GetLastError();
 
-		HashSet<String> checekd_libs;
+		HashSet<String> checked_libs;
 		HashSet<String> missing_libs;
-		debug_dynamic_library_check_dependencies(path, path, checekd_libs, missing_libs);
+		debug_dynamic_library_check_dependencies(load_path, load_path, checked_libs, missing_libs);
 		if (!missing_libs.is_empty()) {
 			String missing;
 			for (const String &E : missing_libs) {
@@ -470,7 +470,8 @@ Error OS_Windows::open_dynamic_library(const String &p_path, void *&p_library_ha
 	}
 
 	if (p_data != nullptr && p_data->generate_temp_files) {
-		temp_libraries[p_library_handle] = path;
+		// Save the copied path so it can be deleted later.
+		temp_libraries[p_library_handle] = load_path;
 	}
 
 	return OK;
@@ -845,15 +846,7 @@ Dictionary OS_Windows::execute_with_pipe(const String &p_path, const List<String
 	sa.lpSecurityDescriptor = nullptr;
 
 	ERR_FAIL_COND_V(!CreatePipe(&pipe_in[0], &pipe_in[1], &sa, 0), ret);
-	if (!SetHandleInformation(pipe_in[1], HANDLE_FLAG_INHERIT, 0)) {
-		CLEAN_PIPES
-		ERR_FAIL_V(ret);
-	}
 	if (!CreatePipe(&pipe_out[0], &pipe_out[1], &sa, 0)) {
-		CLEAN_PIPES
-		ERR_FAIL_V(ret);
-	}
-	if (!SetHandleInformation(pipe_out[0], HANDLE_FLAG_INHERIT, 0)) {
 		CLEAN_PIPES
 		ERR_FAIL_V(ret);
 	}
@@ -866,24 +859,47 @@ Dictionary OS_Windows::execute_with_pipe(const String &p_path, const List<String
 	// Create process.
 	ProcessInfo pi;
 	ZeroMemory(&pi.si, sizeof(pi.si));
-	pi.si.cb = sizeof(pi.si);
+	pi.si.StartupInfo.cb = sizeof(pi.si);
 	ZeroMemory(&pi.pi, sizeof(pi.pi));
-	LPSTARTUPINFOW si_w = (LPSTARTUPINFOW)&pi.si;
+	LPSTARTUPINFOW si_w = (LPSTARTUPINFOW)&pi.si.StartupInfo;
 
-	pi.si.dwFlags |= STARTF_USESTDHANDLES;
-	pi.si.hStdInput = pipe_in[0];
-	pi.si.hStdOutput = pipe_out[1];
-	pi.si.hStdError = pipe_err[1];
+	pi.si.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+	pi.si.StartupInfo.hStdInput = pipe_in[0];
+	pi.si.StartupInfo.hStdOutput = pipe_out[1];
+	pi.si.StartupInfo.hStdError = pipe_err[1];
 
-	DWORD creation_flags = NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW;
+	size_t attr_list_size = 0;
+	InitializeProcThreadAttributeList(nullptr, 1, 0, &attr_list_size);
+	pi.si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)alloca(attr_list_size);
+	if (!InitializeProcThreadAttributeList(pi.si.lpAttributeList, 1, 0, &attr_list_size)) {
+		CLEAN_PIPES
+		ERR_FAIL_V(ret);
+	}
+	HANDLE handles_to_inherit[] = { pipe_in[0], pipe_out[1], pipe_err[1] };
+	if (!UpdateProcThreadAttribute(
+				pi.si.lpAttributeList,
+				0,
+				PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+				handles_to_inherit,
+				sizeof(handles_to_inherit),
+				nullptr,
+				nullptr)) {
+		CLEAN_PIPES
+		DeleteProcThreadAttributeList(pi.si.lpAttributeList);
+		ERR_FAIL_V(ret);
+	}
+
+	DWORD creation_flags = NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT;
 
 	if (!CreateProcessW(nullptr, (LPWSTR)(command.utf16().ptrw()), nullptr, nullptr, true, creation_flags, nullptr, nullptr, si_w, &pi.pi)) {
 		CLEAN_PIPES
+		DeleteProcThreadAttributeList(pi.si.lpAttributeList);
 		ERR_FAIL_V_MSG(ret, "Could not create child process: " + command);
 	}
 	CloseHandle(pipe_in[0]);
 	CloseHandle(pipe_out[1]);
 	CloseHandle(pipe_err[1]);
+	DeleteProcThreadAttributeList(pi.si.lpAttributeList);
 
 	ProcessID pid = pi.pi.dwProcessId;
 	process_map_mutex.lock();
@@ -915,9 +931,9 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 
 	ProcessInfo pi;
 	ZeroMemory(&pi.si, sizeof(pi.si));
-	pi.si.cb = sizeof(pi.si);
+	pi.si.StartupInfo.cb = sizeof(pi.si);
 	ZeroMemory(&pi.pi, sizeof(pi.pi));
-	LPSTARTUPINFOW si_w = (LPSTARTUPINFOW)&pi.si;
+	LPSTARTUPINFOW si_w = (LPSTARTUPINFOW)&pi.si.StartupInfo;
 
 	bool inherit_handles = false;
 	HANDLE pipe[2] = { nullptr, nullptr };
@@ -929,16 +945,40 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 		sa.lpSecurityDescriptor = nullptr;
 
 		ERR_FAIL_COND_V(!CreatePipe(&pipe[0], &pipe[1], &sa, 0), ERR_CANT_FORK);
-		ERR_FAIL_COND_V(!SetHandleInformation(pipe[0], HANDLE_FLAG_INHERIT, 0), ERR_CANT_FORK); // Read handle is for host process only and should not be inherited.
 
-		pi.si.dwFlags |= STARTF_USESTDHANDLES;
-		pi.si.hStdOutput = pipe[1];
+		pi.si.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+		pi.si.StartupInfo.hStdOutput = pipe[1];
 		if (read_stderr) {
-			pi.si.hStdError = pipe[1];
+			pi.si.StartupInfo.hStdError = pipe[1];
+		}
+
+		size_t attr_list_size = 0;
+		InitializeProcThreadAttributeList(nullptr, 1, 0, &attr_list_size);
+		pi.si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)alloca(attr_list_size);
+		if (!InitializeProcThreadAttributeList(pi.si.lpAttributeList, 1, 0, &attr_list_size)) {
+			CloseHandle(pipe[0]); // Cleanup pipe handles.
+			CloseHandle(pipe[1]);
+			ERR_FAIL_V(ERR_CANT_FORK);
+		}
+		if (!UpdateProcThreadAttribute(
+					pi.si.lpAttributeList,
+					0,
+					PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+					&pipe[1],
+					sizeof(HANDLE),
+					nullptr,
+					nullptr)) {
+			CloseHandle(pipe[0]); // Cleanup pipe handles.
+			CloseHandle(pipe[1]);
+			DeleteProcThreadAttributeList(pi.si.lpAttributeList);
+			ERR_FAIL_V(ERR_CANT_FORK);
 		}
 		inherit_handles = true;
 	}
 	DWORD creation_flags = NORMAL_PRIORITY_CLASS;
+	if (inherit_handles) {
+		creation_flags |= EXTENDED_STARTUPINFO_PRESENT;
+	}
 	if (p_open_console) {
 		creation_flags |= CREATE_NEW_CONSOLE;
 	} else {
@@ -949,6 +989,7 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 	if (!ret && r_pipe) {
 		CloseHandle(pipe[0]); // Cleanup pipe handles.
 		CloseHandle(pipe[1]);
+		DeleteProcThreadAttributeList(pi.si.lpAttributeList);
 	}
 	ERR_FAIL_COND_V_MSG(ret == 0, ERR_CANT_FORK, "Could not create child process: " + command);
 
@@ -1004,6 +1045,9 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 
 	CloseHandle(pi.pi.hProcess);
 	CloseHandle(pi.pi.hThread);
+	if (r_pipe) {
+		DeleteProcThreadAttributeList(pi.si.lpAttributeList);
+	}
 
 	return OK;
 }
@@ -1017,9 +1061,9 @@ Error OS_Windows::create_process(const String &p_path, const List<String> &p_arg
 
 	ProcessInfo pi;
 	ZeroMemory(&pi.si, sizeof(pi.si));
-	pi.si.cb = sizeof(pi.si);
+	pi.si.StartupInfo.cb = sizeof(pi.si.StartupInfo);
 	ZeroMemory(&pi.pi, sizeof(pi.pi));
-	LPSTARTUPINFOW si_w = (LPSTARTUPINFOW)&pi.si;
+	LPSTARTUPINFOW si_w = (LPSTARTUPINFOW)&pi.si.StartupInfo;
 
 	DWORD creation_flags = NORMAL_PRIORITY_CLASS;
 	if (p_open_console) {
@@ -1505,16 +1549,7 @@ String OS_Windows::get_executable_path() const {
 }
 
 bool OS_Windows::has_environment(const String &p_var) const {
-#ifdef MINGW_ENABLED
-	return _wgetenv((LPCWSTR)(p_var.utf16().get_data())) != nullptr;
-#else
-	WCHAR *env;
-	size_t len;
-	_wdupenv_s(&env, &len, (LPCWSTR)(p_var.utf16().get_data()));
-	const bool has_env = env != nullptr;
-	free(env);
-	return has_env;
-#endif
+	return GetEnvironmentVariableW((LPCWSTR)(p_var.utf16().get_data()), nullptr, 0) > 0;
 }
 
 String OS_Windows::get_environment(const String &p_var) const {
