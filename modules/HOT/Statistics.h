@@ -27,6 +27,10 @@ public:
 
 	static float GetDPS();
 
+	static float GetMaxDPS();
+
+	static float GetTotalDamage();
+
 	static Array GetDamagingWeaponIndices();
 
 	static int64_t GetTotalDamageOfWeapon(int weaponIndex);

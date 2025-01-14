@@ -14,6 +14,7 @@ using WeaponDataIter = std::unordered_map<int, WeaponIndexData>::iterator;
 std::unordered_map<int, int64_t> GlobalHealingData;
 float TotalDamageLast30Seconds;
 float Max30SecondDamage;
+float TotalDamage;
 // don't access anything on this pointer, it is only there to compare a gameobject to!
 GameObject* Player;
 
@@ -23,6 +24,8 @@ void Stats::_bind_methods() {
 	ClassDB::bind_static_method("Stats", D_METHOD("AddDamageEvent", "sourceGameObject", "targetGameObject", "damageAmount", "weaponIndex"), &Stats::AddDamageEvent);
 	ClassDB::bind_static_method("Stats", D_METHOD("AddHealEvent", "targetGameObject", "healAmount", "weaponIndex"), &Stats::AddHealEvent);
 	ClassDB::bind_static_method("Stats", D_METHOD("GetDPS"), &Stats::GetDPS);
+	ClassDB::bind_static_method("Stats", D_METHOD("GetMaxDPS"), &Stats::GetMaxDPS);
+	ClassDB::bind_static_method("Stats", D_METHOD("GetTotalDamage"), &Stats::GetTotalDamage);
 	ClassDB::bind_static_method("Stats", D_METHOD("GetDamagingWeaponIndices"), &Stats::GetDamagingWeaponIndices);
 	ClassDB::bind_static_method("Stats", D_METHOD("GetTotalDamageOfWeapon", "weaponIndex"), &Stats::GetTotalDamageOfWeapon);
 	ClassDB::bind_static_method("Stats", D_METHOD("GetMaxDPSOfWeapon", "weaponIndex"), &Stats::GetMaxDPSOfWeapon);
@@ -35,6 +38,7 @@ void Stats::ResetStats(GameObject* playerGameObject) {
 	GlobalHealingData.clear();
 	TotalDamageLast30Seconds = 0;
 	Max30SecondDamage = 0;
+	TotalDamage = 0;
 	Player = playerGameObject;
 }
 
@@ -64,6 +68,7 @@ void Stats::AddDamageEvent(GameObject *sourceNode, GameObject *targetNode, int d
 	weaponData->second.DamageLast30Seconds += damageAmount;
 	weaponData->second.Max30SecondDamage = std::max(weaponData->second.Max30SecondDamage, weaponData->second.DamageLast30Seconds);
 
+	TotalDamage += damageAmount;
 	TotalDamageLast30Seconds += damageAmount;
 	Max30SecondDamage = std::max(Max30SecondDamage, TotalDamageLast30Seconds);
 }
@@ -84,6 +89,15 @@ void Stats::AddHealEvent(GameObject *targetNode, int healAmount, int weaponIndex
 float Stats::GetDPS() {
 	return TotalDamageLast30Seconds / 30.0f;
 }
+
+float Stats::GetMaxDPS() {
+	return Max30SecondDamage / 30.0f;
+}
+
+float Stats::GetTotalDamage() {
+	return TotalDamage;
+}
+
 
 Array Stats::GetDamagingWeaponIndices() {
 	Array allWeaponIndices;
