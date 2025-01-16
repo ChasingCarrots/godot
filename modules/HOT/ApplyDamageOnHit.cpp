@@ -104,6 +104,7 @@ void ApplyDamageOnHit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_totalCritBonus"), &ApplyDamageOnHit::get_totalCritBonus);
 	ClassDB::bind_method(D_METHOD("get_totalDamageChangePerSecond"), &ApplyDamageOnHit::get_totalDamageChangePerSecond);
 	ClassDB::bind_method(D_METHOD("get_damageReductionMultiplier"), &ApplyDamageOnHit::get_damageReductionMultiplier);
+	ClassDB::bind_method(D_METHOD("get_totalDamage"), &ApplyDamageOnHit::get_totalDamage);
 	ClassDB::bind_method(D_METHOD("initialize_modifiers", "referenceParent"), &ApplyDamageOnHit::initialize_modifiers);
 	ClassDB::bind_method(D_METHOD("applyModifierCategories"), &ApplyDamageOnHit::applyModifierCategories);
 	ClassDB::bind_method(D_METHOD("transformCategories", "onlyWithDamageCategory", "addModifierCategories", "removeModifierCategories", "addDamageCategories", "removeDamageCategories"), &ApplyDamageOnHit::transformCategories);
@@ -249,6 +250,11 @@ float ApplyDamageOnHit::get_totalDamageChangePerSecond() {
 float ApplyDamageOnHit::get_damageReductionMultiplier() {
 	if(_modifiedForce.is_valid()) return 1.0f / _modifiedForce->Value();
 	return 1;
+}
+
+int ApplyDamageOnHit::get_totalDamage() {
+	if(_modifiedDamage.is_valid()) return _modifiedDamage->Value();
+	return DamageAmount;
 }
 
 void ApplyDamageOnHit::initialize_modifiers(Node *referenceParent) {

@@ -58,6 +58,7 @@ public:
 	float get_totalCritBonus();
 	float get_totalDamageChangePerSecond();
 	float get_damageReductionMultiplier();
+	int get_totalDamage();
 
 	void initialize_modifiers(Node* referenceParent);
 	void applyModifierCategories();
