@@ -158,7 +158,7 @@ void ApplyEffectOnHitReceived::initialize_modifiers(Node *referenceParent) {
 	if(!RangeModifier.is_empty()) {
 		_modifiedAreaRadius.instantiate();
 		if(referenceGameObject != nullptr)
-			_modifiedAreaRadius->_init(ApplyChance, RangeModifier, referenceGameObject, "");
+			_modifiedAreaRadius->_init(ApplyInRadius, RangeModifier, referenceGameObject, "");
 	}
 	applyModifierCategories();
 }
