@@ -216,7 +216,7 @@ float ApplyDamageOnHit::get_bonus_value(float original_value, GameObject *target
 	if(bonusType != BonusStat)
 		return original_value;
 	float total_bonus = 0.0f;
-	for(const auto BonusTriggerEffect :BonusTriggerEffects) {
+	for(const auto& BonusTriggerEffect :BonusTriggerEffects) {
 		Node* targetEffect = targetNode->find_effect(BonusTriggerEffect);
 		if(targetEffect == nullptr)
 			continue;

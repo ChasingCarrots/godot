@@ -11,6 +11,8 @@ const Color CRIT_COLOR = Color(1.0, 0.4, 0.3);
 const Color BURN_COLOR = Color(1.0, 0.7, 0.0);
 const Color ELECTRIFY_COLOR = Color(0.4, 0.7, 1.0);
 const Color FROST_COLOR = Color(0.5, 0.5, 0.9);
+const Color JUGDEMENT_COLOR = Color(0.6, 0.3, 0.5);
+const Color DECAY_COLOR = Color(0.5, 0.7, 0);
 
 const float DEF_BASE_COEFF = 40.0f;
 const float DEF_BASE_INV_COEFF = 1.0f / DEF_BASE_COEFF;
@@ -21,7 +23,9 @@ void Health::_bind_methods() {
 	BIND_ENUM_CONSTANT(Burn);
 	BIND_ENUM_CONSTANT(Electrify);
 	BIND_ENUM_CONSTANT(Frost);
-	
+	BIND_ENUM_CONSTANT(Judgement);
+	BIND_ENUM_CONSTANT(Decay);
+
 	ClassDB::bind_method(D_METHOD("set_ModifierCategories", "modifierCategories"), &Health::SetModifierCategories);
 	ClassDB::bind_method(D_METHOD("get_ModifierCategories"), &Health::GetModifierCategories);
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ModifierCategories", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"), "set_ModifierCategories", "get_ModifierCategories");
@@ -576,6 +580,14 @@ Array Health::applyDamage(int damageAmount, Node *byNode, bool critical, int wea
 				_fx->call("show_text_indicator",
 					get_gameobject_worldposition() + Vector2(0,-1) * 20.0,
 					String::num_int64(scaledDamageAmount), 6, 1.0, FROST_COLOR);
+			else if(damageEffectType == DamageEffectType::Judgement)
+				_fx->call("show_text_indicator",
+					get_gameobject_worldposition() + Vector2(0,-1) * 20.0,
+					String::num_int64(scaledDamageAmount), 7, 1.0, JUGDEMENT_COLOR);
+			else if(damageEffectType == DamageEffectType::Decay)
+				_fx->call("show_text_indicator",
+					get_gameobject_worldposition() + Vector2(0,-1) * 20.0,
+					String::num_int64(scaledDamageAmount), 8, 1.0, DECAY_COLOR);
 			else
 				_fx->call("show_text_indicator",
 					get_gameobject_worldposition() + Vector2(0,-1) * 20.0,

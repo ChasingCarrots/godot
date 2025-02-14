@@ -31,7 +31,7 @@ private:
 
 public:
 	enum DamageEffectType {
-		None, Burn, Electrify, Frost
+		None, Burn, Electrify, Frost, Judgement, Decay
 	};
 
 	TypedArray<StringName> ModifierCategories;

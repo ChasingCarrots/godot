@@ -359,7 +359,6 @@ Variant GameObject::calculateModifiedValue(const StringName& modifierType, Varia
 			continue ;
 		float mod_value = modifier->getAdditiveModifier();
 		baseValueInt += (int)(mod_value * (mod_value < 0 ? neg_mult : pos_mult));
-		mod_value = modifier->getAdditiveModifier();
 		baseValueFloat += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
 		mod_value = modifier->getMultiplierModifier();
 		multiplier += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
@@ -371,7 +370,6 @@ Variant GameObject::calculateModifiedValue(const StringName& modifierType, Varia
 				continue ;
 			float mod_value = modifier->getAdditiveModifier();
 			baseValueInt += (int)(mod_value * (mod_value < 0 ? neg_mult : pos_mult));
-			mod_value = modifier->getAdditiveModifier();
 			baseValueFloat += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
 			mod_value = modifier->getMultiplierModifier();
 			multiplier += mod_value * (mod_value < 0 ? neg_mult : pos_mult);
