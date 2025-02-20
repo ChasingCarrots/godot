@@ -72,6 +72,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 	};
 
 	struct APKExportData {
+		EditorExportPlatform::PackData pd;
 		zipFile apk;
 		EditorProgress *ep = nullptr;
 	};
@@ -183,6 +184,8 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 	static Vector<ABI> get_enabled_abis(const Ref<EditorExportPreset> &p_preset);
 
 	static bool _uses_vulkan();
+
+	Error _generate_sparse_pck_metadata(const Ref<EditorExportPreset> &p_preset, PackData &p_pack_data, Vector<uint8_t> &r_data);
 
 protected:
 	void _notification(int p_what);
