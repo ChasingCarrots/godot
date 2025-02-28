@@ -46,6 +46,7 @@
 #include "editor/editor_property_name_processor.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
+#include "editor/filesystem_dock.h"
 #include "editor/gui/editor_toaster.h"
 #include "editor/plugins/script_editor_plugin.h"
 #include "editor/themes/editor_scale.h"
@@ -1016,7 +1017,8 @@ void EditorHelp::_update_doc() {
 			class_desc->add_text(nbsp); // Otherwise icon borrows hyperlink from `_add_type()`.
 			_add_type(inherits);
 
-			inherits = doc->class_list[inherits].inherits;
+			const DocData::ClassDoc *base_class_doc = doc->class_list.getptr(inherits);
+			inherits = base_class_doc ? base_class_doc->inherits : String();
 
 			if (!inherits.is_empty()) {
 				class_desc->add_text(" < ");
@@ -3712,7 +3714,8 @@ void EditorHelpBit::_update_labels() {
 
 						_add_type_to_title({ inherits, String(), false });
 
-						inherits = class_list[inherits].inherits;
+						const DocData::ClassDoc *base_class_doc = class_list.getptr(inherits);
+						inherits = base_class_doc ? base_class_doc->inherits : String();
 					}
 
 					title->pop(); // font_size
@@ -3870,6 +3873,37 @@ void EditorHelpBit::_update_labels() {
 		_add_text_to_rt(help_data.description.replace("<EditorHelpBitCommentColor>", comment_color.to_html()), content, this, symbol_class_name);
 	}
 
+	if (!help_data.resource_path.is_empty()) {
+		if (has_prev_text) {
+			content->add_newline();
+			content->add_newline();
+		}
+		has_prev_text = true;
+
+		const String ext = help_data.resource_path.get_extension();
+		const bool is_dir = ext.is_empty();
+		const bool is_valid = is_dir || EditorFileSystem::get_singleton()->get_valid_extensions().has(ext);
+		if (!is_dir && is_valid) {
+			content->push_meta("open-res:" + help_data.resource_path, RichTextLabel::META_UNDERLINE_ON_HOVER);
+			content->add_image(get_editor_theme_icon(SNAME("Load")));
+			content->add_text(nbsp + TTR("Open"));
+			content->pop(); // meta
+			content->add_newline();
+		}
+
+		if (is_valid) {
+			content->push_meta("show:" + help_data.resource_path, RichTextLabel::META_UNDERLINE_ON_HOVER);
+			content->add_image(get_editor_theme_icon(SNAME("Filesystem")));
+			content->add_text(nbsp + TTR("Show in FileSystem"));
+			content->pop(); // meta
+		} else {
+			content->push_meta("open-file:" + help_data.resource_path, RichTextLabel::META_UNDERLINE_ON_HOVER);
+			content->add_image(get_editor_theme_icon(SNAME("Filesystem")));
+			content->add_text(nbsp + TTR("Open in File Manager"));
+			content->pop(); // meta
+		}
+	}
+
 	if (is_inside_tree()) {
 		update_content_height();
 	}
@@ -3951,6 +3985,17 @@ void EditorHelpBit::_meta_clicked(const String &p_select) {
 		} else {
 			_go_to_help(topic + ":" + symbol_class_name + ":" + link);
 		}
+	} else if (p_select.begins_with("open-file:")) {
+		String path = ProjectSettings::get_singleton()->globalize_path(p_select.trim_prefix("open-file:"));
+		OS::get_singleton()->shell_show_in_file_manager(path, true);
+	} else if (p_select.begins_with("open-res:")) {
+		if (help_data.doc_type.type == "PackedScene") {
+			EditorNode::get_singleton()->load_scene(p_select.trim_prefix("open-res:"));
+		} else {
+			EditorNode::get_singleton()->load_resource(p_select.trim_prefix("open-res:"));
+		}
+	} else if (p_select.begins_with("show:")) {
+		FileSystemDock::get_singleton()->navigate_to_path(p_select.trim_prefix("show:"));
 	} else if (p_select.begins_with("http:") || p_select.begins_with("https:")) {
 		OS::get_singleton()->shell_open(p_select);
 	} else if (p_select.begins_with("^")) { // Copy button.
@@ -4074,6 +4119,46 @@ void EditorHelpBit::parse_symbol(const String &p_symbol, const String &p_prologu
 		help_data.doc_type.enumeration = item_data.get("enumeration", "");
 		help_data.doc_type.is_bitfield = item_data.get("is_bitfield", false);
 		help_data.value = item_data.get("value", "");
+	} else if (item_type == "resource") {
+		String path = item_name.simplify_path();
+		const bool is_uid = path.begins_with("uid://");
+		if (is_uid) {
+			if (ResourceUID::get_singleton()->has_id(ResourceUID::get_singleton()->text_to_id(path))) {
+				path = ResourceUID::uid_to_path(path);
+			} else {
+				path = "";
+			}
+		}
+		help_data.resource_path = path;
+
+		Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_RESOURCES);
+		if (da->file_exists(path)) {
+			help_data.doc_type.type = ResourceLoader::get_resource_type(path);
+			if (help_data.doc_type.type.is_empty()) {
+				const Vector<String> textfile_ext = ((String)(EDITOR_GET("docks/filesystem/textfile_extensions"))).split(",", false);
+				symbol_type = textfile_ext.has(path.get_extension()) ? TTR("TextFile") : TTR("File");
+			} else {
+				symbol_type = TTR("Resource");
+				symbol_hint = SYMBOL_HINT_ASSIGNABLE;
+				if (is_uid) {
+					help_data.description = vformat("%s: [color=<EditorHelpBitCommentColor>]%s[/color]", TTR("Path"), path);
+				}
+			}
+			symbol_name = path.get_file();
+		} else if (!is_uid && da->dir_exists(path)) {
+			symbol_type = TTR("Directory");
+			symbol_name = path;
+		} else {
+			help_data.resource_path = "";
+			symbol_name = "";
+			if (is_uid) {
+				symbol_type = TTR("Invalid UID");
+				help_data.description = "[color=<EditorHelpBitCommentColor>][i]" + TTR("This UID does not point to any valid Resource.") + "[/i][/color]";
+			} else {
+				symbol_type = TTR("Invalid path");
+				help_data.description = "[color=<EditorHelpBitCommentColor>][i]" + TTR("This path does not exist.") + "[/i][/color]";
+			}
+		}
 	} else {
 		ERR_FAIL_MSG("Invalid doc id: Unknown item type " + item_type.quote() + ".");
 	}
@@ -4091,7 +4176,7 @@ void EditorHelpBit::parse_symbol(const String &p_symbol, const String &p_prologu
 		}
 	}
 
-	if (help_data.description.is_empty()) {
+	if (help_data.description.is_empty() && item_type != "resource") {
 		help_data.description = "[color=<EditorHelpBitCommentColor>][i]" + TTR("No description available.") + "[/i][/color]";
 	}
 
@@ -4498,6 +4583,7 @@ EditorHelpHighlighter::~EditorHelpHighlighter() {
 FindBar::FindBar() {
 	search_text = memnew(LineEdit);
 	add_child(search_text);
+	search_text->set_keep_editing_on_text_submit(true);
 	search_text->set_custom_minimum_size(Size2(100 * EDSCALE, 0));
 	search_text->set_h_size_flags(SIZE_EXPAND_FILL);
 	search_text->connect(SceneStringName(text_changed), callable_mp(this, &FindBar::_search_text_changed));
@@ -4561,7 +4647,7 @@ void FindBar::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
-			set_process_unhandled_input(is_visible_in_tree());
+			set_process_input(is_visible_in_tree());
 		} break;
 	}
 }
@@ -4638,12 +4724,15 @@ void FindBar::_hide_bar() {
 	hide();
 }
 
-void FindBar::unhandled_input(const Ref<InputEvent> &p_event) {
+// Implemented in input(..) as the LineEdit consumes the Escape pressed key.
+void FindBar::input(const Ref<InputEvent> &p_event) {
 	ERR_FAIL_COND(p_event.is_null());
 
 	Ref<InputEventKey> k = p_event;
 	if (k.is_valid() && k->is_action_pressed(SNAME("ui_cancel"), false, true)) {
-		if (rich_text_label->has_focus() || is_ancestor_of(get_viewport()->gui_get_focus_owner())) {
+		Control *focus_owner = get_viewport()->gui_get_focus_owner();
+
+		if (rich_text_label->has_focus() || (focus_owner && is_ancestor_of(focus_owner))) {
 			_hide_bar();
 			accept_event();
 		}
