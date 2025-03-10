@@ -4,8 +4,13 @@
 
 const int COMMUNICATION_LINE_CHANNEL = 0;
 
+CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
 
 void CommunicationLineSystem::_bind_methods() {
+	ClassDB::bind_static_method("CommunicationLineSystem", D_METHOD("set_global_communication_line_system", "system"),
+		&CommunicationLineSystem::set_global_communication_line_system);
+	ClassDB::bind_static_method("CommunicationLineSystem", D_METHOD("get_global_communication_line_system"),
+		&CommunicationLineSystem::get_global_communication_line_system);
 	ClassDB::bind_method(D_METHOD("grab_communication_line", "string_id"), &CommunicationLineSystem::grab_communication_line);
 	ClassDB::bind_method(D_METHOD("get_number_of_communication_lines"), &CommunicationLineSystem::get_number_of_communication_lines);
 	ClassDB::bind_method(D_METHOD("get_communication_line", "index"), &CommunicationLineSystem::get_communication_line);

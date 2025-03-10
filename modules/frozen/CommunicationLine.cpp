@@ -281,6 +281,9 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 				}
 				if (all_peers_answered) {
 					call->emit_signal("AnswerReceived");
+					if (call->AnswerReceivedCallback) {
+						call->AnswerReceivedCallback(call.ptr());
+					}
 					_communication_calls_waiting_for_answer.remove_at(call_index);
 				}
 				return;

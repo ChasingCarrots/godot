@@ -4,6 +4,7 @@
 #include <core/io/stream_peer.h>
 #include <core/object/ref_counted.h>
 #include <scene/main/multiplayer_peer.h>
+#include <functional>
 
 class CommunicationLineSystem;
 class CommunicationLinePeer;
@@ -77,6 +78,9 @@ public:
 	uint8_t FunctionCallNumber = 0;
 	int TicksAtSendTime = 0;
 	Vector<CallPeerAnswer> PeerAnswers;
+
+	// this callback is only for C++, so that we can connect lambdas
+	std::function<void(CommunicationCallWithAnswer*)> AnswerReceivedCallback;
 
 	int get_number_of_answers() const { return PeerAnswers.size(); }
 	int get_peer_id(int index) const { return PeerAnswers[index].MultiplayerID; }

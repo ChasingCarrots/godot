@@ -28,7 +28,12 @@ private:
 	void on_packet_received(int from_multiplayer_id, const PackedByteArray& packet);
 	void send_packet_to_peer(const PackedByteArray& bytes, int peer_id, MultiplayerPeer::TransferMode mode) const;
 	void send_packet_to_server(const PackedByteArray& bytes, MultiplayerPeer::TransferMode mode) const;
+
+	static CommunicationLineSystem * _global_coms;
 public:
+	static CommunicationLineSystem* get_global_communication_line_system() { return _global_coms; }
+	static void set_global_communication_line_system(CommunicationLineSystem* system) { _global_coms = system; }
+
 	Ref<CommunicationLine> grab_communication_line(const StringName &id);
 
 	// access to all lines mostly for debug visualization purposes:
