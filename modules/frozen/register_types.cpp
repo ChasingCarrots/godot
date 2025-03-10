@@ -4,6 +4,7 @@
 #include "CommunicationLineSystem.h"
 #include "FutureValue.h"
 #include "CompositeNode.h"
+#include "CompositeNodeValue.h"
 
 
 void initialize_frozen_module(ModuleInitializationLevel p_level) {
@@ -15,6 +16,7 @@ void initialize_frozen_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CommunicationCallWithAnswer>();
 	ClassDB::register_class<FutureValue>();
 	ClassDB::register_class<CompositeNode>();
+	ClassDB::register_class<CompositeNodeValue>();
 }
 
 void uninitialize_frozen_module(ModuleInitializationLevel p_level) {

@@ -42,10 +42,11 @@ public:
 
 protected:
 	// exports:
-	SafeObjectPointer<CompositeNode> ParentCompositeNode;
+	NodePath ParentCompositeNode;
 	Vector<StringName> ForwardDataToParentCompositeNode;
 	Vector<StringName> ForwardCallbacksToParentCompositeNode;
 
+	SafeObjectPointer<CompositeNode> _parentCompositeNode;
 	Ref<CommunicationLine> _communication_line;
 	PackedByteArray _send_buffer;
 	Vector<StringName> _temp_stringnames;
@@ -190,8 +191,8 @@ public:
 	Variant GetData(StringName dataName);
 	void AddDataToSumDefinition(StringName sumDataName, StringName componentDataName, float initialValue);
 
-	[[nodiscard]] CompositeNode* get_parent_composite_node() const { return ParentCompositeNode.get_nocheck(); }
-	void set_parent_composite_node(CompositeNode *parent_composite_node) { ParentCompositeNode.set(parent_composite_node); }
+	[[nodiscard]] NodePath get_parent_composite_node() const { return ParentCompositeNode;	}
+	void set_parent_composite_node(NodePath parent_composite_node_path) { ParentCompositeNode = parent_composite_node_path; }
 	[[nodiscard]] PackedStringArray get_forward_data_to_parent_composite_node() {
 		// we can't directly use Vector<StringName> (not supported by godot), so we'll have to convert here...
 		// shouldn't be a big deal, since this is only used for the @exports in the editor...

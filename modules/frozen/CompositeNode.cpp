@@ -128,7 +128,7 @@ void CompositeNode::_bind_methods() {
 		&CompositeNode::set_parent_composite_node);
 	ClassDB::bind_method(D_METHOD("get_ParentCompositeNode"),
 		&CompositeNode::get_parent_composite_node);
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ParentCompositeNode", PROPERTY_HINT_RESOURCE_TYPE, "CompositeNode"),
+	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "ParentCompositeNode", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "CompositeNode"),
 		"set_ParentCompositeNode", "get_ParentCompositeNode");
 
 	ClassDB::bind_method(D_METHOD("set_ForwardDataToParentCompositeNode", "forwardData"),
@@ -259,6 +259,10 @@ void CompositeNode::_exit_tree() {
 }
 
 void CompositeNode::_ready() {
+	if (!ParentCompositeNode.is_empty()) {
+		_parentCompositeNode.set(cast_to<CompositeNode>(get_node(ParentCompositeNode)));
+	}
+
 	// this will initialize the line, if it hasn't already been initalized through a child
 	GetCommunicationLine();
 	_communication_line->finish_initialization_and_open_line();
@@ -267,9 +271,9 @@ void CompositeNode::_ready() {
 	// only process when initialized via init_authority as the authority
 	set_process(false);
 
-	if (ParentCompositeNode.is_valid()) {
-		ParentCompositeNode->RegisterCallback("init_authority", callable_mp(this, &CompositeNode::init_authority));
-		ParentCompositeNode->RegisterCallback("SynchronizeAllToSingleClient", callable_mp(this, &CompositeNode::SynchronizeAllToSingleClient));
+	if (_parentCompositeNode.is_valid()) {
+		_parentCompositeNode->RegisterCallback("init_authority", callable_mp(this, &CompositeNode::init_authority));
+		_parentCompositeNode->RegisterCallback("SynchronizeAllToSingleClient", callable_mp(this, &CompositeNode::SynchronizeAllToSingleClient));
 	}
 }
 
@@ -786,8 +790,8 @@ void CompositeNode::SynchronizeAllToSingleClient(int client_multiplayer_id) {
 }
 
 void CompositeNode::SetupDataMultiplayerSynchronization(StringName dataName, DataSynchronizationMode syncMode, DataSynchronizationType dataType) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-	    ParentCompositeNode->SetupDataMultiplayerSynchronization(dataName, syncMode, dataType);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+	    _parentCompositeNode->SetupDataMultiplayerSynchronization(dataName, syncMode, dataType);
 	    return;
 	}
 
@@ -833,8 +837,8 @@ void CompositeNode::SetupDataMultiplayerSynchronization(StringName dataName, Dat
 }
 
 void CompositeNode::SetupDataMultiplayerSynchronizationWithLinearMovement(StringName dataName, StringName velocityDataName, DataSynchronizationMode syncMode, DataSynchronizationType dataType) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-		ParentCompositeNode->SetupDataMultiplayerSynchronizationWithLinearMovement(dataName, velocityDataName, syncMode, dataType);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+		_parentCompositeNode->SetupDataMultiplayerSynchronizationWithLinearMovement(dataName, velocityDataName, syncMode, dataType);
 		return;
 	}
 
@@ -912,21 +916,21 @@ void CompositeNode::CallCallbacks(StringName callbackName, const Array &paramete
 			callback_callback.callv(parameters);
 		}
 	}
-	if (ParentCompositeNode.is_valid() && ForwardCallbacksToParentCompositeNode.has(callbackName)) {
-		ParentCompositeNode->CallCallbacks(callbackName, parameters);
+	if (_parentCompositeNode.is_valid() && ForwardCallbacksToParentCompositeNode.has(callbackName)) {
+		_parentCompositeNode->CallCallbacks(callbackName, parameters);
 	}
 }
 
 bool CompositeNode::HasData(StringName dataName) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-		return ParentCompositeNode->HasData(dataName);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+		return _parentCompositeNode->HasData(dataName);
 	}
 	return _data.has(dataName);
 }
 
 void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbacks, int skipMultiplayerPeer, bool increment) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-		ParentCompositeNode->SetData(dataName, value);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+		_parentCompositeNode->SetData(dataName, value);
 		return;
 	}
 
@@ -975,8 +979,8 @@ void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbac
 }
 
 void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-		ParentCompositeNode->SetDataOnAuthority(dataName, value);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+		_parentCompositeNode->SetDataOnAuthority(dataName, value);
 		return;
 	}
 	// we'll set the data locally, so that the change gets reflected here right away
@@ -995,8 +999,8 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 }
 
 void CompositeNode::RegisterDataUpdatedCallback(StringName dataName, Callable callable, bool callIfDataExists) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-		ParentCompositeNode->RegisterDataUpdatedCallback(dataName, callable, callIfDataExists);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+		_parentCompositeNode->RegisterDataUpdatedCallback(dataName, callable, callIfDataExists);
 		return;
 	}
 	DataValue *data_value = _data.lookup_ptr(dataName);
@@ -1007,14 +1011,14 @@ void CompositeNode::RegisterDataUpdatedCallback(StringName dataName, Callable ca
 
 	data_value->DataUpdatedCallbacks.append(callable);
 
-	if (callIfDataExists && data_value->Value.get_type() == Variant::NIL) {
+	if (callIfDataExists && data_value->Value.get_type() != Variant::NIL) {
 		callable.call(data_value->Value);
 	}
 }
 
 void CompositeNode::UnregisterDataUpdatedCallback(StringName dataName, Callable callable) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-		ParentCompositeNode->UnregisterDataUpdatedCallback(dataName, callable);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+		_parentCompositeNode->UnregisterDataUpdatedCallback(dataName, callable);
 		return;
 	}
 	if (DataValue *data_value = _data.lookup_ptr(dataName); data_value != nullptr) {
@@ -1023,8 +1027,8 @@ void CompositeNode::UnregisterDataUpdatedCallback(StringName dataName, Callable 
 }
 
 Variant CompositeNode::GetData(StringName dataName) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
-		return ParentCompositeNode->GetData(dataName);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(dataName)) {
+		return _parentCompositeNode->GetData(dataName);
 	}
 	if (DataValue *data_value = _data.lookup_ptr(dataName); data_value != nullptr) {
 		return data_value->Value;
@@ -1033,8 +1037,8 @@ Variant CompositeNode::GetData(StringName dataName) {
 }
 
 void CompositeNode::AddDataToSumDefinition(StringName sumDataName, StringName componentDataName, float initial_value) {
-	if (ParentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(componentDataName)) {
-		ParentCompositeNode->AddDataToSumDefinition(sumDataName, componentDataName, initial_value);
+	if (_parentCompositeNode.is_valid() && ForwardDataToParentCompositeNode.has(componentDataName)) {
+		_parentCompositeNode->AddDataToSumDefinition(sumDataName, componentDataName, initial_value);
 		return;
 	}
 
