@@ -23,6 +23,7 @@ protected:
     SafeObjectPointer<CompositeNode> _composite_node;
     StringName _value_name;
     Variant _current_value;
+    bool _is_synchronized = false;
 
     void init_authority(int player_id) {
         if (_current_value.get_type() != Variant::NIL && _composite_node.is_valid() && _composite_node->is_multiplayer_authority()) {
@@ -43,8 +44,9 @@ public:
     }
 
     static Ref<CompositeNodeValue> create_non_synchronized(CompositeNode *on_node, StringName value_name, Variant initial_value) {
-        Ref<CompositeNodeValue> new_value;
+	    Ref<CompositeNodeValue> new_value;
         new_value.instantiate();
+        new_value->_is_synchronized = false;
         new_value->_value_name = value_name;
         new_value->_current_value = initial_value;
         new_value->_composite_node = on_node;
@@ -61,6 +63,7 @@ public:
     {
         Ref<CompositeNodeValue> new_value;
         new_value.instantiate();
+	    new_value->_is_synchronized = true;
         new_value->_value_name = value_name;
         new_value->_current_value = initial_value;
         new_value->_composite_node = on_node;
@@ -73,9 +76,13 @@ public:
     }
 
     void set_value(Variant value) {
+	    if (_current_value == value) {
+	        return;
+	    }
         _current_value = value;
         if (_composite_node.is_valid()) {
-            _composite_node->SetDataOnAuthority(_value_name, _current_value);
+            if (_is_synchronized) _composite_node->SetDataOnAuthority(_value_name, _current_value);
+            else _composite_node->SetData(_value_name, _current_value);
         }
     }
     Variant get_value() const {
