@@ -9,7 +9,7 @@ protected:
     // Required entry point that the API calls to bind our class to Godot.
     static void _bind_methods() {
         ClassDB::bind_static_method("CompositeNodeValue", D_METHOD("create_non_synchronized", "on_node", "value_name", "initial_value"),
-            &CompositeNodeValue::create_non_synchronized);
+            &CompositeNodeValue::create_non_synchronized, DEFVAL(Variant()));
         ClassDB::bind_static_method("CompositeNodeValue", D_METHOD("create_synchronized", "on_node", "value_name", "initial_value", "mode", "type"),
             &CompositeNodeValue::create_synchronized);
 
@@ -26,8 +26,11 @@ protected:
     bool _is_synchronized = false;
 
     void init_authority(int player_id) {
-        if (_current_value.get_type() != Variant::NIL && _composite_node.is_valid() && _composite_node->is_multiplayer_authority()) {
-            set_value(_current_value);
+        if (_current_value.get_type() != Variant::NIL && _composite_node->is_multiplayer_authority()) {
+            // we have to do a little shuffle, so that set_value calls the callbacks and does the things
+            Variant initial_value = _current_value;
+            _current_value = Variant();
+            set_value(initial_value);
         }
     }
     void value_updated(Variant new_value) {
