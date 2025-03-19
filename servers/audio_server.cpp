@@ -300,13 +300,13 @@ void AudioServer::_driver_process(int p_frames, int32_t *p_buffer) {
 				for (int j = 0; j < to_copy; j++) {
 					float l = CLAMP(buf[from + j].left, -1.0, 1.0);
 					int32_t vl = l * ((1 << 20) - 1);
-					int32_t vl2 = (vl < 0 ? -1 : 1) * (ABS(vl) << 11);
+					int32_t vl2 = (vl < 0 ? -1 : 1) * (Math::abs(vl) << 11);
 					*dest = vl2;
 					dest++;
 
 					float r = CLAMP(buf[from + j].right, -1.0, 1.0);
 					int32_t vr = r * ((1 << 20) - 1);
-					int32_t vr2 = (vr < 0 ? -1 : 1) * (ABS(vr) << 11);
+					int32_t vr2 = (vr < 0 ? -1 : 1) * (Math::abs(vr) << 11);
 					*dest = vr2;
 					dest += stride_minus_one;
 				}
@@ -621,11 +621,11 @@ void AudioServer::_mix_step() {
 			for (uint32_t j = 0; j < buffer_size; j++) {
 				buf[j] *= volume;
 
-				float l = ABS(buf[j].left);
+				float l = Math::abs(buf[j].left);
 				if (l > peak.left) {
 					peak.left = l;
 				}
-				float r = ABS(buf[j].right);
+				float r = Math::abs(buf[j].right);
 				if (r > peak.right) {
 					peak.right = r;
 				}
@@ -1230,6 +1230,7 @@ void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, con
 	int idx = 0;
 	for (KeyValue<StringName, Vector<AudioFrame>> pair : p_bus_volumes) {
 		if (pair.value.size() < channel_count || pair.value.size() != MAX_CHANNELS_PER_BUS) {
+			delete playback_node;
 			delete new_bus_details;
 			ERR_FAIL();
 		}
@@ -1322,8 +1323,10 @@ void AudioServer::set_playback_bus_volumes_linear(Ref<AudioStreamPlayback> p_pla
 		if (idx >= MAX_BUSES_PER_PLAYBACK) {
 			break;
 		}
-		ERR_FAIL_COND(pair.value.size() < channel_count);
-		ERR_FAIL_COND(pair.value.size() != MAX_CHANNELS_PER_BUS);
+		if (pair.value.size() < channel_count || pair.value.size() != MAX_CHANNELS_PER_BUS) {
+			delete new_bus_details;
+			ERR_FAIL();
+		}
 
 		new_bus_details->bus_active[idx] = true;
 		new_bus_details->bus[idx] = pair.key;
@@ -2044,14 +2047,14 @@ AudioServer::~AudioServer() {
 bool AudioBusLayout::_set(const StringName &p_name, const Variant &p_value) {
 	String s = p_name;
 	if (s.begins_with("bus/")) {
-		int index = s.get_slice("/", 1).to_int();
+		int index = s.get_slicec('/', 1).to_int();
 		if (buses.size() <= index) {
 			buses.resize(index + 1);
 		}
 
 		Bus &bus = buses.write[index];
 
-		String what = s.get_slice("/", 2);
+		String what = s.get_slicec('/', 2);
 
 		if (what == "name") {
 			bus.name = p_value;
@@ -2066,14 +2069,14 @@ bool AudioBusLayout::_set(const StringName &p_name, const Variant &p_value) {
 		} else if (what == "send") {
 			bus.send = p_value;
 		} else if (what == "effect") {
-			int which = s.get_slice("/", 3).to_int();
+			int which = s.get_slicec('/', 3).to_int();
 			if (bus.effects.size() <= which) {
 				bus.effects.resize(which + 1);
 			}
 
 			Bus::Effect &fx = bus.effects.write[which];
 
-			String fxwhat = s.get_slice("/", 4);
+			String fxwhat = s.get_slicec('/', 4);
 			if (fxwhat == "effect") {
 				fx.effect = p_value;
 			} else if (fxwhat == "enabled") {
@@ -2096,14 +2099,14 @@ bool AudioBusLayout::_set(const StringName &p_name, const Variant &p_value) {
 bool AudioBusLayout::_get(const StringName &p_name, Variant &r_ret) const {
 	String s = p_name;
 	if (s.begins_with("bus/")) {
-		int index = s.get_slice("/", 1).to_int();
+		int index = s.get_slicec('/', 1).to_int();
 		if (index < 0 || index >= buses.size()) {
 			return false;
 		}
 
 		const Bus &bus = buses[index];
 
-		String what = s.get_slice("/", 2);
+		String what = s.get_slicec('/', 2);
 
 		if (what == "name") {
 			r_ret = bus.name;
@@ -2118,14 +2121,14 @@ bool AudioBusLayout::_get(const StringName &p_name, Variant &r_ret) const {
 		} else if (what == "send") {
 			r_ret = bus.send;
 		} else if (what == "effect") {
-			int which = s.get_slice("/", 3).to_int();
+			int which = s.get_slicec('/', 3).to_int();
 			if (which < 0 || which >= bus.effects.size()) {
 				return false;
 			}
 
 			const Bus::Effect &fx = bus.effects[which];
 
-			String fxwhat = s.get_slice("/", 4);
+			String fxwhat = s.get_slicec('/', 4);
 			if (fxwhat == "effect") {
 				r_ret = fx.effect;
 			} else if (fxwhat == "enabled") {

@@ -49,6 +49,7 @@
 #include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "main/main.h"
+#include "servers/rendering_server.h"
 
 #ifndef _3D_DISABLED
 #include "servers/xr_server.h"
@@ -78,7 +79,6 @@ enum StartupStep {
 
 static SafeNumeric<int> step; // Shared between UI and render threads
 
-static Size2 new_size;
 static Vector3 accelerometer;
 static Vector3 gravity;
 static Vector3 magnetometer;
@@ -272,7 +272,7 @@ JNIEXPORT jboolean JNICALL Java_org_godotengine_godot_GodotLib_step(JNIEnv *env,
 
 	if (step.get() == STEP_SHOW_LOGO) {
 		bool xr_enabled = false;
-#ifndef _3D_DISABLED
+#ifndef XR_DISABLED
 		// Unlike PCVR, there's no additional 2D screen onto which to render the boot logo,
 		// so we skip this step if xr is enabled.
 		if (XRServer::get_xr_mode() == XRServer::XRMODE_DEFAULT) {
@@ -280,7 +280,7 @@ JNIEXPORT jboolean JNICALL Java_org_godotengine_godot_GodotLib_step(JNIEnv *env,
 		} else {
 			xr_enabled = XRServer::get_xr_mode() == XRServer::XRMODE_ON;
 		}
-#endif // _3D_DISABLED
+#endif // XR_DISABLED
 		if (!xr_enabled) {
 			Main::setup_boot_logo();
 		}

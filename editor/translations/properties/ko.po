@@ -795,9 +795,6 @@ msgstr "요청 타임아웃"
 msgid "Sync Breakpoints"
 msgstr "중단점 동기화"
 
-msgid "Default Feature Profile"
-msgstr "기본 기능 프로필"
-
 msgid "Label"
 msgstr "레이블"
 
@@ -915,6 +912,9 @@ msgstr "내부적인 오류를 토스트 알림에 표시"
 msgid "Show Update Spinner"
 msgstr "업데이트 스피너 표시"
 
+msgid "V-Sync Mode"
+msgstr "수직동기화 모드"
+
 msgid "Update Continuously"
 msgstr "상시 업데이트"
 
@@ -968,6 +968,9 @@ msgstr "테마"
 
 msgid "Icon and Font Color"
 msgstr "아이콘 및 글꼴 색"
+
+msgid "Contrast"
+msgstr "대비"
 
 msgid "Draw Extra Borders"
 msgstr "추가적인 외곽선 그리기"
@@ -1115,6 +1118,9 @@ msgstr "텍스트 에디터"
 
 msgid "Line Spacing"
 msgstr "라인 간격"
+
+msgid "Color Theme"
+msgstr "색 테마"
 
 msgid "Appearance"
 msgstr "모습"
@@ -1587,9 +1593,6 @@ msgstr "불러오기 시 셰이더 복원"
 msgid "Visual Editors"
 msgstr "비주얼 에디터"
 
-msgid "Color Theme"
-msgstr "색 테마"
-
 msgid "Minimap Opacity"
 msgstr "미니맵 불투명도"
 
@@ -1617,8 +1620,14 @@ msgstr "SCP"
 msgid "Window Placement"
 msgstr "창 배치"
 
+msgid "Rect"
+msgstr "직사각형"
+
 msgid "Rect Custom Position"
 msgstr "직사각형 사용자 정의 위치"
+
+msgid "Screen"
+msgstr "화면"
 
 msgid "Auto Save"
 msgstr "자동 저장"
@@ -1628,6 +1637,9 @@ msgstr "실행하기 전에 저장"
 
 msgid "Output"
 msgstr "출력"
+
+msgid "Font Size"
+msgstr "폰트 크기"
 
 msgid "Always Clear Output on Play"
 msgstr "실행 시 항상 출력 지우기"
@@ -2376,9 +2388,6 @@ msgstr "플러그인 이름"
 msgid "Autoload on Startup"
 msgstr "시작 시 오토로드"
 
-msgid "Use Favorites Root Selection"
-msgstr "즐겨찾기 루트 선택 사용"
-
 msgid "Flush stdout on Print"
 msgstr "출력 시 stdout 플러시"
 
@@ -2462,9 +2471,6 @@ msgstr "휴대용"
 
 msgid "Orientation"
 msgstr "오리엔테이션"
-
-msgid "V-Sync Mode"
-msgstr "수직동기화 모드"
 
 msgid "Output Latency"
 msgstr "출력 레이턴시"
@@ -3084,9 +3090,6 @@ msgstr "K1"
 msgid "K2"
 msgstr "K2"
 
-msgid "Spawnable Scenes"
-msgstr "소환 가능한 씬"
-
 msgid "Spawn Path"
 msgstr "소환 경로"
 
@@ -3407,9 +3410,6 @@ msgstr "XR 기능"
 
 msgid "XR Mode"
 msgstr "XR 모드"
-
-msgid "Screen"
-msgstr "화면"
 
 msgid "Immersive Mode"
 msgstr "몰입형 모드"
@@ -3881,9 +3881,6 @@ msgstr "구역 마스크"
 
 msgid "Copy Mode"
 msgstr "복사 모드"
-
-msgid "Rect"
-msgstr "직사각형"
 
 msgid "Anchor Mode"
 msgstr "앵커 모드"
@@ -4946,9 +4943,6 @@ msgstr "윤곽선 조정"
 
 msgid "Font"
 msgstr "글꼴"
-
-msgid "Font Size"
-msgstr "폰트 크기"
 
 msgid "Horizontal Alignment"
 msgstr "가로 정렬"
@@ -6590,9 +6584,6 @@ msgstr "조정"
 
 msgid "Brightness"
 msgstr "밝기"
-
-msgid "Contrast"
-msgstr "대비"
 
 msgid "Saturation"
 msgstr "포화도"

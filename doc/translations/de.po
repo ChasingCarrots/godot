@@ -102,12 +102,14 @@
 # tct123 <tct1234@protonmail.com>, 2024.
 # Daniel Schmid <daniel.ds.schmid@gmail.com>, 2025.
 # Michael Domanek <michael.domanek2@gmail.com>, 2025.
+# Keschler <keschler0@protonmail.com>, 2025.
+# Silikonmanns Kanal <silvan.goeth@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine class reference\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
-"PO-Revision-Date: 2025-01-25 20:47+0000\n"
-"Last-Translator: Michael Domanek <michael.domanek2@gmail.com>\n"
+"PO-Revision-Date: 2025-03-10 14:33+0000\n"
+"Last-Translator: Silikonmann <silvan.goeth@gmail.com>\n"
 "Language-Team: German <https://hosted.weblate.org/projects/godot-engine/godot-"
 "class-reference/de/>\n"
 "Language: de\n"
@@ -115,7 +117,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8-bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.10-dev\n"
+"X-Generator: Weblate 5.10.3-dev\n"
 
 msgid "All classes"
 msgstr "Alle Klassen"
@@ -370,8 +372,22 @@ msgstr ""
 msgid "Built-in GDScript constants, functions, and annotations."
 msgstr "Built-in-GDScript-Konstanten, -Funktionen und -Annotationen."
 
+msgid ""
+"A list of utility functions and annotations accessible from any script "
+"written in GDScript.\n"
+"For the list of global functions and constants that can be accessed in any "
+"scripting language, see [@GlobalScope]."
+msgstr ""
+"Eine Liste von Hilfsfunktionen und Anmerkungen, die von jedem in GDScript "
+"geschriebenen Skript aus zugänglich sind.\n"
+"Für die Liste der globalen Funktionen und Konstanten, auf die in jeder "
+"Skriptsprache zugegriffen werden kann, siehe [@GlobalScope]."
+
 msgid "GDScript exports"
 msgstr "GDScript-Exporte"
+
+msgid "Use [method Color.from_rgba8] instead."
+msgstr "Verwende stattdessen [method @GlobalScope.type_convert]."
 
 msgid ""
 "Returns a [Color] constructed from red ([param r8]), green ([param g8]), blue "
@@ -489,6 +505,13 @@ msgstr ""
 "[/codeblock]"
 
 msgid ""
+"Consider using [method JSON.to_native] or [method Object.get_property_list] "
+"instead."
+msgstr ""
+"Verwende stattdessen [Methode JSON.to_native] oder [Methode Object."
+"get_property_list]."
+
+msgid ""
 "Converts a [param dictionary] (created with [method inst_to_dict]) back to an "
 "Object instance. Can be useful for deserializing."
 msgstr ""
@@ -545,6 +568,13 @@ msgstr ""
 "nicht mit einem Debug-Server verbunden sind.\n"
 "[b]Hinweis:[/b] Der Aufruf dieser Funktion aus einem [Thread] wird nicht "
 "unterstützt. In diesem Fall wird ein leeres Array zurückgegeben."
+
+msgid ""
+"Consider using [method JSON.from_native] or [method Object.get_property_list] "
+"instead."
+msgstr ""
+"Verwende stattdessen [Methode JSON.from_native] oder [Methode Object."
+"get_property_list]."
 
 msgid ""
 "Returns a [Resource] from the filesystem located at the absolute [param "
@@ -13693,6 +13723,9 @@ msgstr ""
 "Wenn [code]true[/code], wird die triplanare Abbildung für [code]UV2[/code] im "
 "globalen Raum und nicht im lokalen Objektraum berechnet. Siehe auch [member "
 "uv2_triplanar]."
+
+msgid "Using 3D transforms"
+msgstr "3D-Transformationen verwenden"
 
 msgid ""
 "Returns [code]true[/code] if this basis and [param b] are approximately "

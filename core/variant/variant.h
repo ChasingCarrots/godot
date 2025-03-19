@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef VARIANT_H
-#define VARIANT_H
+#pragma once
 
 #include "core/core_string_names.h"
 #include "core/input/input_enums.h"
@@ -910,12 +909,7 @@ struct StringLikeVariantComparator {
 };
 
 struct StringLikeVariantOrder {
-	static _ALWAYS_INLINE_ bool compare(const Variant &p_lhs, const Variant &p_rhs) {
-		if (p_lhs.is_string() && p_rhs.is_string()) {
-			return p_lhs.operator String() < p_rhs.operator String();
-		}
-		return p_lhs < p_rhs;
-	}
+	static bool compare(const Variant &p_lhs, const Variant &p_rhs);
 
 	_ALWAYS_INLINE_ bool operator()(const Variant &p_lhs, const Variant &p_rhs) const {
 		return compare(p_lhs, p_rhs);
@@ -998,18 +992,10 @@ Array::Iterator &Array::Iterator::operator--() {
 }
 
 const Variant &Array::ConstIterator::operator*() const {
-	if (unlikely(read_only)) {
-		*read_only = *element_ptr;
-		return *read_only;
-	}
 	return *element_ptr;
 }
 
 const Variant *Array::ConstIterator::operator->() const {
-	if (unlikely(read_only)) {
-		*read_only = *element_ptr;
-		return read_only;
-	}
 	return element_ptr;
 }
 
@@ -1023,4 +1009,6 @@ Array::ConstIterator &Array::ConstIterator::operator--() {
 	return *this;
 }
 
-#endif // VARIANT_H
+// Zero-constructing Variant results in NULL.
+template <>
+struct is_zero_constructible<Variant> : std::true_type {};
