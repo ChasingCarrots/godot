@@ -10,6 +10,7 @@
 ///////////       and you have to recreate all the additional CompositeNodeModule classes from that LiveTemplate.
 ///////////       (The way Godot inheritance works, there doesn't seem to be any other way!)
 
+// CompositeNodeModule    Node
 class CompositeNodeModule : public Node {
 	GDCLASS(CompositeNodeModule, Node)
 protected:
@@ -24,6 +25,8 @@ protected:
 				&CompositeNodeModule::create_non_synchronized_value, DEFVAL(Variant()));
 		ClassDB::bind_method(D_METHOD("create_synchronized_value", "value_name", "initial_value", "sync_mode", "sync_type"),
 				&CompositeNodeModule::create_synchronized_value);
+		ClassDB::bind_method(D_METHOD("create_synchronized_array", "value_name"),
+				&CompositeNodeModule::create_synchronized_array);
 
 		ClassDB::bind_method(D_METHOD("register_callback", "callback_name", "callable"),
 			&CompositeNodeModule::register_callback);
@@ -100,6 +103,10 @@ public:
 		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModule::create_synchronized_value called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		return CompositeNodeValue::create_synchronized(_composite_node.get_nocheck(), value_name, initial_value, mode, type);
 	}
+	Ref<SynchronizedArray> create_synchronized_array(StringName variable_name) {
+		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModule::create_synchronized_array called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		return SynchronizedArray::create(_composite_node->GetCommunicationLine(), variable_name);
+	}
 	void register_callback(StringName callback_name, Callable callable) {
 		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModule::register_callback called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		RegisteredCallbacks.append({ callback_name, callable });
@@ -118,6 +125,8 @@ public:
 	[[nodiscard]] CompositeNode *get_composite_node() const { return _composite_node.get_nocheck(); }
 };
 
+
+// CompositeNodeModule3D    Node3D
 class CompositeNodeModule3D : public Node3D {
 	GDCLASS(CompositeNodeModule3D, Node3D)
 protected:
@@ -132,6 +141,8 @@ protected:
 				&CompositeNodeModule3D::create_non_synchronized_value, DEFVAL(Variant()));
 		ClassDB::bind_method(D_METHOD("create_synchronized_value", "value_name", "initial_value", "sync_mode", "sync_type"),
 				&CompositeNodeModule3D::create_synchronized_value);
+		ClassDB::bind_method(D_METHOD("create_synchronized_array", "value_name"),
+				&CompositeNodeModule3D::create_synchronized_array);
 
 		ClassDB::bind_method(D_METHOD("register_callback", "callback_name", "callable"),
 			&CompositeNodeModule3D::register_callback);
@@ -208,6 +219,10 @@ public:
 		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModule3D::create_synchronized_value called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		return CompositeNodeValue::create_synchronized(_composite_node.get_nocheck(), value_name, initial_value, mode, type);
 	}
+	Ref<SynchronizedArray> create_synchronized_array(StringName variable_name) {
+		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModule3D::create_synchronized_array called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		return SynchronizedArray::create(_composite_node->GetCommunicationLine(), variable_name);
+	}
 	void register_callback(StringName callback_name, Callable callable) {
 		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModule3D::register_callback called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		RegisteredCallbacks.append({ callback_name, callable });
@@ -227,7 +242,7 @@ public:
 };
 
 
-
+// CompositeNodeModuleCharacterBody3D    CharacterBody3D
 class CompositeNodeModuleCharacterBody3D : public CharacterBody3D {
 	GDCLASS(CompositeNodeModuleCharacterBody3D, CharacterBody3D)
 protected:
@@ -242,6 +257,8 @@ protected:
 				&CompositeNodeModuleCharacterBody3D::create_non_synchronized_value, DEFVAL(Variant()));
 		ClassDB::bind_method(D_METHOD("create_synchronized_value", "value_name", "initial_value", "sync_mode", "sync_type"),
 				&CompositeNodeModuleCharacterBody3D::create_synchronized_value);
+		ClassDB::bind_method(D_METHOD("create_synchronized_array", "value_name"),
+				&CompositeNodeModuleCharacterBody3D::create_synchronized_array);
 
 		ClassDB::bind_method(D_METHOD("register_callback", "callback_name", "callable"),
 			&CompositeNodeModuleCharacterBody3D::register_callback);
@@ -270,7 +287,7 @@ protected:
 	}
 	void _ready() {
 		_composite_node = CompositeNode::GetCompositeNodeInParents(this);
-		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), vformat("CompositeNodeModuleBody3D has to be a child of a CompositeNode. (%s)", get_name()));
+		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), vformat("CompositeNodeModuleCharacterBody3D has to be a child of a CompositeNode. (%s)", get_name()));
 		_composite_node->RegisterCallback("init_authority", callable_mp(this, &CompositeNodeModuleCharacterBody3D::init_authority));
 
 		GDVIRTUAL_CALL(_ready_composite_node);
@@ -309,27 +326,31 @@ public:
 	GDVIRTUAL0(_ready_authority)
 
 	Ref<CompositeNodeValue> create_non_synchronized_value(StringName value_name, Variant initial_value) {
-		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModuleBody3D::create_non_synchronized_value called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModuleCharacterBody3D::create_non_synchronized_value called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		return CompositeNodeValue::create_non_synchronized(_composite_node.get_nocheck(), value_name, initial_value);
 	}
 	Ref<CompositeNodeValue> create_synchronized_value(StringName value_name, Variant initial_value,
 			CompositeNode::DataSynchronizationMode mode,
 			CompositeNode::DataSynchronizationType type) {
-		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModuleBody3D::create_synchronized_value called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModuleCharacterBody3D::create_synchronized_value called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		return CompositeNodeValue::create_synchronized(_composite_node.get_nocheck(), value_name, initial_value, mode, type);
 	}
+	Ref<SynchronizedArray> create_synchronized_array(StringName variable_name) {
+		ERR_FAIL_COND_V_MSG(!_composite_node.is_valid(), {}, "CompositeNodeModuleCharacterBody3D::create_synchronized_array called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		return SynchronizedArray::create(_composite_node->GetCommunicationLine(), variable_name);
+	}
 	void register_callback(StringName callback_name, Callable callable) {
-		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModuleBody3D::register_callback called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModuleCharacterBody3D::register_callback called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		RegisteredCallbacks.append({ callback_name, callable });
 		_composite_node->RegisterCallback(callback_name, callable);
 	}
 	void register_function(StringName function_name, Callable callable) {
-		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModuleBody3D::register_function called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModuleCharacterBody3D::register_function called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		RegisteredFunctions.append({ function_name, callable });
 		_composite_node->RegisterFunction(function_name, callable);
 	}
 	void register_data_updated_callback(StringName data_name, Callable callable) {
-		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModuleBody3D::register_data_updated_callback called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
+		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), "CompositeNodeModuleCharacterBody3D::register_data_updated_callback called with no composite node set. Called too early? Use the _ready_composite_node virtual function.");
 		RegisteredDataUpdates.append({ data_name, callable });
 		_composite_node->RegisterDataUpdatedCallback(data_name, callable);
 	}

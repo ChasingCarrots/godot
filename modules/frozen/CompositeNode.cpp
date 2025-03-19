@@ -191,6 +191,8 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::GetData);
 	ClassDB::bind_method(D_METHOD("AddDataToSumDefinition", "sumDataName", "componentDataName", "initialValue"),
 	    &CompositeNode::AddDataToSumDefinition);
+	ClassDB::bind_method(D_METHOD("CreateSynchronizedArray", "variableName"),
+		&CompositeNode::CreateSynchronizedArray);
 
 	ClassDB::bind_method(D_METHOD("get_data_value_debug_string", "dataName"),
 		&CompositeNode::get_data_value_debug_string);
@@ -1042,7 +1044,7 @@ void CompositeNode::AddDataToSumDefinition(StringName sumDataName, StringName co
 		return;
 	}
 
-	DataSumSettings* sum_settings = _sums.lookup_ptr(sumDataName);
+	DataSumSettings *sum_settings = _sums.lookup_ptr(sumDataName);
 	if (sum_settings == nullptr) {
 		DataSumSettings new_settings;
 		new_settings.SumDataName = sumDataName;
@@ -1065,3 +1067,6 @@ void CompositeNode::AddDataToSumDefinition(StringName sumDataName, StringName co
 	data_value->PartOfSums.append(sumDataName);
 }
 
+Ref<SynchronizedArray> CompositeNode::CreateSynchronizedArray(StringName variableName) {
+	return SynchronizedArray::create(GetCommunicationLine(), variableName);
+}

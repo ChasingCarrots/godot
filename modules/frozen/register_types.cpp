@@ -6,6 +6,7 @@
 #include "CompositeNode.h"
 #include "CompositeNodeValue.h"
 #include "CompositeNodeModules.h"
+#include "SynchronizedArray.h"
 
 
 void initialize_frozen_module(ModuleInitializationLevel p_level) {
@@ -21,6 +22,7 @@ void initialize_frozen_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CompositeNodeModule3D>();
 	ClassDB::register_class<CompositeNodeModuleCharacterBody3D>();
 	ClassDB::register_class<CompositeNodeValue>();
+	ClassDB::register_class<SynchronizedArray>();
 }
 
 void uninitialize_frozen_module(ModuleInitializationLevel p_level) {

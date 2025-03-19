@@ -26,7 +26,7 @@ protected:
     bool _is_synchronized = false;
 
     void init_authority(int player_id) {
-        if (_current_value.get_type() != Variant::NIL && _composite_node->is_multiplayer_authority()) {
+        if (_current_value.get_type() != Variant::NIL) {
             // we have to do a little shuffle, so that set_value calls the callbacks and does the things
             Variant initial_value = _current_value;
             _current_value = Variant();

@@ -4,6 +4,7 @@
 #include "CommunicationLine.h"
 #include "FutureValue.h"
 #include "SafeObjectPointer.h"
+#include "SynchronizedArray.h"
 
 #include <scene/3d/node_3d.h>
 
@@ -190,6 +191,8 @@ public:
 	void UnregisterDataUpdatedCallback(StringName dataName, Callable callable);
 	Variant GetData(StringName dataName);
 	void AddDataToSumDefinition(StringName sumDataName, StringName componentDataName, float initialValue);
+
+	Ref<SynchronizedArray> CreateSynchronizedArray(StringName variableName);
 
 	[[nodiscard]] NodePath get_parent_composite_node() const { return ParentCompositeNode;	}
 	void set_parent_composite_node(NodePath parent_composite_node_path) { ParentCompositeNode = parent_composite_node_path; }
