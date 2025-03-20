@@ -98,6 +98,16 @@ void CommunicationLine::new_peer_connected(int peer_id) {
 	_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 }
 
+void CommunicationLine::peer_disconnected(int peer_id) {
+	for (int i = 0; i < _other_peers.size(); ++i) {
+		if (_other_peers[i].get_multiplayer_id() == peer_id) {
+			emit_signal("PeerCommunicationStateChanged", peer_id, NotConnected);
+			_other_peers.remove_at(i);
+			return;
+		}
+	}
+}
+
 void CommunicationLine::update_own_communication_state(CommunicationState state) {
 	if (_my_peer_info.get_communication_state() == state) {
 		return;

@@ -25,6 +25,7 @@ private:
 
 	void _ready();
 	void on_new_peer_connected(int multiplayer_id);
+	void on_peer_disconnected(int multiplayer_id);
 	void on_packet_received(int from_multiplayer_id, const PackedByteArray& packet);
 	void send_packet_to_peer(const PackedByteArray& bytes, int peer_id, MultiplayerPeer::TransferMode mode) const;
 	void send_packet_to_server(const PackedByteArray& bytes, MultiplayerPeer::TransferMode mode) const;

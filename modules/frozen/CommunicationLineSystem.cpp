@@ -28,6 +28,7 @@ void CommunicationLineSystem::_notification(int p_notification) {
 			if (_scene_multiplayer.is_valid()) {
 				_scene_multiplayer->disconnect("peer_packet", callable_mp(this, &CommunicationLineSystem::on_packet_received));
 				_scene_multiplayer->disconnect("peer_connected", callable_mp(this, &CommunicationLineSystem::on_new_peer_connected));
+				_scene_multiplayer->disconnect("peer_disconnected", callable_mp(this, &CommunicationLineSystem::on_peer_disconnected));
 			}
 		break;
 	}
@@ -39,6 +40,7 @@ void CommunicationLineSystem::_ready() {
 	_scene_multiplayer = get_multiplayer();
 	_scene_multiplayer->connect("peer_packet", callable_mp(this, &CommunicationLineSystem::on_packet_received));
 	_scene_multiplayer->connect("peer_connected", callable_mp(this, &CommunicationLineSystem::on_new_peer_connected));
+	_scene_multiplayer->connect("peer_disconnected", callable_mp(this, &CommunicationLineSystem::on_peer_disconnected));
 }
 
 void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
@@ -47,7 +49,7 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 		_send_buffer->clear();
 		_send_buffer->put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::CreateMultipleLines));
 		_send_buffer->put_u8(_communication_lines.size());
-		for (const auto& line : _communication_lines) {
+		for (const auto &line : _communication_lines) {
 			_send_buffer->put_string(line->_string_id);
 			_send_buffer->put_u16(line->_int_id);
 		}
@@ -56,8 +58,14 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 
 	// now we update all our lines with the new peer, which will
 	// also update the new peer of our state of the line.
-	for (auto& line : _communication_lines) {
+	for (auto &line : _communication_lines) {
 		line->new_peer_connected(multiplayer_id);
+	}
+}
+
+void CommunicationLineSystem::on_peer_disconnected(int multiplayer_id) {
+	for (auto &line : _communication_lines) {
+		line->peer_disconnected(multiplayer_id);
 	}
 }
 

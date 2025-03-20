@@ -151,6 +151,7 @@ private:
 
 	void create_unconnected_peers(const Vector<int> &peers);
 	void new_peer_connected(int peer_id);
+	void peer_disconnected(int peer_id);
 	void update_own_communication_state(CommunicationState state);
 	void on_packet_received(CommunicationLinePacketTypes packet_type, int from_multiplayer_id, Ref<StreamPeerBuffer> &packet);
 
