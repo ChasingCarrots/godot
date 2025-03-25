@@ -32,7 +32,6 @@
 #include "tile_map.compat.inc"
 
 #include "core/io/marshalls.h"
-#include "scene/gui/control.h"
 
 #define TILEMAP_CALL_FOR_LAYER(layer, function, ...) \
 	if (layer < 0) {                                 \
@@ -75,7 +74,8 @@ void TileMap::_set_tile_map_data_using_compatibility_format(int p_layer, TileMap
 	for (int i = 0; i < c; i += offset) {
 		const uint8_t *ptr = (const uint8_t *)&r[i];
 		uint8_t local[12];
-		for (int j = 0; j < ((p_format >= TileMapDataFormat::TILE_MAP_DATA_FORMAT_2) ? 12 : 8); j++) {
+		const int buffer_size = (p_format >= TILE_MAP_DATA_FORMAT_2) ? 12 : 8;
+		for (int j = 0; j < buffer_size; j++) {
 			local[j] = ptr[j];
 		}
 
@@ -89,8 +89,8 @@ void TileMap::_set_tile_map_data_using_compatibility_format(int p_layer, TileMap
 			SWAP(local[8], local[11]);
 			SWAP(local[9], local[10]);
 		}
-#endif
-		// Extracts position in TileMap.
+#endif // BIG_ENDIAN_ENABLED
+	   // Extracts position in TileMap.
 		int16_t x = decode_uint16(&local[0]);
 		int16_t y = decode_uint16(&local[2]);
 
@@ -172,7 +172,7 @@ void TileMap::_notification(int p_what) {
 			bool in_editor = false;
 #ifdef TOOLS_ENABLED
 			in_editor = Engine::get_singleton()->is_editor_hint();
-#endif
+#endif // TOOLS_ENABLED
 			if (is_inside_tree() && collision_animatable && !in_editor) {
 				// Update transform on the physics tick when in animatable mode.
 				last_valid_transform = new_transform;
@@ -188,7 +188,7 @@ void TileMap::_notification(int p_what) {
 			bool in_editor = false;
 #ifdef TOOLS_ENABLED
 			in_editor = Engine::get_singleton()->is_editor_hint();
-#endif
+#endif // TOOLS_ENABLED
 
 			if (is_inside_tree() && collision_animatable && !in_editor) {
 				// Store last valid transform.
@@ -209,7 +209,7 @@ void TileMap::force_update(int p_layer) {
 	notify_runtime_tile_data_update(p_layer);
 	update_internals();
 }
-#endif
+#endif // DISABLE_DEPRECATED
 
 void TileMap::set_rendering_quadrant_size(int p_size) {
 	ERR_FAIL_COND_MSG(p_size < 1, "TileMapQuadrant size cannot be smaller than 1.");
@@ -532,12 +532,24 @@ TileData *TileMap::get_cell_tile_data(int p_layer, const Vector2i &p_coords, boo
 	}
 }
 
+bool TileMap::is_cell_flipped_h(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
+	return get_cell_alternative_tile(p_layer, p_coords, p_use_proxies) & TileSetAtlasSource::TRANSFORM_FLIP_H;
+}
+
+bool TileMap::is_cell_flipped_v(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
+	return get_cell_alternative_tile(p_layer, p_coords, p_use_proxies) & TileSetAtlasSource::TRANSFORM_FLIP_V;
+}
+
+bool TileMap::is_cell_transposed(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
+	return get_cell_alternative_tile(p_layer, p_coords, p_use_proxies) & TileSetAtlasSource::TRANSFORM_TRANSPOSE;
+}
+
 Ref<TileMapPattern> TileMap::get_pattern(int p_layer, TypedArray<Vector2i> p_coords_array) {
 	TILEMAP_CALL_FOR_LAYER_V(p_layer, Ref<TileMapPattern>(), get_pattern, p_coords_array);
 }
 
 Vector2i TileMap::map_pattern(const Vector2i &p_position_in_tilemap, const Vector2i &p_coords_in_pattern, Ref<TileMapPattern> p_pattern) {
-	ERR_FAIL_COND_V(!tile_set.is_valid(), Vector2i());
+	ERR_FAIL_COND_V(tile_set.is_null(), Vector2i());
 	return tile_set->map_pattern(p_position_in_tilemap, p_coords_in_pattern, p_pattern);
 }
 
@@ -637,7 +649,7 @@ void TileMap::notify_runtime_tile_data_update(int p_layer) {
 	}
 }
 
-#ifdef TOOLS_ENABLED
+#ifdef DEBUG_ENABLED
 Rect2 TileMap::_edit_get_rect() const {
 	// Return the visible rect of the tilemap.
 	if (layers.is_empty()) {
@@ -655,7 +667,7 @@ Rect2 TileMap::_edit_get_rect() const {
 	const_cast<TileMap *>(this)->item_rect_changed(any_changed);
 	return rect;
 }
-#endif
+#endif // DEBUG_ENABLED
 
 bool TileMap::_set(const StringName &p_name, const Variant &p_value) {
 	int index;
@@ -714,7 +726,7 @@ bool TileMap::_get(const StringName &p_name, Variant &r_ret) const {
 		r_ret = get_rendering_quadrant_size();
 		return true;
 	}
-#endif
+#endif // DISABLE_DEPRECATED
 	else {
 		return property_helper.property_get_value(sname, r_ret);
 	}
@@ -726,22 +738,22 @@ void TileMap::_get_property_list(List<PropertyInfo> *p_list) const {
 }
 
 Vector2 TileMap::map_to_local(const Vector2i &p_pos) const {
-	ERR_FAIL_COND_V(!tile_set.is_valid(), Vector2());
+	ERR_FAIL_COND_V(tile_set.is_null(), Vector2());
 	return tile_set->map_to_local(p_pos);
 }
 
 Vector2i TileMap::local_to_map(const Vector2 &p_pos) const {
-	ERR_FAIL_COND_V(!tile_set.is_valid(), Vector2i());
+	ERR_FAIL_COND_V(tile_set.is_null(), Vector2i());
 	return tile_set->local_to_map(p_pos);
 }
 
 bool TileMap::is_existing_neighbor(TileSet::CellNeighbor p_cell_neighbor) const {
-	ERR_FAIL_COND_V(!tile_set.is_valid(), false);
+	ERR_FAIL_COND_V(tile_set.is_null(), false);
 	return tile_set->is_existing_neighbor(p_cell_neighbor);
 }
 
 Vector2i TileMap::get_neighbor_cell(const Vector2i &p_coords, TileSet::CellNeighbor p_cell_neighbor) const {
-	ERR_FAIL_COND_V(!tile_set.is_valid(), Vector2i());
+	ERR_FAIL_COND_V(tile_set.is_null(), Vector2i());
 	return tile_set->get_neighbor_cell(p_coords, p_cell_neighbor);
 }
 
@@ -807,7 +819,7 @@ void TileMap::set_texture_repeat(CanvasItem::TextureRepeat p_texture_repeat) {
 }
 
 TypedArray<Vector2i> TileMap::get_surrounding_cells(const Vector2i &p_coords) {
-	if (!tile_set.is_valid()) {
+	if (tile_set.is_null()) {
 		return TypedArray<Vector2i>();
 	}
 
@@ -925,6 +937,10 @@ void TileMap::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_cell_atlas_coords", "layer", "coords", "use_proxies"), &TileMap::get_cell_atlas_coords, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_cell_alternative_tile", "layer", "coords", "use_proxies"), &TileMap::get_cell_alternative_tile, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_cell_tile_data", "layer", "coords", "use_proxies"), &TileMap::get_cell_tile_data, DEFVAL(false));
+
+	ClassDB::bind_method(D_METHOD("is_cell_flipped_h", "layer", "coords", "use_proxies"), &TileMap::is_cell_flipped_h, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("is_cell_flipped_v", "layer", "coords", "use_proxies"), &TileMap::is_cell_flipped_v, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("is_cell_transposed", "layer", "coords", "use_proxies"), &TileMap::is_cell_transposed, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("get_coords_for_body_rid", "body"), &TileMap::get_coords_for_body_rid);
 	ClassDB::bind_method(D_METHOD("get_layer_for_body_rid", "body"), &TileMap::get_layer_for_body_rid);

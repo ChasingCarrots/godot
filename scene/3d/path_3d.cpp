@@ -88,11 +88,11 @@ void Path3D::_update_debug_mesh() {
 		return;
 	}
 
-	if (!debug_mesh.is_valid()) {
-		debug_mesh = Ref<ArrayMesh>(memnew(ArrayMesh));
+	if (debug_mesh.is_null()) {
+		debug_mesh.instantiate();
 	}
 
-	if (!(curve.is_valid())) {
+	if (curve.is_null()) {
 		RS::get_singleton()->instance_set_visible(debug_instance, false);
 		return;
 	}
@@ -131,16 +131,19 @@ void Path3D::_update_debug_mesh() {
 		// Path3D as a ribbon.
 		ribbon_ptr[i] = p1;
 
-		// Fish Bone.
-		const Vector3 p_left = p1 + (side + forward - up * 0.3) * 0.06;
-		const Vector3 p_right = p1 + (-side + forward - up * 0.3) * 0.06;
+		if (i % 4 == 0) {
+			// Draw fish bone every 4 points to reduce visual noise and performance impact
+			// (compared to drawing it for every point).
+			const Vector3 p_left = p1 + (side + forward - up * 0.3) * 0.06;
+			const Vector3 p_right = p1 + (-side + forward - up * 0.3) * 0.06;
 
-		const int bone_idx = i * 4;
+			const int bone_idx = i * 4;
 
-		bones_ptr[bone_idx] = p1;
-		bones_ptr[bone_idx + 1] = p_left;
-		bones_ptr[bone_idx + 2] = p1;
-		bones_ptr[bone_idx + 3] = p_right;
+			bones_ptr[bone_idx] = p1;
+			bones_ptr[bone_idx + 1] = p_left;
+			bones_ptr[bone_idx + 2] = p1;
+			bones_ptr[bone_idx + 3] = p_right;
+		}
 	}
 
 	Array ribbon_array;
@@ -222,7 +225,7 @@ void PathFollow3D::update_transform() {
 	}
 
 	Ref<Curve3D> c = path->get_curve();
-	if (!c.is_valid()) {
+	if (c.is_null()) {
 		return;
 	}
 
@@ -447,9 +450,10 @@ real_t PathFollow3D::get_progress() const {
 }
 
 void PathFollow3D::set_progress_ratio(real_t p_ratio) {
-	if (path && path->get_curve().is_valid() && path->get_curve()->get_baked_length()) {
-		set_progress(p_ratio * path->get_curve()->get_baked_length());
-	}
+	ERR_FAIL_NULL_MSG(path, "Can only set progress ratio on a PathFollow3D that is the child of a Path3D which is itself part of the scene tree.");
+	ERR_FAIL_COND_MSG(path->get_curve().is_null(), "Can't set progress ratio on a PathFollow3D that does not have a Curve.");
+	ERR_FAIL_COND_MSG(!path->get_curve()->get_baked_length(), "Can't set progress ratio on a PathFollow3D that has a 0 length curve.");
+	set_progress(p_ratio * path->get_curve()->get_baked_length());
 }
 
 real_t PathFollow3D::get_progress_ratio() const {

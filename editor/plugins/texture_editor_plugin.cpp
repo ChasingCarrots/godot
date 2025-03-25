@@ -32,6 +32,8 @@
 
 #include "editor/editor_string_names.h"
 #include "editor/themes/editor_scale.h"
+#include "scene/gui/aspect_ratio_container.h"
+#include "scene/gui/color_rect.h"
 #include "scene/gui/label.h"
 #include "scene/gui/texture_rect.h"
 #include "scene/resources/animated_texture.h"
@@ -61,8 +63,22 @@ void TexturePreview::_notification(int p_what) {
 				metadata_label->add_theme_font_override(SceneStringName(font), metadata_label_font);
 			}
 
+			bg_rect->set_color(get_theme_color(SNAME("dark_color_2"), EditorStringName(Editor)));
 			checkerboard->set_texture(get_editor_theme_icon(SNAME("Checkerboard")));
+			cached_outline_color = get_theme_color(SNAME("extra_border_color_1"), EditorStringName(Editor));
 		} break;
+	}
+}
+
+void TexturePreview::_draw_outline() {
+	const float outline_width = Math::round(EDSCALE);
+	const Rect2 outline_rect = Rect2(Vector2(), texture_display->get_size()).grow(outline_width * 0.5);
+	texture_display->draw_rect(outline_rect, cached_outline_color, false, outline_width);
+}
+
+void TexturePreview::_update_texture_display_ratio() {
+	if (texture_display->get_texture().is_valid()) {
+		centering_container->set_ratio(texture_display->get_texture()->get_size().aspect());
 	}
 }
 
@@ -124,33 +140,58 @@ void TexturePreview::_update_metadata_label_text() {
 }
 
 TexturePreview::TexturePreview(Ref<Texture2D> p_texture, bool p_show_metadata) {
+	set_custom_minimum_size(Size2(0.0, 256.0) * EDSCALE);
+
+	bg_rect = memnew(ColorRect);
+
+	add_child(bg_rect);
+
+	margin_container = memnew(MarginContainer);
+	const float outline_width = Math::round(EDSCALE);
+	margin_container->add_theme_constant_override("margin_right", outline_width);
+	margin_container->add_theme_constant_override("margin_top", outline_width);
+	margin_container->add_theme_constant_override("margin_left", outline_width);
+	margin_container->add_theme_constant_override("margin_bottom", outline_width);
+	add_child(margin_container);
+
+	centering_container = memnew(AspectRatioContainer);
+	margin_container->add_child(centering_container);
+
 	checkerboard = memnew(TextureRect);
+	checkerboard->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
 	checkerboard->set_stretch_mode(TextureRect::STRETCH_TILE);
 	checkerboard->set_texture_repeat(CanvasItem::TEXTURE_REPEAT_ENABLED);
-	checkerboard->set_custom_minimum_size(Size2(0.0, 256.0) * EDSCALE);
-	add_child(checkerboard);
+	centering_container->add_child(checkerboard);
 
 	texture_display = memnew(TextureRect);
 	texture_display->set_texture_filter(TEXTURE_FILTER_NEAREST_WITH_MIPMAPS);
 	texture_display->set_texture(p_texture);
-	texture_display->set_anchors_preset(TextureRect::PRESET_FULL_RECT);
-	texture_display->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
 	texture_display->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
-	add_child(texture_display);
+	centering_container->add_child(texture_display);
+
+	texture_display->connect(SceneStringName(draw), callable_mp(this, &TexturePreview::_draw_outline));
+
+	if (p_texture.is_valid()) {
+		_update_texture_display_ratio();
+		p_texture->connect_changed(callable_mp(this, &TexturePreview::_update_texture_display_ratio));
+	}
 
 	if (p_show_metadata) {
 		metadata_label = memnew(Label);
 
-		_update_metadata_label_text();
-		p_texture->connect_changed(callable_mp(this, &TexturePreview::_update_metadata_label_text));
+		if (p_texture.is_valid()) {
+			_update_metadata_label_text();
+			p_texture->connect_changed(callable_mp(this, &TexturePreview::_update_metadata_label_text));
+		}
 
 		// It's okay that these colors are static since the grid color is static too.
-		metadata_label->add_theme_color_override(SceneStringName(font_color), Color::named("white"));
-		metadata_label->add_theme_color_override("font_shadow_color", Color::named("black"));
+		metadata_label->add_theme_color_override(SceneStringName(font_color), Color(1, 1, 1));
+		metadata_label->add_theme_color_override("font_shadow_color", Color(0, 0, 0));
 
 		metadata_label->add_theme_font_size_override(SceneStringName(font_size), 14 * EDSCALE);
-		metadata_label->add_theme_color_override("font_outline_color", Color::named("black"));
+		metadata_label->add_theme_color_override("font_outline_color", Color(0, 0, 0));
 		metadata_label->add_theme_constant_override("outline_size", 8 * EDSCALE);
+
 		metadata_label->set_h_size_flags(Control::SIZE_SHRINK_END);
 		metadata_label->set_v_size_flags(Control::SIZE_SHRINK_END);
 
@@ -168,7 +209,7 @@ void EditorInspectorPluginTexture::parse_begin(Object *p_object) {
 		Ref<Image> image(Object::cast_to<Image>(p_object));
 		texture = ImageTexture::create_from_image(image);
 
-		ERR_FAIL_NULL_MSG(texture, "Failed to create the texture from an invalid image.");
+		ERR_FAIL_COND_MSG(texture.is_null(), "Failed to create the texture from an invalid image.");
 	}
 
 	add_custom_control(memnew(TexturePreview(texture, true)));

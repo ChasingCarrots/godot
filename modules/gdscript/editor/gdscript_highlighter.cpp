@@ -36,6 +36,7 @@
 #include "core/config/project_settings.h"
 #include "editor/editor_settings.h"
 #include "editor/themes/editor_theme_manager.h"
+#include "scene/gui/text_edit.h"
 
 Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_line) {
 	Dictionary color_map;
@@ -163,7 +164,7 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 							}
 							if (from + end_key_length > line_length) {
 								// If it's key length and there is a '\', dont skip to highlight esc chars.
-								if (str.find("\\", from) >= 0) {
+								if (str.find_char('\\', from) >= 0) {
 									break;
 								}
 							}
@@ -236,7 +237,7 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 						for (; from < line_length; from++) {
 							if (line_length - from < end_key_length) {
 								// Don't break if '\' to highlight esc chars.
-								if (str.find("\\", from) < 0) {
+								if (str.find_char('\\', from) < 0) {
 									break;
 								}
 							}
@@ -560,12 +561,17 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 			}
 		}
 
-		// Keep symbol color for binary '&&'. In the case of '&&&' use StringName color for the last ampersand.
+		// Set color of StringName, keeping symbol color for binary '&&' and '&'.
 		if (!in_string_name && in_region == -1 && str[j] == '&' && !is_binary_op) {
-			if (j >= 2 && str[j - 1] == '&' && str[j - 2] != '&' && prev_is_binary_op) {
-				is_binary_op = true;
-			} else if (j == 0 || (j > 0 && str[j - 1] != '&') || prev_is_binary_op) {
+			if (j + 1 <= line_length - 1 && (str[j + 1] == '\'' || str[j + 1] == '"')) {
 				in_string_name = true;
+				// Cover edge cases of i.e. '+&""' and '&&&""', so the StringName is properly colored.
+				if (prev_is_binary_op && j >= 2 && str[j - 1] == '&' && str[j - 2] != '&') {
+					in_string_name = false;
+					is_binary_op = true;
+				}
+			} else {
+				is_binary_op = true;
 			}
 		} else if (in_region != -1 || is_a_symbol) {
 			in_string_name = false;
@@ -701,7 +707,9 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 	List<StringName> types;
 	ClassDB::get_class_list(&types);
 	for (const StringName &E : types) {
-		class_names[E] = types_color;
+		if (ClassDB::is_class_exposed(E)) {
+			class_names[E] = types_color;
+		}
 	}
 
 	/* User types. */
@@ -813,7 +821,7 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 				if (E.usage & PROPERTY_USAGE_CATEGORY || E.usage & PROPERTY_USAGE_GROUP || E.usage & PROPERTY_USAGE_SUBGROUP) {
 					continue;
 				}
-				if (prop_name.contains("/")) {
+				if (prop_name.contains_char('/')) {
 					continue;
 				}
 				member_keywords[prop_name] = member_variable_color;
@@ -852,6 +860,7 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 		comment_marker_colors[COMMENT_MARKER_NOTICE] = Color(0.24, 0.54, 0.09);
 	}
 
+	// TODO: Move to editor_settings.cpp
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/function_definition_color", function_definition_color);
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/global_function_color", global_function_color);
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/node_path_color", node_path_color);

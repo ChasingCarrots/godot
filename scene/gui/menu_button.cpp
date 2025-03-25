@@ -30,7 +30,6 @@
 
 #include "menu_button.h"
 
-#include "core/os/keyboard.h"
 #include "scene/main/window.h"
 
 void MenuButton::shortcut_input(const Ref<InputEvent> &p_event) {
@@ -138,7 +137,7 @@ void MenuButton::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_INTERNAL_PROCESS: {
-			MenuButton *menu_btn_other = Object::cast_to<MenuButton>(get_viewport()->gui_find_control(get_viewport()->get_mouse_position()));
+			MenuButton *menu_btn_other = Object::cast_to<MenuButton>(get_viewport()->gui_get_hovered_control());
 
 			if (menu_btn_other && menu_btn_other != this && menu_btn_other->is_switch_on_hover() && !menu_btn_other->is_disabled() &&
 					(get_parent()->is_ancestor_of(menu_btn_other) || menu_btn_other->get_parent()->is_ancestor_of(popup))) {
@@ -173,10 +172,7 @@ bool MenuButton::_get(const StringName &p_name, Variant &r_ret) const {
 }
 
 void MenuButton::_bind_methods() {
-	// TODO: Properly handle popups when advanced GUI is disabled.
-#ifndef ADVANCED_GUI_DISABLED
 	ClassDB::bind_method(D_METHOD("get_popup"), &MenuButton::get_popup);
-#endif // ADVANCED_GUI_DISABLED
 	ClassDB::bind_method(D_METHOD("show_popup"), &MenuButton::show_popup);
 	ClassDB::bind_method(D_METHOD("set_switch_on_hover", "enable"), &MenuButton::set_switch_on_hover);
 	ClassDB::bind_method(D_METHOD("is_switch_on_hover"), &MenuButton::is_switch_on_hover);
@@ -207,6 +203,14 @@ void MenuButton::_bind_methods() {
 void MenuButton::set_disable_shortcuts(bool p_disabled) {
 	disable_shortcuts = p_disabled;
 }
+
+#ifdef TOOLS_ENABLED
+PackedStringArray MenuButton::get_configuration_warnings() const {
+	PackedStringArray warnings = Button::get_configuration_warnings();
+	warnings.append_array(popup->get_configuration_warnings());
+	return warnings;
+}
+#endif
 
 MenuButton::MenuButton(const String &p_text) :
 		Button(p_text) {

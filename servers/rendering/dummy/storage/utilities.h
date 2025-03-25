@@ -77,6 +77,9 @@ public:
 		} else if (RendererDummy::MaterialStorage::get_singleton()->owns_shader(p_rid)) {
 			RendererDummy::MaterialStorage::get_singleton()->shader_free(p_rid);
 			return true;
+		} else if (RendererDummy::MaterialStorage::get_singleton()->owns_material(p_rid)) {
+			RendererDummy::MaterialStorage::get_singleton()->material_free(p_rid);
+			return true;
 		}
 		return false;
 	}
@@ -124,7 +127,7 @@ public:
 	virtual RenderingDevice::DeviceType get_video_adapter_type() const override { return RenderingDevice::DeviceType::DEVICE_TYPE_OTHER; }
 	virtual String get_video_adapter_api_version() const override { return String(); }
 
-	virtual Size2i get_maximum_viewport_size() const override { return Size2i(); };
+	virtual Size2i get_maximum_viewport_size() const override { return Size2i(); }
 };
 
 } // namespace RendererDummy

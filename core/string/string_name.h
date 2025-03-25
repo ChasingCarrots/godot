@@ -60,6 +60,11 @@ class StringName {
 		uint32_t debug_references = 0;
 #endif
 		String get_name() const { return cname ? String(cname) : name; }
+		bool operator==(const String &p_name) const;
+		bool operator!=(const String &p_name) const;
+		bool operator==(const char *p_name) const;
+		bool operator!=(const char *p_name) const;
+
 		int idx = 0;
 		uint32_t hash = 0;
 		_Data *prev = nullptr;
@@ -78,6 +83,7 @@ class StringName {
 	static inline Mutex mutex;
 	static void setup();
 	static void cleanup();
+	static uint32_t get_empty_hash();
 	static inline bool configured = false;
 #ifdef DEBUG_ENABLED
 	struct DebugSortReferences {
@@ -98,6 +104,10 @@ public:
 	bool operator==(const char *p_name) const;
 	bool operator!=(const String &p_name) const;
 	bool operator!=(const char *p_name) const;
+
+	char32_t operator[](int p_index) const;
+	int length() const;
+	bool is_empty() const;
 
 	_FORCE_INLINE_ bool is_node_unique_name() const {
 		if (!_data) {
@@ -122,21 +132,23 @@ public:
 		return _data >= p_name._data;
 	}
 	_FORCE_INLINE_ bool operator==(const StringName &p_name) const {
-		// the real magic of all this mess happens here.
-		// this is why path comparisons are very fast
+		// The real magic of all this mess happens here.
+		// This is why path comparisons are very fast.
 		return _data == p_name._data;
+	}
+	_FORCE_INLINE_ bool operator!=(const StringName &p_name) const {
+		return _data != p_name._data;
 	}
 	_FORCE_INLINE_ uint32_t hash() const {
 		if (_data) {
 			return _data->hash;
 		} else {
-			return 0;
+			return get_empty_hash();
 		}
 	}
 	_FORCE_INLINE_ const void *data_unique_pointer() const {
 		return (void *)_data;
 	}
-	bool operator!=(const StringName &p_name) const;
 
 	_FORCE_INLINE_ operator String() const {
 		if (_data) {
@@ -175,9 +187,23 @@ public:
 		}
 	};
 
-	void operator=(const StringName &p_name);
+	StringName &operator=(const StringName &p_name);
+	StringName &operator=(StringName &&p_name) {
+		if (_data == p_name._data) {
+			return *this;
+		}
+
+		unref();
+		_data = p_name._data;
+		p_name._data = nullptr;
+		return *this;
+	}
 	StringName(const char *p_name, bool p_static = false);
 	StringName(const StringName &p_name);
+	StringName(StringName &&p_name) {
+		_data = p_name._data;
+		p_name._data = nullptr;
+	}
 	StringName(const String &p_name, bool p_static = false);
 	StringName(const StaticCString &p_static_string, bool p_static = false);
 	StringName() {}

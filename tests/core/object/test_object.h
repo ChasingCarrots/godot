@@ -95,10 +95,10 @@ public:
 	}
 	bool property_can_revert(const StringName &p_name) const override {
 		return false;
-	};
+	}
 	bool property_get_revert(const StringName &p_name, Variant &r_ret) const override {
 		return false;
-	};
+	}
 	void get_method_list(List<MethodInfo> *p_list) const override {
 	}
 	bool has_method(const StringName &p_method) const override {
@@ -184,6 +184,31 @@ TEST_CASE("[Object] Metadata") {
 	CHECK_MESSAGE(
 			meta_list2.size() == 0,
 			"The metadata list should contain 0 items after removing all metadata items.");
+
+	Object other;
+	object.set_meta("conflicting_meta", "string");
+	object.set_meta("not_conflicting_meta", 123);
+	other.set_meta("conflicting_meta", Color(0, 1, 0));
+	other.set_meta("other_meta", "other");
+	object.merge_meta_from(&other);
+
+	CHECK_MESSAGE(
+			Color(object.get_meta("conflicting_meta")).is_equal_approx(Color(0, 1, 0)),
+			"String meta should be overwritten with Color after merging.");
+
+	CHECK_MESSAGE(
+			int(object.get_meta("not_conflicting_meta")) == 123,
+			"Not conflicting meta on destination should be kept intact.");
+
+	CHECK_MESSAGE(
+			object.get_meta("other_meta", String()) == "other",
+			"Not conflicting meta name on source should merged.");
+
+	List<StringName> meta_list3;
+	object.get_meta_list(&meta_list3);
+	CHECK_MESSAGE(
+			meta_list3.size() == 3,
+			"The metadata list should contain 3 items after merging meta from two objects.");
 }
 
 TEST_CASE("[Object] Construction") {

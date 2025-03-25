@@ -31,14 +31,13 @@
 #include "quick_settings_dialog.h"
 
 #include "core/config/project_settings.h"
-#include "core/string/translation.h"
+#include "core/string/translation_server.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
 #include "scene/gui/label.h"
-#include "scene/gui/margin_container.h"
 #include "scene/gui/option_button.h"
 #include "scene/gui/panel_container.h"
 

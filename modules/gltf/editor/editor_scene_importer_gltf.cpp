@@ -62,6 +62,9 @@ Node *EditorSceneFormatImporterGLTF::import_scene(const String &p_path, uint32_t
 	if (p_options.has(SNAME("nodes/import_as_skeleton_bones")) ? (bool)p_options[SNAME("nodes/import_as_skeleton_bones")] : false) {
 		state->set_import_as_skeleton_bones(true);
 	}
+	if (p_options.has(SNAME("extract_path"))) {
+		state->set_extract_path(p_options["extract_path"]);
+	}
 	state->set_bake_fps(p_options["animation/fps"]);
 	Error err = gltf->append_from_file(p_path, state, p_flags);
 	if (err != OK) {
@@ -100,7 +103,7 @@ void EditorSceneFormatImporterGLTF::handle_compatibility_options(HashMap<StringN
 	}
 }
 
-Variant EditorSceneFormatImporterGLTF::get_option_visibility(const String &p_path, bool p_for_animation,
+Variant EditorSceneFormatImporterGLTF::get_option_visibility(const String &p_path, const String &p_scene_import_type,
 		const String &p_option, const HashMap<StringName, Variant> &p_options) {
 	return true;
 }

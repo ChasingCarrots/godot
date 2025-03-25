@@ -37,9 +37,9 @@
 
 class Button;
 class EditorRunNative;
-class EditorQuickOpen;
 class PanelContainer;
 class HBoxContainer;
+class AcceptDialog;
 
 class EditorRunBar : public MarginContainer {
 	GDCLASS(EditorRunBar, MarginContainer);
@@ -55,6 +55,14 @@ class EditorRunBar : public MarginContainer {
 
 	PanelContainer *main_panel = nullptr;
 	HBoxContainer *main_hbox = nullptr;
+	HBoxContainer *outer_hbox = nullptr;
+
+	Button *profiler_autostart_indicator = nullptr;
+
+	PanelContainer *recovery_mode_panel = nullptr;
+	Button *recovery_mode_button = nullptr;
+	Button *recovery_mode_reload_button = nullptr;
+	AcceptDialog *recovery_mode_popup = nullptr;
 
 	Button *play_button = nullptr;
 	Button *pause_button = nullptr;
@@ -68,8 +76,6 @@ class EditorRunBar : public MarginContainer {
 	PanelContainer *write_movie_panel = nullptr;
 	Button *write_movie_button = nullptr;
 
-	EditorQuickOpen *quick_run = nullptr;
-
 	RunMode current_mode = RunMode::STOPPED;
 	String run_custom_filename;
 	String run_current_filename;
@@ -78,7 +84,7 @@ class EditorRunBar : public MarginContainer {
 	void _update_play_buttons();
 
 	void _write_movie_toggled(bool p_enabled);
-	void _quick_run_selected();
+	void _quick_run_selected(const String &p_file_path);
 
 	void _play_current_pressed();
 	void _play_custom_pressed();
@@ -86,12 +92,17 @@ class EditorRunBar : public MarginContainer {
 	void _run_scene(const String &p_scene_path = "");
 	void _run_native(const Ref<EditorExportPreset> &p_preset);
 
+	void _profiler_autostart_indicator_pressed();
+
 protected:
 	void _notification(int p_what);
 	static void _bind_methods();
 
 public:
 	static EditorRunBar *get_singleton() { return singleton; }
+
+	void recovery_mode_show_dialog();
+	void recovery_mode_reload_project();
 
 	void play_main_scene(bool p_from_native = false);
 	void play_current_scene(bool p_reload = false);
@@ -105,9 +116,12 @@ public:
 
 	OS::ProcessID has_child_process(OS::ProcessID p_pid) const;
 	void stop_child_process(OS::ProcessID p_pid);
+	OS::ProcessID get_current_process() const;
 
 	void set_movie_maker_enabled(bool p_enabled);
 	bool is_movie_maker_enabled() const;
+
+	void update_profiler_autostart_indicator();
 
 	Button *get_pause_button() { return pause_button; }
 

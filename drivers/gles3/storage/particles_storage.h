@@ -33,7 +33,6 @@
 
 #ifdef GLES3_ENABLED
 
-#include "core/templates/local_vector.h"
 #include "core/templates/rid_owner.h"
 #include "core/templates/self_list.h"
 #include "drivers/gles3/shaders/particles_copy.glsl.gen.h"
@@ -396,7 +395,7 @@ public:
 
 	_FORCE_INLINE_ bool particles_has_collision(RID p_particles) {
 		Particles *particles = particles_owner.get_or_null(p_particles);
-		ERR_FAIL_NULL_V(particles, 0);
+		ERR_FAIL_NULL_V(particles, false);
 
 		return particles->has_collision_cache;
 	}

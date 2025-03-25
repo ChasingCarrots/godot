@@ -43,6 +43,7 @@
 #include <type_traits>
 
 #define DEFVAL(m_defval) (m_defval)
+#define DEFVAL_ARRAY DEFVAL(ClassDB::default_array_arg)
 
 #ifdef DEBUG_METHODS_ENABLED
 
@@ -126,6 +127,7 @@ public:
 		HashMap<StringName, List<StringName>> linked_properties;
 #endif
 		HashMap<StringName, PropertySetGet> property_setget;
+		HashMap<StringName, Vector<uint32_t>> virtual_methods_compat;
 
 		StringName inherits;
 		StringName name;
@@ -134,15 +136,21 @@ public:
 		bool reloadable = false;
 		bool is_virtual = false;
 		bool is_runtime = false;
-		Object *(*creation_func)() = nullptr;
+		// The bool argument indicates the need to postinitialize.
+		Object *(*creation_func)(bool) = nullptr;
 
 		ClassInfo() {}
 		~ClassInfo() {}
 	};
 
 	template <typename T>
-	static Object *creator() {
-		return memnew(T);
+	static Object *creator(bool p_notify_postinitialize) {
+		Object *ret = new ("") T;
+		ret->_initialize();
+		if (p_notify_postinitialize) {
+			ret->_postinitialize();
+		}
+		return ret;
 	}
 
 	static RWLock lock;
@@ -175,6 +183,9 @@ public:
 	};
 	static HashMap<StringName, NativeStruct> native_structs;
 
+	static Array default_array_arg;
+	static bool is_default_array_arg(const Array &p_array);
+
 private:
 	// Non-locking variants of get_parent_class and is_parent_class.
 	static StringName _get_parent_class(const StringName &p_class);
@@ -183,7 +194,9 @@ private:
 	static MethodBind *_bind_vararg_method(MethodBind *p_bind, const StringName &p_name, const Vector<Variant> &p_default_args, bool p_compatibility);
 	static void _bind_method_custom(const StringName &p_class, MethodBind *p_method, bool p_compatibility);
 
-	static Object *_instantiate_internal(const StringName &p_class, bool p_require_real_class = false);
+	static Object *_instantiate_internal(const StringName &p_class, bool p_require_real_class = false, bool p_notify_postinitialize = true);
+
+	static bool _can_instantiate(ClassInfo *p_class_info);
 
 public:
 	// DO NOT USE THIS!!!!!! NEEDS TO BE PUBLIC BUT DO NOT USE NO MATTER WHAT!!!
@@ -256,8 +269,8 @@ public:
 	static void unregister_extension_class(const StringName &p_class, bool p_free_method_binds = true);
 
 	template <typename T>
-	static Object *_create_ptr_func() {
-		return T::create();
+	static Object *_create_ptr_func(bool p_notify_postinitialize) {
+		return T::create(p_notify_postinitialize);
 	}
 
 	template <typename T>
@@ -277,11 +290,13 @@ public:
 	static void get_class_list(List<StringName> *p_classes);
 #ifdef TOOLS_ENABLED
 	static void get_extensions_class_list(List<StringName> *p_classes);
+	static void get_extension_class_list(const Ref<GDExtension> &p_extension, List<StringName> *p_classes);
 	static ObjectGDExtension *get_placeholder_extension(const StringName &p_class);
 #endif
 	static void get_inheriters_from_class(const StringName &p_class, List<StringName> *p_classes);
 	static void get_direct_inheriters_from_class(const StringName &p_class, List<StringName> *p_classes);
 	static StringName get_parent_class_nocheck(const StringName &p_class);
+	static bool get_inheritance_chain_nocheck(const StringName &p_class, Vector<StringName> &r_result);
 	static StringName get_parent_class(const StringName &p_class);
 	static StringName get_compatibility_remapped_class(const StringName &p_class);
 	static bool class_exists(const StringName &p_class);
@@ -291,6 +306,7 @@ public:
 	static bool is_virtual(const StringName &p_class);
 	static Object *instantiate(const StringName &p_class);
 	static Object *instantiate_no_placeholders(const StringName &p_class);
+	static Object *instantiate_without_postinitialization(const StringName &p_class);
 	static void set_object_extension_instance(Object *p_object, const StringName &p_class, GDExtensionClassInstancePtr p_instance);
 
 	static APIType get_api_type(const StringName &p_class);
@@ -437,8 +453,10 @@ public:
 	static Vector<uint32_t> get_method_compatibility_hashes(const StringName &p_class, const StringName &p_name);
 
 	static void add_virtual_method(const StringName &p_class, const MethodInfo &p_method, bool p_virtual = true, const Vector<String> &p_arg_names = Vector<String>(), bool p_object_core = false);
+	static void add_virtual_compatibility_method(const StringName &p_class, const MethodInfo &p_method, bool p_virtual = true, const Vector<String> &p_arg_names = Vector<String>(), bool p_object_core = false);
 	static void get_virtual_methods(const StringName &p_class, List<MethodInfo> *p_methods, bool p_no_inheritance = false);
 	static void add_extension_class_virtual_method(const StringName &p_class, const GDExtensionClassVirtualMethodInfo *p_method_info);
+	static Vector<uint32_t> get_virtual_method_compatibility_hashes(const StringName &p_class, const StringName &p_name);
 
 	static void bind_integer_constant(const StringName &p_class, const StringName &p_enum, const StringName &p_name, int64_t p_constant, bool p_is_bitfield = false);
 	static void get_integer_constant_list(const StringName &p_class, List<String> *p_constants, bool p_no_inheritance = false);

@@ -53,8 +53,8 @@ public:
 		UNUSED_PRIVATE_CLASS_VARIABLE, // Class variable is declared private ("_" prefix) but never used in the class.
 		UNUSED_PARAMETER, // Function parameter is never used.
 		UNUSED_SIGNAL, // Signal is defined but never explicitly used in the class.
-		SHADOWED_VARIABLE, // Variable name shadowed by other variable in same class.
-		SHADOWED_VARIABLE_BASE_CLASS, // Variable name shadowed by other variable in some base class.
+		SHADOWED_VARIABLE, // A local variable/constant shadows a current class member.
+		SHADOWED_VARIABLE_BASE_CLASS, // A local variable/constant shadows a base class member.
 		SHADOWED_GLOBAL_IDENTIFIER, // A global class or function has the same name as variable.
 		UNREACHABLE_CODE, // Code after a return statement.
 		UNREACHABLE_PATTERN, // Pattern in a match statement after a catch all pattern (wildcard or bind).
@@ -70,6 +70,7 @@ public:
 		UNSAFE_VOID_RETURN, // Function returns void but returned a call to a function that can't be type checked.
 		RETURN_VALUE_DISCARDED, // Function call returns something but the value isn't used.
 		STATIC_CALLED_ON_INSTANCE, // A static method was called on an instance of a class instead of on the class itself.
+		MISSING_TOOL, // The base class script has the "@tool" annotation, but this script does not have it.
 		REDUNDANT_STATIC_UNLOAD, // The `@static_unload` annotation is used but the class does not have static data.
 		REDUNDANT_AWAIT, // await is used but expression is synchronous (not a signal nor a coroutine).
 		ASSERT_ALWAYS_TRUE, // Expression for assert argument is always true.
@@ -81,7 +82,6 @@ public:
 		ENUM_VARIABLE_WITHOUT_DEFAULT, // A variable with an enum type does not have a default value. The default will be set to `0` instead of the first enum value.
 		EMPTY_FILE, // A script file is empty.
 		DEPRECATED_KEYWORD, // The keyword is deprecated and should be replaced.
-		RENAMED_IN_GODOT_4_HINT, // A variable or function that could not be found has been renamed in Godot 4.
 		CONFUSABLE_IDENTIFIER, // The identifier contains misleading characters that can be confused. E.g. "usеr" (has Cyrillic "е" instead of Latin "e").
 		CONFUSABLE_LOCAL_DECLARATION, // The parent block declares an identifier with the same name below.
 		CONFUSABLE_LOCAL_USAGE, // The identifier will be shadowed below in the block.
@@ -97,6 +97,10 @@ public:
 #endif
 		WARNING_MAX,
 	};
+
+#ifndef DISABLE_DEPRECATED
+	static constexpr int FIRST_DEPRECATED_WARNING = PROPERTY_USED_AS_FUNCTION;
+#endif
 
 	constexpr static WarnLevel default_warning_levels[] = {
 		WARN, // UNASSIGNED_VARIABLE
@@ -123,6 +127,7 @@ public:
 		WARN, // UNSAFE_VOID_RETURN
 		IGNORE, // RETURN_VALUE_DISCARDED // Too spammy by default on common cases (connect, Tween, etc.).
 		WARN, // STATIC_CALLED_ON_INSTANCE
+		WARN, // MISSING_TOOL
 		WARN, // REDUNDANT_STATIC_UNLOAD
 		WARN, // REDUNDANT_AWAIT
 		WARN, // ASSERT_ALWAYS_TRUE
@@ -134,7 +139,6 @@ public:
 		WARN, // ENUM_VARIABLE_WITHOUT_DEFAULT
 		WARN, // EMPTY_FILE
 		WARN, // DEPRECATED_KEYWORD
-		WARN, // RENAMED_IN_GODOT_4_HINT
 		WARN, // CONFUSABLE_IDENTIFIER
 		WARN, // CONFUSABLE_LOCAL_DECLARATION
 		WARN, // CONFUSABLE_LOCAL_USAGE

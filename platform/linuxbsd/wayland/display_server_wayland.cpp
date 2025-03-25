@@ -216,7 +216,9 @@ bool DisplayServerWayland::has_feature(Feature p_feature) const {
 		//case FEATURE_NATIVE_DIALOG:
 		//case FEATURE_NATIVE_DIALOG_INPUT:
 #ifdef DBUS_ENABLED
-		case FEATURE_NATIVE_DIALOG_FILE: {
+		case FEATURE_NATIVE_DIALOG_FILE:
+		case FEATURE_NATIVE_DIALOG_FILE_EXTRA:
+		case FEATURE_NATIVE_DIALOG_FILE_MIME: {
 			return true;
 		} break;
 #endif
@@ -318,6 +320,10 @@ Error DisplayServerWayland::file_dialog_with_options_show(const String &p_title,
 
 #endif
 
+void DisplayServerWayland::beep() const {
+	wayland_thread.beep();
+}
+
 void DisplayServerWayland::mouse_set_mode(MouseMode p_mode) {
 	if (p_mode == mouse_mode) {
 		return;
@@ -327,15 +333,7 @@ void DisplayServerWayland::mouse_set_mode(MouseMode p_mode) {
 
 	bool show_cursor = (p_mode == MOUSE_MODE_VISIBLE || p_mode == MOUSE_MODE_CONFINED);
 
-	if (show_cursor) {
-		if (custom_cursors.has(cursor_shape)) {
-			wayland_thread.cursor_set_custom_shape(cursor_shape);
-		} else {
-			wayland_thread.cursor_set_shape(cursor_shape);
-		}
-	} else {
-		wayland_thread.cursor_hide();
-	}
+	wayland_thread.cursor_set_visible(show_cursor);
 
 	WaylandThread::PointerConstraint constraint = WaylandThread::PointerConstraint::NONE;
 
@@ -480,7 +478,7 @@ String DisplayServerWayland::clipboard_get_primary() const {
 	for (String mime : text_mimes) {
 		if (wayland_thread.primary_has_mime(mime)) {
 			print_verbose(vformat("Selecting media type \"%s\" from offered types.", mime));
-			wayland_thread.primary_get_mime(mime);
+			data = wayland_thread.primary_get_mime(mime);
 			break;
 		}
 	}
@@ -635,6 +633,18 @@ int64_t DisplayServerWayland::window_get_native_handle(HandleType p_handle_type,
 			}
 			return 0;
 		} break;
+		case EGL_DISPLAY: {
+			if (egl_manager) {
+				return (int64_t)egl_manager->get_display(p_window);
+			}
+			return 0;
+		}
+		case EGL_CONFIG: {
+			if (egl_manager) {
+				return (int64_t)egl_manager->get_config(p_window);
+			}
+			return 0;
+		}
 #endif // GLES3_ENABLED
 
 		default: {
@@ -896,11 +906,11 @@ bool DisplayServerWayland::window_is_focused(WindowID p_window_id) const {
 }
 
 bool DisplayServerWayland::window_can_draw(DisplayServer::WindowID p_window_id) const {
-	return !suspended;
+	return suspend_state == SuspendState::NONE;
 }
 
 bool DisplayServerWayland::can_any_window_draw() const {
-	return !suspended;
+	return suspend_state == SuspendState::NONE;
 }
 
 void DisplayServerWayland::window_set_ime_active(const bool p_active, DisplayServer::WindowID p_window_id) {
@@ -977,6 +987,19 @@ DisplayServer::VSyncMode DisplayServerWayland::window_get_vsync_mode(DisplayServ
 	return DisplayServer::VSYNC_ENABLED;
 }
 
+void DisplayServerWayland::window_start_drag(WindowID p_window) {
+	MutexLock mutex_lock(wayland_thread.mutex);
+
+	wayland_thread.window_start_drag(p_window);
+}
+
+void DisplayServerWayland::window_start_resize(WindowResizeEdge p_edge, WindowID p_window) {
+	MutexLock mutex_lock(wayland_thread.mutex);
+
+	ERR_FAIL_INDEX(int(p_edge), WINDOW_EDGE_MAX);
+	wayland_thread.window_start_resize(p_edge, p_window);
+}
+
 void DisplayServerWayland::cursor_set_shape(CursorShape p_shape) {
 	ERR_FAIL_INDEX(p_shape, CURSOR_MAX);
 
@@ -993,11 +1016,7 @@ void DisplayServerWayland::cursor_set_shape(CursorShape p_shape) {
 		return;
 	}
 
-	if (custom_cursors.has(p_shape)) {
-		wayland_thread.cursor_set_custom_shape(p_shape);
-	} else {
-		wayland_thread.cursor_set_shape(p_shape);
-	}
+	wayland_thread.cursor_set_shape(p_shape);
 }
 
 DisplayServerWayland::CursorShape DisplayServerWayland::cursor_get_shape() const {
@@ -1009,18 +1028,13 @@ DisplayServerWayland::CursorShape DisplayServerWayland::cursor_get_shape() const
 void DisplayServerWayland::cursor_set_custom_image(const Ref<Resource> &p_cursor, CursorShape p_shape, const Vector2 &p_hotspot) {
 	MutexLock mutex_lock(wayland_thread.mutex);
 
-	bool visible = (mouse_mode == MOUSE_MODE_VISIBLE || mouse_mode == MOUSE_MODE_CONFINED);
-
 	if (p_cursor.is_valid()) {
 		HashMap<CursorShape, CustomCursor>::Iterator cursor_c = custom_cursors.find(p_shape);
 
 		if (cursor_c) {
 			if (cursor_c->value.rid == p_cursor->get_rid() && cursor_c->value.hotspot == p_hotspot) {
 				// We have a cached cursor. Nice.
-				if (visible) {
-					wayland_thread.cursor_set_custom_shape(p_shape);
-				}
-
+				wayland_thread.cursor_set_shape(p_shape);
 				return;
 			}
 
@@ -1039,20 +1053,18 @@ void DisplayServerWayland::cursor_set_custom_image(const Ref<Resource> &p_cursor
 
 		wayland_thread.cursor_shape_set_custom_image(p_shape, image, p_hotspot);
 
-		if (visible) {
-			wayland_thread.cursor_set_custom_shape(p_shape);
-		}
+		wayland_thread.cursor_set_shape(p_shape);
 	} else {
 		// Clear cache and reset to default system cursor.
-		if (cursor_shape == p_shape && visible) {
+		wayland_thread.cursor_shape_clear_custom_image(p_shape);
+
+		if (cursor_shape == p_shape) {
 			wayland_thread.cursor_set_shape(p_shape);
 		}
 
 		if (custom_cursors.has(p_shape)) {
 			custom_cursors.erase(p_shape);
 		}
-
-		wayland_thread.cursor_shape_clear_custom_image(p_shape);
 	}
 }
 
@@ -1120,16 +1132,21 @@ void DisplayServerWayland::try_suspend() {
 	if (emulate_vsync) {
 		bool frame = wayland_thread.wait_frame_suspend_ms(1000);
 		if (!frame) {
-			suspended = true;
-		}
-	} else {
-		if (wayland_thread.is_suspended()) {
-			suspended = true;
+			suspend_state = SuspendState::TIMEOUT;
 		}
 	}
 
-	if (suspended) {
-		DEBUG_LOG_WAYLAND("Window suspended.");
+	// If we suspended by capability, we'll know with this check. We must do this
+	// after `wait_frame_suspend_ms` as it progressively dispatches the event queue
+	// during the "timeout".
+	if (wayland_thread.is_suspended()) {
+		suspend_state = SuspendState::CAPABILITY;
+	}
+
+	if (suspend_state == SuspendState::TIMEOUT) {
+		DEBUG_LOG_WAYLAND("Suspending. Reason: timeout.");
+	} else if (suspend_state == SuspendState::CAPABILITY) {
+		DEBUG_LOG_WAYLAND("Suspending. Reason: capability.");
 	}
 }
 
@@ -1214,7 +1231,7 @@ void DisplayServerWayland::process_events() {
 
 	wayland_thread.keyboard_echo_keys();
 
-	if (!suspended) {
+	if (suspend_state == SuspendState::NONE) {
 		// Due to the way legacy suspension works, we have to treat low processor
 		// usage mode very differently than the regular one.
 		if (OS::get_singleton()->is_in_low_processor_usage_mode()) {
@@ -1238,9 +1255,23 @@ void DisplayServerWayland::process_events() {
 		} else {
 			try_suspend();
 		}
-	} else if (!wayland_thread.is_suspended() || wayland_thread.get_reset_frame()) {
-		// At last, a sign of life! We're no longer suspended.
-		suspended = false;
+	} else {
+		if (suspend_state == SuspendState::CAPABILITY) {
+			// If we suspended by capability we can assume that it will be reset when
+			// the compositor wants us to repaint.
+			if (!wayland_thread.is_suspended()) {
+				suspend_state = SuspendState::NONE;
+				DEBUG_LOG_WAYLAND("Unsuspending from capability.");
+			}
+		} else if (suspend_state == SuspendState::TIMEOUT) {
+			// Certain compositors might not report the "suspended" wm_capability flag.
+			// Because of this we'll wake up at the next frame event, indicating the
+			// desire for the compositor to let us repaint.
+			if (wayland_thread.get_reset_frame()) {
+				suspend_state = SuspendState::NONE;
+				DEBUG_LOG_WAYLAND("Unsuspending from timeout.");
+			}
+		}
 	}
 
 #ifdef DBUS_ENABLED
@@ -1305,8 +1336,8 @@ Vector<String> DisplayServerWayland::get_rendering_drivers_func() {
 	return drivers;
 }
 
-DisplayServer *DisplayServerWayland::create_func(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Point2i *p_position, const Size2i &p_resolution, int p_screen, Context p_context, Error &r_error) {
-	DisplayServer *ds = memnew(DisplayServerWayland(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_resolution, p_context, r_error));
+DisplayServer *DisplayServerWayland::create_func(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Point2i *p_position, const Size2i &p_resolution, int p_screen, Context p_context, int64_t p_parent_window, Error &r_error) {
+	DisplayServer *ds = memnew(DisplayServerWayland(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_resolution, p_context, p_parent_window, r_error));
 	if (r_error != OK) {
 		ERR_PRINT("Can't create the Wayland display server.");
 		memdelete(ds);
@@ -1316,7 +1347,7 @@ DisplayServer *DisplayServerWayland::create_func(const String &p_rendering_drive
 	return ds;
 }
 
-DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Context p_context, Error &r_error) {
+DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Context p_context, int64_t p_parent_window, Error &r_error) {
 #ifdef GLES3_ENABLED
 #ifdef SOWRAP_ENABLED
 #ifdef DEBUG_ENABLED
@@ -1349,23 +1380,50 @@ DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, Win
 
 	rendering_driver = p_rendering_driver;
 
+	bool driver_found = false;
+	String executable_name = OS::get_singleton()->get_executable_path().get_file();
+
 #ifdef RD_ENABLED
 #ifdef VULKAN_ENABLED
 	if (rendering_driver == "vulkan") {
 		rendering_context = memnew(RenderingContextDriverVulkanWayland);
 	}
-#endif
+#endif // VULKAN_ENABLED
 
 	if (rendering_context) {
 		if (rendering_context->initialize() != OK) {
-			ERR_PRINT(vformat("Could not initialize %s", rendering_driver));
 			memdelete(rendering_context);
 			rendering_context = nullptr;
-			r_error = ERR_CANT_CREATE;
-			return;
+#if defined(GLES3_ENABLED)
+			bool fallback_to_opengl3 = GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3");
+			if (fallback_to_opengl3 && rendering_driver != "opengl3") {
+				WARN_PRINT("Your video card drivers seem not to support the required Vulkan version, switching to OpenGL 3.");
+				rendering_driver = "opengl3";
+				OS::get_singleton()->set_current_rendering_method("gl_compatibility");
+				OS::get_singleton()->set_current_rendering_driver_name(rendering_driver);
+			} else
+#endif // GLES3_ENABLED
+			{
+				r_error = ERR_CANT_CREATE;
+
+				if (p_rendering_driver == "vulkan") {
+					OS::get_singleton()->alert(
+							vformat("Your video card drivers seem not to support the required Vulkan version.\n\n"
+									"If possible, consider updating your video card drivers or using the OpenGL 3 driver.\n\n"
+									"You can enable the OpenGL 3 driver by starting the engine from the\n"
+									"command line with the command:\n\n    \"%s\" --rendering-driver opengl3\n\n"
+									"If you recently updated your video card drivers, try rebooting.",
+									executable_name),
+							"Unable to initialize Vulkan video driver");
+				}
+
+				ERR_FAIL_MSG(vformat("Could not initialize %s", rendering_driver));
+			}
 		}
+
+		driver_found = true;
 	}
-#endif
+#endif // RD_ENABLED
 
 #ifdef GLES3_ENABLED
 	if (rendering_driver == "opengl3" || rendering_driver == "opengl3_es") {
@@ -1429,29 +1487,57 @@ DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, Win
 				if (fallback) {
 					WARN_PRINT("Your video card drivers seem not to support the required OpenGL version, switching to OpenGLES.");
 					rendering_driver = "opengl3_es";
+					OS::get_singleton()->set_current_rendering_driver_name(rendering_driver);
 				} else {
 					r_error = ERR_UNAVAILABLE;
+
+					OS::get_singleton()->alert(
+							vformat("Your video card drivers seem not to support the required OpenGL 3.3 version.\n\n"
+									"If possible, consider updating your video card drivers or using the Vulkan driver.\n\n"
+									"You can enable the Vulkan driver by starting the engine from the\n"
+									"command line with the command:\n\n    \"%s\" --rendering-driver vulkan\n\n"
+									"If you recently updated your video card drivers, try rebooting.",
+									executable_name),
+							"Unable to initialize OpenGL video driver");
+
 					ERR_FAIL_MSG("Could not initialize OpenGL.");
 				}
 			} else {
 				RasterizerGLES3::make_current(true);
+				driver_found = true;
 			}
 		}
 
 		if (rendering_driver == "opengl3_es") {
 			egl_manager = memnew(EGLManagerWaylandGLES);
 
-			if (egl_manager->initialize(wayland_thread.get_wl_display()) != OK) {
+			if (egl_manager->initialize(wayland_thread.get_wl_display()) != OK || egl_manager->open_display(wayland_thread.get_wl_display()) != OK) {
 				memdelete(egl_manager);
 				egl_manager = nullptr;
 				r_error = ERR_CANT_CREATE;
-				ERR_FAIL_MSG("Could not initialize GLES3.");
+
+				OS::get_singleton()->alert(
+						vformat("Your video card drivers seem not to support the required OpenGL ES 3.0 version.\n\n"
+								"If possible, consider updating your video card drivers or using the Vulkan driver.\n\n"
+								"You can enable the Vulkan driver by starting the engine from the\n"
+								"command line with the command:\n\n    \"%s\" --rendering-driver vulkan\n\n"
+								"If you recently updated your video card drivers, try rebooting.",
+								executable_name),
+						"Unable to initialize OpenGL ES video driver");
+
+				ERR_FAIL_MSG("Could not initialize OpenGL ES.");
 			}
 
 			RasterizerGLES3::make_current(false);
+			driver_found = true;
 		}
 	}
 #endif // GLES3_ENABLED
+
+	if (!driver_found) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Video driver not found.");
+	}
 
 	cursor_set_shape(CURSOR_BUSY);
 
@@ -1481,12 +1567,12 @@ DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, Win
 
 		RendererCompositorRD::make_current();
 	}
-#endif
+#endif // RD_ENABLED
 
 #ifdef DBUS_ENABLED
 	portal_desktop = memnew(FreeDesktopPortalDesktop);
 	screensaver = memnew(FreeDesktopScreenSaver);
-#endif
+#endif // DBUS_ENABLED
 
 	screen_set_keep_on(GLOBAL_GET("display/window/energy_saving/keep_screen_on"));
 

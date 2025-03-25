@@ -55,7 +55,7 @@ class EditorSyntaxHighlighter : public SyntaxHighlighter {
 	GDCLASS(EditorSyntaxHighlighter, SyntaxHighlighter)
 
 private:
-	Ref<RefCounted> edited_resourse;
+	Ref<RefCounted> edited_resource;
 
 protected:
 	static void _bind_methods();
@@ -67,8 +67,8 @@ public:
 	virtual String _get_name() const;
 	virtual PackedStringArray _get_supported_languages() const;
 
-	void _set_edited_resource(const Ref<Resource> &p_res) { edited_resourse = p_res; }
-	Ref<RefCounted> _get_edited_resource() { return edited_resourse; }
+	void _set_edited_resource(const Ref<Resource> &p_res) { edited_resource = p_res; }
+	Ref<RefCounted> _get_edited_resource() { return edited_resource; }
 
 	virtual Ref<EditorSyntaxHighlighter> _create() const;
 };
@@ -120,6 +120,24 @@ public:
 	EditorJSONSyntaxHighlighter() { highlighter.instantiate(); }
 };
 
+class EditorMarkdownSyntaxHighlighter : public EditorSyntaxHighlighter {
+	GDCLASS(EditorMarkdownSyntaxHighlighter, EditorSyntaxHighlighter)
+
+private:
+	Ref<CodeHighlighter> highlighter;
+
+public:
+	virtual void _update_cache() override;
+	virtual Dictionary _get_line_syntax_highlighting_impl(int p_line) override { return highlighter->get_line_syntax_highlighting(p_line); }
+
+	virtual PackedStringArray _get_supported_languages() const override { return PackedStringArray{ "md", "markdown" }; }
+	virtual String _get_name() const override { return TTR("Markdown"); }
+
+	virtual Ref<EditorSyntaxHighlighter> _create() const override;
+
+	EditorMarkdownSyntaxHighlighter() { highlighter.instantiate(); }
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 
 class ScriptEditorQuickOpen : public ConfirmationDialog {
@@ -131,7 +149,7 @@ class ScriptEditorQuickOpen : public ConfirmationDialog {
 
 	void _update_search();
 
-	void _sbox_input(const Ref<InputEvent> &p_ie);
+	void _sbox_input(const Ref<InputEvent> &p_event);
 	Vector<String> functions;
 
 	void _confirmed();
@@ -170,7 +188,7 @@ public:
 	virtual Variant get_edit_state() = 0;
 	virtual void set_edit_state(const Variant &p_state) = 0;
 	virtual Variant get_navigation_state() = 0;
-	virtual void goto_line(int p_line, bool p_with_error = false) = 0;
+	virtual void goto_line(int p_line, int p_column = 0) = 0;
 	virtual void set_executing_line(int p_line) = 0;
 	virtual void clear_executing_line() = 0;
 	virtual void trim_trailing_whitespace() = 0;
@@ -235,6 +253,7 @@ class ScriptEditor : public PanelContainer {
 		TOGGLE_SCRIPTS_PANEL,
 		SHOW_IN_FILE_SYSTEM,
 		FILE_COPY_PATH,
+		FILE_COPY_UID,
 		FILE_TOOL_RELOAD_SOFT,
 		SEARCH_IN_FILES,
 		REPLACE_IN_FILES,
@@ -360,8 +379,6 @@ class ScriptEditor : public PanelContainer {
 
 	bool restoring_layout;
 
-	String _get_debug_tooltip(const String &p_text, Node *_se);
-
 	void _resave_scripts(const String &p_str);
 
 	bool _test_script_times_on_disk(Ref<Resource> p_for_script = Ref<Resource>());
@@ -383,6 +400,7 @@ class ScriptEditor : public PanelContainer {
 	void _queue_close_tabs();
 
 	void _copy_script_path();
+	void _copy_script_uid();
 
 	void _ask_close_current_unsaved_tab(ScriptEditorBase *current);
 
@@ -419,7 +437,7 @@ class ScriptEditor : public PanelContainer {
 	void _clear_execution(Ref<RefCounted> p_script);
 	void _breaked(bool p_breaked, bool p_can_debug);
 	void _script_created(Ref<Script> p_script);
-	void _set_breakpoint(Ref<RefCounted> p_scrpt, int p_line, bool p_enabled);
+	void _set_breakpoint(Ref<RefCounted> p_script, int p_line, bool p_enabled);
 	void _clear_breakpoints();
 	Array _get_cached_breakpoints_for_script(const String &p_path) const;
 
@@ -539,6 +557,7 @@ public:
 	_FORCE_INLINE_ bool edit(const Ref<Resource> &p_resource, bool p_grab_focus = true) { return edit(p_resource, -1, 0, p_grab_focus); }
 	bool edit(const Ref<Resource> &p_resource, int p_line, int p_col, bool p_grab_focus = true);
 
+	Vector<String> _get_breakpoints();
 	void get_breakpoints(List<String> *p_breakpoints);
 
 	PackedStringArray get_unsaved_scripts() const;
@@ -598,7 +617,7 @@ protected:
 	void _notification(int p_what);
 
 public:
-	virtual String get_name() const override { return "Script"; }
+	virtual String get_plugin_name() const override { return "Script"; }
 	bool has_main_screen() const override { return true; }
 	virtual void edit(Object *p_object) override;
 	virtual bool handles(Object *p_object) const override;

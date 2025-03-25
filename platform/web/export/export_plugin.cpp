@@ -41,10 +41,8 @@
 #include "editor/themes/editor_scale.h"
 #include "scene/resources/image_texture.h"
 
-#include "modules/modules_enabled.gen.h" // For mono and svg.
-#ifdef MODULE_SVG_ENABLED
+#include "modules/modules_enabled.gen.h" // For mono.
 #include "modules/svg/image_loader_svg.h"
-#endif
 
 Error EditorExportPlatformWeb::_extract_template(const String &p_template, const String &p_dir, const String &p_name, bool pwa) {
 	Ref<FileAccess> io_fa;
@@ -130,15 +128,14 @@ void EditorExportPlatformWeb::_replace_strings(const HashMap<String, String> &p_
 	}
 }
 
-void EditorExportPlatformWeb::_fix_html(Vector<uint8_t> &p_html, const Ref<EditorExportPreset> &p_preset, const String &p_name, bool p_debug, int p_flags, const Vector<SharedObject> p_shared_objects, const Dictionary &p_file_sizes) {
+void EditorExportPlatformWeb::_fix_html(Vector<uint8_t> &p_html, const Ref<EditorExportPreset> &p_preset, const String &p_name, bool p_debug, BitField<EditorExportPlatform::DebugFlags> p_flags, const Vector<SharedObject> p_shared_objects, const Dictionary &p_file_sizes) {
 	// Engine.js config
 	Dictionary config;
 	Array libs;
 	for (int i = 0; i < p_shared_objects.size(); i++) {
 		libs.push_back(p_shared_objects[i].path.get_file());
 	}
-	Vector<String> flags;
-	gen_export_flags(flags, p_flags & (~DEBUG_FLAG_DUMB_CLIENT));
+	Vector<String> flags = gen_export_flags(p_flags & (~DEBUG_FLAG_DUMB_CLIENT));
 	Array args;
 	for (int i = 0; i < flags.size(); i++) {
 		args.push_back(flags[i]);
@@ -170,6 +167,13 @@ void EditorExportPlatformWeb::_fix_html(Vector<uint8_t> &p_html, const Ref<Edito
 	replaces["$GODOT_PROJECT_NAME"] = GLOBAL_GET("application/config/name");
 	replaces["$GODOT_HEAD_INCLUDE"] = head_include + custom_head_include;
 	replaces["$GODOT_CONFIG"] = str_config;
+	replaces["$GODOT_SPLASH_COLOR"] = "#" + Color(GLOBAL_GET("application/boot_splash/bg_color")).to_html(false);
+
+	LocalVector<String> godot_splash_classes;
+	godot_splash_classes.push_back("show-image--" + String(GLOBAL_GET("application/boot_splash/show_image")));
+	godot_splash_classes.push_back("fullsize--" + String(GLOBAL_GET("application/boot_splash/fullsize")));
+	godot_splash_classes.push_back("use-filter--" + String(GLOBAL_GET("application/boot_splash/use_filter")));
+	replaces["$GODOT_SPLASH_CLASSES"] = String(" ").join(godot_splash_classes);
 	replaces["$GODOT_SPLASH"] = p_name + ".png";
 
 	if (p_preset->get("variant/thread_support")) {
@@ -240,7 +244,7 @@ Error EditorExportPlatformWeb::_build_pwa(const Ref<EditorExportPreset> &p_prese
 		cache_files.push_back(name + ".icon.png");
 		cache_files.push_back(name + ".apple-touch-icon.png");
 	}
-	cache_files.push_back(name + ".worker.js");
+
 	cache_files.push_back(name + ".audio.worklet.js");
 	cache_files.push_back(name + ".audio.position.worklet.js");
 	replaces["___GODOT_CACHE___"] = Variant(cache_files).to_json_string();
@@ -334,9 +338,11 @@ Error EditorExportPlatformWeb::_build_pwa(const Ref<EditorExportPreset> &p_prese
 void EditorExportPlatformWeb::get_preset_features(const Ref<EditorExportPreset> &p_preset, List<String> *r_features) const {
 	if (p_preset->get("vram_texture_compression/for_desktop")) {
 		r_features->push_back("s3tc");
+		r_features->push_back("bptc");
 	}
 	if (p_preset->get("vram_texture_compression/for_mobile")) {
 		r_features->push_back("etc2");
+		r_features->push_back("astc");
 	}
 	if (p_preset->get("variant/thread_support").operator bool()) {
 		r_features->push_back("threads");
@@ -370,6 +376,16 @@ void EditorExportPlatformWeb::get_export_options(List<ExportOption> *r_options) 
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "progressive_web_app/icon_180x180", PROPERTY_HINT_FILE, "*.png,*.webp,*.svg"), ""));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "progressive_web_app/icon_512x512", PROPERTY_HINT_FILE, "*.png,*.webp,*.svg"), ""));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::COLOR, "progressive_web_app/background_color", PROPERTY_HINT_COLOR_NO_ALPHA), Color()));
+}
+
+bool EditorExportPlatformWeb::get_export_option_visibility(const EditorExportPreset *p_preset, const String &p_option) const {
+	bool advanced_options_enabled = p_preset->are_advanced_options_enabled();
+	if (p_option == "custom_template/debug" ||
+			p_option == "custom_template/release") {
+		return advanced_options_enabled;
+	}
+
+	return true;
 }
 
 String EditorExportPlatformWeb::get_name() const {
@@ -450,7 +466,7 @@ List<String> EditorExportPlatformWeb::get_binary_extensions(const Ref<EditorExpo
 	return list;
 }
 
-Error EditorExportPlatformWeb::export_project(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, int p_flags) {
+Error EditorExportPlatformWeb::export_project(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, BitField<EditorExportPlatform::DebugFlags> p_flags) {
 	ExportNotifier notifier(*this, p_preset, p_debug, p_path, p_flags);
 
 	const String custom_debug = p_preset->get("custom_template/debug");
@@ -744,7 +760,7 @@ String EditorExportPlatformWeb::get_option_tooltip(int p_index) const {
 	return "";
 }
 
-Error EditorExportPlatformWeb::run(const Ref<EditorExportPreset> &p_preset, int p_option, int p_debug_flags) {
+Error EditorExportPlatformWeb::run(const Ref<EditorExportPreset> &p_preset, int p_option, BitField<EditorExportPlatform::DebugFlags> p_debug_flags) {
 	const uint16_t bind_port = EDITOR_GET("export/web/http_port");
 	// Resolve host if needed.
 	const String bind_host = EDITOR_GET("export/web/http_host");
@@ -817,7 +833,7 @@ Error EditorExportPlatformWeb::run(const Ref<EditorExportPreset> &p_preset, int 
 }
 
 Error EditorExportPlatformWeb::_export_project(const Ref<EditorExportPreset> &p_preset, int p_debug_flags) {
-	const String dest = EditorPaths::get_singleton()->get_cache_dir().path_join("web");
+	const String dest = EditorPaths::get_singleton()->get_temp_dir().path_join("web");
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	if (!da->dir_exists(dest)) {
 		Error err = da->make_dir_recursive(dest);
@@ -834,7 +850,6 @@ Error EditorExportPlatformWeb::_export_project(const Ref<EditorExportPreset> &p_
 		DirAccess::remove_file_or_error(basepath + ".html");
 		DirAccess::remove_file_or_error(basepath + ".offline.html");
 		DirAccess::remove_file_or_error(basepath + ".js");
-		DirAccess::remove_file_or_error(basepath + ".worker.js");
 		DirAccess::remove_file_or_error(basepath + ".audio.worklet.js");
 		DirAccess::remove_file_or_error(basepath + ".audio.position.worklet.js");
 		DirAccess::remove_file_or_error(basepath + ".service.worker.js");
@@ -889,7 +904,6 @@ EditorExportPlatformWeb::EditorExportPlatformWeb() {
 	if (EditorNode::get_singleton()) {
 		server.instantiate();
 
-#ifdef MODULE_SVG_ENABLED
 		Ref<Image> img = memnew(Image);
 		const bool upsample = !Math::is_equal_approx(Math::round(EDSCALE), EDSCALE);
 
@@ -898,7 +912,6 @@ EditorExportPlatformWeb::EditorExportPlatformWeb() {
 
 		ImageLoaderSVG::create_image_from_string(img, _web_run_icon_svg, EDSCALE, upsample, false);
 		run_icon = ImageTexture::create_from_image(img);
-#endif
 
 		Ref<Theme> theme = EditorNode::get_singleton()->get_editor_theme();
 		if (theme.is_valid()) {
