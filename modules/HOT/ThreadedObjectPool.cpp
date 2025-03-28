@@ -9,10 +9,14 @@ void ThreadedObjectPool::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("init_with_scene", "scenePath", "maxNumberOfInstances", "maxBehaviour"), &ThreadedObjectPool::init_with_scene);
 	ClassDB::bind_method(D_METHOD("get_instance", "instanceCreatedCallback"), &ThreadedObjectPool::get_instance);
 	ClassDB::bind_method(D_METHOD("get_instance_unthreaded"), &ThreadedObjectPool::get_instance_unthreaded);
+	ClassDB::bind_method(D_METHOD("set_auto_prune_timeout", "timeout_seconds"), &ThreadedObjectPool::set_auto_prune_timeout);
+	ClassDB::bind_method(D_METHOD("get_instance_count"), &ThreadedObjectPool::get_instance_count);
 	ClassDB::bind_method(D_METHOD("return_instance", "instance"), &ThreadedObjectPool::return_instance);
 	ClassDB::bind_method(D_METHOD("run_callbacks"), &ThreadedObjectPool::run_callbacks);
 	ClassDB::bind_method(D_METHOD("clear_all_instances"), &ThreadedObjectPool::clear_all_instances);
 	ClassDB::bind_method(D_METHOD("set_max_number_of_instances", "max_num_instances"), &ThreadedObjectPool::set_max_number_of_instances);
+
+	ADD_SIGNAL(MethodInfo("InstancesPruned"));
 }
 
 void ThreadedObjectPool::instance_creation_thread_loop(void *p_ud) {
@@ -94,6 +98,9 @@ void ThreadedObjectPool::init_with_scene(String scenePath, int maxNumberOfInstan
 
 void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 	PROFILE_FUNCTION()
+	if (_autoPruneTimeoutMsecs > 0) {
+		_pruneAtTime = OS::get_singleton()->get_ticks_msec() + _autoPruneTimeoutMsecs;
+	}
 	if(_availableObjects.is_empty() && _inUseObjects.size() >= _maxNumberOfInstances) {
 		switch(_maxBehaviour) {
 			case ReturnNull:
@@ -142,6 +149,9 @@ void ThreadedObjectPool::get_instance(Callable instanceCreatedCallback) {
 
 Node* ThreadedObjectPool::get_instance_unthreaded() {
 	PROFILE_FUNCTION();
+	if (_autoPruneTimeoutMsecs > 0) {
+		_pruneAtTime = OS::get_singleton()->get_ticks_msec() + _autoPruneTimeoutMsecs;
+	}
 	if(_availableObjects.is_empty() && _inUseObjects.size() >= _maxNumberOfInstances) {
 		switch(_maxBehaviour) {
 			case ReturnNull:
@@ -200,10 +210,24 @@ void ThreadedObjectPool::return_instance(Node *instance) {
 	_inUseObjects.erase(instance->get_instance_id());
 	if(_availableObjects.find(instance->get_instance_id()) == -1)
 		_availableObjects.push_back(instance->get_instance_id());
+	if (_autoPruneTimeoutMsecs > 0) {
+		_pruneAtTime = OS::get_singleton()->get_ticks_msec() + _autoPruneTimeoutMsecs;
+	}
 }
 
 void ThreadedObjectPool::run_callbacks() {
 	PROFILE_FUNCTION()
+	if (_autoPruneTimeoutMsecs > 0 && _pruneAtTime < OS::get_singleton()->get_ticks_msec()) {
+		for(ObjectID objId : _availableObjects) {
+			Node* obj = Object::cast_to<Node>(ObjectDB::get_instance(objId));
+			if(obj == nullptr)
+				continue;
+			obj->queue_free();
+		}
+		_availableObjects.clear();
+		_pruneAtTime = -1;
+		emit_signal("InstancesPruned");
+	}
 	MutexLock lock(_instanceListMutex);
 	uint32_t i = 0;
 	while(i < _instanceCreationQueue.size()) {
