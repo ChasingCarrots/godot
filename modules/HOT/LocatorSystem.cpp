@@ -15,26 +15,38 @@ inline Vector2i posToCell(Vector2 pos) {
 }
 
 
-namespace std {
-    template<>
-    struct less<Vector2i> {
-        bool operator()(const Vector2i &lhs, const Vector2i &rhs) const {
-            return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
-        }
-    };
-}
-
 struct LocatorPool {
     String PoolName;
-    std::map<Vector2i, LocalVector<Locator*>> Cells;
+    OAHashMap<Vector2i, Vector<Locator*>> Cells;
 };
-std::vector<LocatorPool> GlobalLocatorPools;
-
+Vector<LocatorPool> GlobalLocatorPools;
+Vector<Vector2i> TempCellCoords;
 
 
 LocatorSystem::LocatorSystem() {
 
 }
+
+int LocatorSystem::GetTotalNumberOfCells() {
+	int numberOfCells = 0;
+	for(const auto &pool : GlobalLocatorPools) {
+		numberOfCells += pool.Cells.get_num_elements();
+	}
+	return numberOfCells;
+}
+
+int LocatorSystem::GetTotalNumberOfLocators() {
+	int numberOfLocators = 0;
+	for(const auto &pool : GlobalLocatorPools) {
+		auto iter = pool.Cells.iter();
+		while(iter.valid) {
+			numberOfLocators += iter.value->size();
+			iter = pool.Cells.next_iter(iter);
+		}
+	}
+	return numberOfLocators;
+}
+
 
 
 void LocatorSystem::_bind_methods()
@@ -59,49 +71,61 @@ void LocatorSystem::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_random_locator_in_pool", "poolName"), &LocatorSystem::GetRandomLocatorInPool);
 	ClassDB::bind_method(D_METHOD("get_all_locators_in_pool", "poolName"), &LocatorSystem::GetAllLocatorsInPool);
 	ClassDB::bind_method(D_METHOD("get_all_gameobjects_in_pool", "poolName"), &LocatorSystem::GetAllGameObjectsInPool);
+
+	ClassDB::bind_static_method("LocatorSystem", D_METHOD("GetTotalNumberOfCells"), &LocatorSystem::GetTotalNumberOfCells);
+	ClassDB::bind_static_method("LocatorSystem", D_METHOD("GetTotalNumberOfLocators"), &LocatorSystem::GetTotalNumberOfLocators);
 }
 
 void LocatorSystem::LocatorEnteredTree(Locator *locator) {
 	PROFILE_FUNCTION()
-    auto poolIter = GlobalLocatorPools.begin();
-    while(poolIter != GlobalLocatorPools.end()) {
-        if(poolIter->PoolName == locator->GetLocatorPoolName())
-            break;
-        ++poolIter;
-    }
-    if(poolIter == GlobalLocatorPools.end()) {
-        GlobalLocatorPools.push_back({
-            locator->GetLocatorPoolName()
-        });
-        poolIter = --GlobalLocatorPools.end();
-    }
-    auto cell = posToCell(locator->get_global_position());
-    locator->SetCurrentCell(cell);
-    auto cellIter = poolIter->Cells.find(cell);
-    if(cellIter == poolIter->Cells.end()) {
-        poolIter->Cells.insert({cell, {locator}});
-    }
-    else {
-        if(cellIter->second.find(locator) == -1)
-            cellIter->second.push_back(locator);
-    }
+	auto poolIter = GlobalLocatorPools.begin();
+	while (poolIter != GlobalLocatorPools.end()) {
+		if (poolIter->PoolName == locator->GetLocatorPoolName())
+			break;
+		++poolIter;
+	}
+	if (poolIter == GlobalLocatorPools.end()) {
+		GlobalLocatorPools.push_back({ locator->GetLocatorPoolName() });
+		poolIter = --GlobalLocatorPools.end();
+	}
+	auto cell = posToCell(locator->get_global_position());
+	locator->SetCurrentCell(cell);
+	auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+	if (cellVectorPtr == nullptr) {
+		poolIter->Cells.insert(cell, { locator });
+	} else {
+		if (cellVectorPtr->find(locator) == -1)
+			cellVectorPtr->push_back(locator);
+	}
 }
 
+void remove_at_unordered(Vector<Locator *> *locator_vector_ptr, Vector<Locator *>::Size index) {
+	if (index < locator_vector_ptr->size() - 1) {
+		// godot Vector doesn't have remove_at_unordered, have to do it ourselves
+		locator_vector_ptr->set(index, locator_vector_ptr->get(locator_vector_ptr->size() - 1));
+		locator_vector_ptr->remove_at(locator_vector_ptr->size() - 1);
+	} else {
+		// when the locator is already the last one, we can use remove_at...
+		locator_vector_ptr->remove_at(index);
+	}
+}
 void LocatorSystem::LocatorExitedTree(Locator *locator) {
 	PROFILE_FUNCTION()
     for(auto& pool : GlobalLocatorPools) {
         if(pool.PoolName != locator->GetLocatorPoolName())
             continue; // not the right pool
-        auto cellIter = pool.Cells.find(locator->GetCurrentCell());
-        if(cellIter == pool.Cells.end())
+		auto locatorCellCoord = locator->GetCurrentCell();
+		auto cellVectorPtr = pool.Cells.lookup_ptr(locatorCellCoord);
+        if(cellVectorPtr == nullptr)
             return; // our cell isn't even there anymore
-        auto locatorIndex = cellIter->second.find(locator);
+        auto locatorIndex = cellVectorPtr->find(locator);
         if(locatorIndex == -1)
             return; // our locator wasn't found in the cell
-        cellIter->second.remove_at_unordered(locatorIndex);
-        if(cellIter->second.is_empty())
+
+    	remove_at_unordered(cellVectorPtr, locatorIndex);
+        if(cellVectorPtr->is_empty())
             // when there are no locators in this cell anymore, delete the cell
-            pool.Cells.erase(cellIter);
+            pool.Cells.remove(locatorCellCoord);
         return;
     }
 }
@@ -110,36 +134,37 @@ void LocatorSystem::Update() {
 	PROFILE_FUNCTION()
     for(auto& pool : GlobalLocatorPools) {
         _tempLocators.clear();
-        auto cellIter = pool.Cells.begin();
-        while(cellIter != pool.Cells.end()) {
-			int locatorIndex = 0;
-            auto locatorIter = cellIter->second.begin();
-            while(locatorIter != cellIter->second.end()) {
-                auto currentLocatorCell = posToCell((*locatorIter)->get_global_position());
-                if(currentLocatorCell != cellIter->first){
-                    (*locatorIter)->SetCurrentCell(currentLocatorCell);
-                    _tempLocators.push_back(*locatorIter);
-                    cellIter->second.remove_at_unordered(locatorIndex);
-					// locator iterator and index stay the same!
-                }
-                else {
-					++locatorIndex;
-					++locatorIter;
-				}
-			}
-            if(cellIter->second.is_empty())
-                cellIter = pool.Cells.erase(cellIter);
-            else
-                ++cellIter;
+    	TempCellCoords.clear();
+        auto cellIter = pool.Cells.iter();
+        while(cellIter.valid) {
+        	for (int locatorIndex=0; locatorIndex < cellIter.value->size();) {
+        		Locator* locatorIter = cellIter.value->get(locatorIndex);
+        		auto currentLocatorCell = posToCell(locatorIter->get_global_position());
+        		if(currentLocatorCell != *cellIter.key){
+        			locatorIter->SetCurrentCell(currentLocatorCell);
+        			_tempLocators.push_back(locatorIter);
+        			remove_at_unordered(cellIter.value, locatorIndex);
+        			// locator iterator and index stay the same!
+        		}
+        		else {
+        			++locatorIndex;
+        		}
+        	}
+            if(cellIter.value->is_empty())
+                TempCellCoords.append(*cellIter.key);
+            cellIter = pool.Cells.next_iter(cellIter);
         }
+    	for (auto removeCellCoord : TempCellCoords) {
+    		pool.Cells.remove(removeCellCoord);
+    	}
         for(auto relocator : _tempLocators) {
-            auto cellIter = pool.Cells.find(relocator->GetCurrentCell());
-            if(cellIter == pool.Cells.end()) {
-                pool.Cells.insert({relocator->GetCurrentCell(), {relocator}});
+            auto cellVectorPtr = pool.Cells.lookup_ptr(relocator->GetCurrentCell());
+            if(cellVectorPtr == nullptr) {
+                pool.Cells.insert(relocator->GetCurrentCell(), {relocator});
             }
             else {
-                if(cellIter->second.find(relocator) == -1)
-                    cellIter->second.push_back(relocator);
+                if(cellVectorPtr->find(relocator) == -1)
+                    cellVectorPtr->push_back(relocator);
             }
         }
     }
@@ -167,10 +192,10 @@ Array LocatorSystem::GetLocatorsInCircle(String poolName, Vector2 center, float 
     for(int x=minX; x <= maxX; x++) {
         for(int y=minY; y <= maxY; y++) {
             Vector2i cell(x,y);
-            auto cellIter = poolIter->Cells.find(cell);
-            if(cellIter == poolIter->Cells.end())
+            auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+            if(cellVectorPtr == nullptr)
                 continue;
-            for(const auto locator : cellIter->second) {
+            for(const auto locator : *cellVectorPtr) {
                 if(locator->is_queued_for_deletion())
                     continue;
                 float checkDistSQ = radius + locator->GetRadius();
@@ -215,10 +240,10 @@ int LocatorSystem::CountLocatorsInCircle(String poolName, Vector2 center, float 
     for(int x=minX; x <= maxX; x++) {
         for(int y=minY; y <= maxY; y++) {
             Vector2i cell(x,y);
-            auto cellIter = poolIter->Cells.find(cell);
-            if(cellIter == poolIter->Cells.end())
+            auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+            if(cellVectorPtr == nullptr)
                 continue;
-            for(const auto locator : cellIter->second) {
+            for(const auto locator : *cellVectorPtr) {
                 if(locator->is_queued_for_deletion())
                     continue;
                 float checkDistSQ = radius + locator->GetRadius();
@@ -262,19 +287,23 @@ Array LocatorSystem::GetLocatorsOutsideCircle(String poolName, Vector2 center, f
 
     Array fillArray;
 
-    for(const auto& cell :poolIter->Cells) {
-        auto cellCoord = cell.first;
-        if(cellCoord.x > minX && cellCoord.x < maxX && cellCoord.y > minY && cellCoord.y < maxY)
-            continue;
-        for(auto locator : cell.second) {
-                if(locator->is_queued_for_deletion())
-                    continue;
-                float checkDistSQ = radius + locator->GetRadius();
-                checkDistSQ *= checkDistSQ;
-                if(center.distance_squared_to(locator->get_global_position()) > checkDistSQ)
-                    fillArray.append(locator);
-            }
+	auto cellIter = poolIter->Cells.iter();
+    while (cellIter.valid) {
+        auto cellCoord = *cellIter.key;
+        if(cellCoord.x > minX && cellCoord.x < maxX && cellCoord.y > minY && cellCoord.y < maxY) {
+        	cellIter = poolIter->Cells.next_iter(cellIter);
+	        continue;
         }
+        for(auto locator : *cellIter.value) {
+            if(locator->is_queued_for_deletion())
+                continue;
+            float checkDistSQ = radius + locator->GetRadius();
+            checkDistSQ *= checkDistSQ;
+            if(center.distance_squared_to(locator->get_global_position()) > checkDistSQ)
+                fillArray.append(locator);
+        }
+    	cellIter = poolIter->Cells.next_iter(cellIter);
+    }
     return fillArray;
 }
 
@@ -296,11 +325,14 @@ int LocatorSystem::CountLocatorsOutsideCircle(String poolName, Vector2 center, f
 
     int numLocators = 0;
 
-    for(const auto& cell :poolIter->Cells) {
-        auto cellCoord = cell.first;
-        if(cellCoord.x > minX && cellCoord.x < maxX && cellCoord.y > minY && cellCoord.y < maxY)
-            continue;
-        for(auto locator : cell.second) {
+	auto cellIter = poolIter->Cells.iter();
+	while (cellIter.valid) {
+		auto cellCoord = *cellIter.key;
+		if(cellCoord.x > minX && cellCoord.x < maxX && cellCoord.y > minY && cellCoord.y < maxY) {
+			cellIter = poolIter->Cells.next_iter(cellIter);
+			continue;
+		}
+        for(auto locator : *cellIter.value) {
             if(locator->is_queued_for_deletion())
                 continue;
             float checkDistSQ = radius + locator->GetRadius();
@@ -308,6 +340,7 @@ int LocatorSystem::CountLocatorsOutsideCircle(String poolName, Vector2 center, f
             if(center.distance_squared_to(locator->get_global_position()) > checkDistSQ)
                 ++numLocators;
         }
+		cellIter = poolIter->Cells.next_iter(cellIter);
     }
     return numLocators;
 }
@@ -351,10 +384,10 @@ Array LocatorSystem::GetLocatorsInCircleMotion(String poolName, Vector2 center, 
     for(int x=minX; x <= maxX; x++) {
         for(int y=minY; y <= maxY; y++) {
             Vector2i cell(x,y);
-            auto cellIter = poolIter->Cells.find(cell);
-            if(cellIter == poolIter->Cells.end())
+            auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+            if(cellVectorPtr == nullptr)
                 continue;
-            for(const auto locator : cellIter->second) {
+            for(const auto locator : *cellVectorPtr) {
                 if(locator->is_queued_for_deletion())
                     continue;
 				Vector2 segment[2] = {center, center+motion};
@@ -396,10 +429,10 @@ int LocatorSystem::CountLocatorsInCircleMotion(String poolName, Vector2 center, 
     for(int x=minX; x <= maxX; x++) {
         for(int y=minY; y <= maxY; y++) {
             Vector2i cell(x,y);
-            auto cellIter = poolIter->Cells.find(cell);
-            if(cellIter == poolIter->Cells.end())
+            auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+            if(cellVectorPtr == nullptr)
                 continue;
-            for(const auto locator : cellIter->second) {
+            for(const auto locator : *cellVectorPtr) {
                 if(locator->is_queued_for_deletion())
                     continue;
 				Vector2 segment[2] = {center, center+motion};
@@ -447,17 +480,21 @@ Array LocatorSystem::GetLocatorsOutsideRectangle(String poolName, float minX, fl
 
     Array fillArray;
 
-    for(const auto& cell :poolIter->Cells) {
-        auto cellCoord = cell.first;
-        if(cellCoord.x > minXCoord && cellCoord.x < maxXCoord && cellCoord.y > minYCoord && cellCoord.y < maxYCoord)
-            continue;
-        for(auto locator : cell.second) {
+	auto cellIter = poolIter->Cells.iter();
+	while (cellIter.valid) {
+		auto cellCoord = *cellIter.key;
+		if(cellCoord.x > minXCoord && cellCoord.x < maxXCoord && cellCoord.y > minYCoord && cellCoord.y < maxYCoord) {
+			cellIter = poolIter->Cells.next_iter(cellIter);
+			continue;
+		}
+        for(auto locator : *cellIter.value) {
             if(locator->is_queued_for_deletion())
                 continue;
             auto locPos = locator->get_global_position();
             if(locPos.x < minX || locPos.x > maxX || locPos.y < minY || locPos.y > maxY)
                 fillArray.append(locator);
         }
+		cellIter = poolIter->Cells.next_iter(cellIter);
     }
     return fillArray;
 }
@@ -480,17 +517,21 @@ int LocatorSystem::CountLocatorsOutsideRectangle(String poolName, float minX, fl
 
     int numLocators = 0;
 
-    for(const auto& cell :poolIter->Cells) {
-        auto cellCoord = cell.first;
-        if(cellCoord.x > minXCoord && cellCoord.x < maxXCoord && cellCoord.y > minYCoord && cellCoord.y < maxYCoord)
-            continue;
-        for(auto locator : cell.second) {
+	auto cellIter = poolIter->Cells.iter();
+	while (cellIter.valid) {
+		auto cellCoord = *cellIter.key;
+		if(cellCoord.x > minXCoord && cellCoord.x < maxXCoord && cellCoord.y > minYCoord && cellCoord.y < maxYCoord) {
+			cellIter = poolIter->Cells.next_iter(cellIter);
+			continue;
+		}
+        for(auto locator : *cellIter.value) {
             if(locator->is_queued_for_deletion())
                 continue;
             auto locPos = locator->get_global_position();
             if(locPos.x < minX || locPos.x > maxX || locPos.y < minY || locPos.y > maxY)
                 ++numLocators;
         }
+		cellIter = poolIter->Cells.next_iter(cellIter);
     }
     return numLocators;
 }
@@ -529,10 +570,10 @@ Array LocatorSystem::GetLocatorsInRectangle(String poolName, float minX, float m
     for(int x=minXCoord; x <= maxXCoord; x++) {
         for(int y=minYCoord; y <= maxYCoord; y++) {
             Vector2i cell(x,y);
-            auto cellIter = poolIter->Cells.find(cell);
-            if(cellIter == poolIter->Cells.end())
+            auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+            if(cellVectorPtr == nullptr)
                 continue;
-            for(const auto locator : cellIter->second) {
+            for(const auto locator : *cellVectorPtr) {
                 if(locator->is_queued_for_deletion())
                     continue;
                 auto locPos = locator->get_global_position();
@@ -565,10 +606,10 @@ int LocatorSystem::CountLocatorsInRectangle(String poolName, float minX, float m
     for(int x=minXCoord; x <= maxXCoord; x++) {
         for(int y=minYCoord; y <= maxYCoord; y++) {
             Vector2i cell(x,y);
-            auto cellIter = poolIter->Cells.find(cell);
-            if(cellIter == poolIter->Cells.end())
+            auto cellIter = poolIter->Cells.lookup_ptr(cell);
+            if(cellIter == nullptr)
                 continue;
-            for(const auto locator : cellIter->second) {
+            for(const auto locator : *cellIter) {
                 if(locator->is_queued_for_deletion())
                     continue;
                 auto locPos = locator->get_global_position();
@@ -605,9 +646,11 @@ Locator* LocatorSystem::GetRandomLocatorInPool(String poolName) {
         return nullptr;
 
     _tempLocators.clear();
-    for(const auto& cell : poolIter->Cells) {
-        for(auto locator : cell.second)
+	auto cellIter = poolIter->Cells.iter();
+	while (cellIter.valid) {
+        for(auto locator : *cellIter.value)
             _tempLocators.push_back(locator);
+		cellIter = poolIter->Cells.next_iter(cellIter);
     }
     if(_tempLocators.empty())
         return nullptr;
@@ -629,9 +672,12 @@ Array LocatorSystem::GetAllLocatorsInPool(String poolName) {
 		return {};
 
 	_tempLocators.clear();
-	for(const auto& cell : poolIter->Cells)
-		for(auto locator : cell.second)
+	auto cellIter = poolIter->Cells.iter();
+	while (cellIter.valid) {
+		for(auto locator : *cellIter.value)
 			fillArray.append(locator);
+		cellIter = poolIter->Cells.next_iter(cellIter);
+	}
 
 	return fillArray;
 }
@@ -650,12 +696,15 @@ Array LocatorSystem::GetAllGameObjectsInPool(String poolName) {
 		return {};
 
 	_tempLocators.clear();
-	for (const auto &cell : poolIter->Cells)
-		for (auto locator : cell.second) {
+	auto cellIter = poolIter->Cells.iter();
+	while (cellIter.valid) {
+		for (auto locator : *cellIter.value) {
 			Node *gameObject = GameObject::getGameObjectInParents(Object::cast_to<Node>(locator));
 			if (gameObject != nullptr)
 				fillArray.append(gameObject);
 		}
+		cellIter = poolIter->Cells.next_iter(cellIter);
+	}
 
 	return fillArray;
 }
@@ -683,10 +732,10 @@ void LocatorSystem::FillWithGameObjectsInCircleMotion(String poolName, Vector2 c
 	for(int x=minX; x <= maxX; x++) {
 		for(int y=minY; y <= maxY; y++) {
 			Vector2i cell(x,y);
-			auto cellIter = poolIter->Cells.find(cell);
-			if(cellIter == poolIter->Cells.end())
+			auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+			if(cellVectorPtr == nullptr)
 				continue;
-			for(const auto locator : cellIter->second) {
+			for(const auto locator : *cellVectorPtr) {
 				if(locator->is_queued_for_deletion())
 					continue;
 				Vector2 segment[2] = {center, center+motion};
@@ -723,10 +772,10 @@ void LocatorSystem::FillWithGameObjectsInCircle(String poolName, Vector2 center,
 	for(int x=minX; x <= maxX; x++) {
 		for(int y=minY; y <= maxY; y++) {
 			Vector2i cell(x,y);
-			auto cellIter = poolIter->Cells.find(cell);
-			if(cellIter == poolIter->Cells.end())
+			auto cellVectorPtr = poolIter->Cells.lookup_ptr(cell);
+			if(cellVectorPtr == nullptr)
 				continue;
-			for(const auto locator : cellIter->second) {
+			for(const auto locator : *cellVectorPtr) {
 				if(locator->is_queued_for_deletion())
 					continue;
 				float checkDistSQ = radius + locator->GetRadius();
