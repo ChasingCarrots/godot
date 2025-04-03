@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+Import("env")
+Import("env_modules")
+
+env_eves = env_modules.Clone()
+
+# Thirdparty source files
+
+thirdparty_obj = []
+
+
+thirdparty_dir_signals = "#thirdparty/signals/"
+thirdparty_dir_tinyexpr = "#thirdparty/tinyexpr/"
+thirdparty_sources = [
+    thirdparty_dir_tinyexpr + "tinyexpr.c",
+]
+
+env_eves.Prepend(CPPPATH=[thirdparty_dir_signals, thirdparty_dir_tinyexpr])
+
+env_thirdparty = env_eves.Clone()
+env_thirdparty.disable_warnings()
+env_thirdparty.add_source_files(thirdparty_obj, thirdparty_sources)
+env.modules_sources += thirdparty_obj
+
+
+# Godot source files
+
+module_obj = []
+
+env_eves.add_source_files(module_obj, "*.cpp")
+env.modules_sources += module_obj
+
+# Needed to force rebuilding the module files when the thirdparty library is updated.
+env.Depends(module_obj, thirdparty_obj)

@@ -16,6 +16,12 @@ if env_tests["platform"] == "windows":
 if env["disable_exceptions"]:
     env_tests.Append(CPPDEFINES=["DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS"])
 
+############# we need these dependencies, when we want to compile tests from the EVES module! ###################
+thirdparty_dir_signals = "#thirdparty/signals/"
+thirdparty_dir_tinyexpr = "#thirdparty/tinyexpr/"
+env_tests.Prepend(CPPPATH=[thirdparty_dir_signals, thirdparty_dir_tinyexpr])
+################################################################################################################
+
 env_tests.add_source_files(env.tests_sources, "*.cpp")
 
 lib = env_tests.add_library("tests", env.tests_sources)

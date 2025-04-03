@@ -1,1 +1,1 @@
-scons target=editor debug_symbols=yes compiledb=yes
+scons target=editor debug_symbols=yes compiledb=yes tests=yes
