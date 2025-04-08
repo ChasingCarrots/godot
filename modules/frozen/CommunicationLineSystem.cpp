@@ -2,7 +2,7 @@
 
 #include <core/io/marshalls.h>
 
-const int COMMUNICATION_LINE_CHANNEL = 0;
+const int COMMUNICATION_LINE_CHANNEL = 7;
 
 CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
 
