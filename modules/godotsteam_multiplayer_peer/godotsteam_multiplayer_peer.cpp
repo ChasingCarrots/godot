@@ -396,7 +396,7 @@ bool SteamMultiplayerPeer::send_direct_message(PackedByteArray message_data) {
 
 bool SteamMultiplayerPeer::set_lobby_data(String key, String data) {
 	ERR_FAIL_COND_V_MSG(lobby_id.ConvertToUint64() == 0, false, "Cannot set lobby data, not in a lobby");
-	return SteamMatchmaking()->SetLobbyData(lobby_id, (const char *)key.ptr(), (const char *)data.ptr());
+	return SteamMatchmaking()->SetLobbyData(lobby_id, key.utf8().get_data(), data.utf8().get_data());
 }
 
 void SteamMultiplayerPeer::set_lobby_joinable(bool now_joinable){
