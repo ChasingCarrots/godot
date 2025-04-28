@@ -39,14 +39,14 @@
  */
 
 #include "core/error/error_macros.h"
-#include "core/os/memory.h"
 #include "core/templates/cowdata.h"
 #include "core/templates/search_array.h"
 #include "core/templates/sort_array.h"
 
-#include <climits>
 #include <initializer_list>
-#include <utility>
+
+template <typename T>
+class Vector;
 
 template <typename T>
 class VectorWriteProxy {
@@ -131,7 +131,7 @@ public:
 	_FORCE_INLINE_ bool has(const T &p_val) const { return find(p_val) != -1; }
 
 	void sort() {
-		sort_custom<_DefaultComparator<T>>();
+		sort_custom<Comparator<T>>();
 	}
 
 	template <typename Comparator, bool Validate = SORT_ARRAY_VALIDATE_ENABLED, typename... Args>
@@ -147,7 +147,7 @@ public:
 	}
 
 	Size bsearch(const T &p_value, bool p_before) {
-		return bsearch_custom<_DefaultComparator<T>>(p_value, p_before);
+		return bsearch_custom<Comparator<T>>(p_value, p_before);
 	}
 
 	template <typename Comparator, typename Value, typename... Args>
@@ -170,7 +170,7 @@ public:
 		insert(i, p_val);
 	}
 
-	void operator=(const Vector &p_from) { _cowdata._ref(p_from._cowdata); }
+	void operator=(const Vector &p_from) { _cowdata = p_from._cowdata; }
 	void operator=(Vector &&p_from) { _cowdata = std::move(p_from._cowdata); }
 
 	Vector<uint8_t> to_byte_array() const {
@@ -307,9 +307,8 @@ public:
 	_FORCE_INLINE_ Vector() {}
 	_FORCE_INLINE_ Vector(std::initializer_list<T> p_init) :
 			_cowdata(p_init) {}
-	_FORCE_INLINE_ Vector(const Vector &p_from) { _cowdata._ref(p_from._cowdata); }
-	_FORCE_INLINE_ Vector(Vector &&p_from) :
-			_cowdata(std::move(p_from._cowdata)) {}
+	_FORCE_INLINE_ Vector(const Vector &p_from) = default;
+	_FORCE_INLINE_ Vector(Vector &&p_from) = default;
 
 	_FORCE_INLINE_ ~Vector() {}
 };

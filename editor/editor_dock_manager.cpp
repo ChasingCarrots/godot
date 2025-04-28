@@ -856,6 +856,8 @@ EditorDockManager::EditorDockManager() {
 
 void DockContextPopup::_notification(int p_what) {
 	switch (p_what) {
+		case Control::NOTIFICATION_LAYOUT_DIRECTION_CHANGED:
+		case NOTIFICATION_TRANSLATION_CHANGED:
 		case NOTIFICATION_THEME_CHANGED: {
 			if (make_float_button) {
 				make_float_button->set_button_icon(get_editor_theme_icon(SNAME("MakeFloating")));
@@ -1090,6 +1092,7 @@ DockContextPopup::DockContextPopup() {
 
 	HBoxContainer *header_hb = memnew(HBoxContainer);
 	tab_move_left_button = memnew(Button);
+	tab_move_left_button->set_accessibility_name(TTRC("Move Tab Left"));
 	tab_move_left_button->set_flat(true);
 	tab_move_left_button->set_focus_mode(Control::FOCUS_NONE);
 	tab_move_left_button->connect(SceneStringName(pressed), callable_mp(this, &DockContextPopup::_tab_move_left));
@@ -1102,6 +1105,7 @@ DockContextPopup::DockContextPopup() {
 	header_hb->add_child(position_label);
 
 	tab_move_right_button = memnew(Button);
+	tab_move_right_button->set_accessibility_name(TTRC("Move Tab Right"));
 	tab_move_right_button->set_flat(true);
 	tab_move_right_button->set_focus_mode(Control::FOCUS_NONE);
 	tab_move_right_button->connect(SceneStringName(pressed), callable_mp(this, &DockContextPopup::_tab_move_right));

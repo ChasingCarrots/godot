@@ -52,17 +52,18 @@ private:
 	int node_type = RuntimeNodeSelect::NODE_TYPE_NONE;
 	bool selection_visible = true;
 	int select_mode = RuntimeNodeSelect::SELECT_MODE_SINGLE;
+	bool mute_audio = false;
 	EditorDebuggerNode::CameraOverride camera_override_mode = EditorDebuggerNode::OVERRIDE_INGAME;
 
 	void _session_started(Ref<EditorDebuggerSession> p_session);
 	void _session_stopped();
 
+	void _feature_profile_changed();
+
 protected:
 	static void _bind_methods();
 
 public:
-	void set_is_feature_enabled(bool p_enabled);
-
 	void set_suspend(bool p_enabled);
 	void next_frame();
 
@@ -71,6 +72,8 @@ public:
 
 	void set_selection_visible(bool p_visible);
 
+	void set_debug_mute_audio(bool p_enabled);
+
 	void set_camera_override(bool p_enabled);
 	void set_camera_manipulate_mode(EditorDebuggerNode::CameraOverride p_mode);
 
@@ -78,6 +81,8 @@ public:
 	void reset_camera_3d_position();
 
 	virtual void setup_session(int p_session_id) override;
+
+	GameViewDebugger();
 };
 
 class GameView : public VBoxContainer {
@@ -127,6 +132,8 @@ class GameView : public VBoxContainer {
 	Rect2i floating_window_rect;
 	int floating_window_screen = -1;
 
+	bool debug_mute_audio = false;
+
 	Button *suspend_button = nullptr;
 	Button *next_frame_button = nullptr;
 
@@ -134,6 +141,8 @@ class GameView : public VBoxContainer {
 	Button *select_mode_button[RuntimeNodeSelect::SELECT_MODE_MAX];
 
 	Button *hide_selection = nullptr;
+
+	Button *debug_mute_audio_button = nullptr;
 
 	Button *camera_override_button = nullptr;
 	MenuButton *camera_override_menu = nullptr;
@@ -152,6 +161,8 @@ class GameView : public VBoxContainer {
 
 	void _update_debugger_buttons();
 
+	void _handle_shortcut_requested(int p_embed_action);
+	void _toggle_suspend_button();
 	void _suspend_button_toggled(bool p_pressed);
 
 	void _node_type_pressed(int p_option);
@@ -178,6 +189,8 @@ class GameView : public VBoxContainer {
 
 	void _hide_selection_toggled(bool p_pressed);
 
+	void _debug_mute_audio_button_pressed();
+
 	void _camera_override_button_toggled(bool p_pressed);
 	void _camera_override_menu_id_pressed(int p_id);
 
@@ -189,12 +202,12 @@ class GameView : public VBoxContainer {
 
 	void _debugger_breaked(bool p_breaked, bool p_can_debug);
 
+	void _feature_profile_changed();
+
 protected:
 	void _notification(int p_what);
 
 public:
-	void set_is_feature_enabled(bool p_enabled);
-
 	void set_state(const Dictionary &p_state);
 	Dictionary get_state() const;
 
@@ -216,7 +229,6 @@ class GameViewPlugin : public EditorPlugin {
 
 	String last_editor;
 
-	void _feature_profile_changed();
 #ifndef ANDROID_ENABLED
 	void _window_visibility_changed(bool p_visible);
 #endif // ANDROID_ENABLED
@@ -228,7 +240,7 @@ protected:
 	void _notification(int p_what);
 
 public:
-	virtual String get_plugin_name() const override { return "Game"; }
+	virtual String get_plugin_name() const override { return TTRC("Game"); }
 	bool has_main_screen() const override { return true; }
 	virtual void edit(Object *p_object) override {}
 	virtual bool handles(Object *p_object) const override { return false; }

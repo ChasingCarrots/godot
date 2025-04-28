@@ -99,6 +99,11 @@ class ProjectSettingsEditor;
 class SceneImportSettingsDialog;
 class ProjectUpgradeTool;
 
+#ifdef ANDROID_ENABLED
+class HBoxContainer;
+class TouchActionsPanel;
+#endif
+
 struct EditorProgress {
 	String task;
 	bool force_background = false;
@@ -117,6 +122,7 @@ public:
 		SCENE_NAME_CASING_PASCAL_CASE,
 		SCENE_NAME_CASING_SNAKE_CASE,
 		SCENE_NAME_CASING_KEBAB_CASE,
+		SCENE_NAME_CASING_CAMEL_CASE,
 	};
 
 	enum ActionOnPlay {
@@ -275,6 +281,12 @@ private:
 	VBoxContainer *main_vbox = nullptr;
 	OptionButton *renderer = nullptr;
 
+#ifdef ANDROID_ENABLED
+	HBoxContainer *main_hbox = nullptr; // Only created on Android for TouchActionsPanel.
+	TouchActionsPanel *touch_actions_panel = nullptr;
+	void _touch_actions_panel_mode_changed();
+#endif
+
 	ConfirmationDialog *video_restart_dialog = nullptr;
 
 	int renderer_current = 0;
@@ -356,6 +368,7 @@ private:
 	ConfirmationDialog *save_confirmation = nullptr;
 	ConfirmationDialog *import_confirmation = nullptr;
 	ConfirmationDialog *pick_main_scene = nullptr;
+	ConfirmationDialog *open_project_settings = nullptr;
 	Button *select_current_scene_button = nullptr;
 	AcceptDialog *accept = nullptr;
 	AcceptDialog *save_accept = nullptr;
@@ -384,6 +397,7 @@ private:
 	EditorFileDialog *file_export_lib = nullptr;
 	EditorFileDialog *file_script = nullptr;
 	EditorFileDialog *file_android_build_source = nullptr;
+	EditorFileDialog *file_pack_zip = nullptr;
 	String current_path;
 	MenuButton *update_spinner = nullptr;
 
@@ -411,6 +425,7 @@ private:
 
 	Tree *disk_changed_list = nullptr;
 	ConfirmationDialog *disk_changed = nullptr;
+	ConfirmationDialog *project_data_missing = nullptr;
 
 	bool scene_distraction_free = false;
 	bool script_distraction_free = false;
@@ -654,6 +669,7 @@ private:
 	bool _is_class_editor_disabled_by_feature_profile(const StringName &p_class);
 
 	Ref<Texture2D> _get_class_or_script_icon(const String &p_class, const String &p_script_path, const String &p_fallback = "Object", bool p_fallback_script_to_theme = false);
+	Ref<Texture2D> _get_editor_theme_native_menu_icon(const StringName &p_name, bool p_global_menu, bool p_dark_mode) const;
 
 	void _pick_main_scene_custom_action(const String &p_custom_action_name);
 
@@ -669,6 +685,8 @@ private:
 	void _load_error_dialog_visibility_changed();
 
 	void _execute_upgrades();
+
+	bool _is_project_data_missing();
 
 protected:
 	friend class FileSystemDock;
@@ -958,6 +976,7 @@ public:
 	Vector<Ref<EditorResourceConversionPlugin>> find_resource_conversion_plugin_for_type_name(const String &p_type);
 
 	bool ensure_main_scene(bool p_from_native);
+	bool validate_custom_directory();
 };
 
 class EditorPluginList : public Object {

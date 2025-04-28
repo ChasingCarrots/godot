@@ -32,14 +32,22 @@
 
 #include "core/io/marshalls.h"
 #include "core/math/geometry_2d.h"
+#include "core/math/random_pcg.h"
+#include "core/templates/a_hash_map.h"
 #include "scene/2d/tile_map.h"
 #include "scene/gui/control.h"
 #include "scene/resources/2d/navigation_mesh_source_geometry_data_2d.h"
 #include "scene/resources/world_2d.h"
-#include "servers/navigation_server_2d.h"
 
+#ifndef PHYSICS_2D_DISABLED
+#include "servers/physics_server_2d.h"
+#endif // PHYSICS_3D_DISABLED
+
+#ifndef NAVIGATION_2D_DISABLED
+#include "servers/navigation_server_2d.h"
 Callable TileMapLayer::_navmesh_source_geometry_parsing_callback;
 RID TileMapLayer::_navmesh_source_geometry_parser;
+#endif // NAVIGATION_2D_DISABLED
 
 Vector2i TileMapLayer::_coords_to_quadrant_coords(const Vector2i &p_coords, const int p_quadrant_size) const {
 	return Vector2i(
@@ -86,18 +94,22 @@ void TileMapLayer::_debug_update(bool p_force_cleanup) {
 		for (KeyValue<Vector2i, CellData> &kv : tile_map_layer_data) {
 			CellData &cell_data = kv.value;
 			quadrants_to_updates.insert(_coords_to_quadrant_coords(cell_data.coords, TILE_MAP_DEBUG_QUADRANT_SIZE));
+#ifndef PHYSICS_2D_DISABLED
 			// Physics quadrants are drawn from their origin.
 			Vector2i physics_quadrant_origin = _coords_to_quadrant_coords(cell_data.coords, physics_quadrant_size) * physics_quadrant_size;
 			quadrants_to_updates.insert(_coords_to_quadrant_coords(physics_quadrant_origin, TILE_MAP_DEBUG_QUADRANT_SIZE));
+#endif // PHYSICS_2D_DISABLED
 		}
 	} else {
 		// Update dirty cells.
 		for (SelfList<CellData> *cell_data_list_element = dirty.cell_list.first(); cell_data_list_element; cell_data_list_element = cell_data_list_element->next()) {
 			CellData &cell_data = *cell_data_list_element->self();
 			quadrants_to_updates.insert(_coords_to_quadrant_coords(cell_data.coords, TILE_MAP_DEBUG_QUADRANT_SIZE));
+#ifndef PHYSICS_2D_DISABLED
 			// Physics quadrants are drawn from their origin.
 			Vector2i physics_quadrant_origin = _coords_to_quadrant_coords(cell_data.coords, physics_quadrant_size) * physics_quadrant_size;
 			quadrants_to_updates.insert(_coords_to_quadrant_coords(physics_quadrant_origin, TILE_MAP_DEBUG_QUADRANT_SIZE));
+#endif // PHYSICS_2D_DISABLED
 		}
 	}
 
@@ -130,15 +142,19 @@ void TileMapLayer::_debug_update(bool p_force_cleanup) {
 		Transform2D xform(0, quadrant_pos);
 		rs->canvas_item_set_transform(ci, xform);
 
+#ifndef PHYSICS_2D_DISABLED
 		// Draw physics.
 		_physics_draw_quadrant_debug(ci, *debug_quadrant.ptr());
+#endif // PHYSICS_2D_DISABLED
 
 		// Draw debug info.
 		for (SelfList<CellData> *cell_data_list_element = debug_quadrant->cells.first(); cell_data_list_element; cell_data_list_element = cell_data_list_element->next()) {
 			CellData &cell_data = *cell_data_list_element->self();
 			if (cell_data.cell.source_id != TileSet::INVALID_SOURCE) {
 				_rendering_draw_cell_debug(ci, quadrant_pos, cell_data);
+#ifndef NAVIGATION_2D_DISABLED
 				_navigation_draw_cell_debug(ci, quadrant_pos, cell_data);
+#endif // NAVIGATION_2D_DISABLED
 				_scenes_draw_cell_debug(ci, quadrant_pos, cell_data);
 				debug_quadrant->drawn_to = true;
 			}
@@ -300,6 +316,7 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 						rs->canvas_item_set_light_mask(ci, get_light_mask());
 						rs->canvas_item_set_z_as_relative_to_parent(ci, true);
 						rs->canvas_item_set_z_index(ci, tile_z_index);
+						rs->canvas_item_set_self_modulate(ci, get_self_modulate());
 
 						rs->canvas_item_set_default_texture_filter(ci, RS::CanvasItemTextureFilter(get_texture_filter_in_tree()));
 						rs->canvas_item_set_default_texture_repeat(ci, RS::CanvasItemTextureRepeat(get_texture_repeat_in_tree()));
@@ -320,14 +337,12 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 					// Random animation offset.
 					real_t random_animation_offset = 0.0;
 					if (atlas_source->get_tile_animation_mode(cell_data.cell.get_atlas_coords()) != TileSetAtlasSource::TILE_ANIMATION_MODE_DEFAULT) {
-						Array to_hash;
-						to_hash.push_back(local_tile_pos);
-						to_hash.push_back(get_instance_id()); // Use instance id as a random hash
+						Array to_hash = { local_tile_pos, get_instance_id() }; // Use instance id as a random hash
 						random_animation_offset = RandomPCG(to_hash.hash()).randf();
 					}
 
 					// Drawing the tile in the canvas item.
-					draw_tile(ci, local_tile_pos - rendering_quadrant->canvas_items_position, tile_set, cell_data.cell.source_id, cell_data.cell.get_atlas_coords(), cell_data.cell.alternative_tile, -1, get_self_modulate(), tile_data, random_animation_offset);
+					draw_tile(ci, local_tile_pos - rendering_quadrant->canvas_items_position, tile_set, cell_data.cell.source_id, cell_data.cell.get_atlas_coords(), cell_data.cell.alternative_tile, -1, tile_data, random_animation_offset);
 				}
 
 				// Reset physics interpolation for any recreated canvas items.
@@ -651,10 +666,7 @@ void TileMapLayer::_rendering_draw_cell_debug(const RID &p_canvas_item, const Ve
 				Vector2i grid_size = atlas_source->get_atlas_grid_size();
 				if (atlas_source->get_runtime_texture().is_null() || c.get_atlas_coords().x >= grid_size.x || c.get_atlas_coords().y >= grid_size.y) {
 					// Generate a random color from the hashed values of the tiles.
-					Array to_hash;
-					to_hash.push_back(c.source_id);
-					to_hash.push_back(c.get_atlas_coords());
-					to_hash.push_back(c.alternative_tile);
+					Array to_hash = { c.source_id, c.get_atlas_coords(), c.alternative_tile };
 					uint32_t hash = RandomPCG(to_hash.hash()).rand();
 
 					Color color;
@@ -678,6 +690,7 @@ void TileMapLayer::_rendering_draw_cell_debug(const RID &p_canvas_item, const Ve
 
 /////////////////////////////// Physics //////////////////////////////////////
 
+#ifndef PHYSICS_2D_DISABLED
 void TileMapLayer::_physics_update(bool p_force_cleanup) {
 	PhysicsServer2D *ps = PhysicsServer2D::get_singleton();
 
@@ -1031,9 +1044,7 @@ void TileMapLayer::_physics_draw_quadrant_debug(const RID &p_canvas_item, DebugQ
 	RenderingServer *rs = RenderingServer::get_singleton();
 	PhysicsServer2D *ps = PhysicsServer2D::get_singleton();
 
-	Color debug_collision_color = get_tree()->get_debug_collisions_color();
-	Vector<Color> color;
-	color.push_back(debug_collision_color);
+	const Color &debug_collision_color = get_tree()->get_debug_collisions_color();
 
 	RandomPCG rand;
 	rand.seed(hash_murmur3_one_real(r_debug_quadrant.quadrant_coords.y, hash_murmur3_one_real(r_debug_quadrant.quadrant_coords.x)));
@@ -1049,6 +1060,15 @@ void TileMapLayer::_physics_draw_quadrant_debug(const RID &p_canvas_item, DebugQ
 	Vector2i first_physics_quadrant_coords = _coords_to_quadrant_coords(covered_cell_area.get_position() - Vector2i(1, 1), physics_quadrant_size) + Vector2i(1, 1);
 	Vector2i last_physics_quadrant_coords = _coords_to_quadrant_coords(covered_cell_area.get_end() - Vector2i(1, 1), physics_quadrant_size) + Vector2i(1, 1);
 
+	LocalVector<Vector2> face_vertex_array;
+	LocalVector<Color> face_color_array;
+	LocalVector<int32_t> face_index_array;
+
+	LocalVector<Vector2> line_vertex_array;
+	LocalVector<Color> line_color_array;
+
+	AHashMap<Vector2, int> vertex_map;
+
 	// Arrays to generate a mesh.
 	for (int x = first_physics_quadrant_coords.x; x < last_physics_quadrant_coords.x; x++) {
 		for (int y = first_physics_quadrant_coords.y; y < last_physics_quadrant_coords.y; y++) {
@@ -1062,18 +1082,33 @@ void TileMapLayer::_physics_draw_quadrant_debug(const RID &p_canvas_item, DebugQ
 			const Vector2 debug_quadrant_pos = tile_set->map_to_local(r_debug_quadrant.quadrant_coords * TILE_MAP_DEBUG_QUADRANT_SIZE);
 			Transform2D global_to_debug_quadrant = (get_global_transform() * Transform2D(0, debug_quadrant_pos)).affine_inverse();
 
+			// Clear arrays for new quadrant while keeping allocated memory.
+
+			face_vertex_array.clear();
+			face_color_array.clear();
+			face_index_array.clear();
+
+			line_vertex_array.clear();
+			line_color_array.clear();
+
+			vertex_map.clear();
+
 			for (const KeyValue<PhysicsQuadrant::PhysicsBodyKey, PhysicsQuadrant::PhysicsBodyValue> &kvbody : physics_quadrant->bodies) {
 				const RID &body = kvbody.value.body;
-				Transform2D body_to_quadrant = global_to_debug_quadrant * Transform2D(ps->body_get_state(body, PhysicsServer2D::BODY_STATE_TRANSFORM));
+				int shape_count = ps->body_get_shape_count(body);
+				if (shape_count == 0) {
+					continue;
+				}
+				const Transform2D body_to_quadrant = global_to_debug_quadrant * Transform2D(ps->body_get_state(body, PhysicsServer2D::BODY_STATE_TRANSFORM));
 
-				Color random_variation_color;
-				random_variation_color.set_hsv(
+				Color face_random_variation_color;
+				face_random_variation_color.set_hsv(
 						debug_collision_color.get_h() + rand.random(-1.0, 1.0) * 0.05,
 						debug_collision_color.get_s(),
 						debug_collision_color.get_v() + rand.random(-1.0, 1.0) * 0.1,
 						debug_collision_color.a);
+				const Color line_random_variation_color = face_random_variation_color.lightened(0.2);
 
-				int shape_count = ps->body_get_shape_count(body);
 				for (int shape_index = 0; shape_index < shape_count; shape_index++) {
 					const RID &shape = ps->body_get_shape(body, shape_index);
 					const Transform2D &shape_xform = ps->body_get_shape_transform(body, shape_index);
@@ -1081,54 +1116,116 @@ void TileMapLayer::_physics_draw_quadrant_debug(const RID &p_canvas_item, DebugQ
 
 					if (type == PhysicsServer2D::SHAPE_CONVEX_POLYGON) {
 						PackedVector2Array outline = ps->shape_get_data(shape);
-
-						PackedVector2Array vertex_array;
-						vertex_array.resize(outline.size() + 1);
-
-						PackedColorArray face_color_array;
-						face_color_array.resize(outline.size() + 1);
-						PackedInt32Array face_index_array;
-						face_index_array.resize((outline.size() - 2) * 3);
-
-						PackedColorArray line_color_array;
-						line_color_array.resize(outline.size() + 1);
-
-						for (int i = 0; i < outline.size() + 1; i++) {
-							Vector2 vertex = (body_to_quadrant * shape_xform).xform(outline[i % outline.size()]);
-							vertex_array.write[i] = vertex;
-							face_color_array.write[i] = random_variation_color;
-							line_color_array.write[i] = random_variation_color.lightened(0.2);
-						}
-						for (int i = 0; i < outline.size() - 2; i++) {
-							face_index_array.write[i * 3] = 0;
-							face_index_array.write[i * 3 + 1] = i + 1;
-							face_index_array.write[i * 3 + 2] = i + 2;
+						const int outline_size = outline.size();
+						if (outline_size < 3) {
+							continue;
 						}
 
-						Array face_mesh_array;
-						face_mesh_array.resize(Mesh::ARRAY_MAX);
-						face_mesh_array[Mesh::ARRAY_VERTEX] = vertex_array;
-						face_mesh_array[Mesh::ARRAY_INDEX] = face_index_array;
-						face_mesh_array[Mesh::ARRAY_COLOR] = face_color_array;
-						rs->mesh_add_surface_from_arrays(r_debug_quadrant.physics_mesh, RS::PRIMITIVE_TRIANGLES, face_mesh_array, Array(), Dictionary(), RS::ARRAY_FLAG_USE_2D_VERTICES);
+						const Transform2D outline_xform = body_to_quadrant * shape_xform;
 
-						Array line_mesh_array;
-						line_mesh_array.resize(Mesh::ARRAY_MAX);
-						line_mesh_array[Mesh::ARRAY_VERTEX] = vertex_array;
-						line_mesh_array[Mesh::ARRAY_COLOR] = line_color_array;
+						// Adds debug mesh lines.
 
-						rs->mesh_add_surface_from_arrays(r_debug_quadrant.physics_mesh, RS::PRIMITIVE_LINE_STRIP, line_mesh_array, Array(), Dictionary(), RS::ARRAY_FLAG_USE_2D_VERTICES);
+						Vector2 previous_line_vertex = outline_xform.xform(outline[outline_size - 1]);
+
+						for (int i = 0; i < outline_size; i++) {
+							Vector2 line_vertex = outline_xform.xform(outline[i]);
+
+							line_vertex_array.push_back(previous_line_vertex);
+							line_vertex_array.push_back(line_vertex);
+
+							previous_line_vertex = line_vertex;
+
+							line_color_array.push_back(line_random_variation_color);
+							line_color_array.push_back(line_random_variation_color);
+						}
+
+						// Adds debug mesh faces.
+
+						const Vector2 vertex1 = outline_xform.xform(outline[0]);
+						const Vector2 vertex2 = outline_xform.xform(outline[1]);
+						Vector2 vertex3;
+
+						int vertex1_index = -1;
+						int vertex2_index = -1;
+						int vertex3_index = -1;
+
+						int last_vertex3_index = -1;
+
+						// Find triangle fan anchor vertex1 index.
+						{
+							AHashMap<Vector2, int>::Iterator E = vertex_map.find(vertex1);
+							if (!E) {
+								E = vertex_map.insert(vertex1, vertex_map.size());
+								face_vertex_array.push_back(vertex1);
+								face_color_array.push_back(face_random_variation_color);
+							}
+							vertex1_index = E->value;
+						}
+
+						// Find starting vertex2 index.
+						{
+							AHashMap<Vector2, int>::Iterator E = vertex_map.find(vertex2);
+							if (!E) {
+								E = vertex_map.insert(vertex2, vertex_map.size());
+								face_vertex_array.push_back(vertex2);
+								face_color_array.push_back(face_random_variation_color);
+							}
+							vertex2_index = E->value;
+						}
+
+						// Create mesh triangle face fan from outline vertices using vertex_map indices.
+						for (int i = 1; i < outline_size - 1; i++) {
+							if (i > 1) {
+								vertex2_index = last_vertex3_index;
+							}
+
+							vertex3 = outline_xform.xform(outline[i + 1]);
+
+							{
+								AHashMap<Vector2, int>::Iterator E = vertex_map.find(vertex3);
+								if (!E) {
+									E = vertex_map.insert(vertex3, vertex_map.size());
+									face_vertex_array.push_back(vertex3);
+									face_color_array.push_back(face_random_variation_color);
+								}
+								vertex3_index = E->value;
+								last_vertex3_index = vertex3_index;
+							}
+
+							face_index_array.push_back(vertex1_index);
+							face_index_array.push_back(vertex2_index);
+							face_index_array.push_back(vertex3_index);
+						}
+
 					} else {
 						WARN_PRINT("Wrong shape type for a tile, should be SHAPE_CONVEX_POLYGON.");
 					}
 				}
+			}
+
+			if (face_index_array.size() > 2) {
+				Array face_mesh_array;
+				face_mesh_array.resize(Mesh::ARRAY_MAX);
+				face_mesh_array[Mesh::ARRAY_VERTEX] = Vector<Vector2>(face_vertex_array);
+				face_mesh_array[Mesh::ARRAY_INDEX] = Vector<int32_t>(face_index_array);
+				face_mesh_array[Mesh::ARRAY_COLOR] = Vector<Color>(face_color_array);
+				rs->mesh_add_surface_from_arrays(r_debug_quadrant.physics_mesh, RS::PRIMITIVE_TRIANGLES, face_mesh_array, Array(), Dictionary(), RS::ARRAY_FLAG_USE_2D_VERTICES);
+
+				Array line_mesh_array;
+				line_mesh_array.resize(Mesh::ARRAY_MAX);
+				line_mesh_array[Mesh::ARRAY_VERTEX] = Vector<Vector2>(line_vertex_array);
+				line_mesh_array[Mesh::ARRAY_COLOR] = Vector<Color>(line_color_array);
+
+				rs->mesh_add_surface_from_arrays(r_debug_quadrant.physics_mesh, RS::PRIMITIVE_LINES, line_mesh_array, Array(), Dictionary(), RS::ARRAY_FLAG_USE_2D_VERTICES);
 			}
 		}
 	}
 	rs->canvas_item_add_mesh(p_canvas_item, r_debug_quadrant.physics_mesh, Transform2D());
 }
 #endif // DEBUG_ENABLED
+#endif // PHYSICS_2D_DISABLED
 
+#ifndef NAVIGATION_2D_DISABLED
 /////////////////////////////// Navigation //////////////////////////////////////
 
 void TileMapLayer::_navigation_update(bool p_force_cleanup) {
@@ -1401,6 +1498,7 @@ void TileMapLayer::_navigation_draw_cell_debug(const RID &p_canvas_item, const V
 	}
 }
 #endif // DEBUG_ENABLED
+#endif // NAVIGATION_2D_DISABLED
 
 /////////////////////////////// Scenes //////////////////////////////////////
 
@@ -1512,9 +1610,7 @@ void TileMapLayer::_scenes_draw_cell_debug(const RID &p_canvas_item, const Vecto
 		if (scenes_collection_source) {
 			if (scenes_collection_source->get_scene_tile_scene(c.alternative_tile).is_null() || scenes_collection_source->get_scene_tile_display_placeholder(c.alternative_tile)) {
 				// Generate a random color from the hashed values of the tiles.
-				Array to_hash;
-				to_hash.push_back(c.source_id);
-				to_hash.push_back(c.alternative_tile);
+				Array to_hash = { c.source_id, c.alternative_tile };
 				uint32_t hash = RandomPCG(to_hash.hash()).rand();
 
 				Color color;
@@ -1875,8 +1971,12 @@ void TileMapLayer::_internal_update(bool p_force_cleanup) {
 
 	// Update all subsystems.
 	_rendering_update(p_force_cleanup);
+#ifndef PHYSICS_2D_DISABLED
 	_physics_update(p_force_cleanup);
+#endif // PHYSICS_2D_DISABLED
+#ifndef NAVIGATION_2D_DISABLED
 	_navigation_update(p_force_cleanup);
+#endif // NAVIGATION_2D_DISABLED
 	_scenes_update(p_force_cleanup);
 #ifdef DEBUG_ENABLED
 	_debug_update(p_force_cleanup);
@@ -1977,8 +2077,12 @@ void TileMapLayer::_notification(int p_what) {
 	}
 
 	_rendering_notification(p_what);
+#ifndef PHYSICS_2D_DISABLED
 	_physics_notification(p_what);
+#endif // PHYSICS_2D_DISABLED
+#ifndef NAVIGATION_2D_DISABLED
 	_navigation_notification(p_what);
+#endif // NAVIGATION_2D_DISABLED
 }
 
 void TileMapLayer::_bind_methods() {
@@ -2010,9 +2114,11 @@ void TileMapLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cells_terrain_connect", "cells", "terrain_set", "terrain", "ignore_empty_terrains"), &TileMapLayer::set_cells_terrain_connect, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("set_cells_terrain_path", "path", "terrain_set", "terrain", "ignore_empty_terrains"), &TileMapLayer::set_cells_terrain_path, DEFVAL(true));
 
+#ifndef PHYSICS_2D_DISABLED
 	// --- Physics helpers ---
 	ClassDB::bind_method(D_METHOD("has_body_rid", "body"), &TileMapLayer::has_body_rid);
 	ClassDB::bind_method(D_METHOD("get_coords_for_body_rid", "body"), &TileMapLayer::get_coords_for_body_rid);
+#endif // PHYSICS_2D_DISABLED
 
 	// --- Runtime ---
 	ClassDB::bind_method(D_METHOD("update_internals"), &TileMapLayer::update_internals);
@@ -2054,12 +2160,14 @@ void TileMapLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_occlusion_enabled", "enabled"), &TileMapLayer::set_occlusion_enabled);
 	ClassDB::bind_method(D_METHOD("is_occlusion_enabled"), &TileMapLayer::is_occlusion_enabled);
 
+#ifndef NAVIGATION_2D_DISABLED
 	ClassDB::bind_method(D_METHOD("set_navigation_enabled", "enabled"), &TileMapLayer::set_navigation_enabled);
 	ClassDB::bind_method(D_METHOD("is_navigation_enabled"), &TileMapLayer::is_navigation_enabled);
 	ClassDB::bind_method(D_METHOD("set_navigation_map", "map"), &TileMapLayer::set_navigation_map);
 	ClassDB::bind_method(D_METHOD("get_navigation_map"), &TileMapLayer::get_navigation_map);
 	ClassDB::bind_method(D_METHOD("set_navigation_visibility_mode", "show_navigation"), &TileMapLayer::set_navigation_visibility_mode);
 	ClassDB::bind_method(D_METHOD("get_navigation_visibility_mode"), &TileMapLayer::get_navigation_visibility_mode);
+#endif // NAVIGATION_2D_DISABLED
 
 	GDVIRTUAL_BIND(_use_tile_data_runtime_update, "coords");
 	GDVIRTUAL_BIND(_tile_data_runtime_update, "coords", "tile_data");
@@ -2079,9 +2187,11 @@ void TileMapLayer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_kinematic_bodies"), "set_use_kinematic_bodies", "is_using_kinematic_bodies");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_visibility_mode", PROPERTY_HINT_ENUM, "Default,Force Show,Force Hide"), "set_collision_visibility_mode", "get_collision_visibility_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "physics_quadrant_size"), "set_physics_quadrant_size", "get_physics_quadrant_size");
+#ifndef NAVIGATION_2D_DISABLED
 	ADD_GROUP("Navigation", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "navigation_enabled"), "set_navigation_enabled", "is_navigation_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "navigation_visibility_mode", PROPERTY_HINT_ENUM, "Default,Force Show,Force Hide"), "set_navigation_visibility_mode", "get_navigation_visibility_mode");
+#endif // NAVIGATION_2D_DISABLED
 
 	ADD_SIGNAL(MethodInfo(CoreStringName(changed)));
 
@@ -2457,7 +2567,7 @@ TileMapCell TileMapLayer::get_cell(const Vector2i &p_coords) const {
 	}
 }
 
-void TileMapLayer::draw_tile(RID p_canvas_item, const Vector2 &p_position, const Ref<TileSet> p_tile_set, int p_atlas_source_id, const Vector2i &p_atlas_coords, int p_alternative_tile, int p_frame, Color p_modulation, const TileData *p_tile_data_override, real_t p_normalized_animation_offset) {
+void TileMapLayer::draw_tile(RID p_canvas_item, const Vector2 &p_position, const Ref<TileSet> p_tile_set, int p_atlas_source_id, const Vector2i &p_atlas_coords, int p_alternative_tile, int p_frame, const TileData *p_tile_data_override, real_t p_normalized_animation_offset) {
 	ERR_FAIL_COND(p_tile_set.is_null());
 	ERR_FAIL_COND(!p_tile_set->has_source(p_atlas_source_id));
 	ERR_FAIL_COND(!p_tile_set->get_source(p_atlas_source_id)->has_tile(p_atlas_coords));
@@ -2486,7 +2596,7 @@ void TileMapLayer::draw_tile(RID p_canvas_item, const Vector2 &p_position, const
 		const TileData *tile_data = p_tile_data_override ? p_tile_data_override : atlas_source->get_tile_data(p_atlas_coords, p_alternative_tile);
 
 		// Get the tile modulation.
-		Color modulate = tile_data->get_modulate() * p_modulation;
+		Color modulate = tile_data->get_modulate();
 
 		// Compute the offset.
 		Vector2 tile_offset = tile_data->get_texture_origin();
@@ -2877,6 +2987,7 @@ void TileMapLayer::set_cells_terrain_path(TypedArray<Vector2i> p_path, int p_ter
 	}
 }
 
+#ifndef PHYSICS_2D_DISABLED
 bool TileMapLayer::has_body_rid(RID p_physics_body) const {
 	return bodies_coords.has(p_physics_body);
 }
@@ -2886,6 +2997,7 @@ Vector2i TileMapLayer::get_coords_for_body_rid(RID p_physics_body) const {
 	ERR_FAIL_NULL_V(found, Vector2i());
 	return *found;
 }
+#endif // PHYSICS_2D_DISABLED
 
 void TileMapLayer::update_internals() {
 	_internal_update(false);
@@ -3218,6 +3330,7 @@ bool TileMapLayer::is_occlusion_enabled() const {
 	return occlusion_enabled;
 }
 
+#ifndef NAVIGATION_2D_DISABLED
 void TileMapLayer::set_navigation_enabled(bool p_enabled) {
 	if (navigation_enabled == p_enabled) {
 		return;
@@ -3286,14 +3399,17 @@ void TileMapLayer::navmesh_parse_source_geometry(const Ref<NavigationPolygon> &p
 		return;
 	}
 
-	int physics_layers_count = tile_set->get_physics_layers_count();
 	int navigation_layers_count = tile_set->get_navigation_layers_count();
+#ifndef PHYSICS_2D_DISABLED
+	int physics_layers_count = tile_set->get_physics_layers_count();
 	if (physics_layers_count <= 0 && navigation_layers_count <= 0) {
 		return;
 	}
-
-	NavigationPolygon::ParsedGeometryType parsed_geometry_type = p_navigation_mesh->get_parsed_geometry_type();
-	uint32_t parsed_collision_mask = p_navigation_mesh->get_parsed_collision_mask();
+#else
+	if (navigation_layers_count <= 0) {
+		return;
+	}
+#endif // PHYSICS_2D_DISABLED
 
 	const Transform2D tilemap_xform = p_source_geometry_data->root_node_transform * tile_map_layer->get_global_transform();
 
@@ -3342,6 +3458,10 @@ void TileMapLayer::navmesh_parse_source_geometry(const Ref<NavigationPolygon> &p
 			}
 		}
 
+#ifndef PHYSICS_2D_DISABLED
+		NavigationPolygon::ParsedGeometryType parsed_geometry_type = p_navigation_mesh->get_parsed_geometry_type();
+		uint32_t parsed_collision_mask = p_navigation_mesh->get_parsed_collision_mask();
+
 		// Parse obstacles.
 		for (int physics_layer = 0; physics_layer < physics_layers_count; physics_layer++) {
 			if ((parsed_geometry_type == NavigationPolygon::PARSED_GEOMETRY_STATIC_COLLIDERS || parsed_geometry_type == NavigationPolygon::PARSED_GEOMETRY_BOTH) &&
@@ -3370,8 +3490,10 @@ void TileMapLayer::navmesh_parse_source_geometry(const Ref<NavigationPolygon> &p
 				}
 			}
 		}
+#endif // PHYSICS_2D_DISABLED
 	}
 }
+#endif // NAVIGATION_2D_DISABLED
 
 TileMapLayer::TileMapLayer() {
 	set_notify_transform(true);
