@@ -3,6 +3,7 @@
 
 #include <core/io/stream_peer.h>
 #include <core/object/ref_counted.h>
+#include <core/os/os.h>
 #include <scene/main/multiplayer_peer.h>
 #include <functional>
 
@@ -149,6 +150,79 @@ private:
 	uint8_t _next_call_id = 0;
 	Vector<Ref<CommunicationCallWithAnswer>> _communication_calls_waiting_for_answer;
 
+	struct DataAmountWithTime {
+		uint16_t Amount;
+		uint16_t Time;
+	};
+	Vector<DataAmountWithTime> _received_data_amounts;
+	uint64_t _last_received_fetched_time = 0;
+	Vector<DataAmountWithTime> _sent_data_amounts;
+	uint64_t _last_sent_fetched_time = 0;
+	void push_received_amount(uint16_t amount) {
+		uint64_t now = OS::get_singleton()->get_ticks_msec();
+		if (now < _last_received_fetched_time + 2000) {
+			// only fill the arrays if somebody is actually listening
+			// (and pruning the arrays!)
+			_received_data_amounts.append({amount, static_cast<uint16_t>(now) });
+		}
+	}
+	void push_sent_amount(uint16_t amount) {
+		uint64_t now = OS::get_singleton()->get_ticks_msec();
+		if (now < _last_sent_fetched_time + 2000) {
+			// only fill the arrays if somebody is actually listening
+			// (and pruning the arrays!)
+			_sent_data_amounts.append({amount, static_cast<uint16_t>(now) });
+		}
+	}
+	uint32_t get_received_amount_and_prune(uint64_t from_time) {
+		uint32_t total_amount_in_time = 0;
+		constexpr uint16_t max_uint16 = -1;
+		int from_time_casted = static_cast<uint16_t>(from_time);
+		for (int i = _received_data_amounts.size() - 1; i >= 0; i--) {
+            int check_time = _received_data_amounts[i].Time;
+			if (abs(from_time_casted - check_time) > max_uint16 / 2) {
+				// one did wrap around, the other one didn't, so either subtract or
+				// add the wrap around number
+				if (check_time > from_time_casted) { check_time -= max_uint16; }
+				else { check_time += max_uint16; }
+			}
+			if (check_time >= from_time_casted) {
+				total_amount_in_time += _received_data_amounts[i].Amount;
+			}
+			else {
+				// we don't really care about the order, so we remove at the back
+				_received_data_amounts.set(i, _received_data_amounts[_received_data_amounts.size() - 1]);
+				_received_data_amounts.remove_at(_received_data_amounts.size() - 1);
+			}
+		}
+		_last_received_fetched_time = OS::get_singleton()->get_ticks_msec();
+		return total_amount_in_time;
+	}
+	uint32_t get_sent_amount_and_prune(uint64_t from_time) {
+		uint32_t total_amount_in_time = 0;
+		constexpr uint16_t max_uint16 = -1;
+		int from_time_casted = static_cast<uint16_t>(from_time);
+		for (int i = _sent_data_amounts.size() - 1; i >= 0; i--) {
+			int check_time = _sent_data_amounts[i].Time;
+			if (abs(from_time_casted - check_time) > max_uint16 / 2) {
+				// one did wrap around, the other one didn't, so either subtract or
+				// add the wrap around number
+				if (check_time > from_time_casted) { check_time -= max_uint16; }
+				else { check_time += max_uint16; }
+			}
+			if (check_time >= from_time_casted) {
+				total_amount_in_time += _sent_data_amounts[i].Amount;
+			}
+			else {
+				// we don't really care about the order, so we remove at the back
+				_sent_data_amounts.set(i, _sent_data_amounts[_sent_data_amounts.size() - 1]);
+				_sent_data_amounts.remove_at(_sent_data_amounts.size() - 1);
+			}
+		}
+		_last_sent_fetched_time = OS::get_singleton()->get_ticks_msec();
+		return total_amount_in_time;
+	}
+
 	void create_unconnected_peers(const Vector<int> &peers);
 	void new_peer_connected(int peer_id);
 	void peer_disconnected(int peer_id);
@@ -192,6 +266,14 @@ public:
 
 	void set_local_peer_bits(uint8_t bit);
 	void unset_local_peer_bits(uint8_t bit);
+
+	int get_num_bytes_received_last_second() {
+		return get_received_amount_and_prune(OS::get_singleton()->get_ticks_msec() - 4000) / 4;
+	}
+
+	int get_num_bytes_sent_last_second() {
+		return get_sent_amount_and_prune(OS::get_singleton()->get_ticks_msec() - 4000) / 4;
+	}
 };
 
 VARIANT_ENUM_CAST(CommunicationLine::CommunicationState);

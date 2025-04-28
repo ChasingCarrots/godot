@@ -52,6 +52,8 @@ void CommunicationLine::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("call_function_on_peer", "function_name", "parameters", "peer_id"), &CommunicationLine::call_function_on_peer);
 	ClassDB::bind_method(D_METHOD("call_function_on_peers_expect_answer", "function_name", "parameters", "only_on_peers_with_bits_set", "only_on_peers_with_bits_unset"), &CommunicationLine::call_function_on_peers_expect_answer, DEFVAL(0), DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("call_function_on_peer_expect_answer", "function_name", "parameters", "peer_id"), &CommunicationLine::call_function_on_peer_expect_answer);
+	ClassDB::bind_method(D_METHOD("get_num_bytes_received_last_second"), &CommunicationLine::get_num_bytes_received_last_second);
+	ClassDB::bind_method(D_METHOD("get_num_bytes_sent_last_second"), &CommunicationLine::get_num_bytes_sent_last_second);
 
 	ADD_SIGNAL(MethodInfo("PeerCommunicationStateChanged", PropertyInfo(Variant::INT, "peer_multiplayer_id"), PropertyInfo(Variant::INT, "new_state")));
 	ADD_SIGNAL(MethodInfo("CommunicationStateChanged", PropertyInfo(Variant::INT, "new_state")));
@@ -96,6 +98,7 @@ void CommunicationLine::new_peer_connected(int peer_id) {
 	_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_communication_state()));
 	_send_buffer.put_u8(_my_peer_info.get_peer_bits());
 	_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+	push_sent_amount(_send_buffer.get_size());
 }
 
 void CommunicationLine::peer_disconnected(int peer_id) {
@@ -120,6 +123,7 @@ void CommunicationLine::update_own_communication_state(CommunicationState state)
 		_send_buffer.put_u8(static_cast<uint8_t>(state));
 		for (auto &peer : _other_peers) {
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer.get_multiplayer_id(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+			push_sent_amount(_send_buffer.get_size());
 		}
 	}
 	emit_signal("CommunicationStateChanged", state);
@@ -167,6 +171,7 @@ Variant get_value_from_buffer(StreamPeerBuffer * packet, CommunicationLine::Para
 	return {};
 }
 void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_type, int from_multiplayer_id, Ref<StreamPeerBuffer> &packet) {
+	push_received_amount(packet->get_size());
 	switch (packet_type) {
 		case CommunicationLinePacketTypes::UpdateLinePeerState: {
 			CommunicationState state = static_cast<CommunicationState>(packet->get_u8());
@@ -181,6 +186,7 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 							_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_communication_state()));
 							_send_buffer.put_u8(_my_peer_info.get_peer_bits());
 							_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), from_multiplayer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+							push_sent_amount(_send_buffer.get_size());
 						}
 						emit_signal("PeerCommunicationStateChanged", from_multiplayer_id, state);
 					}
@@ -199,6 +205,7 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 			_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_communication_state()));
 			_send_buffer.put_u8(_my_peer_info.get_peer_bits());
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), from_multiplayer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+			push_sent_amount(_send_buffer.get_size());
 		}
 		break;
 		case CommunicationLinePacketTypes::UpdateLinePeerBits: {
@@ -266,6 +273,7 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 				_send_buffer.put_u8(call_id);
 				fill_send_buffer_with_value(function.ExpectedAnswer, return_value);
 				_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), from_multiplayer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+				push_sent_amount(_send_buffer.get_size());
 			}
 		}
 		break;
@@ -449,6 +457,7 @@ void CommunicationLine::call_function_on_peers(const StringName &function_name, 
 				continue;
 			}
 			_communication_line_system->send_packet_to_peer(bytes, peer.get_multiplayer_id(), function.Mode);
+			push_sent_amount(bytes.size());
 		}
 	} else {
 		print_error(vformat("CommunicationLine::call_function_on_peers: failed to send function %s", function_name));
@@ -477,6 +486,7 @@ void CommunicationLine::call_function_on_peer(const StringName &function_name, A
 		const auto& function = _communication_functions[function_index];
 		Vector<uint8_t> bytes = _send_buffer.get_data_array();
 		_communication_line_system->send_packet_to_peer(bytes, peer_id, function.Mode);
+		push_sent_amount(bytes.size());
 	} else {
 		print_error(vformat("CommunicationLine::call_function_on_peers: failed to send function %s", function_name));
 	}
@@ -508,6 +518,7 @@ Ref<CommunicationCallWithAnswer> CommunicationLine::call_function_on_peer_expect
 		call_with_answer->TicksAtSendTime = OS::get_singleton()->get_ticks_msec();
 		Vector<uint8_t> bytes = _send_buffer.get_data_array();
 		_communication_line_system->send_packet_to_peer(bytes, peer_id, function.Mode);
+		push_sent_amount(bytes.size());
 		// add an answer object for every peer we sent the call to, so that we can
 		// trigger the signal when every peer has sent their answer.
 		call_with_answer->PeerAnswers.push_back({peer_id, {}, -1});
@@ -551,6 +562,7 @@ Ref<CommunicationCallWithAnswer> CommunicationLine::call_function_on_peers_expec
 				continue;
 			}
 			_communication_line_system->send_packet_to_peer(bytes, peer.get_multiplayer_id(), function.Mode);
+			push_sent_amount(bytes.size());
 			// add an answer object for every peer we sent the call to, so that we can
 			// trigger the signal when every peer has sent their answer.
 			call_with_answer->PeerAnswers.push_back({peer.get_multiplayer_id(), {}, -1});
@@ -590,6 +602,7 @@ inline void CommunicationLine::set_local_peer_bits(uint8_t bit) {
 		_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_peer_bits()));
 		for (auto &peer : _other_peers) {
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer.get_multiplayer_id(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+			push_sent_amount(_send_buffer.get_size());
 		}
 	}
 }
@@ -602,6 +615,7 @@ inline void CommunicationLine::unset_local_peer_bits(uint8_t bit) {
 		_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_peer_bits()));
 		for (auto &peer : _other_peers) {
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer.get_multiplayer_id(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+			push_sent_amount(_send_buffer.get_size());
 		}
 	}
 }
