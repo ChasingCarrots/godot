@@ -102,6 +102,9 @@ protected:
 	float _next_high_freq_gametime = 0.0f;
 
 	static Vector<CompositeNode*> _all_composite_nodes;
+	static constexpr uint16_t INVALID_ID = 0;
+	static uint16_t _next_composite_node_id;
+	uint16_t _composite_ID = INVALID_ID;
 
 	void _enter_tree();
 	void _exit_tree();
@@ -110,6 +113,7 @@ protected:
 
 	void init_authority(int authority_player_id);
 	void init_authority_rpc(int sender_id, int authority_player_id);
+	void set_composite_id_rpc(int sender_id, uint16_t composite_id);
 
 	void _peer_state_changed(int peer_id, CommunicationLine::CommunicationState new_state);
 
@@ -167,6 +171,14 @@ public:
 	static CompositeNode *GetCompositeNodeInParents(Node* node);
 	static int GetNumberOfExistingCompositeNodes() { return _all_composite_nodes.size(); };
 	static CompositeNode* GetExistingCompositeNode(int index) { return _all_composite_nodes[index]; }
+	static CompositeNode* GetCompositeNodeByID(int id) {
+		for (auto node : _all_composite_nodes) {
+			if (node->get_composite_id() == id) {
+				return node;
+			}
+		}
+		return nullptr;
+	}
 
 	void InitializeAsAuthority();
 	Ref<CommunicationLine> GetCommunicationLine();
@@ -175,11 +187,13 @@ public:
 	void SetupDataMultiplayerSynchronization(StringName dataName, DataSynchronizationMode syncMode, DataSynchronizationType dataType);
 	void SetupDataMultiplayerSynchronizationWithLinearMovement(StringName dataName, StringName velocityDataName, DataSynchronizationMode syncMode, DataSynchronizationType dataType);
 
+	bool HasFunction(StringName functionName) const { return _functions.has(functionName); }
 	bool RegisterFunction(StringName functionName, Callable callable);
 	void UnregisterFunction(StringName functionName, const Callable &callable);
 	Variant CallFunction(StringName functionName, const Array &parameters);
 	Ref<FutureValue> CallFunctionOnAuthority(StringName functionName, const Array &parameters);
 
+    bool HasCallback(StringName callbackName) const { return _callbacks.has(callbackName); }
 	void RegisterCallback(StringName callbackName, const Callable &callable);
 	void UnregisterCallback(StringName callbackName, const Callable &callable);
 	void CallCallbacks(StringName callbackName, const Array& parameters);
@@ -214,8 +228,11 @@ public:
 	}
 	void set_forward_callbacks_to_parent_composite_node(const PackedStringArray &forward_callbacks_to_parent_composite_node) {
 		ForwardCallbacksToParentCompositeNode.clear();
-		for (const auto& s : forward_callbacks_to_parent_composite_node) { ForwardCallbacksToParentCompositeNode.append(s); }
+		for (const auto &s : forward_callbacks_to_parent_composite_node) {
+			ForwardCallbacksToParentCompositeNode.append(s);
+		}
 	}
+	[[nodiscard]] uint16_t get_composite_id() const { return _composite_ID; }
 };
 
 VARIANT_ENUM_CAST(CompositeNode::DataSynchronizationMode);

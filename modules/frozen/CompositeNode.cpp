@@ -28,6 +28,7 @@ const char* DataSynchronizationTypeStr[] = {
 
 float CompositeNode::GameTimeServerOffset = 0;
 Vector<CompositeNode*> CompositeNode::_all_composite_nodes;
+uint16_t CompositeNode::_next_composite_node_id = 1;
 
 String CompositeNode::get_data_value_debug_string(StringName name) const {
 	String t;
@@ -123,6 +124,7 @@ void CompositeNode::_bind_methods() {
 	BIND_ENUM_CONSTANT(Vector2Type);
 	BIND_ENUM_CONSTANT(Vector3Type);
 
+	BIND_CONSTANT(INVALID_ID);
 
 	ClassDB::bind_method(D_METHOD("set_ParentCompositeNode", "parentCompositeNode"),
 		&CompositeNode::set_parent_composite_node);
@@ -145,6 +147,11 @@ void CompositeNode::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ForwardCallbacksToParentCompositeNode", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"),
 		"set_ForwardCallbacksToParentCompositeNode", "get_ForwardCallbacksToParentCompositeNode");
 
+	ClassDB::bind_method(D_METHOD("get_composite_id"),
+		&CompositeNode::get_composite_id);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "CompositeID", PROPERTY_HINT_NONE),
+		"", "get_composite_id");
+
 	ClassDB::bind_static_method("CompositeNode", D_METHOD("SetGameTimeServerOffset", "offset"),
 	    &CompositeNode::SetGameTimeServerOffset);
 	ClassDB::bind_static_method("CompositeNode", D_METHOD("GetCompositeNodeInParents", "node"),
@@ -153,6 +160,8 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::GetNumberOfExistingCompositeNodes);
 	ClassDB::bind_static_method("CompositeNode", D_METHOD("GetExistingCompositeNode", "index"),
 		&CompositeNode::GetExistingCompositeNode);
+	ClassDB::bind_static_method("CompositeNode", D_METHOD("GetCompositeNodeByID", "id"),
+		&CompositeNode::GetCompositeNodeByID);
 	ClassDB::bind_method(D_METHOD("InitializeAsAuthority"),
 	    &CompositeNode::InitializeAsAuthority);
 	ClassDB::bind_method(D_METHOD("GetCommunicationLine"),
@@ -163,6 +172,8 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::SetupDataMultiplayerSynchronization);
 	ClassDB::bind_method(D_METHOD("SetupDataMultiplayerSynchronizationWithLinearMovement", "dataName", "velocityDataName", "syncMode", "dataType"),
 	    &CompositeNode::SetupDataMultiplayerSynchronizationWithLinearMovement);
+	ClassDB::bind_method(D_METHOD("HasFunction", "functionName"),
+		&CompositeNode::HasFunction);
 	ClassDB::bind_method(D_METHOD("RegisterFunction", "functionName", "callable"),
 	    &CompositeNode::RegisterFunction);
 	ClassDB::bind_method(D_METHOD("UnregisterFunction", "functionName", "callable"),
@@ -171,6 +182,8 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::CallFunction);
 	ClassDB::bind_method(D_METHOD("CallFunctionOnAuthority", "functionName", "parameters"),
 	    &CompositeNode::CallFunctionOnAuthority);
+	ClassDB::bind_method(D_METHOD("HasCallback", "callbackName"),
+		&CompositeNode::HasCallback);
 	ClassDB::bind_method(D_METHOD("RegisterCallback", "callbackName", "callable"),
 	    &CompositeNode::RegisterCallback);
 	ClassDB::bind_method(D_METHOD("UnregisterCallback", "callbackName", "callable"),
@@ -265,10 +278,17 @@ void CompositeNode::_ready() {
 		_parentCompositeNode.set(cast_to<CompositeNode>(get_node(ParentCompositeNode)));
 	}
 
-	// this will initialize the line, if it hasn't already been initalized through a child
+	// this will initialize the line, if it hasn't already been initialized through a child
 	GetCommunicationLine();
 	_communication_line->finish_initialization_and_open_line();
 	_communication_line->connect("PeerCommunicationStateChanged", callable_mp(this, &CompositeNode::_peer_state_changed));
+
+	if (get_multiplayer()->is_server()) {
+		_composite_ID = _next_composite_node_id++;
+		Array params;
+		params.append(_composite_ID);
+		_communication_line->call_function_on_peers("set_composite_id_rpc", params);
+	}
 
 	// only process when initialized via init_authority as the authority
 	set_process(false);
@@ -308,12 +328,12 @@ void CompositeNode::init_authority(int authority_player_id) {
 }
 
 void CompositeNode::init_authority_rpc(int sender_id, int authority_player_id) {
-    // with the communication_line system we really don't need the
-    // authority set to a specific id (will be propagated by the peer bits)
-    // but there are a lot of places that check the authority via "is_multiplayer_authority"
-    // and so we'll set it for the time being.
+	// with the communication_line system we really don't need the
+	// authority set to a specific id (will be propagated by the peer bits)
+	// but there are a lot of places that check the authority via "is_multiplayer_authority"
+	// and so we'll set it for the time being.
 	set_multiplayer_authority(authority_player_id);
-	if ( is_multiplayer_authority() ) {
+	if (is_multiplayer_authority()) {
 		set_process(true);
 		// 1 is the bit we defined in the godot project for "authority"
 		// (E.CommunicationLineBits.Authority)
@@ -324,7 +344,16 @@ void CompositeNode::init_authority_rpc(int sender_id, int authority_player_id) {
 	CallCallbacks("init_authority", params);
 }
 
+void CompositeNode::set_composite_id_rpc(int sender_id, uint16_t composite_id) {
+	_composite_ID = composite_id;
+}
+
 void CompositeNode::_peer_state_changed(int peer_id, CommunicationLine::CommunicationState new_state) {
+	if (new_state == CommunicationLine::ConnectedOpen && get_multiplayer()->is_server()) {
+		Array params;
+		params.append(_composite_ID);
+		_communication_line->call_function_on_peer("set_composite_id_rpc", params, peer_id);
+	}
 	if (new_state == CommunicationLine::ConnectedOpen &&
 	_communication_line->check_local_peer_bits(1, 0)) {
 
@@ -704,6 +733,10 @@ Ref<CommunicationLine> CompositeNode::GetCommunicationLine() {
 	_communication_line->add_function_definition("init_authority_rpc", callable_mp(this, &CompositeNode::init_authority_rpc), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 
 	params.clear();
+	params.append(CommunicationLine::U16);
+	_communication_line->add_function_definition("set_composite_id_rpc", callable_mp(this, &CompositeNode::set_composite_id_rpc), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+
+	params.clear();
 	params.append(CommunicationLine::Bytes);
 	params.append(CommunicationLine::U16);
 	_communication_line->add_function_definition("_complete_sync_package", callable_mp(this, &CompositeNode::_complete_sync_package), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
@@ -991,7 +1024,7 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 	// (otherwise the syncing is already done by SetData)
 	if (!is_multiplayer_authority()) {
 		DataSynchronizationSettings* sync_config = _sync_data_on_change.lookup_ptr(dataName);
-		ERR_FAIL_COND_MSG(sync_config == nullptr, "CompositeNode::SetDataOnAuthority can only be called for data that has OnChange Synchronization Settings set up.");
+		ERR_FAIL_COND_MSG(sync_config == nullptr, vformat("SetDataOnAuthority (%s) can only be called for data that has OnChange Synchronization Settings set up.", dataName));
 		int authority_peer_id = get_multiplayer_authority();
 		Array params;
 		params.append(sync_config->DataID);
