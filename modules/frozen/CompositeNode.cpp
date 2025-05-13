@@ -136,7 +136,7 @@ void CompositeNode::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_ForwardDataToParentCompositeNode", "forwardData"),
 		&CompositeNode::set_forward_data_to_parent_composite_node);
 	ClassDB::bind_method(D_METHOD("get_ForwardDataToParentCompositeNode"),
-		&CompositeNode::get_forward_callbacks_to_parent_composite_node);
+		&CompositeNode::get_forward_data_to_parent_composite_node);
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "ForwardDataToParentCompositeNode", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"),
 		"set_ForwardDataToParentCompositeNode", "get_ForwardDataToParentCompositeNode");
 

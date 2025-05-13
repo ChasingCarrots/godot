@@ -210,23 +210,23 @@ public:
 
 	[[nodiscard]] NodePath get_parent_composite_node() const { return ParentCompositeNode;	}
 	void set_parent_composite_node(NodePath parent_composite_node_path) { ParentCompositeNode = parent_composite_node_path; }
-	[[nodiscard]] PackedStringArray get_forward_data_to_parent_composite_node() {
+	[[nodiscard]] TypedArray<StringName> get_forward_data_to_parent_composite_node() {
 		// we can't directly use Vector<StringName> (not supported by godot), so we'll have to convert here...
 		// shouldn't be a big deal, since this is only used for the @exports in the editor...
-		PackedStringArray str_array;
+		TypedArray<StringName> str_array;
 		for (const auto& str_name : ForwardDataToParentCompositeNode) { str_array.append(str_name); }
 		return str_array;
 	}
-	void set_forward_data_to_parent_composite_node(const PackedStringArray &forward_data_to_parent_composite_node) {
+	void set_forward_data_to_parent_composite_node(TypedArray<StringName> forward_data_to_parent_composite_node) {
 		ForwardDataToParentCompositeNode.clear();
 		for (const auto& s : forward_data_to_parent_composite_node) { ForwardDataToParentCompositeNode.append(s); }
 	}
-	[[nodiscard]] PackedStringArray get_forward_callbacks_to_parent_composite_node() {
-		PackedStringArray str_array;
+	[[nodiscard]] TypedArray<StringName> get_forward_callbacks_to_parent_composite_node() {
+		TypedArray<StringName> str_array;
 		for (const auto& str_name : ForwardCallbacksToParentCompositeNode) { str_array.append(str_name); }
 		return str_array;
 	}
-	void set_forward_callbacks_to_parent_composite_node(const PackedStringArray &forward_callbacks_to_parent_composite_node) {
+	void set_forward_callbacks_to_parent_composite_node(TypedArray<StringName> forward_callbacks_to_parent_composite_node) {
 		ForwardCallbacksToParentCompositeNode.clear();
 		for (const auto &s : forward_callbacks_to_parent_composite_node) {
 			ForwardCallbacksToParentCompositeNode.append(s);
