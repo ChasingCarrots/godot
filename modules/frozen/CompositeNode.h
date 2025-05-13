@@ -48,6 +48,15 @@ protected:
 	Vector<StringName> ForwardCallbacksToParentCompositeNode;
 
 	SafeObjectPointer<CompositeNode> _parentCompositeNode;
+	bool has_parent_composite_node() {
+		if (_parentCompositeNode.is_valid()) { return true; }
+		if (!ParentCompositeNode.is_empty()) {
+			_parentCompositeNode.set(cast_to<CompositeNode>(get_node(ParentCompositeNode)));
+			return _parentCompositeNode.is_valid();
+		}
+		return false;
+	};
+
 	Ref<CommunicationLine> _communication_line;
 	PackedByteArray _send_buffer;
 	Vector<StringName> _temp_stringnames;
@@ -193,7 +202,7 @@ public:
 	Variant CallFunction(StringName functionName, const Array &parameters);
 	Ref<FutureValue> CallFunctionOnAuthority(StringName functionName, const Array &parameters);
 
-    bool HasCallback(StringName callbackName) const { return _callbacks.has(callbackName); }
+    bool HasCallback(StringName callbackName);
 	void RegisterCallback(StringName callbackName, const Callable &callable);
 	void UnregisterCallback(StringName callbackName, const Callable &callable);
 	void CallCallbacks(StringName callbackName, const Array& parameters);
