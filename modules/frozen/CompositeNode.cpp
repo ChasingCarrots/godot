@@ -902,6 +902,9 @@ Variant CompositeNode::CallFunction(StringName functionName, const Array &parame
 	if (Callable *function_callable = _functions.lookup_ptr(functionName); function_callable != nullptr) {
 		return function_callable->callv(parameters);
 	}
+	if (has_parent_composite_node()) {
+	    return _parentCompositeNode->CallFunction(functionName, parameters);
+	}
 	return Variant();
 }
 
