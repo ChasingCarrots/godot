@@ -33,7 +33,6 @@
 #include "tile_atlas_view.h"
 
 #include "core/os/thread.h"
-#include "scene/2d/tile_map.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/check_box.h"
 #include "scene/gui/flow_container.h"
@@ -46,6 +45,7 @@
 #include "scene/gui/tab_bar.h"
 #include "scene/gui/tree.h"
 
+class TileMapLayer;
 class TileMapLayerEditor;
 
 class TileMapLayerSubEditorPlugin : public Object {
@@ -347,6 +347,9 @@ private:
 	void _find_tile_map_layers_in_scene(Node *p_current, const Node *p_owner, Vector<TileMapLayer *> &r_list) const;
 	void _update_tile_map_layers_in_scene_list_cache();
 	void _node_change(Node *p_node);
+
+	Control *custom_overlay = nullptr;
+	void _draw_overlay();
 
 	// Vector to keep plugins.
 	Vector<TileMapLayerSubEditorPlugin *> tile_map_editor_plugins;

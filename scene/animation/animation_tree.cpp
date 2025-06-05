@@ -77,7 +77,11 @@ void AnimationNode::set_parameter(const StringName &p_name, const Variant &p_val
 
 	const AHashMap<StringName, int>::Iterator it = property_cache.find(p_name);
 	if (it) {
-		process_state->tree->property_map.get_by_index(it->value).value.first = p_value;
+		Pair<Variant, bool> &prop = process_state->tree->property_map.get_by_index(it->value).value;
+		Variant value = p_value;
+		if (Animation::validate_type_match(prop.first, value)) {
+			prop.first = value;
+		}
 		return;
 	}
 
@@ -893,8 +897,6 @@ void AnimationTree::_setup_animation_player() {
 }
 
 void AnimationTree::_validate_property(PropertyInfo &p_property) const {
-	AnimationMixer::_validate_property(p_property);
-
 	if (!animation_player.is_empty()) {
 		if (p_property.name == "root_node" || p_property.name.begins_with("libraries")) {
 			p_property.usage |= PROPERTY_USAGE_READ_ONLY;
@@ -921,7 +923,11 @@ bool AnimationTree::_set(const StringName &p_name, const Variant &p_value) {
 		if (is_inside_tree() && property_map[p_name].second) {
 			return false; // Prevent to set property by user.
 		}
-		property_map[p_name].first = p_value;
+		Pair<Variant, bool> &prop = property_map[p_name];
+		Variant value = p_value;
+		if (Animation::validate_type_match(prop.first, value)) {
+			prop.first = value;
+		}
 		return true;
 	}
 

@@ -114,8 +114,6 @@ void SceneTreeTimer::release_connections() {
 	}
 }
 
-SceneTreeTimer::SceneTreeTimer() {}
-
 #ifndef _3D_DISABLED
 // This should be called once per physics tick, to make sure the transform previous and current
 // is kept up to date on the few Node3Ds that are using client side physics interpolation.
@@ -188,14 +186,6 @@ void SceneTree::remove_from_group(const StringName &p_group, Node *p_node) {
 	}
 }
 
-void SceneTree::make_group_changed(const StringName &p_group) {
-	_THREAD_SAFE_METHOD_
-	HashMap<StringName, Group>::Iterator E = group_map.find(p_group);
-	if (E) {
-		E->value.changed = true;
-	}
-}
-
 void SceneTree::flush_transform_notifications() {
 	_THREAD_SAFE_METHOD_
 
@@ -215,8 +205,8 @@ bool SceneTree::is_accessibility_enabled() const {
 	}
 
 	DisplayServer::AccessibilityMode accessibility_mode = DisplayServer::accessibility_get_mode();
-	int screen_reader_acvite = DisplayServer::get_singleton()->accessibility_screen_reader_active();
-	if ((accessibility_mode == DisplayServer::AccessibilityMode::ACCESSIBILITY_DISABLED) || ((accessibility_mode == DisplayServer::AccessibilityMode::ACCESSIBILITY_AUTO) && (screen_reader_acvite == 0))) {
+	int screen_reader_active = DisplayServer::get_singleton()->accessibility_screen_reader_active();
+	if ((accessibility_mode == DisplayServer::AccessibilityMode::ACCESSIBILITY_DISABLED) || ((accessibility_mode == DisplayServer::AccessibilityMode::ACCESSIBILITY_AUTO) && (screen_reader_active != 1))) {
 		return false;
 	}
 	return true;
@@ -727,7 +717,7 @@ bool SceneTree::process(double p_time) {
 #ifdef TOOLS_ENABLED
 #ifndef _3D_DISABLED
 	if (Engine::get_singleton()->is_editor_hint()) {
-		String env_path = GLOBAL_GET(SNAME("rendering/environment/defaults/default_environment"));
+		String env_path = GLOBAL_GET("rendering/environment/defaults/default_environment");
 		env_path = env_path.strip_edges(); // User may have added a space or two.
 
 		bool can_load = true;
@@ -1972,12 +1962,26 @@ void SceneTree::add_idle_callback(IdleCallback p_callback) {
 
 #ifdef TOOLS_ENABLED
 void SceneTree::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {
-	const String pf = p_function;
 	bool add_options = false;
 	if (p_idx == 0) {
-		add_options = pf == "get_nodes_in_group" || pf == "has_group" || pf == "get_first_node_in_group" || pf == "set_group" || pf == "notify_group" || pf == "call_group" || pf == "add_to_group";
+		static const Vector<StringName> names = {
+			StringName("add_to_group", true),
+			StringName("call_group", true),
+			StringName("get_first_node_in_group", true),
+			StringName("get_node_count_in_group", true),
+			StringName("get_nodes_in_group", true),
+			StringName("has_group", true),
+			StringName("notify_group", true),
+			StringName("set_group", true),
+		};
+		add_options = names.has(p_function);
 	} else if (p_idx == 1) {
-		add_options = pf == "set_group_flags" || pf == "call_group_flags" || pf == "notify_group_flags";
+		static const Vector<StringName> names = {
+			StringName("call_group_flags", true),
+			StringName("notify_group_flags", true),
+			StringName("set_group_flags", true),
+		};
+		add_options = names.has(p_function);
 	}
 	if (add_options) {
 		HashMap<StringName, String> global_groups = ProjectSettings::get_singleton()->get_global_groups_list();
@@ -2056,7 +2060,7 @@ SceneTree::SceneTree() {
 	const bool use_hdr_2d = GLOBAL_GET("rendering/viewport/hdr_2d");
 	root->set_use_hdr_2d(use_hdr_2d);
 
-	const int ssaa_mode = GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "rendering/anti_aliasing/quality/screen_space_aa", PROPERTY_HINT_ENUM, "Disabled (Fastest),FXAA (Fast)"), 0);
+	const int ssaa_mode = GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "rendering/anti_aliasing/quality/screen_space_aa", PROPERTY_HINT_ENUM, "Disabled (Fastest),FXAA (Fast),SMAA (Average)"), 0);
 	root->set_screen_space_aa(Viewport::ScreenSpaceAA(ssaa_mode));
 
 	const bool use_taa = GLOBAL_DEF_BASIC("rendering/anti_aliasing/quality/use_taa", false);

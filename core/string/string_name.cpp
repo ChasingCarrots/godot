@@ -30,6 +30,7 @@
 
 #include "string_name.h"
 
+#include "core/os/mutex.h"
 #include "core/os/os.h"
 #include "core/string/print_string.h"
 
@@ -39,7 +40,7 @@ struct StringName::Table {
 	constexpr static uint32_t TABLE_MASK = TABLE_LEN - 1;
 
 	static inline _Data *table[TABLE_LEN];
-	static inline Mutex mutex;
+	static inline BinaryMutex mutex;
 	static inline PagedAllocator<_Data> allocator;
 };
 
@@ -176,14 +177,6 @@ int StringName::length() const {
 	return 0;
 }
 
-bool StringName::is_empty() const {
-	if (_data) {
-		return _data->name.is_empty();
-	}
-
-	return true;
-}
-
 StringName &StringName::operator=(const StringName &p_name) {
 	if (this == &p_name) {
 		return *this;
@@ -205,13 +198,6 @@ StringName::StringName(const StringName &p_name) {
 
 	if (p_name._data && p_name._data->refcount.ref()) {
 		_data = p_name._data;
-	}
-}
-
-void StringName::assign_static_unique_class_name(StringName *ptr, const char *p_name) {
-	MutexLock lock(Table::mutex);
-	if (*ptr == StringName()) {
-		*ptr = StringName(p_name, true);
 	}
 }
 

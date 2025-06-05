@@ -953,7 +953,7 @@ void GDScript::get_members(HashSet<StringName> *p_members) {
 	}
 }
 
-Variant GDScript::get_rpc_config() const {
+const Variant GDScript::get_rpc_config() const {
 	return rpc_config;
 }
 
@@ -2769,9 +2769,9 @@ void GDScriptLanguage::frame() {
 }
 
 /* EDITOR FUNCTIONS */
-void GDScriptLanguage::get_reserved_words(List<String> *p_words) const {
+Vector<String> GDScriptLanguage::get_reserved_words() const {
 	// Please keep alphabetical order within categories.
-	static const char *_reserved_words[] = {
+	static const Vector<String> ret = {
 		// Control flow.
 		"break",
 		"continue",
@@ -2785,6 +2785,7 @@ void GDScriptLanguage::get_reserved_words(List<String> *p_words) const {
 		"when",
 		"while",
 		// Declarations.
+		"abstract",
 		"class",
 		"class_name",
 		"const",
@@ -2823,15 +2824,9 @@ void GDScriptLanguage::get_reserved_words(List<String> *p_words) const {
 		"preload",
 		// Types (highlighter uses type color instead).
 		"void",
-		nullptr,
 	};
 
-	const char **w = _reserved_words;
-
-	while (*w) {
-		p_words->push_back(*w);
-		w++;
-	}
+	return ret;
 }
 
 bool GDScriptLanguage::is_control_flow_keyword(const String &p_keyword) const {
@@ -2892,7 +2887,8 @@ String GDScriptLanguage::get_global_class_name(const String &p_path, String *r_b
 			if (subclass->extends_used) {
 				if (!subclass->extends_path.is_empty()) {
 					if (subclass->extends.is_empty()) {
-						get_global_class_name(subclass->extends_path, r_base_type);
+						// We only care about the referenced class_name.
+						_ALLOW_DISCARD_ get_global_class_name(subclass->extends_path, r_base_type);
 						subclass = nullptr;
 						break;
 					} else {

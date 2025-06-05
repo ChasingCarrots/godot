@@ -1924,6 +1924,7 @@ void Object::_bind_methods() {
 	BIND_ENUM_CONSTANT(CONNECT_PERSIST);
 	BIND_ENUM_CONSTANT(CONNECT_ONE_SHOT);
 	BIND_ENUM_CONSTANT(CONNECT_REFERENCE_COUNTED);
+	BIND_ENUM_CONSTANT(CONNECT_APPEND_SOURCE_OBJECT);
 }
 
 void Object::set_deferred(const StringName &p_property, const Variant &p_value) {
@@ -2224,6 +2225,16 @@ void Object::detach_from_objectdb() {
 		ObjectDB::remove_instance(this);
 		_instance_id = ObjectID();
 	}
+}
+
+void Object::assign_class_name_static(const Span<char> &p_name, StringName &r_target) {
+	static BinaryMutex _mutex;
+	MutexLock lock(_mutex);
+	if (r_target) {
+		// Already assigned while we were waiting for the mutex.
+		return;
+	}
+	r_target = StringName(p_name.ptr(), true);
 }
 
 Object::~Object() {
