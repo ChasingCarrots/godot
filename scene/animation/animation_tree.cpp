@@ -52,6 +52,9 @@ void AnimationNode::get_parameter_list(List<PropertyInfo> *r_list) const {
 
 Variant AnimationNode::get_parameter_default_value(const StringName &p_parameter) const {
 	Variant ret;
+	if (p_parameter == current_length || p_parameter == current_position || p_parameter == current_delta) {
+		return 0.0;
+	}
 	GDVIRTUAL_CALL(_get_parameter_default_value, p_parameter, ret);
 	return ret;
 }
@@ -898,9 +901,10 @@ void AnimationTree::_setup_animation_player() {
 
 void AnimationTree::_validate_property(PropertyInfo &p_property) const {
 	if (!animation_player.is_empty()) {
-		if (p_property.name == "root_node" || p_property.name.begins_with("libraries")) {
+		if (Engine::get_singleton()->is_editor_hint() && (p_property.name == "root_node" || p_property.name.begins_with("libraries"))) {
 			p_property.usage |= PROPERTY_USAGE_READ_ONLY;
 		}
+
 		if (p_property.name.begins_with("libraries")) {
 			p_property.usage &= ~PROPERTY_USAGE_STORAGE;
 		}
