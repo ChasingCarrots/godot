@@ -32,14 +32,14 @@ uint16_t CompositeNode::_next_composite_node_id = 1;
 
 String CompositeNode::get_data_value_debug_string(StringName name) const {
 	String t;
-	const DataValue *di = _data.lookup_ptr(name);
+	const DataValue *di = _data.getptr(name);
 	if (!di) {
 		return t;
 	}
 
 	t = vformat("%s = %s\nVariant type: %s\n", name, di->Value, Variant::get_type_name(di->Value.get_type()));
 
-	const CompositeNode::DataSynchronizationSettings *sync = _sync_data_on_change.lookup_ptr(name);
+	const CompositeNode::DataSynchronizationSettings *sync = _sync_data_on_change.getptr(name);
 	if (sync) {
 		t += vformat("Multiplayer SyncOnChange (%s)\n", DataSynchronizationTypeStr[sync->SyncType]);
 	}
@@ -56,7 +56,7 @@ String CompositeNode::get_data_value_debug_string(StringName name) const {
 		}
 	}
 
-	const DataSumSettings* sum = _sums.lookup_ptr(name);
+	const DataSumSettings* sum = _sums.getptr(name);
 	if (sum) {
 		t += "Sum Definition:\n  ";
 		bool first = true;
@@ -82,7 +82,7 @@ String CompositeNode::get_data_value_debug_string(StringName name) const {
 
 String CompositeNode::get_callback_debug_string(StringName name) const {
 	String t;
-	const Vector<Callable> *callbacks = _callbacks.lookup_ptr(name);
+	const Vector<Callable> *callbacks = _callbacks.getptr(name);
 	if (!callbacks) {
 		return t;
 	}
@@ -95,7 +95,7 @@ String CompositeNode::get_callback_debug_string(StringName name) const {
 
 String CompositeNode::get_function_debug_string(StringName name) const {
 	String t;
-	const Callable* cb = _functions.lookup_ptr(name);
+	const Callable* cb = _functions.getptr(name);
 	if (!cb) {
 		return t;
 	}
@@ -385,7 +385,7 @@ void CompositeNode::_complete_sync_package(int sender_id, const PackedByteArray 
 
 	for (const auto& on_change_data_key : _sync_data_on_change_sorting) {
 		bool skipCallbacks = (delta_since_sent > 0) && _linear_movement_with_velocity.has(on_change_data_key);
-		auto on_change_config = _sync_data_on_change.lookup_ptr(on_change_data_key);
+		auto on_change_config = _sync_data_on_change.getptr(on_change_data_key);
 		DataSynchronizationType data_type = on_change_config->SyncType;
 		offset += _setDataFromPackage(on_change_data_key, dataPackage, offset, data_type, skipCallbacks);
 	}
@@ -408,7 +408,7 @@ void CompositeNode::_complete_sync_package(int sender_id, const PackedByteArray 
 
 	if (delta_since_sent > 0) {
 		for (const auto &dataWithLinearMovement : _temp_stringnames) {
-			const auto* velocity_data_name = _linear_movement_with_velocity.lookup_ptr(dataWithLinearMovement);
+			const auto* velocity_data_name = _linear_movement_with_velocity.getptr(dataWithLinearMovement);
 			_updateDataWithLinearMovement(dataWithLinearMovement, *velocity_data_name, delta_since_sent);
 		}
 	}
@@ -422,7 +422,7 @@ void CompositeNode::_sendHighFrequencyData() {
 	offset += _encodeDataToPackage(GameTime(), _send_buffer, offset, DataSynchronizationType::Float);
 
 	for (const auto &sync_setting : _sync_data_high_freq) {
-		offset += _encodeDataToPackage(_data.lookup_ptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
+		offset += _encodeDataToPackage(_data.getptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
 	}
 
 	Array params;
@@ -438,7 +438,7 @@ void CompositeNode::_sendLowFrequencyData() {
 	offset += _encodeDataToPackage(GameTime(), _send_buffer, offset, DataSynchronizationType::Float);
 
 	for (const auto &sync_setting : _sync_data_low_freq) {
-		offset += _encodeDataToPackage(_data.lookup_ptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
+		offset += _encodeDataToPackage(_data.getptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
 	}
 
 	Array params;
@@ -491,7 +491,7 @@ void CompositeNode::_updateHighFrequencyData(int sender_id, const PackedByteArra
 
 	if (delta_since_sent > 0) {
 		for (const StringName &dataWithLinearMovement : _temp_stringnames) {
-			_updateDataWithLinearMovement(dataWithLinearMovement, *_linear_movement_with_velocity.lookup_ptr(dataWithLinearMovement), delta_since_sent);
+			_updateDataWithLinearMovement(dataWithLinearMovement, *_linear_movement_with_velocity.getptr(dataWithLinearMovement), delta_since_sent);
 		}
 	}
 }
@@ -512,7 +512,7 @@ void CompositeNode::_updateLowFrequencyData(int sender_id, const PackedByteArray
 
 	if (delta_since_sent > 0) {
 		for (const StringName &dataWithLinearMovement : _temp_stringnames) {
-			_updateDataWithLinearMovement(dataWithLinearMovement, *_linear_movement_with_velocity.lookup_ptr(dataWithLinearMovement), delta_since_sent);
+			_updateDataWithLinearMovement(dataWithLinearMovement, *_linear_movement_with_velocity.getptr(dataWithLinearMovement), delta_since_sent);
 		}
 	}
 }
@@ -530,11 +530,11 @@ void CompositeNode::_updateSingleOnChangeData(int sender_id, const PackedByteArr
 		offset += 4;
 	}
 
-	DataSynchronizationType data_type = _sync_data_on_change.lookup_ptr(data_name)->SyncType;
+	DataSynchronizationType data_type = _sync_data_on_change.getptr(data_name)->SyncType;
 	_setDataFromPackage(data_name, dataPackage, offset, data_type, has_linear_movement && delta > 0);
 
 	if (has_linear_movement && delta > 0) {
-		_updateDataWithLinearMovement(data_name, *_linear_movement_with_velocity.lookup_ptr(data_name), delta);
+		_updateDataWithLinearMovement(data_name, *_linear_movement_with_velocity.getptr(data_name), delta);
 	}
 
 }
@@ -654,8 +654,8 @@ int CompositeNode::_encodeDataToPackage(Variant value, PackedByteArray &dataPack
 }
 
 void CompositeNode::_updateDataWithLinearMovement(StringName dataName, StringName movementDataName, float delta) {
-	auto data_value = _data.lookup_ptr(dataName);
-	auto movement_data_value = _data.lookup_ptr(movementDataName);
+	auto data_value = _data.getptr(dataName);
+	auto movement_data_value = _data.getptr(movementDataName);
 
 	if (data_value && movement_data_value) {
 		switch (movement_data_value->Value.get_type()) {
@@ -775,18 +775,18 @@ void CompositeNode::SynchronizeAllToSingleClient(int client_multiplayer_id) {
 	for (const auto& on_change_data_key : _sync_data_on_change_sorting) {
 		// This data might never have been set!
 		Variant send_value;
-		DataValue* data_value = _data.lookup_ptr(on_change_data_key);
+		DataValue* data_value = _data.getptr(on_change_data_key);
 		if (data_value != nullptr) {
 			send_value = data_value->Value;
 		}
-		auto on_change_config = _sync_data_on_change.lookup_ptr(on_change_data_key);
+		auto on_change_config = _sync_data_on_change.getptr(on_change_data_key);
 		offset += _encodeDataToPackage(send_value, _send_buffer, offset, on_change_config->SyncType);
 	}
 
 	for (const auto &sync_setting : _sync_data_high_freq) {
 		// This data might never have been set!
 		Variant send_value;
-		DataValue* data_value = _data.lookup_ptr(sync_setting.DataName);
+		DataValue* data_value = _data.getptr(sync_setting.DataName);
 		if (data_value != nullptr) {
 			send_value = data_value->Value;
 		}
@@ -796,7 +796,7 @@ void CompositeNode::SynchronizeAllToSingleClient(int client_multiplayer_id) {
 	for (const auto &sync_setting : _sync_data_low_freq) {
 		// This data might never have been set!
 		Variant send_value;
-		DataValue* data_value = _data.lookup_ptr(sync_setting.DataName);
+		DataValue* data_value = _data.getptr(sync_setting.DataName);
 		if (data_value != nullptr) {
 			send_value = data_value->Value;
 		}
@@ -850,7 +850,7 @@ void CompositeNode::SetupDataMultiplayerSynchronization(StringName dataName, Dat
 	        _sync_data_on_change_sorting.append(dataName);
 	        _sync_data_on_change_sorting.sort_custom<StringNameComparatorMultiplayerCompatible>();
 	        for (int i = 0; i < _sync_data_on_change_sorting.size(); i++) {
-	            _sync_data_on_change.lookup_ptr(_sync_data_on_change_sorting[i])->DataID = i;
+	            _sync_data_on_change.getptr(_sync_data_on_change_sorting[i])->DataID = i;
 	        }
 	        break;
 
@@ -887,19 +887,19 @@ bool CompositeNode::RegisterFunction(StringName functionName, Callable callable)
 	if (_functions.has(functionName)) {
 		return false;
 	}
-	_functions.set(functionName, callable);
+	_functions[functionName] = callable;
 	return true;
 }
 
 void CompositeNode::UnregisterFunction(StringName functionName, const Callable &callable) {
-	Callable* function_callable = _functions.lookup_ptr(functionName);
+	Callable* function_callable = _functions.getptr(functionName);
 	if (function_callable != nullptr && *function_callable == callable) {
-		_functions.remove(functionName);
+		_functions.erase(functionName);
 	}
 }
 
 Variant CompositeNode::CallFunction(StringName functionName, const Array &parameters) {
-	if (Callable *function_callable = _functions.lookup_ptr(functionName); function_callable != nullptr) {
+	if (Callable *function_callable = _functions.getptr(functionName); function_callable != nullptr) {
 		return function_callable->callv(parameters);
 	}
 	if (has_parent_composite_node()) {
@@ -943,7 +943,7 @@ void CompositeNode::RegisterCallback(StringName callbackName, const Callable &ca
 		_parentCompositeNode->RegisterCallback(callbackName, callable);
 		return;
 	}
-	if (Vector<Callable> *callback_callbacks = _callbacks.lookup_ptr(callbackName); callback_callbacks != nullptr) {
+	if (Vector<Callable> *callback_callbacks = _callbacks.getptr(callbackName); callback_callbacks != nullptr) {
 		callback_callbacks->append(callable);
 	} else {
 		Vector<Callable> callbacks_arr;
@@ -957,7 +957,7 @@ void CompositeNode::UnregisterCallback(StringName callbackName, const Callable &
 		_parentCompositeNode->UnregisterCallback(callbackName, callable);
 		return;
 	}
-	if (Vector<Callable> *callback_callbacks = _callbacks.lookup_ptr(callbackName); callback_callbacks != nullptr) {
+	if (Vector<Callable> *callback_callbacks = _callbacks.getptr(callbackName); callback_callbacks != nullptr) {
 		callback_callbacks->erase(callable);
 	}
 }
@@ -967,7 +967,7 @@ void CompositeNode::CallCallbacks(StringName callbackName, const Array &paramete
 		_parentCompositeNode->CallCallbacks(callbackName, parameters);
 		return;
 	}
-	if (Vector<Callable> *callback_callbacks = _callbacks.lookup_ptr(callbackName); callback_callbacks != nullptr) {
+	if (Vector<Callable> *callback_callbacks = _callbacks.getptr(callbackName); callback_callbacks != nullptr) {
 		for (auto& callback_callback : *callback_callbacks) {
 			callback_callback.callv(parameters);
 		}
@@ -987,7 +987,7 @@ void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbac
 		return;
 	}
 
-	if (DataValue *data_value = _data.lookup_ptr(dataName); data_value != nullptr) {
+	if (DataValue *data_value = _data.getptr(dataName); data_value != nullptr) {
 		if (!increment) {
 			data_value->Value = value;
 		} else {
@@ -1010,7 +1010,7 @@ void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbac
 			}
 			// we'll also update the sums here!
 			for (auto& sum_data_name : data_value->PartOfSums) {
-				DataSumSettings* sum_settings = _sums.lookup_ptr(sum_data_name);
+				DataSumSettings* sum_settings = _sums.getptr(sum_data_name);
 				if (sum_settings == nullptr) {
 					continue;
 				}
@@ -1024,7 +1024,7 @@ void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbac
 	}
 
 	if (is_multiplayer_authority()) {
-		DataSynchronizationSettings* sync_config = _sync_data_on_change.lookup_ptr(dataName);
+		DataSynchronizationSettings* sync_config = _sync_data_on_change.getptr(dataName);
 		if (sync_config != nullptr) {
 			_sendOnChangeData(*sync_config, value, skipMultiplayerPeer);
 		}
@@ -1041,7 +1041,7 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 	// we need to sync to the authority, only when we are NOT the authority
 	// (otherwise the syncing is already done by SetData)
 	if (!is_multiplayer_authority()) {
-		DataSynchronizationSettings* sync_config = _sync_data_on_change.lookup_ptr(dataName);
+		DataSynchronizationSettings* sync_config = _sync_data_on_change.getptr(dataName);
 		ERR_FAIL_COND_MSG(sync_config == nullptr, vformat("SetDataOnAuthority (%s) can only be called for data that has OnChange Synchronization Settings set up.", dataName));
 		int authority_peer_id = get_multiplayer_authority();
 		Array params;
@@ -1056,10 +1056,10 @@ void CompositeNode::RegisterDataUpdatedCallback(StringName dataName, Callable ca
 		_parentCompositeNode->RegisterDataUpdatedCallback(dataName, callable, callIfDataExists);
 		return;
 	}
-	DataValue *data_value = _data.lookup_ptr(dataName);
+	DataValue *data_value = _data.getptr(dataName);
 	if (data_value == nullptr) {
 		_data.insert(dataName, {});
-		data_value = _data.lookup_ptr(dataName);
+		data_value = _data.getptr(dataName);
 	}
 
 	data_value->DataUpdatedCallbacks.append(callable);
@@ -1074,7 +1074,7 @@ void CompositeNode::UnregisterDataUpdatedCallback(StringName dataName, Callable 
 		_parentCompositeNode->UnregisterDataUpdatedCallback(dataName, callable);
 		return;
 	}
-	if (DataValue *data_value = _data.lookup_ptr(dataName); data_value != nullptr) {
+	if (DataValue *data_value = _data.getptr(dataName); data_value != nullptr) {
 		data_value->DataUpdatedCallbacks.erase(callable);
 	}
 }
@@ -1083,7 +1083,7 @@ Variant CompositeNode::GetData(StringName dataName) {
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 		return _parentCompositeNode->GetData(dataName);
 	}
-	if (DataValue *data_value = _data.lookup_ptr(dataName); data_value != nullptr) {
+	if (DataValue *data_value = _data.getptr(dataName); data_value != nullptr) {
 		return data_value->Value;
 	}
 	return Variant();
@@ -1095,12 +1095,12 @@ void CompositeNode::AddDataToSumDefinition(StringName sumDataName, StringName co
 		return;
 	}
 
-	DataSumSettings *sum_settings = _sums.lookup_ptr(sumDataName);
+	DataSumSettings *sum_settings = _sums.getptr(sumDataName);
 	if (sum_settings == nullptr) {
 		DataSumSettings new_settings;
 		new_settings.SumDataName = sumDataName;
 		_sums.insert(sumDataName, new_settings);
-		sum_settings = _sums.lookup_ptr(sumDataName);
+		sum_settings = _sums.getptr(sumDataName);
 	}
 
 	sum_settings->SumComponentsDataNames.append(componentDataName);
@@ -1110,10 +1110,10 @@ void CompositeNode::AddDataToSumDefinition(StringName sumDataName, StringName co
 	// the data value might not yet exist, at this point!
 	// but we have to add the sumDataName to its "PartOfSums",
 	// so that the sums get updated in the SetData function.
-	DataValue *data_value = _data.lookup_ptr(componentDataName);
+	DataValue *data_value = _data.getptr(componentDataName);
 	if (data_value == nullptr) {
 		_data.insert(componentDataName, {});
-		data_value = _data.lookup_ptr(componentDataName);
+		data_value = _data.getptr(componentDataName);
 	}
 	data_value->PartOfSums.append(sumDataName);
 }

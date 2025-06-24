@@ -14,6 +14,7 @@ protected:
             &CompositeNodeValue::create_synchronized);
 
         ClassDB::bind_method(D_METHOD("set_value", "new_value"), &CompositeNodeValue::set_value);
+        ClassDB::bind_method(D_METHOD("set_value_on_authority", "new_value"), &CompositeNodeValue::set_value_on_authority);
         ClassDB::bind_method(D_METHOD("get_value"), &CompositeNodeValue::get_value);
         ADD_PROPERTY(PropertyInfo(Variant::NIL, "value", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_value", "get_value");
 
@@ -51,12 +52,18 @@ public:
         new_value.instantiate();
         new_value->_is_synchronized = false;
         new_value->_value_name = value_name;
-        new_value->_current_value = initial_value;
+
+		Variant existing_value = on_node->GetData(value_name);
+		if (existing_value.get_type() != Variant::NIL) {
+			new_value->_current_value = existing_value;
+		}
+		else if (initial_value.get_type() != Variant::NIL) {
+			new_value->_current_value = initial_value;
+			on_node->RegisterCallback("init_authority", callable_mp(new_value.ptr(), &CompositeNodeValue::init_authority));
+		}
+
         new_value->_composite_node = on_node;
         on_node->RegisterDataUpdatedCallback(value_name, callable_mp(new_value.ptr(), &CompositeNodeValue::value_updated), true);
-        if (initial_value.get_type() != Variant::NIL) {
-            on_node->RegisterCallback("init_authority", callable_mp(new_value.ptr(), &CompositeNodeValue::init_authority));
-        }
         return new_value;
     }
     static Ref<CompositeNodeValue> create_synchronized(CompositeNode *on_node,
@@ -68,13 +75,19 @@ public:
         new_value.instantiate();
 	    new_value->_is_synchronized = true;
         new_value->_value_name = value_name;
-        new_value->_current_value = initial_value;
+
+		Variant existing_value = on_node->GetData(value_name);
+		if (existing_value.get_type() != Variant::NIL) {
+			new_value->_current_value = existing_value;
+		}
+		else if (initial_value.get_type() != Variant::NIL) {
+			new_value->_current_value = initial_value;
+			on_node->RegisterCallback("init_authority", callable_mp(new_value.ptr(), &CompositeNodeValue::init_authority));
+		}
+
         new_value->_composite_node = on_node;
         on_node->SetupDataMultiplayerSynchronization(value_name, mode, type);
         on_node->RegisterDataUpdatedCallback(value_name, callable_mp(new_value.ptr(), &CompositeNodeValue::value_updated), true);
-        if (initial_value.get_type() != Variant::NIL) {
-            on_node->RegisterCallback("init_authority", callable_mp(new_value.ptr(), &CompositeNodeValue::init_authority));
-        }
         return new_value;
     }
 
@@ -84,8 +97,18 @@ public:
 	    }
         _current_value = value;
         if (_composite_node.is_valid()) {
-            if (_is_synchronized) _composite_node->SetDataOnAuthority(_value_name, _current_value);
-            else _composite_node->SetData(_value_name, _current_value);
+            // if (_is_synchronized) _composite_node->SetDataOnAuthority(_value_name, _current_value);
+            // else _composite_node->SetData(_value_name, _current_value);
+        	_composite_node->SetData(_value_name, _current_value);
+        }
+    }
+    void set_value_on_authority(Variant value) {
+	    if (_current_value == value) {
+	        return;
+	    }
+        _current_value = value;
+        if (_composite_node.is_valid()) {
+            _composite_node->SetDataOnAuthority(_value_name, _current_value);
         }
     }
     Variant get_value() const {

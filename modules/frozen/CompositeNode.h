@@ -94,16 +94,16 @@ protected:
 
 	void update_sum_component(DataSumSettings &sum_settings, StringName component_name, float new_value);
 
-	OAHashMap<StringName, Callable> _functions;
-	OAHashMap<StringName, Vector<Callable>> _callbacks;
-	OAHashMap<StringName, DataValue> _data;
+	AHashMap<StringName, Callable> _functions;
+	AHashMap<StringName, Vector<Callable>> _callbacks;
+	AHashMap<StringName, DataValue> _data;
 
-	OAHashMap<StringName, DataSynchronizationSettings> _sync_data_on_change;
+	AHashMap<StringName, DataSynchronizationSettings> _sync_data_on_change;
 	Vector<StringName> _sync_data_on_change_sorting;
 	Vector<DataSynchronizationSettings> _sync_data_low_freq;
 	Vector<DataSynchronizationSettings> _sync_data_high_freq;
-	OAHashMap<StringName, DataSumSettings> _sums;
-	OAHashMap<StringName, StringName> _linear_movement_with_velocity;
+	AHashMap<StringName, DataSumSettings> _sums;
+	AHashMap<StringName, StringName> _linear_movement_with_velocity;
 
 	const float LOW_FREQUENCY_TIMING = 1.0f / 5.0f;
 	const float HIGH_FREQUENCY_TIMING = 1.0f / 30.0f;
@@ -144,28 +144,22 @@ protected:
 
 	PackedStringArray get_data_value_names() const {
 		PackedStringArray names;
-		auto iter = _data.iter();
-		while (iter.valid) {
-			names.push_back(*iter.key);
-			iter = _data.next_iter(iter);
+		for (const auto& iter : _data) {
+			names.push_back(iter.key);
 		}
 		return names;
 	}
 	PackedStringArray get_function_names() const {
 		PackedStringArray names;
-		auto iter = _functions.iter();
-		while (iter.valid) {
-			names.push_back(*iter.key);
-			iter = _functions.next_iter(iter);
+		for (const auto& iter : _functions) {
+			names.push_back(iter.key);
 		}
 		return names;
 	}
 	PackedStringArray get_callback_names() const {
 		PackedStringArray names;
-		auto iter = _callbacks.iter();
-		while (iter.valid) {
-			names.push_back(*iter.key);
-			iter = _callbacks.next_iter(iter);
+		for (const auto& iter : _callbacks) {
+			names.push_back(iter.key);
 		}
 		return names;
 	}
