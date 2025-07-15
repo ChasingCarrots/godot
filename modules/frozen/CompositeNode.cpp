@@ -196,6 +196,10 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::SetData, DEFVAL(false), DEFVAL(-1), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("SetDataOnAuthority", "dataName", "value"),
 	    &CompositeNode::SetDataOnAuthority);
+	ClassDB::bind_method(D_METHOD("PauseData", "dataName"),
+		&CompositeNode::PauseData);
+	ClassDB::bind_method(D_METHOD("UnpauseData", "dataName"),
+		&CompositeNode::UnpauseData);
 	ClassDB::bind_method(D_METHOD("RegisterDataUpdatedCallback", "dataName", "callable", "callIfDataExists"),
 	    &CompositeNode::RegisterDataUpdatedCallback, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("UnregisterDataUpdatedCallback", "dataName", "callable"),
@@ -418,27 +422,63 @@ void CompositeNode::_complete_sync_package(int sender_id, const PackedByteArray 
 void CompositeNode::_sendHighFrequencyData() {
 	_send_buffer.clear();
 	int offset = 0;
+	int index = 0;
+	int current_pause_byte_location = 0;
 
 	offset += _encodeDataToPackage(GameTime(), _send_buffer, offset, DataSynchronizationType::Float);
 
 	for (const auto &sync_setting : _sync_data_high_freq) {
-		offset += _encodeDataToPackage(_data.getptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
+		const int pause_bit_location = index % BYTE_SIZE;
+
+		if (pause_bit_location == 0) {
+			_send_buffer.append(0);
+			current_pause_byte_location = offset;
+
+			offset += 1;
+		}
+
+		if (sync_setting.Paused) {
+			uint8_t byte = _send_buffer[current_pause_byte_location];
+			byte |= 1 << pause_bit_location;
+
+			_send_buffer.set(current_pause_byte_location, byte);
+		} else {
+			offset += _encodeDataToPackage(_data.getptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
+		}
+		index++;
 	}
 
 	Array params;
 	params.append(_send_buffer);
 	GetCommunicationLine()->call_function_on_peers("_updateHighFrequencyData", params);
-
 }
 
 void CompositeNode::_sendLowFrequencyData() {
 	_send_buffer.clear();
 	int offset = 0;
+	int index = 0;
+	int current_pause_byte_location = 0;
 
 	offset += _encodeDataToPackage(GameTime(), _send_buffer, offset, DataSynchronizationType::Float);
 
 	for (const auto &sync_setting : _sync_data_low_freq) {
-		offset += _encodeDataToPackage(_data.getptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
+		const int pause_bit_location = index % 8;
+
+		if (pause_bit_location == 0) {
+			_send_buffer.append(0);
+			current_pause_byte_location = offset;
+			offset += 1;
+		}
+
+		if (sync_setting.Paused) {
+			uint8_t byte = _send_buffer[current_pause_byte_location];
+			byte |= 1 << pause_bit_location;
+
+			_send_buffer.set(current_pause_byte_location, byte);
+		} else {
+			offset += _encodeDataToPackage(_data.getptr(sync_setting.DataName)->Value, _send_buffer, offset, sync_setting.SyncType);
+		}
+		index++;
 	}
 
 	Array params;
@@ -480,13 +520,29 @@ void CompositeNode::_updateHighFrequencyData(int sender_id, const PackedByteArra
 
 	float delta_since_sent = GameTime() - decode_float(dataPackage.ptr());
 	int offset = 4;
+	int index = 0;
+	int current_pause_byte_location = 0;
 
 	for (const auto &sync_setting : _sync_data_high_freq) {
+		const int pause_bit_location = index % 8;
+
+		if (pause_bit_location == 0) {
+			current_pause_byte_location = offset;
+			offset += 1;
+		}
+
+		uint8_t byte = dataPackage[current_pause_byte_location];
+		if (byte & (1 << pause_bit_location)) {
+			index++;
+			continue; //Pause byte is set to true which means we can skip the next data value
+		}
+
 		bool skipCallbacks = delta_since_sent > 0 && _linear_movement_with_velocity.has(sync_setting.DataName);
 		offset += _setDataFromPackage(sync_setting.DataName, dataPackage, offset, sync_setting.SyncType, skipCallbacks);
 		if (skipCallbacks) {
 			_temp_stringnames.append(sync_setting.DataName);
 		}
+		index++;
 	}
 
 	if (delta_since_sent > 0) {
@@ -501,13 +557,29 @@ void CompositeNode::_updateLowFrequencyData(int sender_id, const PackedByteArray
 
 	float delta_since_sent = GameTime() - decode_float(dataPackage.ptr());
 	int offset = 4;
+	int index = 0;
+	int current_pause_byte_location = 0;
 
 	for (const auto &sync_setting : _sync_data_low_freq) {
+		const int pause_bit_location = index % 8;
+
+		if (pause_bit_location == 0) {
+			current_pause_byte_location = offset;
+			offset += 1;
+		}
+
+		uint8_t byte = dataPackage[current_pause_byte_location];
+		if (byte & (1 << pause_bit_location)) {
+			index++;
+			continue; //Pause byte is set to true which means we can skip the next data value
+		}
+
 		bool skipCallbacks = delta_since_sent > 0 && _linear_movement_with_velocity.has(sync_setting.DataName);
 		offset += _setDataFromPackage(sync_setting.DataName, dataPackage, offset, sync_setting.SyncType, skipCallbacks);
 		if (skipCallbacks) {
 			_temp_stringnames.append(sync_setting.DataName);
 		}
+		index++;
 	}
 
 	if (delta_since_sent > 0) {
@@ -743,7 +815,7 @@ Ref<CommunicationLine> CompositeNode::GetCommunicationLine() {
 
 	params.clear();
 	params.append(CommunicationLine::Bytes);
-	_communication_line->add_function_definition("_updateHighFrequencyData", callable_mp(this, &CompositeNode::_updateHighFrequencyData), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_UNRELIABLE);
+	_communication_line->add_function_definition("_updateHighFrequencyData", callable_mp(this, &CompositeNode::	_updateHighFrequencyData), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_UNRELIABLE);
 
 	params.clear();
 	params.append(CommunicationLine::Bytes);
@@ -1041,7 +1113,7 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 	// we need to sync to the authority, only when we are NOT the authority
 	// (otherwise the syncing is already done by SetData)
 	if (!is_multiplayer_authority()) {
-		DataSynchronizationSettings* sync_config = _sync_data_on_change.getptr(dataName);
+		DataSynchronizationSettings *sync_config = _sync_data_on_change.getptr(dataName);
 		ERR_FAIL_COND_MSG(sync_config == nullptr, vformat("SetDataOnAuthority (%s) can only be called for data that has OnChange Synchronization Settings set up.", dataName));
 		int authority_peer_id = get_multiplayer_authority();
 		Array params;
@@ -1049,6 +1121,61 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 		params.append(value);
 		GetCommunicationLine()->call_function_on_peer("_authoritySetDataRPC", params, authority_peer_id);
 	}
+}
+void CompositeNode::PauseData(StringName dataName) {
+	if (!is_multiplayer_authority()) {
+		print_error(vformat("Data (%s) can only be paused on authority", dataName));
+		return;
+	}
+
+	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
+		_parentCompositeNode->PauseData(dataName);
+		return;
+	}
+
+	for (auto &item_low_freq : _sync_data_low_freq) {
+		if (item_low_freq.DataName == dataName) {
+			item_low_freq.Paused = true;
+			return;
+		}
+	}
+
+	for (auto &high_freq_item : _sync_data_high_freq) {
+		if (high_freq_item.DataName == dataName) {
+			high_freq_item.Paused = true;
+			return;
+		}
+	}
+
+	print_error(vformat("Data (%s) needs to have low or high frequency synchronization setting to be paused", dataName));
+}
+
+void CompositeNode::UnpauseData(StringName dataName) {
+	if (!is_multiplayer_authority()) {
+		print_error(vformat("Data (%s) can only be unpaused on authority", dataName));
+		return;
+	}
+
+	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
+		_parentCompositeNode->UnpauseData(dataName);
+		return;
+	}
+
+	for (auto &item_low_freq : _sync_data_low_freq) {
+		if (item_low_freq.DataName == dataName) {
+			item_low_freq.Paused = false;
+			return;
+		}
+	}
+
+	for (auto &high_freq_item : _sync_data_high_freq) {
+		if (high_freq_item.DataName == dataName) {
+			high_freq_item.Paused = false;
+			return;
+		}
+	}
+
+	print_error(vformat("Data (%s) needs to have low or high frequency synchronization setting to be unpaused", dataName));
 }
 
 void CompositeNode::RegisterDataUpdatedCallback(StringName dataName, Callable callable, bool callIfDataExists) {

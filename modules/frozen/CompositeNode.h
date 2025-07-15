@@ -70,6 +70,7 @@ protected:
 		int DataID;
 		StringName DataName;
 		DataSynchronizationType SyncType;
+		bool Paused = false;
 	};
 	struct DataSumSettings {
 		StringName SumDataName;
@@ -107,6 +108,8 @@ protected:
 
 	const float LOW_FREQUENCY_TIMING = 1.0f / 5.0f;
 	const float HIGH_FREQUENCY_TIMING = 1.0f / 30.0f;
+	const int BYTE_SIZE = 8;
+
 	float _next_low_freq_gametime = 0.0f;
 	float _next_high_freq_gametime = 0.0f;
 
@@ -204,6 +207,9 @@ public:
 	bool HasData(StringName dataName);
 	void SetData(StringName dataName, Variant value, bool skipCallbacks = false, int skipMultiplayerPeer = -1, bool increment = false);
 	void SetDataOnAuthority(StringName dataName, Variant value);
+	void PauseData(StringName dataName);
+	void UnpauseData(StringName dataName);
+
 	void RegisterDataUpdatedCallback(StringName dataName, Callable callable, bool callIfDataExists=false);
 	void UnregisterDataUpdatedCallback(StringName dataName, Callable callable);
 	Variant GetData(StringName dataName);
