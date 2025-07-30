@@ -814,6 +814,8 @@ void PhysicsServer3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("body_set_constant_torque", "body", "torque"), &PhysicsServer3D::body_set_constant_torque);
 	ClassDB::bind_method(D_METHOD("body_get_constant_torque", "body"), &PhysicsServer3D::body_get_constant_torque);
 
+	ClassDB::bind_method(D_METHOD("body_simple_physics_step", "body", "step"), &PhysicsServer3D::body_simple_physics_step);
+
 	ClassDB::bind_method(D_METHOD("body_set_axis_velocity", "body", "axis_velocity"), &PhysicsServer3D::body_set_axis_velocity);
 
 	ClassDB::bind_method(D_METHOD("body_set_axis_lock", "body", "axis", "lock"), &PhysicsServer3D::body_set_axis_lock);

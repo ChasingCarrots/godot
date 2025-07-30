@@ -271,6 +271,8 @@ public:
 	virtual void body_set_constant_torque(RID p_body, const Vector3 &p_torque) override;
 	virtual Vector3 body_get_constant_torque(RID p_body) const override;
 
+	virtual void body_simple_physics_step(RID p_body, double p_step) override;
+
 	virtual void body_set_axis_velocity(RID p_body, const Vector3 &p_axis_velocity) override;
 
 	virtual void body_set_axis_lock(RID p_body, PhysicsServer3D::BodyAxis p_axis, bool p_lock) override;

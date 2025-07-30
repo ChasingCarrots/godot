@@ -276,6 +276,8 @@ void PhysicsServer3DExtension::_bind_methods() {
 	GDVIRTUAL_BIND(_body_set_constant_torque, "body", "torque");
 	GDVIRTUAL_BIND(_body_get_constant_torque, "body");
 
+	GDVIRTUAL_BIND(_body_simple_physics_step, "body", "step");
+
 	GDVIRTUAL_BIND(_body_set_axis_velocity, "body", "axis_velocity");
 
 	GDVIRTUAL_BIND(_body_set_axis_lock, "body", "axis", "lock");

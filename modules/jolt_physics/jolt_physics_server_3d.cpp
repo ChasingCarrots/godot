@@ -854,6 +854,13 @@ Vector3 JoltPhysicsServer3D::body_get_constant_torque(RID p_body) const {
 	return body->get_constant_torque();
 }
 
+void JoltPhysicsServer3D::body_simple_physics_step(RID p_body, double p_step) {
+	JoltBody3D *body = body_owner.get_or_null(p_body);
+	ERR_FAIL_NULL(body);
+
+	body->simple_physics_step(p_step);
+}
+
 void JoltPhysicsServer3D::body_set_axis_velocity(RID p_body, const Vector3 &p_axis_velocity) {
 	JoltBody3D *body = body_owner.get_or_null(p_body);
 	ERR_FAIL_NULL(body);

@@ -349,6 +349,8 @@ public:
 	EXBIND2(body_set_constant_torque, RID, const Vector3 &)
 	EXBIND1RC(Vector3, body_get_constant_torque, RID)
 
+	EXBIND2(body_simple_physics_step, RID, double)
+
 	EXBIND2(body_set_axis_velocity, RID, const Vector3 &)
 
 	EXBIND3(body_set_axis_lock, RID, BodyAxis, bool)

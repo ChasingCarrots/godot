@@ -1308,6 +1308,20 @@ void JoltBody3D::set_axis_lock(PhysicsServer3D::BodyAxis p_axis, bool p_enabled)
 	}
 }
 
+void JoltBody3D::simple_physics_step(const float p_step) {
+	_integrate_forces(p_step, *jolt_body);
+
+	JPH::MotionProperties *mp = jolt_body->GetMotionProperties();
+	ERR_FAIL_NULL(mp);
+
+	const JPH::Quat rotation = jolt_body->GetRotation();
+
+	mp->ApplyForceTorqueAndDragInternal(rotation, {0.f,0.f,0.f}, p_step);
+
+	mp->ResetForce();
+	mp->ResetTorque();
+}
+
 bool JoltBody3D::can_interact_with(const JoltBody3D &p_other) const {
 	return (can_collide_with(p_other) || p_other.can_collide_with(*this)) && !has_collision_exception(p_other.get_rid()) && !p_other.has_collision_exception(rid);
 }

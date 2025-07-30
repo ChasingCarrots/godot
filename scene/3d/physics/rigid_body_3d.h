@@ -232,6 +232,8 @@ public:
 	void set_constant_torque(const Vector3 &p_torque);
 	Vector3 get_constant_torque() const;
 
+	void network_simple_physics_step() const;
+
 	virtual PackedStringArray get_configuration_warnings() const override;
 
 	RigidBody3D();
