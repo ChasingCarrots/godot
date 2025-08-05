@@ -26,6 +26,9 @@ const char* DataSynchronizationTypeStr[] = {
 	"Vector3Type"
 };
 
+constexpr int AUTHORITY_BIT_MASK = 1;
+constexpr int NO_BIT_MASK = 0;
+
 float CompositeNode::GameTimeServerOffset = 0;
 Vector<CompositeNode*> CompositeNode::_all_composite_nodes;
 uint16_t CompositeNode::_next_composite_node_id = 1;
@@ -166,6 +169,12 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::InitializeAsAuthority);
 	ClassDB::bind_method(D_METHOD("GetCommunicationLine"),
 	    &CompositeNode::GetCommunicationLine);
+	ClassDB::bind_method(D_METHOD("IsServer"),
+		&CompositeNode::IsServer);
+	ClassDB::bind_method(D_METHOD("IsAuthority"),
+		&CompositeNode::IsAuthority);
+	ClassDB::bind_method(D_METHOD("GetAuthority"),
+		&CompositeNode::GetAuthority);
 	ClassDB::bind_method(D_METHOD("SynchronizeAllToSingleClient", "client_multiplayer_id"),
 	    &CompositeNode::SynchronizeAllToSingleClient);
 	ClassDB::bind_method(D_METHOD("SetupDataMultiplayerSynchronization", "dataName", "syncMode", "dataType"),
@@ -287,7 +296,7 @@ void CompositeNode::_ready() {
 	_communication_line->finish_initialization_and_open_line();
 	_communication_line->connect("PeerCommunicationStateChanged", callable_mp(this, &CompositeNode::_peer_state_changed));
 
-	if (get_multiplayer()->is_server()) {
+	if (_communication_line->is_server()) {
 		_composite_ID = _next_composite_node_id++;
 		Array params;
 		params.append(_composite_ID);
@@ -309,7 +318,7 @@ void CompositeNode::_process(float delta) {
 		while (game_time >= _next_high_freq_gametime) {
 			_next_high_freq_gametime += HIGH_FREQUENCY_TIMING;
 		}
-		if (is_multiplayer_authority() && !_sync_data_high_freq.is_empty()) {
+		if (IsAuthority() && !_sync_data_high_freq.is_empty()) {
 			// send the high frequency data at the end of the frame
 			call_deferred("_sendHighFrequencyData");
 		}
@@ -319,7 +328,7 @@ void CompositeNode::_process(float delta) {
 		while (game_time >= _next_low_freq_gametime) {
 			_next_low_freq_gametime += LOW_FREQUENCY_TIMING;
 		}
-		if (is_multiplayer_authority() && !_sync_data_low_freq.is_empty()) {
+		if (IsAuthority() && !_sync_data_low_freq.is_empty()) {
 			// send the low frequency data at the end of the frame
 			call_deferred("_sendLowFrequencyData");
 		}
@@ -332,16 +341,8 @@ void CompositeNode::init_authority(int authority_player_id) {
 }
 
 void CompositeNode::init_authority_rpc(int sender_id, int authority_player_id) {
-	// with the communication_line system we really don't need the
-	// authority set to a specific id (will be propagated by the peer bits)
-	// but there are a lot of places that check the authority via "is_multiplayer_authority"
-	// and so we'll set it for the time being.
-	set_multiplayer_authority(authority_player_id);
-	if (is_multiplayer_authority()) {
+	if (IsAuthority()) {
 		set_process(true);
-		// 1 is the bit we defined in the godot project for "authority"
-		// (E.CommunicationLineBits.Authority)
-		GetCommunicationLine()->set_local_peer_bits(1);
 	}
 	Array params;
 	params.append(authority_player_id);
@@ -353,18 +354,15 @@ void CompositeNode::set_composite_id_rpc(int sender_id, uint16_t composite_id) {
 }
 
 void CompositeNode::_peer_state_changed(int peer_id, CommunicationLine::CommunicationState new_state) {
-	if (new_state == CommunicationLine::ConnectedOpen && get_multiplayer()->is_server()) {
+	if (new_state == CommunicationLine::ConnectedOpen && _communication_line->is_server()) {
 		Array params;
 		params.append(_composite_ID);
 		_communication_line->call_function_on_peer("set_composite_id_rpc", params, peer_id);
 	}
 	if (new_state == CommunicationLine::ConnectedOpen &&
-	_communication_line->check_local_peer_bits(1, 0)) {
-
-		int authority_id = get_multiplayer_authority();
-
+	IsAuthority()) {
 		Array params;
-		params.append(authority_id);
+		params.append(_communication_line->get_local_multiplayer_id());
 		_communication_line->call_function_on_peer("init_authority_rpc", params, peer_id);
 
 		SynchronizeAllToSingleClient(peer_id);
@@ -505,8 +503,8 @@ void CompositeNode::_sendOnChangeData(const DataSynchronizationSettings &sync_se
 	if (skip_multiplayer_peer == -1) {
 		GetCommunicationLine()->call_function_on_peers("_updateSingleOnChangeData", params);
 	} else {
-		int local_peer_id = get_multiplayer()->get_unique_id();
-		for (int peer : get_multiplayer()->get_peer_ids()) {
+		int local_peer_id = _communication_line->get_local_multiplayer_id();
+		for (int peer : GetCommunicationLine()->get_communication_line_system()->get_connected_peer_ids()) {
 			if (peer == skip_multiplayer_peer || peer == local_peer_id) {
 				continue;
 			}
@@ -779,7 +777,7 @@ CompositeNode *CompositeNode::GetCompositeNodeInParents(Node *node) {
 }
 
 void CompositeNode::InitializeAsAuthority() {
-	int my_id = get_multiplayer()->get_unique_id();
+	int my_id = _communication_line->get_local_multiplayer_id();
 	// We are the authority! Tell the others:
 	GetCommunicationLine()->set_local_peer_bits(1);
 	init_authority(my_id);
@@ -792,13 +790,13 @@ Ref<CommunicationLine> CompositeNode::GetCommunicationLine() {
 	if (_communication_line.is_valid()) {
 		return _communication_line;
 	}
-	CommunicationLineSystem* coms = CommunicationLineSystem::get_global_communication_line_system();
+	CommunicationLineSystem *coms = CommunicationLineSystem::get_global_communication_line_system();
 	if (coms == nullptr) {
 		return {};
 	}
 	_communication_line = coms->grab_communication_line(get_path().get_concatenated_names());
 
-	Array params;  // Temporary array for parameters
+	Array params; // Temporary array for parameters
 
 	params.clear();
 	params.append(CommunicationLine::U64);
@@ -815,7 +813,7 @@ Ref<CommunicationLine> CompositeNode::GetCommunicationLine() {
 
 	params.clear();
 	params.append(CommunicationLine::Bytes);
-	_communication_line->add_function_definition("_updateHighFrequencyData", callable_mp(this, &CompositeNode::	_updateHighFrequencyData), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_UNRELIABLE);
+	_communication_line->add_function_definition("_updateHighFrequencyData", callable_mp(this, &CompositeNode::_updateHighFrequencyData), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_UNRELIABLE);
 
 	params.clear();
 	params.append(CommunicationLine::Bytes);
@@ -836,6 +834,42 @@ Ref<CommunicationLine> CompositeNode::GetCommunicationLine() {
 	_communication_line->add_function_definition("_authoritySetDataRPC", callable_mp(this, &CompositeNode::_authoritySetDataRPC), params, CommunicationLine::None, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 
 	return _communication_line;
+}
+bool CompositeNode::IsServer() {
+	const Ref<CommunicationLine> cl = GetCommunicationLine();
+	if (cl == nullptr) { return true; }
+
+	return cl->is_server();
+}
+
+bool CompositeNode::IsAuthority() {
+	Ref<CommunicationLine> cl = GetCommunicationLine();
+	if (cl == nullptr) {
+		return true;
+	}
+	return cl->check_local_peer_bits(AUTHORITY_BIT_MASK,NO_BIT_MASK);
+}
+
+int CompositeNode::GetAuthority() {
+	Ref<CommunicationLine> cl = GetCommunicationLine();
+	if (cl == nullptr) {
+		return -1;
+	}
+
+	if (cl->check_local_peer_bits(AUTHORITY_BIT_MASK, NO_BIT_MASK)) {
+		return cl->get_local_multiplayer_id();
+	}
+
+	Vector<int> peer_ids = CommunicationLineSystem::get_global_communication_line_system()->get_connected_peer_ids();
+
+	for (const auto peer : peer_ids) {
+		if ((cl->get_peer_bits(peer) & AUTHORITY_BIT_MASK) == AUTHORITY_BIT_MASK) {
+			return peer;
+		}
+	}
+
+	print_error(vformat("No authority set for communication_line: %s", cl->get_string_id()));
+	return -1;
 }
 
 void CompositeNode::SynchronizeAllToSingleClient(int client_multiplayer_id) {
@@ -983,7 +1017,7 @@ Variant CompositeNode::CallFunction(StringName functionName, const Array &parame
 Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName, const Array &parameters) {
 	Ref f = memnew(FutureValue);
 
-	if (GetCommunicationLine()->check_local_peer_bits(1, 0)) {
+	if (IsAuthority()) {
 		// We are the authority, so call the function directly and return the value
 		f->set_value(CallFunction(functionName, parameters));
 	} else {
@@ -1095,7 +1129,7 @@ void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbac
 		_data.insert(dataName, new_data_value);
 	}
 
-	if (is_multiplayer_authority()) {
+	if (IsAuthority()) {
 		DataSynchronizationSettings* sync_config = _sync_data_on_change.getptr(dataName);
 		if (sync_config != nullptr) {
 			_sendOnChangeData(*sync_config, value, skipMultiplayerPeer);
@@ -1112,10 +1146,10 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 	SetData(dataName, value);
 	// we need to sync to the authority, only when we are NOT the authority
 	// (otherwise the syncing is already done by SetData)
-	if (!is_multiplayer_authority()) {
+	if (!IsServer()) {
 		DataSynchronizationSettings *sync_config = _sync_data_on_change.getptr(dataName);
 		ERR_FAIL_COND_MSG(sync_config == nullptr, vformat("SetDataOnAuthority (%s) can only be called for data that has OnChange Synchronization Settings set up.", dataName));
-		int authority_peer_id = get_multiplayer_authority();
+		int authority_peer_id = GetAuthority();
 		Array params;
 		params.append(sync_config->DataID);
 		params.append(value);
@@ -1151,7 +1185,7 @@ void CompositeNode::PauseData(StringName dataName) {
 }
 
 void CompositeNode::UnpauseData(StringName dataName) {
-	if (!is_multiplayer_authority()) {
+	if (!IsAuthority()) {
 		print_error(vformat("Data (%s) can only be unpaused on authority", dataName));
 		return;
 	}

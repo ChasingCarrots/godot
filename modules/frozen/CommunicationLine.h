@@ -1,8 +1,6 @@
 #ifndef COMMUNICATIONLINE_H
 #define COMMUNICATIONLINE_H
 
-#include <core/io/stream_peer.h>
-#include <core/object/ref_counted.h>
 #include <core/os/os.h>
 #include <scene/main/multiplayer_peer.h>
 #include <functional>
@@ -163,7 +161,7 @@ private:
 		if (now < _last_received_fetched_time + 2000) {
 			// only fill the arrays if somebody is actually listening
 			// (and pruning the arrays!)
-			_received_data_amounts.append({amount, static_cast<uint16_t>(now) });
+			_received_data_amounts.append({ amount, static_cast<uint16_t>(now) });
 		}
 	}
 	void push_sent_amount(uint16_t amount) {
@@ -171,7 +169,7 @@ private:
 		if (now < _last_sent_fetched_time + 2000) {
 			// only fill the arrays if somebody is actually listening
 			// (and pruning the arrays!)
-			_sent_data_amounts.append({amount, static_cast<uint16_t>(now) });
+			_sent_data_amounts.append({ amount, static_cast<uint16_t>(now) });
 		}
 	}
 	uint32_t get_received_amount_and_prune(uint64_t from_time) {
@@ -179,17 +177,19 @@ private:
 		constexpr uint16_t max_uint16 = -1;
 		int from_time_casted = static_cast<uint16_t>(from_time);
 		for (int i = _received_data_amounts.size() - 1; i >= 0; i--) {
-            int check_time = _received_data_amounts[i].Time;
+			int check_time = _received_data_amounts[i].Time;
 			if (abs(from_time_casted - check_time) > max_uint16 / 2) {
 				// one did wrap around, the other one didn't, so either subtract or
 				// add the wrap around number
-				if (check_time > from_time_casted) { check_time -= max_uint16; }
-				else { check_time += max_uint16; }
+				if (check_time > from_time_casted) {
+					check_time -= max_uint16;
+				} else {
+					check_time += max_uint16;
+				}
 			}
 			if (check_time >= from_time_casted) {
 				total_amount_in_time += _received_data_amounts[i].Amount;
-			}
-			else {
+			} else {
 				// we don't really care about the order, so we remove at the back
 				_received_data_amounts.set(i, _received_data_amounts[_received_data_amounts.size() - 1]);
 				_received_data_amounts.remove_at(_received_data_amounts.size() - 1);
@@ -207,13 +207,15 @@ private:
 			if (abs(from_time_casted - check_time) > max_uint16 / 2) {
 				// one did wrap around, the other one didn't, so either subtract or
 				// add the wrap around number
-				if (check_time > from_time_casted) { check_time -= max_uint16; }
-				else { check_time += max_uint16; }
+				if (check_time > from_time_casted) {
+					check_time -= max_uint16;
+				} else {
+					check_time += max_uint16;
+				}
 			}
 			if (check_time >= from_time_casted) {
 				total_amount_in_time += _sent_data_amounts[i].Amount;
-			}
-			else {
+			} else {
 				// we don't really care about the order, so we remove at the back
 				_sent_data_amounts.set(i, _sent_data_amounts[_sent_data_amounts.size() - 1]);
 				_sent_data_amounts.remove_at(_sent_data_amounts.size() - 1);
@@ -230,20 +232,22 @@ private:
 	void on_packet_received(CommunicationLinePacketTypes packet_type, int from_multiplayer_id, Ref<StreamPeerBuffer> &packet);
 
 	void fill_send_buffer_with_value(ParamType value_type, const Variant &value);
-	int fill_send_buffer_with_function_parameters(const StringName & function_name, const Array & parameters);
+	int fill_send_buffer_with_function_parameters(const StringName &function_name, const Array &parameters);
+	int get_server_id() const;
+	TypedArray<Dictionary> get_connected_peers_list();
 
 public:
 	void finish_initialization_and_open_line();
 
 	void add_function_definition(const StringName &function_name, Callable callable, Array parameter_types, ParamType expected_answer, MultiplayerPeer::TransferMode mode);
-	void call_function_on_peers(const StringName& function_name, Array parameters, uint8_t only_on_peers_with_bits_set = 0, uint8_t only_on_peers_with_bits_unset = 0);
-	void call_function_on_peer(const StringName& function_name, Array parameters, int peer_id);
+	void call_function_on_peers(const StringName &function_name, Array parameters, uint8_t only_on_peers_with_bits_set = 0, uint8_t only_on_peers_with_bits_unset = 0);
+	void call_function_on_peer(const StringName &function_name, Array parameters, int peer_id);
 
 	Ref<CommunicationCallWithAnswer> call_function_on_peers_expect_answer(
-		const StringName& function_name, Array parameters,
-		uint8_t only_on_peers_with_bits_set = 0, uint8_t only_on_peers_with_bits_unset = 0);
+			const StringName &function_name, Array parameters,
+			uint8_t only_on_peers_with_bits_set = 0, uint8_t only_on_peers_with_bits_unset = 0);
 	Ref<CommunicationCallWithAnswer> call_function_on_peer_expect_answer(
-		const StringName& function_name, Array parameters, int peer_id);
+			const StringName &function_name, Array parameters, int peer_id);
 
 	StringName get_string_id() const {
 		return _string_id;
@@ -251,7 +255,6 @@ public:
 	uint16_t get_int_id() const {
 		return _int_id;
 	}
-
 	CommunicationState get_local_peer_state() const {
 		return static_cast<CommunicationState>(_my_peer_info.get_communication_state());
 	}
@@ -259,7 +262,7 @@ public:
 
 	bool check_local_peer_bits(uint8_t set_bitmask, uint8_t unset_bitmask) const {
 		return (_my_peer_info.get_peer_bits() & set_bitmask) == set_bitmask &&
-		    (_my_peer_info.get_peer_bits() & unset_bitmask) == 0;
+				(_my_peer_info.get_peer_bits() & unset_bitmask) == 0;
 	}
 	uint8_t get_local_peer_bits() const { return _my_peer_info.get_peer_bits(); }
 	uint8_t get_peer_bits(int peer_id) const;
@@ -274,6 +277,14 @@ public:
 	int get_num_bytes_sent_last_second() {
 		return get_sent_amount_and_prune(OS::get_singleton()->get_ticks_msec() - 4000) / 4;
 	}
+
+	CommunicationLineSystem* get_communication_line_system() const {
+		return _communication_line_system;
+	}
+
+	Ref<MultiplayerPeer> get_multiplayer_peer() const;
+	int get_local_multiplayer_id() const;
+	bool is_server() const;
 };
 
 VARIANT_ENUM_CAST(CommunicationLine::CommunicationState);
