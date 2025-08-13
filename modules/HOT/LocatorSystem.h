@@ -26,9 +26,6 @@ protected:
 public:
     LocatorSystem();
 
-    static int GetTotalNumberOfCells();
-    static int GetTotalNumberOfLocators();
-
     Array GetLocatorsInCircle(String poolName, Vector2 center, float radius, bool sort_by_dist = false);
     Array GetGameObjectsInCircle(String poolName, Vector2 center, float radius);
     int CountLocatorsInCircle(String poolName, Vector2 center, float radius);
@@ -56,8 +53,8 @@ public:
 	static void FillWithGameObjectsInCircleMotion(String poolName, Vector2 center, float radius, Vector2 motion, LocalVector<GameObject*>& fillVector);
 	static void FillWithGameObjectsInCircle(String poolName, Vector2 center, float radius, LocalVector<GameObject*>& fillVector);
 
-    static void LocatorEnteredTree(Locator *locator);
-	static void LocatorExitedTree(Locator* locator);
+    static void LocatorEnteredTree(Locator* locator);
+    static void LocatorExitedTree(Locator* locator);
 };
 
 

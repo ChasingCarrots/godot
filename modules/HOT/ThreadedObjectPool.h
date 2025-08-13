@@ -24,8 +24,6 @@ protected:
 	Ref<PackedScene> _sceneToInstantiate;
 	uint32_t _maxNumberOfInstances = 10;
 	MaxInstancesReachedBehaviour _maxBehaviour = MaxInstancesReachedBehaviour::ReturnNull;
-	uint32_t _autoPruneTimeoutMsecs = 0;
-	uint32_t _pruneAtTime = -1;
 
 	LocalVector<ObjectID> _availableObjects;
 	LocalVector<ObjectID> _inUseObjects;
@@ -48,15 +46,6 @@ public:
 	void init_with_scene_res(Ref<PackedScene> sceneRes, int maxNumberOfInstances, MaxInstancesReachedBehaviour maxBehaviour);
 	void init_with_scene(String scenePath, int maxNumberOfInstances, MaxInstancesReachedBehaviour maxBehaviour);
 
-	void set_auto_prune_timeout(float seconds) {
-		if (seconds < 0) {
-			_autoPruneTimeoutMsecs = 0;
-		}
-		else {
-			_autoPruneTimeoutMsecs = seconds * 1000;
-		}
-	}
-
 	void get_instance(Callable instanceCreatedCallback);
 	Node* get_instance_unthreaded();
 	void return_instance(Node* instance);
@@ -66,8 +55,6 @@ public:
 	void run_callbacks();
 
 	void clear_all_instances();
-
-	int get_instance_count() const { return _availableObjects.size() + _inUseObjects.size(); }
 };
 
 VARIANT_ENUM_CAST(ThreadedObjectPool::MaxInstancesReachedBehaviour);
