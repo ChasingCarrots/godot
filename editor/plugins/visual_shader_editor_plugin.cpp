@@ -75,18 +75,18 @@
 struct FloatConstantDef {
 	String name;
 	float value = 0;
-	String desc;
+	const char *desc_key;
 };
 
 static FloatConstantDef float_constant_defs[] = {
-	{ "E", Math_E, TTR("E constant (2.718282). Represents the base of the natural logarithm.") },
-	{ "Epsilon", CMP_EPSILON, TTR("Epsilon constant (0.00001). Smallest possible scalar number.") },
-	{ "Phi", 1.618034f, TTR("Phi constant (1.618034). Golden ratio.") },
-	{ "Pi/4", Math_PI / 4, TTR("Pi/4 constant (0.785398) or 45 degrees.") },
-	{ "Pi/2", Math_PI / 2, TTR("Pi/2 constant (1.570796) or 90 degrees.") },
-	{ "Pi", Math_PI, TTR("Pi constant (3.141593) or 180 degrees.") },
-	{ "Tau", Math_TAU, TTR("Tau constant (6.283185) or 360 degrees.") },
-	{ "Sqrt2", Math_SQRT2, TTR("Sqrt2 constant (1.414214). Square root of 2.") }
+	{ "E", Math_E, TTRC("E constant (2.718282). Represents the base of the natural logarithm.") },
+	{ "Epsilon", CMP_EPSILON, TTRC("Epsilon constant (0.00001). Smallest possible scalar number.") },
+	{ "Phi", 1.618034f, TTRC("Phi constant (1.618034). Golden ratio.") },
+	{ "Pi/4", Math_PI / 4, TTRC("Pi/4 constant (0.785398) or 45 degrees.") },
+	{ "Pi/2", Math_PI / 2, TTRC("Pi/2 constant (1.570796) or 90 degrees.") },
+	{ "Pi", Math_PI, TTRC("Pi constant (3.141593) or 180 degrees.") },
+	{ "Tau", Math_TAU, TTRC("Tau constant (6.283185) or 360 degrees.") },
+	{ "Sqrt2", Math_SQRT2, TTRC("Sqrt2 constant (1.414214). Square root of 2.") }
 };
 
 const int MAX_FLOAT_CONST_DEFS = sizeof(float_constant_defs) / sizeof(FloatConstantDef);
@@ -5904,24 +5904,49 @@ void VisualShaderEditor::_varying_create() {
 	add_varying_dialog->hide();
 }
 
-void VisualShaderEditor::_varying_name_changed(const String &p_name) {
-	if (!p_name.is_valid_ascii_identifier()) {
-		varying_error_label->show();
-		varying_error_label->set_text(TTR("Invalid name for varying."));
-		add_varying_dialog->get_ok_button()->set_disabled(true);
-		return;
+void VisualShaderEditor::_varying_validate() {
+	bool has_error = false;
+	String error;
+	String varname = varying_name->get_text();
+
+	if (!varname.is_valid_ascii_identifier()) {
+		error += TTR("Invalid name for varying.");
+		has_error = true;
+	} else if (visual_shader->has_varying(varname)) {
+		error += TTR("Varying with that name is already exist.");
+		has_error = true;
 	}
-	if (visual_shader->has_varying(p_name)) {
-		varying_error_label->show();
-		varying_error_label->set_text(TTR("Varying with that name is already exist."));
-		add_varying_dialog->get_ok_button()->set_disabled(true);
-		return;
+
+	if (varying_type->get_selected() == 6 && varying_mode->get_selected() == VisualShader::VaryingMode::VARYING_MODE_VERTEX_TO_FRAG_LIGHT) {
+		if (has_error) {
+			error += "\n";
+		}
+		error += vformat(TTR("Boolean type cannot be used with `%s` varying mode."), "Vertex -> [Fragment, Light]");
+		has_error = true;
 	}
-	if (varying_error_label->is_visible()) {
+
+	if (has_error) {
+		varying_error_label->show();
+		varying_error_label->set_text(error);
+		add_varying_dialog->get_ok_button()->set_disabled(true);
+	} else {
 		varying_error_label->hide();
-		add_varying_dialog->set_size(Size2(add_varying_dialog->get_size().x, 0));
+		varying_error_label->set_text("");
+		add_varying_dialog->get_ok_button()->set_disabled(false);
 	}
-	add_varying_dialog->get_ok_button()->set_disabled(false);
+	add_varying_dialog->reset_size();
+}
+
+void VisualShaderEditor::_varying_type_changed(int p_index) {
+	_varying_validate();
+}
+
+void VisualShaderEditor::_varying_mode_changed(int p_index) {
+	_varying_validate();
+}
+
+void VisualShaderEditor::_varying_name_changed(const String &p_name) {
+	_varying_validate();
 }
 
 void VisualShaderEditor::_varying_deleted() {
@@ -6794,6 +6819,7 @@ VisualShaderEditor::VisualShaderEditor() {
 		varying_type->add_item("Vector4");
 		varying_type->add_item("Boolean");
 		varying_type->add_item("Transform");
+		varying_type->connect(SceneStringName(item_selected), callable_mp(this, &VisualShaderEditor::_varying_type_changed));
 
 		varying_name = memnew(LineEdit);
 		hb->add_child(varying_name);
@@ -6806,6 +6832,7 @@ VisualShaderEditor::VisualShaderEditor() {
 		hb->add_child(varying_mode);
 		varying_mode->add_item("Vertex -> [Fragment, Light]");
 		varying_mode->add_item("Fragment -> Light");
+		varying_mode->connect(SceneStringName(item_selected), callable_mp(this, &VisualShaderEditor::_varying_mode_changed));
 
 		varying_error_label = memnew(Label);
 		vb->add_child(varying_error_label);
@@ -7171,7 +7198,7 @@ VisualShaderEditor::VisualShaderEditor() {
 	// CONSTANTS
 
 	for (int i = 0; i < MAX_FLOAT_CONST_DEFS; i++) {
-		add_options.push_back(AddOption(float_constant_defs[i].name, "Scalar/Constants", "VisualShaderNodeFloatConstant", float_constant_defs[i].desc, { float_constant_defs[i].value }, VisualShaderNode::PORT_TYPE_SCALAR));
+		add_options.push_back(AddOption(float_constant_defs[i].name, "Scalar/Constants", "VisualShaderNodeFloatConstant", TTRGET(float_constant_defs[i].desc_key), { float_constant_defs[i].value }, VisualShaderNode::PORT_TYPE_SCALAR));
 	}
 	// FUNCTIONS
 
@@ -7596,12 +7623,15 @@ public:
 	}
 
 	void _item_selected(int p_item) {
-		editor->call_deferred(SNAME("_input_select_item"), input, get_item_text(p_item));
+		editor->call_deferred(SNAME("_input_select_item"), input, get_item_metadata(p_item));
 	}
 
 	void setup(VisualShaderEditor *p_editor, const Ref<VisualShaderNodeInput> &p_input) {
+		set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+
 		editor = p_editor;
 		input = p_input;
+
 		Ref<Texture2D> type_icon[] = {
 			EditorNode::get_singleton()->get_editor_theme()->get_icon(SNAME("float"), EditorStringName(EditorIcons)),
 			EditorNode::get_singleton()->get_editor_theme()->get_icon(SNAME("int"), EditorStringName(EditorIcons)),
@@ -7614,13 +7644,16 @@ public:
 			EditorNode::get_singleton()->get_editor_theme()->get_icon(SNAME("ImageTexture"), EditorStringName(EditorIcons)),
 		};
 
-		add_item("[None]");
+		add_item(TTR("[None]"));
+		set_item_metadata(-1, "[None]");
+
 		int to_select = -1;
 		for (int i = 0; i < input->get_input_index_count(); i++) {
 			if (input->get_input_name() == input->get_input_index_name(i)) {
 				to_select = i + 1;
 			}
 			add_icon_item(type_icon[input->get_input_index_type(i)], input->get_input_index_name(i));
+			set_item_metadata(-1, input->get_input_index_name(i));
 		}
 
 		if (to_select >= 0) {
@@ -7645,10 +7678,12 @@ public:
 	}
 
 	void _item_selected(int p_item) {
-		editor->call_deferred(SNAME("_varying_select_item"), varying, get_item_text(p_item));
+		editor->call_deferred(SNAME("_varying_select_item"), varying, get_item_metadata(p_item));
 	}
 
 	void setup(VisualShaderEditor *p_editor, const Ref<VisualShaderNodeVarying> &p_varying, VisualShader::Type p_type) {
+		set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+
 		editor = p_editor;
 		varying = p_varying;
 
@@ -7665,7 +7700,8 @@ public:
 
 		bool is_getter = Ref<VisualShaderNodeVaryingGetter>(p_varying.ptr()).is_valid();
 
-		add_item("[None]");
+		add_item(TTR("[None]"));
+		set_item_metadata(-1, "[None]");
 
 		int to_select = -1;
 		for (int i = 0, j = 0; i < varying->get_varyings_count(); i++) {
@@ -7699,6 +7735,7 @@ public:
 				to_select = i - j + 1;
 			}
 			add_icon_item(type_icon[varying->get_varying_type_by_index(i)], varying->get_varying_name_by_index(i));
+			set_item_metadata(-1, varying->get_varying_name_by_index(i));
 		}
 
 		if (to_select >= 0) {
@@ -7725,10 +7762,12 @@ public:
 	}
 
 	void _item_selected(int p_item) {
-		editor->call_deferred(SNAME("_parameter_ref_select_item"), parameter_ref, get_item_text(p_item));
+		editor->call_deferred(SNAME("_parameter_ref_select_item"), parameter_ref, get_item_metadata(p_item));
 	}
 
 	void setup(VisualShaderEditor *p_editor, const Ref<VisualShaderNodeParameterRef> &p_parameter_ref) {
+		set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+
 		editor = p_editor;
 		parameter_ref = p_parameter_ref;
 
@@ -7745,13 +7784,16 @@ public:
 			EditorNode::get_singleton()->get_editor_theme()->get_icon(SNAME("ImageTexture"), EditorStringName(EditorIcons)),
 		};
 
-		add_item("[None]");
+		add_item(TTR("[None]"));
+		set_item_metadata(-1, "[None]");
+
 		int to_select = -1;
 		for (int i = 0; i < p_parameter_ref->get_parameters_count(); i++) {
 			if (p_parameter_ref->get_parameter_name() == p_parameter_ref->get_parameter_name_by_index(i)) {
 				to_select = i + 1;
 			}
 			add_icon_item(type_icon[p_parameter_ref->get_parameter_type_by_index(i)], p_parameter_ref->get_parameter_name_by_index(i));
+			set_item_metadata(-1, p_parameter_ref->get_parameter_name_by_index(i));
 		}
 
 		if (to_select >= 0) {
@@ -8099,6 +8141,7 @@ void EditorPropertyVisualShaderMode::set_option_button_clip(bool p_enable) {
 
 EditorPropertyVisualShaderMode::EditorPropertyVisualShaderMode() {
 	options = memnew(OptionButton);
+	options->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	options->set_clip_text(true);
 	add_child(options);
 	add_focusable(options);
@@ -8166,6 +8209,7 @@ void VisualShaderNodePortPreview::setup(const Ref<VisualShader> &p_shader, Ref<S
 		add_child(checkerboard);
 	}
 
+	set_mouse_filter(MOUSE_FILTER_PASS);
 	shader = p_shader;
 	shader->connect_changed(callable_mp(this, &VisualShaderNodePortPreview::_shader_changed), CONNECT_DEFERRED);
 	preview_mat = p_preview_material;

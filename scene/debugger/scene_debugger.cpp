@@ -1263,6 +1263,8 @@ void RuntimeNodeSelect::_setup(const Dictionary &p_settings) {
 #ifndef _3D_DISABLED
 	cursor = Cursor();
 
+	freelook_speed = p_settings.get("editors/3d/freelook/freelook_base_speed", FREELOOK_BASE_SPEED);
+
 	/// 3D Selection Box Generation
 	// Copied from the Node3DEditor implementation.
 
@@ -1362,12 +1364,12 @@ void RuntimeNodeSelect::_root_window_input(const Ref<InputEvent> &p_event) {
 
 	if (camera_override) {
 		if (node_select_type == NODE_TYPE_2D) {
-			if (panner->gui_input(p_event, Rect2(Vector2(), root->get_size()))) {
+			if (panner->gui_input(p_event, Rect2(Vector2(), root->get_visible_rect().get_size()))) {
 				return;
 			}
 		} else if (node_select_type == NODE_TYPE_3D) {
 #ifndef _3D_DISABLED
-			if (root->get_camera_3d() && _handle_3d_input(p_event)) {
+			if (_handle_3d_input(p_event)) {
 				return;
 			}
 #endif // _3D_DISABLED
@@ -1445,7 +1447,7 @@ void RuntimeNodeSelect::_process_frame() {
 			direction -= up;
 		}
 
-		real_t speed = FREELOOK_BASE_SPEED;
+		real_t speed = freelook_speed;
 		if (input->is_physical_key_pressed(Key::SHIFT)) {
 			speed *= 3.0;
 		}
@@ -1549,23 +1551,27 @@ void RuntimeNodeSelect::_select_node(Node *p_node) {
 
 			selected_node = p_node;
 
-			sbox_3d_instance = RS::get_singleton()->instance_create2(sbox_3d_mesh->get_rid(), node_3d->get_world_3d()->get_scenario());
-			sbox_3d_instance_ofs = RS::get_singleton()->instance_create2(sbox_3d_mesh->get_rid(), node_3d->get_world_3d()->get_scenario());
-			RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance, RS::SHADOW_CASTING_SETTING_OFF);
-			RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance_ofs, RS::SHADOW_CASTING_SETTING_OFF);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_ofs, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_ofs, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
+			if (sbox_3d_mesh.is_valid()) {
+				sbox_3d_instance = RS::get_singleton()->instance_create2(sbox_3d_mesh->get_rid(), node_3d->get_world_3d()->get_scenario());
+				sbox_3d_instance_ofs = RS::get_singleton()->instance_create2(sbox_3d_mesh->get_rid(), node_3d->get_world_3d()->get_scenario());
+				RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance, RS::SHADOW_CASTING_SETTING_OFF);
+				RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance_ofs, RS::SHADOW_CASTING_SETTING_OFF);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_ofs, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_ofs, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
+			}
 
-			sbox_3d_instance_xray = RS::get_singleton()->instance_create2(sbox_3d_mesh_xray->get_rid(), node_3d->get_world_3d()->get_scenario());
-			sbox_3d_instance_xray_ofs = RS::get_singleton()->instance_create2(sbox_3d_mesh_xray->get_rid(), node_3d->get_world_3d()->get_scenario());
-			RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance_xray, RS::SHADOW_CASTING_SETTING_OFF);
-			RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance_xray_ofs, RS::SHADOW_CASTING_SETTING_OFF);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray_ofs, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
-			RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray_ofs, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
+			if (sbox_3d_mesh_xray.is_valid()) {
+				sbox_3d_instance_xray = RS::get_singleton()->instance_create2(sbox_3d_mesh_xray->get_rid(), node_3d->get_world_3d()->get_scenario());
+				sbox_3d_instance_xray_ofs = RS::get_singleton()->instance_create2(sbox_3d_mesh_xray->get_rid(), node_3d->get_world_3d()->get_scenario());
+				RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance_xray, RS::SHADOW_CASTING_SETTING_OFF);
+				RS::get_singleton()->instance_geometry_set_cast_shadows_setting(sbox_3d_instance_xray_ofs, RS::SHADOW_CASTING_SETTING_OFF);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray_ofs, RS::INSTANCE_FLAG_IGNORE_OCCLUSION_CULLING, true);
+				RS::get_singleton()->instance_geometry_set_flag(sbox_3d_instance_xray_ofs, RS::INSTANCE_FLAG_USE_BAKED_LIGHT, false);
+			}
 		}
 #endif // _3D_DISABLED
 	}
@@ -1817,8 +1823,9 @@ void RuntimeNodeSelect::_find_canvas_items_at_pos(const Point2 &p_pos, Node *p_n
 }
 
 void RuntimeNodeSelect::_pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event) {
-	view_2d_offset.x -= p_scroll_vec.x / view_2d_zoom;
-	view_2d_offset.y -= p_scroll_vec.y / view_2d_zoom;
+	Vector2 scroll = SceneTree::get_singleton()->get_root()->get_screen_transform().affine_inverse().xform(p_scroll_vec);
+	view_2d_offset.x -= scroll.x / view_2d_zoom;
+	view_2d_offset.y -= scroll.y / view_2d_zoom;
 
 	_update_view_2d();
 }
@@ -1866,11 +1873,6 @@ void RuntimeNodeSelect::_update_view_2d() {
 #ifndef _3D_DISABLED
 void RuntimeNodeSelect::_find_3d_items_at_pos(const Point2 &p_pos, Vector<SelectResult> &r_items) {
 	Window *root = SceneTree::get_singleton()->get_root();
-	Camera3D *camera = root->get_viewport()->get_camera_3d();
-	if (!camera) {
-		return;
-	}
-
 	Vector3 ray, pos, to;
 	if (root->get_viewport()->is_camera_3d_override_enabled()) {
 		Viewport *vp = root->get_viewport();
@@ -1878,6 +1880,11 @@ void RuntimeNodeSelect::_find_3d_items_at_pos(const Point2 &p_pos, Vector<Select
 		pos = vp->camera_3d_override_project_ray_origin(p_pos);
 		to = pos + ray * vp->get_camera_3d_override_properties()["z_far"];
 	} else {
+		Camera3D *camera = root->get_viewport()->get_camera_3d();
+		if (!camera) {
+			return;
+		}
+
 		ray = camera->project_ray_normal(p_pos);
 		pos = camera->project_ray_origin(p_pos);
 		to = pos + ray * camera->get_far();
@@ -1957,6 +1964,8 @@ bool RuntimeNodeSelect::_handle_3d_input(const Ref<InputEvent> &p_event) {
 			case MouseButton::WHEEL_UP: {
 				if (!camera_freelook) {
 					_cursor_scale_distance(1.0 / zoom_factor);
+				} else {
+					_scale_freelook_speed(zoom_factor);
 				}
 
 				return true;
@@ -1964,6 +1973,8 @@ bool RuntimeNodeSelect::_handle_3d_input(const Ref<InputEvent> &p_event) {
 			case MouseButton::WHEEL_DOWN: {
 				if (!camera_freelook) {
 					_cursor_scale_distance(zoom_factor);
+				} else {
+					_scale_freelook_speed(1.0 / zoom_factor);
 				}
 
 				return true;
@@ -2062,6 +2073,16 @@ void RuntimeNodeSelect::_cursor_scale_distance(real_t p_scale) {
 	SceneTree::get_singleton()->get_root()->set_camera_3d_override_transform(_get_cursor_transform());
 }
 
+void RuntimeNodeSelect::_scale_freelook_speed(real_t p_scale) {
+	real_t min_speed = MAX(CAMERA_ZNEAR * 4, VIEW_3D_MIN_ZOOM);
+	real_t max_speed = MIN(CAMERA_ZFAR / 4, VIEW_3D_MAX_ZOOM);
+	if (unlikely(min_speed > max_speed)) {
+		freelook_speed = (min_speed + max_speed) / 2;
+	} else {
+		freelook_speed = CLAMP(freelook_speed * p_scale, min_speed, max_speed);
+	}
+}
+
 void RuntimeNodeSelect::_cursor_look(Ref<InputEventWithModifiers> p_event) {
 	Window *root = SceneTree::get_singleton()->get_root();
 	const Vector2 relative = Input::get_singleton()->warp_mouse_motion(p_event, Rect2(Vector2(), root->get_size()));
@@ -2129,21 +2150,21 @@ Transform3D RuntimeNodeSelect::_get_cursor_transform() {
 void RuntimeNodeSelect::_reset_camera_3d() {
 	camera_first_override = true;
 
+	cursor = Cursor();
 	Window *root = SceneTree::get_singleton()->get_root();
 	Camera3D *camera = root->get_camera_3d();
-	if (!camera) {
-		return;
+	if (camera) {
+		Transform3D transform = camera->get_global_transform();
+		transform.translate_local(0, 0, -cursor.distance);
+		cursor.pos = transform.origin;
+
+		cursor.x_rot = -camera->get_global_rotation().x;
+		cursor.y_rot = -camera->get_global_rotation().y;
+
+		cursor.fov_scale = CLAMP(camera->get_fov() / CAMERA_BASE_FOV, CAMERA_MIN_FOV_SCALE, CAMERA_MAX_FOV_SCALE);
+	} else {
+		cursor.fov_scale = 1.0;
 	}
-
-	cursor = Cursor();
-	Transform3D transform = camera->get_global_transform();
-	transform.translate_local(0, 0, -cursor.distance);
-	cursor.pos = transform.origin;
-
-	cursor.x_rot = -camera->get_global_rotation().x;
-	cursor.y_rot = -camera->get_global_rotation().y;
-
-	cursor.fov_scale = CLAMP(camera->get_fov() / CAMERA_BASE_FOV, CAMERA_MIN_FOV_SCALE, CAMERA_MAX_FOV_SCALE);
 
 	SceneTree::get_singleton()->get_root()->set_camera_3d_override_transform(_get_cursor_transform());
 	SceneTree::get_singleton()->get_root()->set_camera_3d_override_perspective(CAMERA_BASE_FOV * cursor.fov_scale, CAMERA_ZNEAR, CAMERA_ZFAR);

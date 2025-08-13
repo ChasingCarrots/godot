@@ -62,6 +62,7 @@
 #import <Metal/Metal.h>
 #import <os/log.h>
 #import <os/signpost.h>
+#import <spirv.hpp>
 #import <spirv_msl.hpp>
 #import <spirv_parser.hpp>
 
@@ -156,6 +157,18 @@ uint8_t *RenderingDeviceDriverMetal::buffer_map(BufferID p_buffer) {
 
 void RenderingDeviceDriverMetal::buffer_unmap(BufferID p_buffer) {
 	// Nothing to do.
+}
+
+uint64_t RenderingDeviceDriverMetal::buffer_get_device_address(BufferID p_buffer) {
+	if (@available(iOS 16.0, macOS 13.0, *)) {
+		id<MTLBuffer> obj = rid::get(p_buffer);
+		return obj.gpuAddress;
+	} else {
+#if DEV_ENABLED
+		WARN_PRINT_ONCE("buffer_get_device_address is not supported on this OS version.");
+#endif
+		return 0;
+	}
 }
 
 #pragma mark - Texture
@@ -299,8 +312,10 @@ RDD::TextureID RenderingDeviceDriverMetal::texture_create(const TextureFormat &p
 		desc.usage |= MTLTextureUsageShaderWrite;
 	}
 
-	if (p_format.usage_bits & TEXTURE_USAGE_STORAGE_ATOMIC_BIT) {
-		desc.usage |= MTLTextureUsageShaderWrite;
+	if (@available(macOS 14.0, iOS 17.0, tvOS 17.0, *)) {
+		if (format_caps & kMTLFmtCapsAtomic) {
+			desc.usage |= MTLTextureUsageShaderAtomic;
+		}
 	}
 
 	bool can_be_attachment = flags::any(format_caps, (kMTLFmtCapsColorAtt | kMTLFmtCapsDSAtt));
@@ -343,7 +358,7 @@ RDD::TextureID RenderingDeviceDriverMetal::texture_create(const TextureFormat &p
 
 	// Check if it is a linear format for atomic operations and therefore needs a buffer,
 	// as generally Metal does not support atomic operations on textures.
-	bool needs_buffer = is_linear || (p_format.array_layers == 1 && p_format.mipmaps == 1 && p_format.texture_type == TEXTURE_TYPE_2D && flags::any(p_format.usage_bits, TEXTURE_USAGE_STORAGE_BIT) && (p_format.format == DATA_FORMAT_R32_UINT || p_format.format == DATA_FORMAT_R32_SINT));
+	bool needs_buffer = is_linear || (p_format.array_layers == 1 && p_format.mipmaps == 1 && p_format.texture_type == TEXTURE_TYPE_2D && flags::any(p_format.usage_bits, TEXTURE_USAGE_STORAGE_BIT) && (p_format.format == DATA_FORMAT_R32_UINT || p_format.format == DATA_FORMAT_R32_SINT || p_format.format == DATA_FORMAT_R32G32_UINT || p_format.format == DATA_FORMAT_R32G32_SINT));
 
 	id<MTLTexture> obj = nil;
 	if (needs_buffer) {
@@ -390,6 +405,15 @@ RDD::TextureID RenderingDeviceDriverMetal::texture_create_from_extension(uint64_
 RDD::TextureID RenderingDeviceDriverMetal::texture_create_shared(TextureID p_original_texture, const TextureView &p_view) {
 	id<MTLTexture> src_texture = rid::get(p_original_texture);
 
+	NSUInteger slices = src_texture.arrayLength;
+	if (src_texture.textureType == MTLTextureTypeCube) {
+		// Metal expects Cube textures to have a slice count of 6.
+		slices = 6;
+	} else if (src_texture.textureType == MTLTextureTypeCubeArray) {
+		// Metal expects Cube Array textures to have 6 slices per layer.
+		slices *= 6;
+	}
+
 #if DEV_ENABLED
 	if (src_texture.sampleCount > 1) {
 		// TODO(sgc): is it ok to create a shared texture from a multi-sample texture?
@@ -419,7 +443,7 @@ RDD::TextureID RenderingDeviceDriverMetal::texture_create_shared(TextureID p_ori
 	id<MTLTexture> obj = [src_texture newTextureViewWithPixelFormat:format
 														textureType:src_texture.textureType
 															 levels:NSMakeRange(0, src_texture.mipmapLevelCount)
-															 slices:NSMakeRange(0, src_texture.arrayLength)
+															 slices:NSMakeRange(0, slices)
 															swizzle:swizzle];
 	ERR_FAIL_NULL_V_MSG(obj, TextureID(), "Unable to create shared texture");
 	return rid::make(obj);
@@ -551,7 +575,14 @@ void RenderingDeviceDriverMetal::texture_get_copyable_layout(TextureID p_texture
 		r_layout->size = get_image_format_required_size(format, sz.width, sz.height, sz.depth, 1, &sbw, &sbh);
 		r_layout->row_pitch = r_layout->size / ((sbh / bh) * sz.depth);
 		r_layout->depth_pitch = r_layout->size / sz.depth;
-		r_layout->layer_pitch = r_layout->size / obj.arrayLength;
+
+		uint32_t array_length = obj.arrayLength;
+		if (obj.textureType == MTLTextureTypeCube) {
+			array_length = 6;
+		} else if (obj.textureType == MTLTextureTypeCubeArray) {
+			array_length *= 6;
+		}
+		r_layout->layer_pitch = r_layout->size / array_length;
 	} else {
 		CRASH_NOW_MSG("need to calculate layout for shared texture");
 	}
@@ -689,7 +720,7 @@ static const MTLBlendOperation BLEND_OPERATIONS[RD::BLEND_OP_MAX] = {
 	MTLBlendOperationMax,
 };
 
-static const API_AVAILABLE(macos(11.0), ios(14.0)) MTLSamplerAddressMode ADDRESS_MODES[RD::SAMPLER_REPEAT_MODE_MAX] = {
+static const API_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0)) MTLSamplerAddressMode ADDRESS_MODES[RD::SAMPLER_REPEAT_MODE_MAX] = {
 	MTLSamplerAddressModeRepeat,
 	MTLSamplerAddressModeMirrorRepeat,
 	MTLSamplerAddressModeClampToEdge,
@@ -697,7 +728,7 @@ static const API_AVAILABLE(macos(11.0), ios(14.0)) MTLSamplerAddressMode ADDRESS
 	MTLSamplerAddressModeMirrorClampToEdge,
 };
 
-static const API_AVAILABLE(macos(11.0), ios(14.0)) MTLSamplerBorderColor SAMPLER_BORDER_COLORS[RD::SAMPLER_BORDER_COLOR_MAX] = {
+static const API_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0)) MTLSamplerBorderColor SAMPLER_BORDER_COLORS[RD::SAMPLER_BORDER_COLOR_MAX] = {
 	MTLSamplerBorderColorTransparentBlack,
 	MTLSamplerBorderColorTransparentBlack,
 	MTLSamplerBorderColorOpaqueBlack,
@@ -732,7 +763,7 @@ RDD::SamplerID RenderingDeviceDriverMetal::sampler_create(const SamplerState &p_
 	desc.normalizedCoordinates = !p_state.unnormalized_uvw;
 
 	if (p_state.lod_bias != 0.0) {
-		WARN_VERBOSE("Metal does not support LOD bias for samplers.");
+		WARN_PRINT_ONCE("Metal does not support LOD bias for samplers.");
 	}
 
 	id<MTLSamplerState> obj = [device newSamplerStateWithDescriptor:desc];
@@ -1425,7 +1456,7 @@ struct SpecializationConstantData {
 	}
 };
 
-struct API_AVAILABLE(macos(11.0), ios(14.0)) UniformData {
+struct API_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0)) UniformData {
 	RD::UniformType type = RD::UniformType::UNIFORM_TYPE_MAX;
 	uint32_t binding = UINT32_MAX;
 	bool writable = false;
@@ -1481,7 +1512,7 @@ struct API_AVAILABLE(macos(11.0), ios(14.0)) UniformData {
 	}
 };
 
-struct API_AVAILABLE(macos(11.0), ios(14.0)) UniformSetData {
+struct API_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0)) UniformSetData {
 	uint32_t index = UINT32_MAX;
 	LocalVector<UniformData> uniforms;
 
@@ -1539,7 +1570,7 @@ struct PushConstantData {
 	}
 };
 
-struct API_AVAILABLE(macos(11.0), ios(14.0)) ShaderBinaryData {
+struct API_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0)) ShaderBinaryData {
 	enum Flags : uint32_t {
 		NONE = 0,
 		NEEDS_VIEW_MASK_BUFFER = 1 << 0,
@@ -2021,10 +2052,6 @@ Vector<uint8_t> RenderingDeviceDriverMetal::shader_compile_binary_from_spirv(Vec
 
 	CompilerMSL::Options msl_options{};
 	msl_options.set_msl_version(version_major, version_minor);
-	if (version_major == 3 && version_minor >= 1) {
-		// TODO(sgc): Restrict to Metal 3.0 for now, until bugs in SPIRV-cross image atomics are resolved.
-		msl_options.set_msl_version(3, 0);
-	}
 	bin_data.msl_version = msl_options.msl_version;
 #if TARGET_OS_OSX
 	msl_options.platform = CompilerMSL::Options::macOS;
@@ -2032,8 +2059,9 @@ Vector<uint8_t> RenderingDeviceDriverMetal::shader_compile_binary_from_spirv(Vec
 	msl_options.platform = CompilerMSL::Options::iOS;
 #endif
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
 	msl_options.ios_use_simdgroup_functions = (*device_properties).features.simdPermute;
+	msl_options.ios_support_base_vertex_instance = true;
 #endif
 
 	bool disable_argument_buffers = false;
@@ -2051,9 +2079,9 @@ Vector<uint8_t> RenderingDeviceDriverMetal::shader_compile_binary_from_spirv(Vec
 		msl_options.argument_buffers = false;
 		bin_data.set_uses_argument_buffers(false);
 	}
-
-	msl_options.force_active_argument_buffer_resources = true; // Same as MoltenVK when using argument buffers.
-	// msl_options.pad_argument_buffer_resources = true; // Same as MoltenVK when using argument buffers.
+	msl_options.force_active_argument_buffer_resources = true;
+	// We can't use this, as we have to add the descriptor sets via compiler.add_msl_resource_binding.
+	// msl_options.pad_argument_buffer_resources = true;
 	msl_options.texture_buffer_native = true; // Enable texture buffer support.
 	msl_options.use_framebuffer_fetch_subpasses = false;
 	msl_options.pad_fragment_output_components = true;
@@ -2907,7 +2935,7 @@ void RenderingDeviceDriverMetal::command_clear_color_texture(CommandBufferID p_c
 	}
 }
 
-API_AVAILABLE(macos(11.0), ios(14.0))
+API_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0))
 bool isArrayTexture(MTLTextureType p_type) {
 	return (p_type == MTLTextureType3D ||
 			p_type == MTLTextureType2DArray ||
@@ -3988,6 +4016,8 @@ uint64_t RenderingDeviceDriverMetal::limit_get(Limit p_limit) {
 			return (uint64_t)((1.0 / limits.temporalScalerInputContentMaxScale) * 1000'000);
 		case LIMIT_METALFX_TEMPORAL_SCALER_MAX_SCALE:
 			return (uint64_t)((1.0 / limits.temporalScalerInputContentMinScale) * 1000'000);
+		case LIMIT_MAX_SHADER_VARYINGS:
+			return limits.maxShaderVaryings;
 		UNKNOWN(LIMIT_VRS_TEXEL_WIDTH);
 		UNKNOWN(LIMIT_VRS_TEXEL_HEIGHT);
 		UNKNOWN(LIMIT_VRS_MAX_FRAGMENT_WIDTH);
@@ -4023,6 +4053,8 @@ bool RenderingDeviceDriverMetal::has_feature(Features p_feature) {
 			return false;
 		case SUPPORTS_FRAGMENT_SHADER_WITH_ONLY_SIDE_EFFECTS:
 			return true;
+		case SUPPORTS_BUFFER_DEVICE_ADDRESS:
+			return device_properties->features.supports_gpu_address;
 		case SUPPORTS_METALFX_SPATIAL:
 			return device_properties->features.metal_fx_spatial;
 		case SUPPORTS_METALFX_TEMPORAL:
@@ -4067,9 +4099,14 @@ RenderingDeviceDriverMetal::RenderingDeviceDriverMetal(RenderingContextDriverMet
 		context_driver(p_context_driver) {
 	DEV_ASSERT(p_context_driver != nullptr);
 
+#if TARGET_OS_OSX
 	if (String res = OS::get_singleton()->get_environment("GODOT_MTL_SHADER_LOAD_STRATEGY"); res == U"lazy") {
 		_shader_load_strategy = ShaderLoadStrategy::LAZY;
 	}
+#else
+	// Always use the lazy strategy on other OSs like iOS, tvOS, or visionOS.
+	_shader_load_strategy = ShaderLoadStrategy::LAZY;
+#endif
 }
 
 RenderingDeviceDriverMetal::~RenderingDeviceDriverMetal() {
@@ -4123,7 +4160,7 @@ Error RenderingDeviceDriverMetal::initialize(uint32_t p_device_index, uint32_t p
 	pipeline_cache_id = "metal-driver-" + get_api_version();
 
 	device_properties = memnew(MetalDeviceProperties(device));
-	pixel_formats = memnew(PixelFormats(device));
+	pixel_formats = memnew(PixelFormats(device, device_properties->features));
 	if (device_properties->features.layeredRendering) {
 		multiview_capabilities.is_supported = true;
 		multiview_capabilities.max_view_count = device_properties->limits.maxViewports;

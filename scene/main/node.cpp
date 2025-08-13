@@ -928,12 +928,12 @@ void Node::set_physics_interpolation_mode(PhysicsInterpolationMode p_mode) {
 		} break;
 	}
 
-	// If swapping from interpolated to non-interpolated, use this as an extra means to cause a reset.
-	if (is_physics_interpolated() && !interpolate && is_inside_tree()) {
+	_propagate_physics_interpolated(interpolate);
+
+	// Auto-reset on changing interpolation mode.
+	if (is_physics_interpolated() && is_inside_tree()) {
 		propagate_notification(NOTIFICATION_RESET_PHYSICS_INTERPOLATION);
 	}
-
-	_propagate_physics_interpolated(interpolate);
 }
 
 void Node::reset_physics_interpolation() {
@@ -3830,6 +3830,7 @@ void Node::_bind_methods() {
 	BIND_CONSTANT(NOTIFICATION_WM_DPI_CHANGE);
 	BIND_CONSTANT(NOTIFICATION_VP_MOUSE_ENTER);
 	BIND_CONSTANT(NOTIFICATION_VP_MOUSE_EXIT);
+	BIND_CONSTANT(NOTIFICATION_WM_POSITION_CHANGED);
 	BIND_CONSTANT(NOTIFICATION_OS_MEMORY_WARNING);
 	BIND_CONSTANT(NOTIFICATION_TRANSLATION_CHANGED);
 	BIND_CONSTANT(NOTIFICATION_WM_ABOUT);

@@ -74,6 +74,7 @@
 #include "editor/plugins/gizmos/shape_cast_3d_gizmo_plugin.h"
 #include "editor/plugins/gizmos/soft_body_3d_gizmo_plugin.h"
 #include "editor/plugins/gizmos/spring_arm_3d_gizmo_plugin.h"
+#include "editor/plugins/gizmos/spring_bone_3d_gizmo_plugin.h"
 #include "editor/plugins/gizmos/sprite_base_3d_gizmo_plugin.h"
 #include "editor/plugins/gizmos/vehicle_body_3d_gizmo_plugin.h"
 #include "editor/plugins/gizmos/visible_on_screen_notifier_3d_gizmo_plugin.h"
@@ -4267,6 +4268,7 @@ void Node3DEditorViewport::set_state(const Dictionary &p_state) {
 			previewing->connect(SceneStringName(tree_exiting), callable_mp(this, &Node3DEditorViewport::_preview_exited_scene));
 			RS::get_singleton()->viewport_attach_camera(viewport->get_viewport_rid(), previewing->get_camera()); //replace
 			surface->queue_redraw();
+			previewing_camera = true;
 			preview_camera->set_pressed(true);
 			preview_camera->show();
 		}
@@ -4380,8 +4382,11 @@ void Node3DEditorViewport::assign_pending_data_pointers(Node3D *p_preview_node, 
 
 void _insert_rid_recursive(Node *node, HashSet<RID> &rids) {
 	CollisionObject3D *co = Object::cast_to<CollisionObject3D>(node);
+
 	if (co) {
 		rids.insert(co->get_rid());
+	} else if (node->is_class("CSGShape3D")) { // HACK: We should avoid referencing module logic.
+		rids.insert(node->call("_get_root_collision_instance"));
 	}
 
 	for (int i = 0; i < node->get_child_count(); i++) {
@@ -8569,6 +8574,8 @@ void Node3DEditor::_register_all_gizmos() {
 	add_gizmo_plugin(Ref<RayCast3DGizmoPlugin>(memnew(RayCast3DGizmoPlugin)));
 	add_gizmo_plugin(Ref<ShapeCast3DGizmoPlugin>(memnew(ShapeCast3DGizmoPlugin)));
 	add_gizmo_plugin(Ref<SpringArm3DGizmoPlugin>(memnew(SpringArm3DGizmoPlugin)));
+	add_gizmo_plugin(Ref<SpringBoneCollision3DGizmoPlugin>(memnew(SpringBoneCollision3DGizmoPlugin)));
+	add_gizmo_plugin(Ref<SpringBoneSimulator3DGizmoPlugin>(memnew(SpringBoneSimulator3DGizmoPlugin)));
 	add_gizmo_plugin(Ref<VehicleWheel3DGizmoPlugin>(memnew(VehicleWheel3DGizmoPlugin)));
 	add_gizmo_plugin(Ref<VisibleOnScreenNotifier3DGizmoPlugin>(memnew(VisibleOnScreenNotifier3DGizmoPlugin)));
 	add_gizmo_plugin(Ref<GPUParticles3DGizmoPlugin>(memnew(GPUParticles3DGizmoPlugin)));

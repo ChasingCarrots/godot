@@ -599,7 +599,11 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 				instance_count /= surf->owner->trail_steps;
 			}
 
-			RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);
+			if (bool(surf->owner->base_flags & INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT)) {
+				RD::get_singleton()->draw_list_draw_indirect(draw_list, index_array_rd.is_valid(), mesh_storage->_multimesh_get_command_buffer_rd_rid(surf->owner->data->base), surf->surface_index * sizeof(uint32_t) * mesh_storage->INDIRECT_MULTIMESH_COMMAND_STRIDE, 1, 0);
+			} else {
+				RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);
+			}
 		}
 
 		i += element_info.repeat - 1; //skip equal elements
@@ -1083,6 +1087,7 @@ void RenderForwardClustered::_fill_render_list(RenderListType p_render_list, con
 			} else {
 				surf->sort.lod_index = 0;
 				if (p_render_data->render_info) {
+					// This does not include primitives rendered via indirect draw calls.
 					uint32_t to_draw = mesh_storage->mesh_surface_get_vertices_drawn_count(surf->surface);
 					to_draw = _indices_to_primitives(surf->primitive, to_draw);
 					to_draw *= inst->instance_count;
@@ -2857,7 +2862,7 @@ void RenderForwardClustered::_render_particle_collider_heightfield(RID p_fb, con
 	{
 		//regular forward for now
 		RenderListParameters render_list_params(render_list[RENDER_LIST_SECONDARY].elements.ptr(), render_list[RENDER_LIST_SECONDARY].element_info.ptr(), render_list[RENDER_LIST_SECONDARY].elements.size(), false, pass_mode, 0, true, false, rp_uniform_set);
-		_render_list_with_draw_list(&render_list_params, p_fb);
+		_render_list_with_draw_list(&render_list_params, p_fb, RD::DRAW_CLEAR_ALL);
 	}
 	RD::get_singleton()->draw_command_end_label();
 }
@@ -3759,6 +3764,14 @@ RID RenderForwardClustered::_setup_sdfgi_render_pass_uniform_set(RID p_albedo_te
 		uniforms.push_back(u);
 	}
 
+	if (scene_shader.default_shader_sdfgi_rd.is_null()) {
+		// The variant for SDF from the default material should only be retrieved when SDFGI is required.
+		ERR_FAIL_NULL_V(scene_shader.default_material_shader_ptr, RID());
+		scene_shader.enable_advanced_shader_group();
+		scene_shader.default_shader_sdfgi_rd = scene_shader.default_material_shader_ptr->get_shader_variant(SceneShaderForwardClustered::PIPELINE_VERSION_DEPTH_PASS_WITH_SDF, 0, false);
+		ERR_FAIL_COND_V(scene_shader.default_shader_sdfgi_rd.is_null(), RID());
+	}
+
 	return UniformSetCacheRD::get_singleton()->get_cache_vec(scene_shader.default_shader_sdfgi_rd, RENDER_PASS_UNIFORM_SET, uniforms);
 }
 
@@ -4205,9 +4218,9 @@ void RenderForwardClustered::_geometry_instance_update(RenderGeometryInstance *p
 	ginstance->base_flags = 0;
 
 	bool store_transform = true;
-
 	if (ginstance->data->base_type == RS::INSTANCE_MULTIMESH) {
 		ginstance->base_flags |= INSTANCE_DATA_FLAG_MULTIMESH;
+
 		if (mesh_storage->multimesh_get_transform_format(ginstance->data->base) == RS::MULTIMESH_TRANSFORM_2D) {
 			ginstance->base_flags |= INSTANCE_DATA_FLAG_MULTIMESH_FORMAT_2D;
 		}
@@ -4216,6 +4229,9 @@ void RenderForwardClustered::_geometry_instance_update(RenderGeometryInstance *p
 		}
 		if (mesh_storage->multimesh_uses_custom_data(ginstance->data->base)) {
 			ginstance->base_flags |= INSTANCE_DATA_FLAG_MULTIMESH_HAS_CUSTOM_DATA;
+		}
+		if (mesh_storage->multimesh_uses_indirect(ginstance->data->base)) {
+			ginstance->base_flags |= INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT;
 		}
 
 		ginstance->transforms_uniform_set = mesh_storage->multimesh_get_3d_uniform_set(ginstance->data->base, scene_shader.default_shader_rd, TRANSFORMS_UNIFORM_SET);
@@ -4419,7 +4435,7 @@ void RenderForwardClustered::_mesh_compile_pipeline_for_surface(SceneShaderForwa
 	r_pipeline_key.vertex_format_id = mesh_storage->mesh_surface_get_vertex_format(p_mesh_surface, input_mask, p_instanced_surface, pipeline_motion_vectors);
 	r_pipeline_key.ubershader = p_ubershader;
 
-	p_shader->pipeline_hash_map.compile_pipeline(r_pipeline_key, r_pipeline_key.hash(), p_source);
+	p_shader->pipeline_hash_map.compile_pipeline(r_pipeline_key, r_pipeline_key.hash(), p_source, p_ubershader);
 
 	if (r_pipeline_pairs != nullptr) {
 		r_pipeline_pairs->push_back({ p_shader, r_pipeline_key });
@@ -4924,6 +4940,7 @@ RenderForwardClustered::RenderForwardClustered() {
 	}
 
 	_update_shader_quality_settings();
+	_update_global_pipeline_data_requirements_from_project();
 
 	resolve_effects = memnew(RendererRD::Resolve());
 	taa = memnew(RendererRD::TAA);
