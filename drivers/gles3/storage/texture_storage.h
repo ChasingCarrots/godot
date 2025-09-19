@@ -122,9 +122,13 @@ enum DefaultGLTexture {
 	DEFAULT_GL_TEXTURE_CUBEMAP_BLACK,
 	//DEFAULT_GL_TEXTURE_CUBEMAP_ARRAY_BLACK, // Cubemap Arrays not supported in GL 3.3 or GL ES 3.0
 	DEFAULT_GL_TEXTURE_CUBEMAP_WHITE,
+	DEFAULT_GL_TEXTURE_CUBEMAP_TRANSPARENT,
 	DEFAULT_GL_TEXTURE_3D_WHITE,
 	DEFAULT_GL_TEXTURE_3D_BLACK,
+	DEFAULT_GL_TEXTURE_3D_TRANSPARENT,
 	DEFAULT_GL_TEXTURE_2D_ARRAY_WHITE,
+	DEFAULT_GL_TEXTURE_2D_ARRAY_BLACK,
+	DEFAULT_GL_TEXTURE_2D_ARRAY_TRANSPARENT,
 	DEFAULT_GL_TEXTURE_2D_UINT,
 	DEFAULT_GL_TEXTURE_EXT,
 	DEFAULT_GL_TEXTURE_MAX
@@ -151,7 +155,7 @@ struct Texture {
 	bool is_render_target = false;
 
 	RID proxy_to;
-	Vector<RID> proxies;
+	LocalVector<RID> proxies;
 
 	String path;
 	int width = 0;
@@ -525,6 +529,7 @@ public:
 	virtual void texture_3d_update(RID p_texture, const Vector<Ref<Image>> &p_data) override;
 	virtual void texture_external_update(RID p_texture, int p_width, int p_height, uint64_t p_external_buffer) override;
 	virtual void texture_proxy_update(RID p_proxy, RID p_base) override;
+	void texture_remap_proxies(RID p_from_texture, RID p_to_texture);
 
 	Ref<Image> texture_2d_placeholder;
 	Vector<Ref<Image>> texture_2d_array_placeholder;
@@ -647,6 +652,8 @@ public:
 	virtual void render_target_do_msaa_resolve(RID p_render_target) override {}
 	virtual void render_target_set_use_hdr(RID p_render_target, bool p_use_hdr_2d) override;
 	virtual bool render_target_is_using_hdr(RID p_render_target) const override;
+	virtual void render_target_set_use_debanding(RID p_render_target, bool p_use_debanding) override {}
+	virtual bool render_target_is_using_debanding(RID p_render_target) const override { return false; }
 
 	// new
 	void render_target_set_as_unused(RID p_render_target) override {
@@ -667,6 +674,7 @@ public:
 	GLuint render_target_get_fbo(RID p_render_target) const;
 	GLuint render_target_get_color(RID p_render_target) const;
 	GLuint render_target_get_depth(RID p_render_target) const;
+	bool render_target_get_depth_has_stencil(RID p_render_target) const;
 	void render_target_set_reattach_textures(RID p_render_target, bool p_reattach_textures) const;
 	bool render_target_is_reattach_textures(RID p_render_target) const;
 

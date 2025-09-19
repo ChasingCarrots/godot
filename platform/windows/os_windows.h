@@ -67,6 +67,14 @@
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x4
 #endif
 
+#ifndef SAFE_RELEASE // when Windows Media Device M? is not present
+#define SAFE_RELEASE(x) \
+	if (x != nullptr) { \
+		x->Release();   \
+		x = nullptr;    \
+	}
+#endif
+
 template <typename T>
 class ComAutoreleaseRef {
 public:
@@ -89,8 +97,6 @@ public:
 		}
 	}
 };
-
-class JoypadWindows;
 
 class OS_Windows : public OS {
 	uint64_t target_ticks = 0;
@@ -138,6 +144,9 @@ class OS_Windows : public OS {
 
 	HashMap<String, int> encodings;
 	void _init_encodings();
+
+	Vector<String> _get_video_adapter_driver_info_reg(const String &p_name) const;
+	Vector<String> _get_video_adapter_driver_info_wmi(const String &p_name) const;
 
 	// functions used by main to initialize/deinitialize the OS
 protected:

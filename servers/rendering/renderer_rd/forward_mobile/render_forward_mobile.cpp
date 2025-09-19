@@ -233,8 +233,6 @@ RID RenderForwardMobile::RenderBufferDataForwardMobile::get_color_fbs(Framebuffe
 	if (use_msaa) {
 		color_buffer_id = textures.size();
 		textures.push_back(render_buffers->get_internal_texture()); // color buffer for resolve
-
-		// TODO add support for resolving depth buffer!!!
 	}
 
 	// Now define our subpasses
@@ -889,7 +887,11 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 
 	// fill our render lists early so we can find out if we use various features
 	_fill_render_list(RENDER_LIST_OPAQUE, p_render_data, PASS_MODE_COLOR);
-	render_list[RENDER_LIST_OPAQUE].sort_by_key();
+	if (scene_state.used_opaque_stencil) {
+		render_list[RENDER_LIST_OPAQUE].sort_by_key_and_stencil();
+	} else {
+		render_list[RENDER_LIST_OPAQUE].sort_by_key();
+	}
 	render_list[RENDER_LIST_ALPHA].sort_by_reverse_depth_and_priority();
 	_fill_instance_data(RENDER_LIST_OPAQUE);
 	_fill_instance_data(RENDER_LIST_ALPHA);
@@ -1248,7 +1250,7 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 			RD::get_singleton()->draw_list_end();
 		} else {
 			// We're done with our subpasses so end our container pass
-			// note, if MSAA is used we should get an automatic resolve here
+			// note, if MSAA is used we should get an automatic resolve of the color buffer here.
 
 			RD::get_singleton()->draw_list_end();
 
@@ -1272,8 +1274,8 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 				_render_buffers_ensure_depth_texture(p_render_data);
 
 				if (scene_state.used_depth_texture) {
-					// Copy depth texture to backbuffer so we can read from it
-					_render_buffers_copy_depth_texture(p_render_data);
+					// Copy depth texture to backbuffer so we can read from it.
+					_render_buffers_copy_depth_texture(p_render_data, use_msaa);
 				}
 			}
 
@@ -2149,6 +2151,9 @@ void RenderForwardMobile::_fill_render_list(RenderListType p_render_list, const 
 				if (surf->flags & GeometryInstanceSurfaceDataCache::FLAG_USES_DEPTH_TEXTURE) {
 					scene_state.used_depth_texture = true;
 				}
+				if ((surf->flags & GeometryInstanceSurfaceDataCache::FLAG_USES_STENCIL) && !force_alpha && (surf->flags & (GeometryInstanceSurfaceDataCache::FLAG_PASS_DEPTH | GeometryInstanceSurfaceDataCache::FLAG_PASS_OPAQUE))) {
+					scene_state.used_opaque_stencil = true;
+				}
 
 			} else if (p_pass_mode == PASS_MODE_SHADOW || p_pass_mode == PASS_MODE_SHADOW_DP) {
 				if (surf->flags & GeometryInstanceSurfaceDataCache::FLAG_PASS_SHADOW) {
@@ -2670,6 +2675,10 @@ void RenderForwardMobile::_geometry_instance_add_surface_with_material(GeometryI
 
 	if (ginstance->data->cast_double_sided_shadows) {
 		flags |= GeometryInstanceSurfaceDataCache::FLAG_USES_DOUBLE_SIDED_SHADOWS;
+	}
+
+	if (p_material->shader_data->stencil_enabled) {
+		flags |= GeometryInstanceSurfaceDataCache::FLAG_USES_STENCIL;
 	}
 
 	if (p_material->shader_data->uses_alpha_pass()) {
