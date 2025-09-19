@@ -396,13 +396,11 @@ bool AudioStreamMicrophone::is_monophonic() const {
 int AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_frames) {
 	AudioDriver::get_singleton()->lock();
 
-	Vector<int32_t> buf = AudioDriver::get_singleton()->get_input_buffer();
+		Vector<int32_t> buf = AudioDriver::get_singleton()->get_input_buffer();
 	unsigned int input_size = AudioDriver::get_singleton()->get_input_size();
 	int mix_rate = AudioDriver::get_singleton()->get_input_mix_rate();
 	unsigned int playback_delay = MIN(((50 * mix_rate) / 1000) * 2, buf.size() >> 1);
-#ifdef DEBUG_ENABLED
 	unsigned int input_position = AudioDriver::get_singleton()->get_input_position();
-#endif
 
 	int mixed_frames = p_frames;
 
@@ -412,6 +410,18 @@ int AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_fra
 		}
 		input_ofs = 0;
 	} else {
+		int offset_to_realtime = input_position - input_ofs;
+		if (input_ofs > input_position) {
+			// wraparound the ring buffer
+			offset_to_realtime = (input_position + buf.size()) - input_ofs;
+		}
+		if (offset_to_realtime > 2 * mix_rate / 10) {
+			// the delay has gotten too big, let's get back to realtime
+			auto before = input_ofs;
+			input_ofs = (input_position - p_frames * 2) % buf.size();
+			print_verbose(vformat("AudioStreamPlaybackMicrophone input buffer correction from %d to %d", before, input_ofs));
+		}
+
 		for (int i = 0; i < p_frames; i++) {
 			if (input_size > input_ofs && (int)input_ofs < buf.size()) {
 				float l = (buf[input_ofs++] >> 16) / 32768.f;
