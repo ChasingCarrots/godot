@@ -1,4 +1,4 @@
-project('tracy', ['cpp'], version: '0.11.1', meson_version: '>=1.3.0', default_options : ['cpp_std=c++11'])
+project('tracy', ['cpp'], version: '0.12.2', meson_version: '>=1.3.0', default_options : ['cpp_std=c++11'])
 
 # internal compiler flags
 tracy_compile_args = []
@@ -132,6 +132,7 @@ endif
 includes = [
     'public/tracy/TracyC.h',
     'public/tracy/Tracy.hpp',
+    'public/tracy/TracyCUDA.hpp',
     'public/tracy/TracyD3D11.hpp',
     'public/tracy/TracyD3D12.hpp',
     'public/tracy/TracyLua.hpp',
@@ -150,6 +151,7 @@ client_includes = [
     'public/client/TracyDebug.hpp',
     'public/client/TracyDxt1.hpp',
     'public/client/TracyFastVector.hpp',
+    'public/client/TracyKCore.hpp',
     'public/client/TracyLock.hpp',
     'public/client/TracyProfiler.hpp',
     'public/client/TracyRingBuffer.hpp',
@@ -175,7 +177,7 @@ common_includes = [
     'public/common/TracySocket.hpp',
     'public/common/TracyStackFrames.hpp',
     'public/common/TracySystem.hpp',
-    'public/common/TracyUwp.hpp',
+    'public/common/TracyWinFamily.hpp',
     'public/common/TracyYield.hpp'
 ]
 
@@ -205,7 +207,7 @@ tracy = library('tracy', tracy_src, tracy_header_files,
     override_options    : override_options,
     install             : true)
 
-install_headers(includes, subdir : 'tracy')
+install_headers(includes, subdir : 'tracy/tracy')
 install_headers(common_includes, subdir : 'tracy/common')
 install_headers(client_includes, subdir : 'tracy/client')
 

@@ -9,16 +9,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include <sys/stat.h>
 #include <thread>
 #include <utility>
 #include <vector>
-
-#include <sys/stat.h>
+#include <zstd.h>
 
 #ifdef _MSC_VER
 #  define stat64 _stat64
 #endif
-#if defined __APPLE__ || defined __FreeBSD__
+#if defined __APPLE__ || defined __FreeBSD__ || (defined __linux__ && !defined __GLIBC__)
 #  define stat64 stat
 #endif
 
@@ -28,7 +28,6 @@
 #include "../public/common/TracyYield.hpp"
 #include "../public/common/tracy_lz4.hpp"
 #include "../public/common/TracyForceInline.hpp"
-#include "../zstd/zstd.h"
 
 namespace tracy
 {

@@ -33,6 +33,7 @@ else()
 endif()
 
 find_package(Threads REQUIRED)
+find_package(rocprofiler-sdk PATHS "/opt/rocm/lib/cmake")
 
 set(TRACY_PUBLIC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/public)
 
@@ -49,19 +50,23 @@ target_compile_features(TracyClient PUBLIC cxx_std_11)
 set_target_properties(TracyClient PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO_SUPPORTED})
 target_include_directories(TracyClient SYSTEM PUBLIC
     $<BUILD_INTERFACE:${TRACY_PUBLIC_DIR}>
-    $<INSTALL_INTERFACE:include>)
+    $<INSTALL_INTERFACE:include/tracy>)
 target_link_libraries(
     TracyClient
     PUBLIC
         Threads::Threads
         ${CMAKE_DL_LIBS}
 )
+if(rocprofiler-sdk_FOUND)
+    target_compile_definitions(TracyClient PUBLIC TRACY_ROCPROF)
+    target_link_libraries(TracyClient PUBLIC rocprofiler-sdk::rocprofiler-sdk)
+endif()
 
 if(TRACY_Fortran)
     add_library(TracyClientF90 ${TRACY_VISIBILITY} "${TRACY_PUBLIC_DIR}/TracyClient.F90")
     target_include_directories(TracyClientF90 PUBLIC
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
-        $<INSTALL_INTERFACE:include>)
+        $<INSTALL_INTERFACE:include/tracy>)
     target_link_libraries(
         TracyClientF90
         PUBLIC
@@ -142,6 +147,10 @@ set_option(TRACY_VERBOSE "[advanced] Verbose output from the profiler" OFF)
 mark_as_advanced(TRACY_VERBOSE)
 set_option(TRACY_DEMANGLE "[advanced] Don't use default demangling function - You'll need to provide your own" OFF)
 mark_as_advanced(TRACY_DEMANGLE)
+if(rocprofiler-sdk_FOUND)
+    set_option(TRACY_ROCPROF_CALIBRATION "[advanced] Use continuous calibration of the Rocprof GPU time." OFF)
+    mark_as_advanced(TRACY_ROCPROF_CALIBRATION)
+endif()
 
 # handle incompatible combinations
 if(TRACY_MANUAL_LIFETIME AND NOT TRACY_DELAYED_INIT)
@@ -164,9 +173,11 @@ endif()
 set(tracy_includes
     ${TRACY_PUBLIC_DIR}/tracy/TracyC.h
     ${TRACY_PUBLIC_DIR}/tracy/Tracy.hpp
+    ${TRACY_PUBLIC_DIR}/tracy/TracyCUDA.hpp
     ${TRACY_PUBLIC_DIR}/tracy/TracyD3D11.hpp
     ${TRACY_PUBLIC_DIR}/tracy/TracyD3D12.hpp
     ${TRACY_PUBLIC_DIR}/tracy/TracyLua.hpp
+    ${TRACY_PUBLIC_DIR}/tracy/TracyMetal.hmm
     ${TRACY_PUBLIC_DIR}/tracy/TracyOpenCL.hpp
     ${TRACY_PUBLIC_DIR}/tracy/TracyOpenGL.hpp
     ${TRACY_PUBLIC_DIR}/tracy/TracyVulkan.hpp)
@@ -207,21 +218,21 @@ set(common_includes
     ${TRACY_PUBLIC_DIR}/common/TracySocket.hpp
     ${TRACY_PUBLIC_DIR}/common/TracyStackFrames.hpp
     ${TRACY_PUBLIC_DIR}/common/TracySystem.hpp
-    ${TRACY_PUBLIC_DIR}/common/TracyUwp.hpp
+    ${TRACY_PUBLIC_DIR}/common/TracyWinFamily.hpp
     ${TRACY_PUBLIC_DIR}/common/TracyYield.hpp)
 
 install(TARGETS TracyClient
         EXPORT TracyConfig
-        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}/$<IF:$<CONFIG:Release>,,$<CONFIG>>
+        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}/$<IF:$<CONFIG:Release>,,$<CONFIG>>
+        ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}/$<IF:$<CONFIG:Release>,,$<CONFIG>>
         COMPONENT lib)
 if(TRACY_Fortran)
     install(TARGETS TracyClientF90
             EXPORT TracyConfig
-            RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-            LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}/$<IF:$<CONFIG:Release>,,$<CONFIG>>
+            LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}/$<IF:$<CONFIG:Release>,,$<CONFIG>>
+            ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}/$<IF:$<CONFIG:Release>,,$<CONFIG>>
             COMPONENT lib)
 endif()
 # Export targets to build tree root
@@ -235,7 +246,7 @@ if(TRACY_Fortran)
            FILE ${CMAKE_BINARY_DIR}/TracyTargets.cmake)
 endif()
 install(FILES ${tracy_includes}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tracy)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tracy/tracy)
 install(FILES ${client_includes}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tracy/client)
 install(FILES ${common_includes}
