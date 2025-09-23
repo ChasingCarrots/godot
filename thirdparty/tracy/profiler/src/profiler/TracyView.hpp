@@ -3,8 +3,10 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <thread>
 #include <vector>
@@ -28,6 +30,10 @@
 #include "../server/tracy_robin_hood.h"
 #include "../server/TracyVector.hpp"
 
+#ifndef __EMSCRIPTEN__
+#  include "TracyLlm.hpp"
+#endif
+
 namespace tracy
 {
 
@@ -39,7 +45,9 @@ constexpr const char* GpuContextNames[] = {
     "Direct3D 12",
     "Direct3D 11",
     "Metal",
-    "Custom"
+    "Custom",
+    "CUDA",
+    "Rocprof"
 };
 
 struct MemoryPage;
@@ -108,14 +116,12 @@ public:
     using SetScaleCallback = void(*)( float );
     using AttentionCallback = void(*)();
 
-    View( void(*cbMainThread)(const std::function<void()>&, bool), const char* addr, uint16_t port, ImFont* fixedWidth, ImFont* smallFont, ImFont* bigFont, SetTitleCallback stcb, SetScaleCallback sscb, AttentionCallback acb, const Config& config, AchievementsMgr* amgr );
-    View( void(*cbMainThread)(const std::function<void()>&, bool), FileRead& f, ImFont* fixedWidth, ImFont* smallFont, ImFont* bigFont, SetTitleCallback stcb, SetScaleCallback sscb, AttentionCallback acb, const Config& config, AchievementsMgr* amgr );
+    View( void(*cbMainThread)(const std::function<void()>&, bool), const char* addr, uint16_t port, SetTitleCallback stcb, SetScaleCallback sscb, AttentionCallback acb, AchievementsMgr* amgr );
+    View( void(*cbMainThread)(const std::function<void()>&, bool), FileRead& f, SetTitleCallback stcb, SetScaleCallback sscb, AttentionCallback acb, AchievementsMgr* amgr );
     ~View();
 
     bool Draw();
     bool WasActive() const;
-
-    void UpdateFont( ImFont* fixed, ImFont* small, ImFont* big ) { m_fixedFont = fixed; m_smallFont = small; m_bigFont = big; }
 
     void NotifyRootWindowSize( float w, float h ) { m_rootWidth = w; m_rootHeight = h; }
     void ViewSource( const char* fileName, int line );
@@ -150,6 +156,8 @@ public:
     }
 
     void HighlightThread( uint64_t thread );
+    void SelectThread( uint64_t thread );
+    uint64_t GetSelectThread() { return m_selectedThread; }
     void ZoomToRange( int64_t start, int64_t end, bool pause = true );
     bool DrawPlot( const TimelineContext& ctx, PlotData& plot, const std::vector<uint32_t>& plotDraw, int& offset, bool rightEnd );
     void DrawThread( const TimelineContext& ctx, const ThreadData& thread, const std::vector<TimelineDraw>& draw, const std::vector<ContextSwitchDraw>& ctxDraw, const std::vector<SamplesDraw>& samplesDraw, const std::vector<std::unique_ptr<LockDraw>>& lockDraw, int& offset, int depth, bool hasCtxSwitches, bool hasSamples );
@@ -157,11 +165,16 @@ public:
     void DrawThreadOverlays( const ThreadData& thread, const ImVec2& ul, const ImVec2& dr );
     bool DrawGpu( const TimelineContext& ctx, const GpuCtxData& gpu, int& offset );
     bool DrawCpuData( const TimelineContext& ctx, const std::vector<CpuUsageDraw>& cpuDraw, const std::vector<std::vector<CpuCtxDraw>>& ctxDraw, int& offset, bool hasCpuData );
+    void DrawThreadMigrations( const TimelineContext& ctx, const int origOffset, uint64_t thread );
 
     bool IsBackgroundDone() const { return m_worker.IsBackgroundDone(); }
 
+    void AddLlmAttachment( const nlohmann::json& json );
+    void AddLlmQuery( const char* query );
+
     bool m_showRanges = false;
     Range m_statRange;
+    Range m_flameRange;
     Range m_waitStackRange;
 
 private:
@@ -228,7 +241,7 @@ private:
     };
 
     void InitTextEditor();
-    void SetupConfig( const Config& config );
+    void SetupConfig();
     void Achieve( const char* id );
 
     bool DrawImpl();
@@ -239,7 +252,8 @@ private:
     void DrawTimelineFrames( const FrameData& frames );
     void DrawTimeline();
     void DrawSampleList( const TimelineContext& ctx, const std::vector<SamplesDraw>& drawList, const Vector<SampleData>& vec, int offset );
-    void DrawZoneList( const TimelineContext& ctx, const std::vector<TimelineDraw>& drawList, int offset, uint64_t tid );
+    void DrawZoneList( const TimelineContext& ctx, const std::vector<TimelineDraw>& drawList, int offset, uint64_t tid, int maxDepth, double margin );
+    void DrawThreadCropper( const int depth, const uint64_t tid, const float xPos, const float yPos, const float ostep, const float cropperWidth, const bool hasCtxSwitches );
     void DrawContextSwitchList( const TimelineContext& ctx, const std::vector<ContextSwitchDraw>& drawList, const Vector<ContextSwitchData>& ctxSwitch, int offset, int endOffset, bool isFiber );
     int DispatchGpuZoneLevel( const Vector<short_ptr<GpuEvent>>& vec, bool hover, double pxns, int64_t nspx, const ImVec2& wpos, int offset, int depth, uint64_t thread, float yMin, float yMax, int64_t begin, int drift );
     template<typename Adapter, typename V>
@@ -372,6 +386,7 @@ private:
     int64_t GetZoneSelfTime( const ZoneEvent& zone );
     int64_t GetZoneSelfTime( const GpuEvent& zone );
     bool GetZoneRunningTime( const ContextSwitch* ctx, const ZoneEvent& ev, int64_t& time, uint64_t& cnt );
+    bool GetZoneRunningTime( const ContextSwitch* ctx, const ZoneEvent& ev, const RangeSlim& range, int64_t& time, uint64_t& cnt );
     const char* GetThreadContextData( uint64_t thread, bool& local, bool& untracked, const char*& program );
 
     tracy_force_inline void CalcZoneTimeData( unordered_flat_map<int16_t, ZoneTimeData>& data, int64_t& ztime, const ZoneEvent& zone );
@@ -387,6 +402,7 @@ private:
     void Attention( bool& alreadyDone );
     void UpdateTitle();
 
+    unordered_flat_map<uint64_t, int> m_threadDepthLimit;
     unordered_flat_map<uint64_t, bool> m_visibleMsgThread;
     unordered_flat_map<uint64_t, bool> m_waitStackThread;
     unordered_flat_map<uint64_t, bool> m_flameGraphThread;
@@ -485,6 +501,7 @@ private:
     bool m_messagesShowCallstack = false;
     Vector<uint32_t> m_msgList;
     bool m_disconnectIssued = false;
+    uint64_t m_selectedThread = 0;
     DecayValue<uint64_t> m_drawThreadMigrations = 0;
     DecayValue<uint64_t> m_drawThreadHighlight = 0;
     Annotation* m_selectedAnnotation = nullptr;
@@ -517,6 +534,7 @@ private:
     AccumulationMode m_statAccumulationMode = AccumulationMode::SelfOnly;
     bool m_statSampleTime = true;
     int m_statMode = 0;
+    bool m_shortImageNames = true;
     int m_flameMode = 0;
     bool m_flameSort = false;
     bool m_flameRunningTime = false;
@@ -563,10 +581,6 @@ private:
     std::unique_ptr<SourceView> m_sourceView;
     const char* m_sourceViewFile;
     bool m_uarchSet = false;
-
-    ImFont* m_smallFont;
-    ImFont* m_bigFont;
-    ImFont* m_fixedFont;
 
     float m_rootWidth, m_rootHeight;
     SetTitleCallback m_stcb;
@@ -670,7 +684,7 @@ private:
         size_t sortedNum = 0, selSortNum, selSortActive;
         float average, selAverage;
         float median, selMedian;
-        float p75, p90;
+        float p75, p90, p99, p99_9;
         int64_t total, selTotal;
         int64_t selTime;
         bool drawAvgMed = true;
@@ -716,6 +730,8 @@ private:
             median = 0;
             p75 = 0;
             p90 = 0;
+            p99 = 0;
+            p99_9 = 0;
             total = 0;
             tmin = std::numeric_limits<int64_t>::max();
             tmax = std::numeric_limits<int64_t>::min();
@@ -919,6 +935,7 @@ private:
     {
         uint64_t count = 0;
         uint64_t lastTime = 0;
+        RangeSlim range = {false, 0, 0};
 
         void Reset()
         {
@@ -926,6 +943,10 @@ private:
             lastTime = 0;
         }
     } m_flameGraphInvariant;
+
+#ifndef __EMSCRIPTEN__
+    TracyLlm m_llm;
+#endif
 };
 
 }
