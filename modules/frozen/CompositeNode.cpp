@@ -1,6 +1,8 @@
 #include "CompositeNode.h"
 
 #include "CommunicationLineSystem.h"
+#include "core/string/print_string.h"
+#include "core/variant/variant.h"
 
 #include <core/io/marshalls.h>
 
@@ -171,10 +173,14 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::GetCommunicationLine);
 	ClassDB::bind_method(D_METHOD("IsServer"),
 		&CompositeNode::IsServer);
+	ClassDB::bind_method(D_METHOD("GetServerID"),
+		&CompositeNode::GetServerID);
 	ClassDB::bind_method(D_METHOD("IsAuthority"),
 		&CompositeNode::IsAuthority);
-	ClassDB::bind_method(D_METHOD("GetAuthority"),
-		&CompositeNode::GetAuthority);
+	ClassDB::bind_method(D_METHOD("GetAuthorityID"),
+		&CompositeNode::GetAuthorityID);
+	ClassDB::bind_method(D_METHOD("GetLocalMultiplayerID"),
+		&CompositeNode::GetLocalMultiplayerID);
 	ClassDB::bind_method(D_METHOD("SynchronizeAllToSingleClient", "client_multiplayer_id"),
 	    &CompositeNode::SynchronizeAllToSingleClient);
 	ClassDB::bind_method(D_METHOD("SetupDataMultiplayerSynchronization", "dataName", "syncMode", "dataType"),
@@ -341,8 +347,10 @@ void CompositeNode::init_authority(int authority_player_id) {
 }
 
 void CompositeNode::init_authority_rpc(int sender_id, int authority_player_id) {
-	if (IsAuthority()) {
+	if (authority_player_id == GetLocalMultiplayerID()) { //We need to check manually for authority because the bits are not set yet
 		set_process(true);
+
+		GetCommunicationLine()->set_local_peer_bits(AUTHORITY_BIT_MASK);
 	}
 	Array params;
 	params.append(authority_player_id);
@@ -779,7 +787,7 @@ CompositeNode *CompositeNode::GetCompositeNodeInParents(Node *node) {
 void CompositeNode::InitializeAsAuthority() {
 	int my_id = _communication_line->get_local_multiplayer_id();
 	// We are the authority! Tell the others:
-	GetCommunicationLine()->set_local_peer_bits(1);
+	GetCommunicationLine()->set_local_peer_bits(AUTHORITY_BIT_MASK);
 	init_authority(my_id);
 	Array params;
 	params.append(my_id);
@@ -842,6 +850,13 @@ bool CompositeNode::IsServer() {
 	return cl->is_server();
 }
 
+int CompositeNode::GetServerID() {
+	const Ref<CommunicationLine> cl = GetCommunicationLine();
+	if (cl == nullptr) { return true; }
+
+	return cl->get_communication_line_system()->get_server_id();
+}
+
 bool CompositeNode::IsAuthority() {
 	Ref<CommunicationLine> cl = GetCommunicationLine();
 	if (cl == nullptr) {
@@ -850,7 +865,7 @@ bool CompositeNode::IsAuthority() {
 	return cl->check_local_peer_bits(AUTHORITY_BIT_MASK,NO_BIT_MASK);
 }
 
-int CompositeNode::GetAuthority() {
+int CompositeNode::GetAuthorityID() {
 	Ref<CommunicationLine> cl = GetCommunicationLine();
 	if (cl == nullptr) {
 		return -1;
@@ -870,6 +885,13 @@ int CompositeNode::GetAuthority() {
 
 	print_error(vformat("No authority set for communication_line: %s", cl->get_string_id()));
 	return -1;
+}
+
+int CompositeNode::GetLocalMultiplayerID() {
+	const Ref<CommunicationLine> cl = GetCommunicationLine();
+	if (cl == nullptr) { return true; }
+
+	return cl->get_local_multiplayer_id();
 }
 
 void CompositeNode::SynchronizeAllToSingleClient(int client_multiplayer_id) {
@@ -1026,6 +1048,11 @@ Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName,
 		params.append(parameters);
 		Ref<CommunicationCallWithAnswer> call_object = _communication_line->call_function_on_peers_expect_answer(
 				"_callFunctionOnAuthorityRPC", params, 1);
+		
+		if (!call_object.is_valid()) {
+			print_error(vformat("[%s] CompositeNode::CallFunctionOnAuthority: call_function_on_peers_expect_answer returned invalid object! Function name: %s", get_name(), functionName));
+			return f;
+		}
 
 		call_object->AnswerReceivedCallback = [f](auto _call_object) {
 			if (f.is_valid()) {
@@ -1146,10 +1173,10 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 	SetData(dataName, value);
 	// we need to sync to the authority, only when we are NOT the authority
 	// (otherwise the syncing is already done by SetData)
-	if (!IsServer()) {
+	if (!IsAuthority()) {
 		DataSynchronizationSettings *sync_config = _sync_data_on_change.getptr(dataName);
 		ERR_FAIL_COND_MSG(sync_config == nullptr, vformat("SetDataOnAuthority (%s) can only be called for data that has OnChange Synchronization Settings set up.", dataName));
-		int authority_peer_id = GetAuthority();
+		int authority_peer_id = GetAuthorityID();
 		Array params;
 		params.append(sync_config->DataID);
 		params.append(value);

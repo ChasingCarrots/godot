@@ -189,8 +189,10 @@ public:
 	void InitializeAsAuthority();
 	Ref<CommunicationLine> GetCommunicationLine();
 	bool IsServer();
+	int GetServerID();
 	bool IsAuthority();
-	int GetAuthority();
+	int GetAuthorityID();
+	int GetLocalMultiplayerID();
 
 	void SynchronizeAllToSingleClient(int client_multiplayer_id);
 	void SetupDataMultiplayerSynchronization(StringName dataName, DataSynchronizationMode syncMode, DataSynchronizationType dataType);

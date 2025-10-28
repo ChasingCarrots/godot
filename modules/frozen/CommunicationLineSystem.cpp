@@ -94,10 +94,6 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 
 void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 	_connected_peers.insert(multiplayer_id);
-	if (multiplayer_id == _server_id) {
-		emit_signal(SNAME("connected_to_server"));
-	}
-	emit_signal(SNAME("peer_connected"), multiplayer_id);
 
 	if (!_communication_lines.is_empty() && is_server()) {
 		// we send the new peer all the current communication lines, so they are up to speed!
@@ -116,6 +112,8 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 	for (auto &line : _communication_lines) {
 		line->new_peer_connected(multiplayer_id);
 	}
+	
+	emit_signal(SNAME("peer_connected"), multiplayer_id);
 }
 
 void CommunicationLineSystem::on_peer_disconnected(int multiplayer_id) {
@@ -273,7 +271,7 @@ Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const St
 		_send_buffer->put_string(string_id);
 		_send_buffer->put_u16(new_communication_line->_int_id);
 		for (int to_id : peer_ids) {
-			if (to_id == 1) {
+			if (to_id == get_server_id()) {
 				continue;
 			}
 			send_packet_to_peer(_send_buffer->get_data_array(), to_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);

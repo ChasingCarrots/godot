@@ -41,23 +41,6 @@ private:
 	void update_status();
 	void process_packet(int from, const uint8_t *packet, int packet_len);
 	void send_to_peer(int to, const PackedByteArray &packet, MultiplayerPeer::TransferMode mode) const;
-
-	void set_server_id(const int id) {
-		_server_id = id;
-	}
-	int get_server_id() const {
-		return _server_id;
-	}
-	bool is_server() const {
-		if (_multiplayer_peer == nullptr) { return true; }
-
-		return get_local_multiplayer_id() == _server_id;
-	}
-	int get_local_multiplayer_id() const {
-		if (_multiplayer_peer == nullptr) { return -1; }
-		
-		return _multiplayer_peer->get_unique_id();
-	};
 	Ref<MultiplayerPeer> get_multiplayer_peer() { return _multiplayer_peer; }
 
 	static CommunicationLineSystem *_global_coms;
@@ -80,7 +63,31 @@ public:
 		return _communication_lines[index];
 	}
 	void set_multiplayer_peer(const Ref<MultiplayerPeer> &p_peer);
+	
 	Vector<int> get_connected_peer_ids() const;
+
+	void set_server_id(const int id) {
+		_server_id = id;
+
+		print_line("[", get_local_multiplayer_id() ,"] Server ID set to: ", id);
+		if (id != get_local_multiplayer_id()){
+			emit_signal(SNAME("connected_to_server"));
+		}
+	}
+	
+	int get_server_id() const {
+		return _server_id;
+	}
+	bool is_server() const {
+		if (_multiplayer_peer == nullptr) { return true; }
+
+		return get_local_multiplayer_id() == _server_id;
+	}
+	int get_local_multiplayer_id() const {
+		if (_multiplayer_peer == nullptr) { return -1; }
+		
+		return _multiplayer_peer->get_unique_id();
+	};
 };
 
 #endif //COMMUNICATIONLINESYSTEM_H

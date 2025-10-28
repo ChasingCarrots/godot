@@ -419,7 +419,7 @@ int CommunicationLine::fill_send_buffer_with_function_parameters(const StringNam
 			continue;
 		}
 		if (parameters.size() != function.Parameters.size()) {
-			print_error(vformat("Error calling function %s: function definition has %i parameters, but is called with %i parameters.", function_name, function.Parameters.size(), parameters.size()));
+			print_error(vformat("Error calling function %s: function definition has %d parameters, but is called with %d parameters.", function_name, function.Parameters.size(), parameters.size()));
 			return false;
 		}
 		_send_buffer.put_u8(function_i);
