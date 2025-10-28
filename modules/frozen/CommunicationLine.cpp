@@ -2,13 +2,12 @@
 
 #include "CommunicationLineSystem.h"
 
-#include <functional>
-
 void CommunicationCallWithAnswer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_number_of_answers"), &CommunicationCallWithAnswer::get_number_of_answers);
 	ClassDB::bind_method(D_METHOD("get_peer_id", "index"), &CommunicationCallWithAnswer::get_peer_id);
 	ClassDB::bind_method(D_METHOD("get_answer", "index"), &CommunicationCallWithAnswer::get_answer);
 	ClassDB::bind_method(D_METHOD("get_time_to_answer", "index"), &CommunicationCallWithAnswer::get_time_to_answer);
+
 
 	ADD_SIGNAL(MethodInfo("AnswerReceived"));
 }
@@ -54,6 +53,11 @@ void CommunicationLine::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("call_function_on_peer_expect_answer", "function_name", "parameters", "peer_id"), &CommunicationLine::call_function_on_peer_expect_answer);
 	ClassDB::bind_method(D_METHOD("get_num_bytes_received_last_second"), &CommunicationLine::get_num_bytes_received_last_second);
 	ClassDB::bind_method(D_METHOD("get_num_bytes_sent_last_second"), &CommunicationLine::get_num_bytes_sent_last_second);
+	ClassDB::bind_method(D_METHOD("get_local_multiplayer_id"), &CommunicationLine::get_local_multiplayer_id);
+	ClassDB::bind_method(D_METHOD("is_server"), &CommunicationLine::is_server);
+	ClassDB::bind_method(D_METHOD("get_server_id"), &CommunicationLine::get_server_id);
+	ClassDB::bind_method(D_METHOD("get_multiplayer_peer"), &CommunicationLine::get_multiplayer_peer);
+	ClassDB::bind_method(D_METHOD("get_connected_peers_list"), &CommunicationLine::get_connected_peers_list);
 
 	ADD_SIGNAL(MethodInfo("PeerCommunicationStateChanged", PropertyInfo(Variant::INT, "peer_multiplayer_id"), PropertyInfo(Variant::INT, "new_state")));
 	ADD_SIGNAL(MethodInfo("CommunicationStateChanged", PropertyInfo(Variant::INT, "new_state")));
@@ -415,7 +419,7 @@ int CommunicationLine::fill_send_buffer_with_function_parameters(const StringNam
 			continue;
 		}
 		if (parameters.size() != function.Parameters.size()) {
-			print_error(vformat("Error calling function %s: function definition has %i parameters, but is called with %i parameters.", function_name, function.Parameters.size(), parameters.size()));
+			print_error(vformat("Error calling function %s: function definition has %d parameters, but is called with %d parameters.", function_name, function.Parameters.size(), parameters.size()));
 			return false;
 		}
 		_send_buffer.put_u8(function_i);
@@ -431,6 +435,10 @@ int CommunicationLine::fill_send_buffer_with_function_parameters(const StringNam
 		return function_i;
 	}
 	return -1;
+}
+
+int CommunicationLine::get_server_id() const {
+	return _communication_line_system->get_server_id();
 }
 
 void CommunicationLine::call_function_on_peers(const StringName &function_name, Array parameters, uint8_t only_on_peers_with_bits_set, uint8_t only_on_peers_with_bits_unset) {
@@ -488,7 +496,7 @@ void CommunicationLine::call_function_on_peer(const StringName &function_name, A
 		_communication_line_system->send_packet_to_peer(bytes, peer_id, function.Mode);
 		push_sent_amount(bytes.size());
 	} else {
-		print_error(vformat("CommunicationLine::call_function_on_peers: failed to send function %s", function_name));
+		print_error(vformat("CommunicationLine::call_function_on_peer: failed to send function %s", function_name));
 	}
 }
 
@@ -618,4 +626,37 @@ inline void CommunicationLine::unset_local_peer_bits(uint8_t bit) {
 			push_sent_amount(_send_buffer.get_size());
 		}
 	}
+}
+
+int CommunicationLine::get_local_multiplayer_id() const {
+	return _communication_line_system->get_local_multiplayer_id();
+}
+
+bool CommunicationLine::is_server() const {
+	if (_communication_line_system == nullptr) {
+		return true;
+	}
+
+	return _communication_line_system->is_server();
+}
+
+Ref<MultiplayerPeer> CommunicationLine::get_multiplayer_peer() const {
+	return _communication_line_system->get_multiplayer_peer();
+}
+
+TypedArray<Dictionary> CommunicationLine::get_connected_peers_list() {
+	TypedArray<Dictionary> peers_list;
+
+    for (int i = 0; i < _other_peers.size(); i++) {
+        const CommunicationLinePeer &peer = _other_peers[i];
+        Dictionary peer_dict;
+
+        peer_dict["multiplayer_id"] = peer.get_multiplayer_id();
+        peer_dict["peer_bits"] = peer.get_peer_bits();
+        peer_dict["communication_state"] = peer.get_communication_state();
+
+        peers_list.push_back(peer_dict);
+    }
+
+    return peers_list;
 }

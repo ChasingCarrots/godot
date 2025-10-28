@@ -396,13 +396,11 @@ bool AudioStreamMicrophone::is_monophonic() const {
 int AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_frames) {
 	AudioDriver::get_singleton()->lock();
 
-	Vector<int32_t> buf = AudioDriver::get_singleton()->get_input_buffer();
+		Vector<int32_t> buf = AudioDriver::get_singleton()->get_input_buffer();
 	unsigned int input_size = AudioDriver::get_singleton()->get_input_size();
 	int mix_rate = AudioDriver::get_singleton()->get_input_mix_rate();
 	unsigned int playback_delay = MIN(((50 * mix_rate) / 1000) * 2, buf.size() >> 1);
-#ifdef DEBUG_ENABLED
 	unsigned int input_position = AudioDriver::get_singleton()->get_input_position();
-#endif
 
 	int mixed_frames = p_frames;
 
@@ -412,6 +410,18 @@ int AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_fra
 		}
 		input_ofs = 0;
 	} else {
+		int offset_to_realtime = input_position - input_ofs;
+		if (input_ofs > input_position) {
+			// wraparound the ring buffer
+			offset_to_realtime = (input_position + buf.size()) - input_ofs;
+		}
+		if (offset_to_realtime > 2 * mix_rate / 10) {
+			// the delay has gotten too big, let's get back to realtime
+			auto before = input_ofs;
+			input_ofs = (input_position - p_frames * 2) % buf.size();
+			print_verbose(vformat("AudioStreamPlaybackMicrophone input buffer correction from %d to %d", before, input_ofs));
+		}
+
 		for (int i = 0; i < p_frames; i++) {
 			if (input_size > input_ofs && (int)input_ofs < buf.size()) {
 				float l = (buf[input_ofs++] >> 16) / 32768.f;
@@ -425,9 +435,6 @@ int AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_fra
 
 				p_buffer[i] = AudioFrame(l, r);
 			} else {
-				if (mixed_frames == p_frames) {
-					mixed_frames = i;
-				}
 				p_buffer[i] = AudioFrame(0.0f, 0.0f);
 			}
 		}
@@ -799,10 +806,13 @@ AudioStreamRandomizer::AudioStreamRandomizer() {
 void AudioStreamPlaybackRandomizer::start(double p_from_pos) {
 	playing = playback;
 	{
-		float range_from = 1.0 / randomizer->random_pitch_scale;
-		float range_to = randomizer->random_pitch_scale;
+		// GH-10238 : Pitch_scale is multiplicative, so picking a random number for it without log
+		// conversion will bias it towards higher pitches (0.5 is down one octave, 2.0 is up one octave).
+		// See: https://pressbooks.pub/sound/chapter/pitch-and-frequency-in-music/
+		float range_from = Math::log(1.0f / randomizer->random_pitch_scale);
+		float range_to = Math::log(randomizer->random_pitch_scale);
 
-		pitch_scale = range_from + Math::randf() * (range_to - range_from);
+		pitch_scale = Math::exp(range_from + Math::randf() * (range_to - range_from));
 	}
 	{
 		float range_from = -randomizer->random_volume_offset_db;

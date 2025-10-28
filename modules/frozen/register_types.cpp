@@ -21,6 +21,7 @@ void initialize_frozen_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CompositeNodeModule>();
 	ClassDB::register_class<CompositeNodeModule3D>();
 	ClassDB::register_class<CompositeNodeModuleCharacterBody3D>();
+	ClassDB::register_class<CompositeNodeModuleArea3D>();
 	ClassDB::register_class<CompositeNodeValue>();
 	ClassDB::register_class<SynchronizedArray>();
 }

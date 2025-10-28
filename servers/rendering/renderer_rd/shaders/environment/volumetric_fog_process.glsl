@@ -4,6 +4,10 @@
 
 #VERSION_DEFINES
 
+#ifdef USE_VULKAN_MEMORY_MODEL
+#pragma use_vulkan_memory_model
+#endif
+
 #ifdef MODE_DENSITY
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 #else
@@ -555,7 +559,7 @@ void main() {
 							vec4 v = vec4(view_pos, 1.0);
 
 							vec4 splane = (spot_lights.data[light_index].shadow_matrix * v);
-							splane.z -= spot_lights.data[light_index].shadow_bias / (d * spot_lights.data[light_index].inv_radius);
+							splane.z -= spot_lights.data[light_index].shadow_bias;
 							splane /= splane.w;
 
 							vec3 pos = vec3(splane.xy * spot_lights.data[light_index].atlas_rect.zw + spot_lights.data[light_index].atlas_rect.xy, splane.z);

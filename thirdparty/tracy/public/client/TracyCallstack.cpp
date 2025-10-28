@@ -24,15 +24,33 @@
 #    pragma warning( disable : 4091 )
 #  endif
 #  include <dbghelp.h>
+#  pragma comment( lib, "dbghelp.lib" )
 #  ifdef _MSC_VER
 #    pragma warning( pop )
 #  endif
-#elif TRACY_HAS_CALLSTACK == 2 || TRACY_HAS_CALLSTACK == 3 || TRACY_HAS_CALLSTACK == 4 || TRACY_HAS_CALLSTACK == 6
+#elif defined(TRACY_USE_LIBBACKTRACE)
+
 #  include "../libbacktrace/backtrace.hpp"
 #  include <algorithm>
 #  include <dlfcn.h>
 #  include <cxxabi.h>
 #  include <stdlib.h>
+
+// Implementation files
+#  include "../libbacktrace/alloc.cpp"
+#  include "../libbacktrace/dwarf.cpp"
+#  include "../libbacktrace/fileline.cpp"
+#  include "../libbacktrace/mmapio.cpp"
+#  include "../libbacktrace/posix.cpp"
+#  include "../libbacktrace/sort.cpp"
+#  include "../libbacktrace/state.cpp"
+#  if TRACY_HAS_CALLSTACK == 4
+#    include "../libbacktrace/macho.cpp"
+#  else
+#    include "../libbacktrace/elf.cpp"
+#  endif
+#  include "../common/TracyStackFrames.cpp"
+
 #elif TRACY_HAS_CALLSTACK == 5
 #  include <dlfcn.h>
 #  include <cxxabi.h>
@@ -53,7 +71,7 @@ extern "C"
 };
 #endif
 
-#if TRACY_HAS_CALLSTACK == 2 || TRACY_HAS_CALLSTACK == 3 || TRACY_HAS_CALLSTACK == 4 || TRACY_HAS_CALLSTACK == 5 || TRACY_HAS_CALLSTACK == 6
+#if defined(TRACY_USE_LIBBACKTRACE) || TRACY_HAS_CALLSTACK == 5
 // If you want to use your own demangling functionality (e.g. for another language),
 // define TRACY_DEMANGLE and provide your own implementation of the __tracy_demangle
 // function. The input parameter is a function name. The demangle function must
@@ -91,7 +109,7 @@ extern "C" const char* ___tracy_demangle( const char* mangled )
 #endif
 #endif
 
-#if TRACY_HAS_CALLSTACK == 3
+#if defined(TRACY_USE_LIBBACKTRACE) && TRACY_HAS_CALLSTACK != 4 // dl_iterate_phdr is required for the current image cache. Need to move it to libbacktrace?
 #   define TRACY_USE_IMAGE_CACHE
 #   include <link.h>
 #endif
@@ -282,7 +300,12 @@ extern "C"
     t_SymFromInlineContext _SymFromInlineContext = 0;
     t_SymGetLineFromInlineContext _SymGetLineFromInlineContext = 0;
 
-    TRACY_API ___tracy_t_RtlWalkFrameChain ___tracy_RtlWalkFrameChain = 0;
+    typedef unsigned long (__stdcall *___tracy_t_RtlWalkFrameChain)( void**, unsigned long, unsigned long );
+    ___tracy_t_RtlWalkFrameChain ___tracy_RtlWalkFrameChainPtr = nullptr;
+    TRACY_API unsigned long ___tracy_RtlWalkFrameChain( void** callers, unsigned long count, unsigned long flags)
+    {
+        return ___tracy_RtlWalkFrameChainPtr(callers, count, flags);
+    }
 }
 
 struct ModuleCache
@@ -307,7 +330,7 @@ size_t s_krnlCacheCnt;
 
 void InitCallstackCritical()
 {
-    ___tracy_RtlWalkFrameChain = (___tracy_t_RtlWalkFrameChain)GetProcAddress( GetModuleHandleA( "ntdll.dll" ), "RtlWalkFrameChain" );
+    ___tracy_RtlWalkFrameChainPtr = (___tracy_t_RtlWalkFrameChain)GetProcAddress( GetModuleHandleA( "ntdll.dll" ), "RtlWalkFrameChain" );
 }
 
 void DbgHelpInit()
@@ -550,30 +573,28 @@ ModuleNameAndBaseAddress GetModuleNameAndPrepareSymbols( uint64_t addr )
         }
     }
 
-    HMODULE mod[1024];
-    DWORD needed;
     HANDLE proc = GetCurrentProcess();
+    // Do not use FreeLibrary because we set the flag GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT
+    // see https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandleexa to get more information
+    constexpr DWORD flag = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+    HMODULE mod = NULL;
 
     InitRpmalloc();
-    if( EnumProcessModules( proc, mod, sizeof( mod ), &needed ) != 0 )
+    if( GetModuleHandleExA( flag, (char*)addr, &mod ) != 0 )
     {
-        const auto sz = needed / sizeof( HMODULE );
-        for( size_t i=0; i<sz; i++ )
+        MODULEINFO info;
+        if( GetModuleInformation( proc, mod, &info, sizeof( info ) ) != 0 )
         {
-            MODULEINFO info;
-            if( GetModuleInformation( proc, mod[i], &info, sizeof( info ) ) != 0 )
+            const auto base = uint64_t( info.lpBaseOfDll );
+            if( addr >= base && addr < ( base + info.SizeOfImage ) )
             {
-                const auto base = uint64_t( info.lpBaseOfDll );
-                if( addr >= base && addr < base + info.SizeOfImage )
+                char name[1024];
+                const auto nameLength = GetModuleFileNameA( mod, name, sizeof( name ) );
+                if( nameLength > 0 )
                 {
-                    char name[1024];
-                    const auto nameLength = GetModuleFileNameA( mod[i], name, 1021 );
-                    if( nameLength > 0 )
-                    {
-                        // since this is the first time we encounter this module, load its symbols (needed for modules loaded after SymInitialize)
-                        ModuleCache* cachedModule = LoadSymbolsForModuleAndCache( name, nameLength, (DWORD64)info.lpBaseOfDll, info.SizeOfImage );
-                        return ModuleNameAndBaseAddress{ cachedModule->name, cachedModule->start };
-                    }
+                    // since this is the first time we encounter this module, load its symbols (needed for modules loaded after SymInitialize)
+                    ModuleCache* cachedModule = LoadSymbolsForModuleAndCache( name, nameLength, (DWORD64)info.lpBaseOfDll, info.SizeOfImage );
+                    return ModuleNameAndBaseAddress{ cachedModule->name, cachedModule->start };
                 }
             }
         }
@@ -753,7 +774,7 @@ CallstackEntryData DecodeCallstackPtr( uint64_t ptr )
     return { cb_data, uint8_t( cb_num ), moduleNameAndAddress.name };
 }
 
-#elif TRACY_HAS_CALLSTACK == 2 || TRACY_HAS_CALLSTACK == 3 || TRACY_HAS_CALLSTACK == 4 || TRACY_HAS_CALLSTACK == 6
+#elif defined(TRACY_USE_LIBBACKTRACE)
 
 enum { MaxCbTrace = 64 };
 

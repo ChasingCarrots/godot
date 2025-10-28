@@ -262,7 +262,7 @@ void TimelineItemThread::HeaderExtraContents( const TimelineContext& ctx, int of
 bool TimelineItemThread::DrawContents( const TimelineContext& ctx, int& offset )
 {
     m_view.DrawThread( ctx, *m_thread, m_draw, m_ctxDraw, m_samplesDraw, m_lockDraw, offset, m_depth, m_hasCtxSwitch, m_hasSamples );
-    if( m_depth == 0 && !m_hasMessages )
+    if( m_depth == 0 && !m_hasMessages && ( !m_view.GetViewData().drawSamples || !m_hasSamples ) )
     {
         auto& crash = m_worker.GetCrashEvent();
         return crash.thread == m_thread->id;
@@ -274,6 +274,21 @@ void TimelineItemThread::DrawOverlay( const ImVec2& ul, const ImVec2& dr )
 {
     m_view.DrawThreadOverlays( *m_thread, ul, dr );
 }
+
+void TimelineItemThread::DrawExtraPopupItems()
+{
+    if( m_view.GetSelectThread() == m_thread->id )
+    {
+        if( ImGui::MenuItem( ICON_FA_TIMELINE " Unselect in CPU timeline" ) )
+        {
+            m_view.SelectThread( 0 );
+        }
+    }
+    else if( m_view.GetViewData().drawCpuData && ImGui::MenuItem( ICON_FA_TIMELINE " Select in CPU timeline" ) )
+    {
+        m_view.SelectThread( m_thread->id );
+    }
+ }
 
 void TimelineItemThread::DrawFinished()
 {

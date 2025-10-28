@@ -108,12 +108,15 @@ void Node3D::_propagate_transform_changed(Node3D *p_origin) {
 		return;
 	}
 
-	for (Node3D *&E : data.children) {
-		if (E->data.top_level) {
-			continue; //don't propagate to a top_level
+	for (uint32_t n = 0; n < data.node3d_children.size(); n++) {
+		Node3D *s = data.node3d_children[n];
+
+		// Don't propagate to a toplevel.
+		if (!s->data.top_level) {
+			s->_propagate_transform_changed(p_origin);
 		}
-		E->_propagate_transform_changed(p_origin);
 	}
+
 #ifdef TOOLS_ENABLED
 	if ((!data.gizmos.is_empty() || data.notify_transform) && !data.ignore_notification && !xform_change.in_list()) {
 #else
@@ -148,9 +151,11 @@ void Node3D::_notification(int p_what) {
 			}
 
 			if (data.parent) {
-				data.C = data.parent->data.children.push_back(this);
-			} else {
-				data.C = nullptr;
+				data.index_in_parent = data.parent->data.node3d_children.size();
+				data.parent->data.node3d_children.push_back(this);
+			} else if (data.index_in_parent != UINT32_MAX) {
+				data.index_in_parent = UINT32_MAX;
+				ERR_PRINT("Node3D ENTER_TREE detected without EXIT_TREE, recovering.");
 			}
 
 			if (data.top_level && !Engine::get_singleton()->is_editor_hint()) {
@@ -202,11 +207,27 @@ void Node3D::_notification(int p_what) {
 			if (xform_change.in_list()) {
 				get_tree()->xform_change_list.remove(&xform_change);
 			}
-			if (data.C) {
-				data.parent->data.children.erase(data.C);
+
+			if (data.parent) {
+				if (data.index_in_parent != UINT32_MAX) {
+					// Aliases
+					uint32_t c = data.index_in_parent;
+					LocalVector<Node3D *> &parent_children = data.parent->data.node3d_children;
+
+					parent_children.remove_at_unordered(c);
+
+					// After unordered remove, we need to inform the moved child
+					// what their new id is in the parent children list.
+					if (parent_children.size() > c) {
+						parent_children[c]->data.index_in_parent = c;
+					}
+				} else {
+					ERR_PRINT("Node3D index_in_parent unset at EXIT_TREE.");
+				}
 			}
+			data.index_in_parent = UINT32_MAX;
+
 			data.parent = nullptr;
-			data.C = nullptr;
 			_update_visibility_parent(true);
 			_disable_client_physics_interpolation();
 		} break;
@@ -229,7 +250,8 @@ void Node3D::_notification(int p_what) {
 			}
 
 #ifdef TOOLS_ENABLED
-			if (is_part_of_edited_scene()) {
+			if (is_part_of_edited_scene() && !data.gizmos_requested) {
+				data.gizmos_requested = true;
 				get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, SceneStringName(_spatial_editor_group), SNAME("_request_gizmo_for_id"), get_instance_id());
 			}
 #endif
@@ -509,7 +531,7 @@ Transform3D Node3D::get_global_transform_interpolated() {
 	// Pass through if physics interpolation is switched off.
 	// This is a convenience, as it allows you to easy turn off interpolation
 	// without changing any code.
-	if (is_inside_tree() && get_tree()->is_physics_interpolation_enabled() && !Engine::get_singleton()->is_in_physics_frame()) {
+	if (SceneTree::is_fti_enabled() && is_inside_tree() && !Engine::get_singleton()->is_in_physics_frame()) {
 		// Note that with SceneTreeFTI, we may want to calculate interpolated transform for a node
 		// with physics interpolation set to OFF, if it has a parent that is ON.
 
@@ -841,7 +863,10 @@ void Node3D::update_gizmos() {
 	}
 
 	if (data.gizmos.is_empty()) {
-		get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, SceneStringName(_spatial_editor_group), SNAME("_request_gizmo_for_id"), get_instance_id());
+		if (!data.gizmos_requested) {
+			data.gizmos_requested = true;
+			get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, SceneStringName(_spatial_editor_group), SNAME("_request_gizmo_for_id"), get_instance_id());
+		}
 		return;
 	}
 	if (data.gizmos_dirty) {
@@ -918,6 +943,7 @@ void Node3D::clear_gizmos() {
 		data.gizmos.write[i]->free();
 	}
 	data.gizmos.clear();
+	data.gizmos_requested = false;
 #endif
 }
 
@@ -1028,6 +1054,7 @@ void Node3D::set_as_top_level(bool p_enabled) {
 		}
 	}
 	data.top_level = p_enabled;
+	reset_physics_interpolation();
 }
 
 void Node3D::set_as_top_level_keep_local(bool p_enabled) {
@@ -1037,6 +1064,7 @@ void Node3D::set_as_top_level_keep_local(bool p_enabled) {
 	}
 	data.top_level = p_enabled;
 	_propagate_transform_changed(this);
+	reset_physics_interpolation();
 }
 
 bool Node3D::is_set_as_top_level() const {
@@ -1063,11 +1091,12 @@ void Node3D::_propagate_visibility_changed() {
 	}
 #endif
 
-	for (Node3D *c : data.children) {
-		if (!c || !c->data.visible) {
-			continue;
+	for (uint32_t n = 0; n < data.node3d_children.size(); n++) {
+		Node3D *s = data.node3d_children[n];
+
+		if (s->data.visible) {
+			s->_propagate_visibility_changed();
 		}
-		c->_propagate_visibility_changed();
 	}
 }
 
@@ -1300,7 +1329,7 @@ void Node3D::_update_visibility_parent(bool p_update_root) {
 		RS::get_singleton()->instance_set_visibility_parent(vi->get_instance(), data.visibility_parent);
 	}
 
-	for (Node3D *c : data.children) {
+	for (Node3D *c : data.node3d_children) {
 		c->_update_visibility_parent(false);
 	}
 }
@@ -1475,8 +1504,8 @@ void Node3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("orthonormalize"), &Node3D::orthonormalize);
 	ClassDB::bind_method(D_METHOD("set_identity"), &Node3D::set_identity);
 
-	ClassDB::bind_method(D_METHOD("look_at", "target", "up", "use_model_front"), &Node3D::look_at, DEFVAL(Vector3(0, 1, 0)), DEFVAL(false));
-	ClassDB::bind_method(D_METHOD("look_at_from_position", "position", "target", "up", "use_model_front"), &Node3D::look_at_from_position, DEFVAL(Vector3(0, 1, 0)), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("look_at", "target", "up", "use_model_front"), &Node3D::look_at, DEFVAL(Vector3::UP), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("look_at_from_position", "position", "target", "up", "use_model_front"), &Node3D::look_at_from_position, DEFVAL(Vector3::UP), DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("to_local", "global_point"), &Node3D::to_local);
 	ClassDB::bind_method(D_METHOD("to_global", "local_point"), &Node3D::to_global);
@@ -1540,6 +1569,7 @@ Node3D::Node3D() :
 	data.fti_processed = false;
 
 #ifdef TOOLS_ENABLED
+	data.gizmos_requested = false;
 	data.gizmos_disabled = false;
 	data.gizmos_dirty = false;
 	data.transform_gizmo_visible = true;
