@@ -246,6 +246,8 @@ public:
 	FUNC2(body_set_constant_torque, RID, const Vector3 &);
 	FUNC1RC(Vector3, body_get_constant_torque, RID);
 
+	FUNC2(body_simple_physics_step, RID, double)
+
 	FUNC2(body_set_axis_velocity, RID, const Vector3 &);
 
 	FUNC3(body_set_axis_lock, RID, BodyAxis, bool);

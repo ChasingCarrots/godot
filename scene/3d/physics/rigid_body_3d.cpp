@@ -589,6 +589,11 @@ Vector3 RigidBody3D::get_constant_torque() const {
 	return PhysicsServer3D::get_singleton()->body_get_constant_torque(get_rid());
 }
 
+void RigidBody3D::network_simple_physics_step() const {
+	PhysicsServer3D *singleton = PhysicsServer3D::get_singleton();
+	singleton->body_simple_physics_step(get_rid(), get_physics_process_delta_time());
+}
+
 void RigidBody3D::set_use_continuous_collision_detection(bool p_enable) {
 	ccd = p_enable;
 	PhysicsServer3D::get_singleton()->body_set_enable_continuous_collision_detection(get_rid(), p_enable);
@@ -758,6 +763,7 @@ void RigidBody3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_freeze_mode"), &RigidBody3D::get_freeze_mode);
 
 	ClassDB::bind_method(D_METHOD("get_colliding_bodies"), &RigidBody3D::get_colliding_bodies);
+	ClassDB::bind_method(D_METHOD("network_simple_physics_step"), &RigidBody3D::network_simple_physics_step);
 
 	GDVIRTUAL_BIND(_integrate_forces, "state");
 
