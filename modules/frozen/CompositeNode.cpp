@@ -958,13 +958,32 @@ void CompositeNode::SetupDataMultiplayerSynchronization(StringName dataName, Dat
 	    return;
 	}
 
-	// Quick sanity check! These should not be registered multiple times!
-	ERR_FAIL_COND_MSG(_sync_data_on_change.has(dataName), vformat("CompositeNode.SetupDataMultiplayerSynchronization called for an already existing DataName: %s", dataName));
-	for (const auto &lf : _sync_data_low_freq) {
-	    ERR_FAIL_COND_MSG (lf.DataName == dataName, vformat("CompositeNode.SetupDataMultiplayerSynchronization called for an already existing DataName: %s", dataName));
+	//Let's do a search first if the data value already exists
+	DataSynchronizationSettings* dataSynchSetting = nullptr;
+	if (_sync_data_on_change.has(dataName)) {
+		ERR_FAIL_COND_MSG(syncMode != OnChange, vformat("CompositeNode.SetupDataMultiplayerSynchronization called for an already existing DataName: %s but the syncMode dosen't match", dataName));
+		dataSynchSetting = &_sync_data_on_change[dataName];
 	}
-	for (const auto &hf : _sync_data_high_freq) {
-	    ERR_FAIL_COND_MSG (hf.DataName == dataName, vformat("CompositeNode.SetupDataMultiplayerSynchronization called for an already existing DataName: %s", dataName));
+
+	for(auto& synchSetting : _sync_data_high_freq){
+		if (synchSetting.DataName == dataName){
+			ERR_FAIL_COND_MSG(syncMode != HighFrequency, vformat("CompositeNode.SetupDataMultiplayerSynchronization called for an already existing DataName: %s but the syncMode dosen't match", dataName));
+			dataSynchSetting = &synchSetting;
+			break;
+		}
+	}
+
+	for(auto& synchSetting : _sync_data_low_freq){
+		if (synchSetting.DataName == dataName){
+			ERR_FAIL_COND_MSG(syncMode != LowFrequency, vformat("CompositeNode.SetupDataMultiplayerSynchronization called for an already existing DataName: %s but the syncMode dosen't match", dataName));
+			dataSynchSetting = &synchSetting;
+			break;
+		}
+	}
+
+	if (dataSynchSetting){
+		ERR_FAIL_COND_MSG(dataSynchSetting->SyncType != dataType, vformat("CompositeNode.SetupDataMultiplayerSynchronization called for an already existing DataName: %s but the dataType dosen't match", dataName));
+		return; //We found a synchronized data value with matching settings so we don't need to create it.
 	}
 
 	// Create new sync settings
