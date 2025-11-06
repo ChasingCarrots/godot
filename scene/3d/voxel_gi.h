@@ -46,6 +46,7 @@ class VoxelGIData : public Resource {
 	AABB bounds;
 	Vector3 octree_size;
 
+	float fade_distance = 1.0;
 	float dynamic_range = 2.0;
 	float energy = 1.0;
 	float bias = 1.5;
@@ -66,6 +67,9 @@ public:
 	Vector<uint8_t> get_distance_field() const;
 	Vector<int> get_level_counts() const;
 	Transform3D get_to_cell_xform() const;
+
+	void set_fade_distance(float p_distance);
+	float get_fade_distance() const;
 
 	void set_dynamic_range(float p_range);
 	float get_dynamic_range() const;

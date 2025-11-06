@@ -83,15 +83,19 @@ struct VoxelGIData {
 	mat4 xform; // 64 - 64
 
 	vec3 bounds; // 12 - 76
-	float dynamic_range; // 4 - 80
 
-	float bias; // 4 - 84
-	float normal_bias; // 4 - 88
-	bool blend_ambient; // 4 - 92
-	uint mipmaps; // 4 - 96
+	float fade_distance; // 4 - 80
+	vec3 octree_size; // 12 - 92
 
-	vec3 pad; // 12 - 108
-	float exposure_normalization; // 4 - 112
+	float dynamic_range; // 4 - 96
+
+	float bias; // 4 - 100
+	float normal_bias; // 4 - 104
+	bool blend_ambient; // 4 - 108
+	uint mipmaps; // 4 - 112
+
+	vec3 pad; // 12 - 124
+	float exposure_normalization; // 4 - 128
 };
 
 layout(set = 0, binding = 16, std140) uniform VoxelGIs {
@@ -535,19 +539,30 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 
 	position += normal * voxel_gi_instances.data[index].normal_bias;
 
-	//this causes corrupted pixels, i have no idea why..
-	if (any(bvec2(any(lessThan(position, vec3(0.0))), any(greaterThan(position, voxel_gi_instances.data[index].bounds))))) {
+	vec3 bounds = voxel_gi_instances.data[index].bounds;
+	
+	if (any(bvec2(any(lessThan(position, vec3(0.0))), any(greaterThan(position, bounds))))) {
 		return;
 	}
 
 	mat3 dir_xform = mat3(voxel_gi_instances.data[index].xform) * normal_xform;
 
-	vec3 blendv = abs(position / voxel_gi_instances.data[index].bounds * 2.0 - 1.0);
+	vec3 blendv = abs(position / bounds * 2.0 - 1.0);
 	float blend = clamp(1.0 - max(blendv.x, max(blendv.y, blendv.z)), 0.0, 1.0);
-	//float blend=1.0;
 
-	float max_distance = length(voxel_gi_instances.data[index].bounds);
-	vec3 cell_size = 1.0 / voxel_gi_instances.data[index].bounds;
+	float fade = 1.0;
+	float fade_distance = voxel_gi_instances.data[index].fade_distance;
+	if (fade_distance != 0.0) {
+		vec3 axis_fade_distance = min(vec3(fade_distance), bounds);
+		vec3 center = bounds * 0.5;
+		vec3 fade_axes = (abs(position - center) - center + axis_fade_distance) / axis_fade_distance;
+		fade_axes = clamp(1.0 - fade_axes, vec3(0.0), vec3(1.0));
+
+		fade = pow(fade_axes.x * fade_axes.y * fade_axes.z, 2.0);
+	}
+
+	float max_distance = length(bounds);
+	vec3 cell_size = 1.0 / voxel_gi_instances.data[index].octree_size;
 
 	//irradiance
 
@@ -590,7 +605,7 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 		light.a = 1.0;
 	}
 
-	out_diff += light * blend;
+	out_diff += light * blend * fade;
 
 	//radiance
 	vec4 irr_light = voxel_cone_trace(voxel_gi_textures[index], cell_size, position, ref_vec, tan(roughness * 0.5 * M_PI * 0.99), max_distance, voxel_gi_instances.data[index].bias);
@@ -599,7 +614,7 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 		irr_light.a = 1.0;
 	}
 
-	out_spec += irr_light * blend;
+	out_spec += irr_light * blend * fade;
 
 	out_blend += blend;
 }

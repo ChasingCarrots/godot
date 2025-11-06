@@ -124,6 +124,18 @@ Transform3D VoxelGIData::get_to_cell_xform() const {
 	return to_cell_xform;
 }
 
+void VoxelGIData::set_fade_distance(float p_distance) {
+	RS::get_singleton()->voxel_gi_set_fade_distance(probe, p_distance);
+	fade_distance = p_distance;
+#ifdef TOOLS_ENABLED
+	emit_signal("fade_distance_changed");
+#endif
+}
+
+float VoxelGIData::get_fade_distance() const {
+	return fade_distance;
+}
+
 void VoxelGIData::set_dynamic_range(float p_range) {
 	RS::get_singleton()->voxel_gi_set_dynamic_range(probe, p_range);
 	dynamic_range = p_range;
@@ -201,6 +213,9 @@ void VoxelGIData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_data_cells"), &VoxelGIData::get_data_cells);
 	ClassDB::bind_method(D_METHOD("get_level_counts"), &VoxelGIData::get_level_counts);
 
+	ClassDB::bind_method(D_METHOD("set_fade_distance", "fade_distance"), &VoxelGIData::set_fade_distance);
+	ClassDB::bind_method(D_METHOD("get_fade_distance"), &VoxelGIData::get_fade_distance);
+
 	ClassDB::bind_method(D_METHOD("set_dynamic_range", "dynamic_range"), &VoxelGIData::set_dynamic_range);
 	ClassDB::bind_method(D_METHOD("get_dynamic_range"), &VoxelGIData::get_dynamic_range);
 
@@ -227,6 +242,7 @@ void VoxelGIData::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL), "_set_data", "_get_data");
 
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fade_distance", PROPERTY_HINT_RANGE, "0,8,0.01,or_greater,suffix:m"), "set_fade_distance", "get_fade_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dynamic_range", PROPERTY_HINT_RANGE, "1,8,0.01"), "set_dynamic_range", "get_dynamic_range");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "energy", PROPERTY_HINT_RANGE, "0,64,0.01"), "set_energy", "get_energy");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "bias", PROPERTY_HINT_RANGE, "0,8,0.01"), "set_bias", "get_bias");
@@ -234,6 +250,8 @@ void VoxelGIData::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "propagation", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_propagation", "get_propagation");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_two_bounces"), "set_use_two_bounces", "is_using_two_bounces");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "interior"), "set_interior", "is_interior");
+
+	ADD_SIGNAL(MethodInfo("fade_distance_changed"));
 }
 
 #ifndef DISABLE_DEPRECATED
@@ -274,7 +292,19 @@ void VoxelGI::set_probe_data(const Ref<VoxelGIData> &p_data) {
 		RS::get_singleton()->instance_set_base(get_instance(), RID());
 	}
 
+#ifdef TOOLS_ENABLED
+	if (probe_data.is_valid()) {
+		probe_data->disconnect("fade_distance_changed", callable_mp((Node3D *)this, &VoxelGI::update_gizmos));
+	}
+#endif
+
 	probe_data = p_data;
+#ifdef TOOLS_ENABLED
+	if (probe_data.is_valid()) {
+		probe_data->connect("fade_distance_changed", callable_mp((Node3D *)this, &VoxelGI::update_gizmos));
+	}
+#endif
+
 	update_configuration_warnings();
 }
 

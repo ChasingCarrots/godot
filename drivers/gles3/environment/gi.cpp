@@ -77,6 +77,13 @@ Transform3D GI::voxel_gi_get_to_cell_xform(RID p_voxel_gi) const {
 	return Transform3D();
 }
 
+void GI::voxel_gi_set_fade_distance(RID p_voxel_gi, float p_distance) {
+}
+
+float GI::voxel_gi_get_fade_distance(RID p_voxel_gi) const {
+	return 0;
+}
+
 void GI::voxel_gi_set_dynamic_range(RID p_voxel_gi, float p_range) {
 }
 

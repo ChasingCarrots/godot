@@ -80,6 +80,7 @@ public:
 		AABB bounds;
 		Vector3i octree_size;
 
+		float fade_distance = 1.0;
 		float dynamic_range = 2.0;
 		float energy = 1.0;
 		float baked_exposure = 1.0;
@@ -484,6 +485,9 @@ public:
 	virtual Vector<int> voxel_gi_get_level_counts(RID p_voxel_gi) const override;
 	virtual Transform3D voxel_gi_get_to_cell_xform(RID p_voxel_gi) const override;
 
+	virtual void voxel_gi_set_fade_distance(RID p_voxel_gi, float p_distance) override;
+	virtual float voxel_gi_get_fade_distance(RID p_voxel_gi) const override;
+
 	virtual void voxel_gi_set_dynamic_range(RID p_voxel_gi, float p_range) override;
 	virtual float voxel_gi_get_dynamic_range(RID p_voxel_gi) const override;
 
@@ -752,15 +756,19 @@ public:
 		float xform[16]; // 64 - 64
 
 		float bounds[3]; // 12 - 76
-		float dynamic_range; // 4 - 80
 
-		float bias; // 4 - 84
-		float normal_bias; // 4 - 88
-		uint32_t blend_ambient; // 4 - 92
-		uint32_t mipmaps; // 4 - 96
+		float fade_distance; // 4 - 80
+		float octree_size[3]; // 12 - 92
 
-		float pad[3]; // 12 - 108
-		float exposure_normalization; // 4 - 112
+		float dynamic_range; // 4 - 96
+
+		float bias; // 4 - 100
+		float normal_bias; // 4 - 104
+		uint32_t blend_ambient; // 4 - 108
+		uint32_t mipmaps; // 4 - 112
+
+		float pad[3]; // 12 - 124
+		float exposure_normalization; // 4 - 128
 	};
 
 	struct SceneData {

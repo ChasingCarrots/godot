@@ -411,15 +411,19 @@ struct VoxelGIData {
 	mat4 xform; // 64 - 64
 
 	vec3 bounds; // 12 - 76
-	float dynamic_range; // 4 - 80
 
-	float bias; // 4 - 84
-	float normal_bias; // 4 - 88
-	bool blend_ambient; // 4 - 92
-	uint mipmaps; // 4 - 96
+	float fade_distance; // 4 - 80
+	vec3 octree_size; // 12 - 92
 
-	vec3 pad; // 12 - 108
-	float exposure_normalization; // 4 - 112
+	float dynamic_range; // 4 - 96
+
+	float bias; // 4 - 100
+	float normal_bias; // 4 - 104
+	bool blend_ambient; // 4 - 108
+	uint mipmaps; // 4 - 112
+
+	vec3 pad; // 12 - 124
+	float exposure_normalization; // 4 - 128
 };
 
 layout(set = 1, binding = 32, std140) uniform VoxelGIs {

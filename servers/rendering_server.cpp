@@ -2659,6 +2659,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("voxel_gi_get_level_counts", "voxel_gi"), &RenderingServer::voxel_gi_get_level_counts);
 	ClassDB::bind_method(D_METHOD("voxel_gi_get_to_cell_xform", "voxel_gi"), &RenderingServer::voxel_gi_get_to_cell_xform);
 
+	ClassDB::bind_method(D_METHOD("voxel_gi_set_fade_distance", "voxel_gi", "fade_distance"), &RenderingServer::voxel_gi_set_fade_distance);
 	ClassDB::bind_method(D_METHOD("voxel_gi_set_dynamic_range", "voxel_gi", "range"), &RenderingServer::voxel_gi_set_dynamic_range);
 	ClassDB::bind_method(D_METHOD("voxel_gi_set_propagation", "voxel_gi", "amount"), &RenderingServer::voxel_gi_set_propagation);
 	ClassDB::bind_method(D_METHOD("voxel_gi_set_energy", "voxel_gi", "energy"), &RenderingServer::voxel_gi_set_energy);

@@ -556,6 +556,7 @@ public:
 	FUNC1RC(Vector<int>, voxel_gi_get_level_counts, RID)
 	FUNC1RC(Transform3D, voxel_gi_get_to_cell_xform, RID)
 
+	FUNC2(voxel_gi_set_fade_distance, RID, float)
 	FUNC2(voxel_gi_set_dynamic_range, RID, float)
 	FUNC2(voxel_gi_set_propagation, RID, float)
 	FUNC2(voxel_gi_set_energy, RID, float)

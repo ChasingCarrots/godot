@@ -4393,6 +4393,14 @@
 				Sets the [member VoxelGIData.bias] value to use on the specified [param voxel_gi]'s [RID].
 			</description>
 		</method>
+		<method name="voxel_gi_set_fade_distance">
+			<return type="void" />
+			<param index="0" name="voxel_gi" type="RID" />
+			<param index="1" name="distance" type="float" />
+			<description>
+				Sets the [member VoxelGIData.fade_distance] value to use on the specified [param voxel_gi]'s [RID].
+			</description>
+		</method>
 		<method name="voxel_gi_set_dynamic_range">
 			<return type="void" />
 			<param index="0" name="voxel_gi" type="RID" />

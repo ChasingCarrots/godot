@@ -55,17 +55,28 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 
 	position += normal * voxel_gi_instances.data[index].normal_bias;
 
-	//this causes corrupted pixels, i have no idea why..
-	if (any(bvec2(any(lessThan(position, vec3(0.0))), any(greaterThan(position, voxel_gi_instances.data[index].bounds))))) {
+	vec3 bounds = voxel_gi_instances.data[index].bounds;
+	
+	if (any(bvec2(any(lessThan(position, vec3(0.0))), any(greaterThan(position, bounds))))) {
 		return;
 	}
 
-	vec3 blendv = abs(position / voxel_gi_instances.data[index].bounds * 2.0 - 1.0);
+	vec3 blendv = abs(position / bounds * 2.0 - 1.0);
 	float blend = clamp(1.0 - max(blendv.x, max(blendv.y, blendv.z)), 0.0, 1.0);
-	//float blend=1.0;
 
-	float max_distance = length(voxel_gi_instances.data[index].bounds);
-	vec3 cell_size = 1.0 / voxel_gi_instances.data[index].bounds;
+	float fade = 1.0;
+	float fade_distance = voxel_gi_instances.data[index].fade_distance;
+	if (fade_distance != 0.0) {
+		vec3 axis_fade_distance = min(vec3(fade_distance), bounds);
+		vec3 center = bounds * 0.5;
+		vec3 fade_axes = (abs(position - center) - center + axis_fade_distance) / axis_fade_distance;
+		fade_axes = clamp(1.0 - fade_axes, vec3(0.0), vec3(1.0));
+
+		fade = pow(fade_axes.x * fade_axes.y * fade_axes.z, 2.0);
+	}
+
+	float max_distance = length(bounds);
+	vec3 cell_size = 1.0 / voxel_gi_instances.data[index].octree_size;
 
 	//radiance
 
@@ -95,7 +106,7 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 	}
 
 	light *= voxel_gi_instances.data[index].dynamic_range * voxel_gi_instances.data[index].exposure_normalization;
-	out_diff += vec4(light * blend, blend);
+	out_diff += vec4(light * blend * fade, blend);
 
 	//irradiance
 	vec4 irr_light = voxel_cone_trace(voxel_gi_textures[index], cell_size, position, ref_vec, tan(roughness * 0.5 * M_PI * 0.99), max_distance, voxel_gi_instances.data[index].bias);
@@ -105,7 +116,7 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 	irr_light.rgb *= voxel_gi_instances.data[index].dynamic_range * voxel_gi_instances.data[index].exposure_normalization;
 	//irr_light=vec3(0.0);
 
-	out_spec += vec4(irr_light.rgb * blend, blend);
+	out_spec += vec4(irr_light.rgb * blend  * fade, blend);
 }
 
 vec2 octahedron_wrap(vec2 v) {

@@ -53,6 +53,9 @@ public:
 	virtual Vector<int> voxel_gi_get_level_counts(RID p_voxel_gi) const = 0;
 	virtual Transform3D voxel_gi_get_to_cell_xform(RID p_voxel_gi) const = 0;
 
+	virtual void voxel_gi_set_fade_distance(RID p_voxel_gi, float p_distance) = 0;
+	virtual float voxel_gi_get_fade_distance(RID p_voxel_gi) const = 0;
+
 	virtual void voxel_gi_set_dynamic_range(RID p_voxel_gi, float p_range) = 0;
 	virtual float voxel_gi_get_dynamic_range(RID p_voxel_gi) const = 0;
 

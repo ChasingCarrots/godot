@@ -73,15 +73,19 @@ struct VoxelGIData {
 	mat4 xform; // 64 - 64
 
 	vec3 bounds; // 12 - 76
-	float dynamic_range; // 4 - 80
 
-	float bias; // 4 - 84
-	float normal_bias; // 4 - 88
-	bool blend_ambient; // 4 - 92
-	uint mipmaps; // 4 - 96
+	float fade_distance; // 4 - 80
+	vec3 octree_size; // 12 - 92
 
-	vec3 pad; // 12 - 108
-	float exposure_normalization; // 4 - 112
+	float dynamic_range; // 4 - 96
+
+	float bias; // 4 - 100
+	float normal_bias; // 4 - 104
+	bool blend_ambient; // 4 - 108
+	uint mipmaps; // 4 - 112
+
+	vec3 pad; // 12 - 124
+	float exposure_normalization; // 4 - 128
 };
 
 layout(set = 0, binding = 11, std140) uniform VoxelGIs {
@@ -579,8 +583,9 @@ void main() {
 		for (uint i = 0; i < params.max_voxel_gi_instances; i++) {
 			vec3 position = (voxel_gi_instances.data[i].xform * vec4(world_pos, 1.0)).xyz;
 
-			//this causes corrupted pixels, i have no idea why..
-			if (all(bvec2(all(greaterThanEqual(position, vec3(0.0))), all(lessThan(position, voxel_gi_instances.data[i].bounds))))) {
+			vec3 bounds = voxel_gi_instances.data[i].bounds;
+
+			if (all(bvec2(all(greaterThanEqual(position, vec3(0.0))), all(lessThan(position, bounds))))) {
 				position /= voxel_gi_instances.data[i].bounds;
 
 				vec4 light = vec4(0.0);
@@ -590,9 +595,20 @@ void main() {
 					light += a * slight;
 				}
 
+				float fade = 1.0;
+				float fade_distance = voxel_gi_instances.data[i].fade_distance;
+				if (fade_distance != 0.0) {
+					vec3 axis_fade_distance = min(vec3(fade_distance), bounds);
+					vec3 center = bounds * 0.5;
+					vec3 fade_axes = (abs(position - center) - center + axis_fade_distance) / axis_fade_distance;
+					fade_axes = clamp(1.0 - fade_axes, vec3(0.0), vec3(1.0));
+
+					fade = pow(fade_axes.x * fade_axes.y * fade_axes.z, 2.0);
+				}
+
 				light.rgb *= voxel_gi_instances.data[i].dynamic_range * params.gi_inject * voxel_gi_instances.data[i].exposure_normalization;
 
-				total_light += light.rgb;
+				total_light += light.rgb * fade;
 			}
 		}
 

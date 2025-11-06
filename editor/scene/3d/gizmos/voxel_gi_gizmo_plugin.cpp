@@ -102,6 +102,7 @@ void VoxelGIGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 		Ref<Material> material_internal = get_material("voxel_gi_internal_material", p_gizmo);
 
 		Vector<Vector3> lines;
+		Vector<Vector3> internal_lines;
 		Vector3 size = probe->get_size();
 
 		static const int subdivs[VoxelGI::SUBDIV_MAX] = { 64, 128, 256, 512 };
@@ -110,6 +111,21 @@ void VoxelGIGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 		int subdiv = subdivs[probe->get_subdiv()];
 		float cell_size = aabb.get_longest_axis_size() / subdiv;
 
+		float fade_distance = 0.0;
+		if (probe->get_probe_data().is_valid()) {
+			fade_distance = probe->get_probe_data()->get_fade_distance();
+		}
+
+		AABB blend_aabb;
+		for (int i = 0; i < 3; i++) {
+			blend_aabb.position[i] = aabb.position[i] + fade_distance;
+			blend_aabb.size[i] = aabb.size[i] - fade_distance * 2.0;
+			if (blend_aabb.size[i] < blend_aabb.position[i]) {
+				blend_aabb.position[i] = aabb.position[i] + aabb.size[i] / 2.0;
+				blend_aabb.size[i] = 0.0;
+			}
+		}
+
 		for (int i = 0; i < 12; i++) {
 			Vector3 a, b;
 			aabb.get_edge(i, a, b);
@@ -117,7 +133,24 @@ void VoxelGIGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 			lines.push_back(b);
 		}
 
+		if (fade_distance != 0.0) {
+			for (int i = 0; i < 12; i++) {
+				Vector3 a;
+				Vector3 b;
+				blend_aabb.get_edge(i, a, b);
+				lines.push_back(a);
+				lines.push_back(b);
+			}
+
+			for (int i = 0; i < 8; i++) {
+				Vector3 ep = aabb.get_endpoint(i);
+				internal_lines.push_back(blend_aabb.get_endpoint(i));
+				internal_lines.push_back(ep);
+			}
+		}
+
 		p_gizmo->add_lines(lines, material);
+		p_gizmo->add_lines(internal_lines, material);
 
 		lines.clear();
 
