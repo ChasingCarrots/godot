@@ -81,5 +81,8 @@
 		<member name="use_two_bounces" type="bool" setter="set_use_two_bounces" getter="is_using_two_bounces" default="true">
 			If [code]true[/code], performs two bounces of indirect lighting instead of one. This makes indirect lighting look more natural and brighter at a small performance cost. The second bounce is also visible in reflections. If the scene appears too bright after enabling [member use_two_bounces], adjust [member propagation] and [member energy].
 		</member>
+		<member name="cull_mask" type="int" setter="set_cull_mask" getter="get_cull_mask" default="1048575">
+			Sets the cull mask which determines what objects are affected by the [VoxelGI] node.
+		</member>
 	</members>
 </class>

@@ -368,6 +368,20 @@ bool GI::voxel_gi_is_interior(RID p_voxel_gi) const {
 	return voxel_gi->interior;
 }
 
+void GI::voxel_gi_set_cull_mask(RID p_voxel_gi, uint32_t p_layers) {
+	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
+	ERR_FAIL_NULL(voxel_gi);
+
+	voxel_gi->cull_mask = p_layers;
+	voxel_gi->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_CULL_MASK);
+}
+
+uint32_t GI::voxel_gi_get_cull_mask(RID p_voxel_gi) const {
+	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
+	ERR_FAIL_NULL_V(voxel_gi, 0);
+	return voxel_gi->cull_mask;
+}
+
 uint32_t GI::voxel_gi_get_version(RID p_voxel_gi) const {
 	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
 	ERR_FAIL_NULL_V(voxel_gi, 0);
@@ -3756,6 +3770,8 @@ void GI::setup_voxel_gi_instances(RenderDataRD *p_render_data, Ref<RenderSceneBu
 					float exposure_normalization = RSG::camera_attributes->camera_attributes_get_exposure_normalization_factor(p_render_data->camera_attributes);
 					gipd.exposure_normalization = exposure_normalization / voxel_gi_get_baked_exposure_normalization(base_probe);
 				}
+
+				gipd.cull_mask = voxel_gi_get_cull_mask(base_probe);
 			}
 
 			r_voxel_gi_instances_used++;

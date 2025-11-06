@@ -55,6 +55,8 @@ class VoxelGIData : public Resource {
 	bool interior = false;
 	bool use_two_bounces = true;
 
+	uint32_t cull_mask = (1 << 20) - 1;
+
 protected:
 	static void _bind_methods();
 
@@ -91,6 +93,9 @@ public:
 
 	void set_use_two_bounces(bool p_enable);
 	bool is_using_two_bounces() const;
+
+	void set_cull_mask(uint32_t p_layers);
+	uint32_t get_cull_mask() const;
 
 	virtual RID get_rid() const override;
 

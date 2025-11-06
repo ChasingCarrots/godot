@@ -729,6 +729,8 @@ public:
 	virtual void voxel_gi_set_interior(RID p_voxel_gi, bool p_enable) = 0;
 	virtual void voxel_gi_set_use_two_bounces(RID p_voxel_gi, bool p_enable) = 0;
 
+	virtual void voxel_gi_set_cull_mask(RID p_voxel_gi, uint32_t p_layers) = 0;
+
 	enum VoxelGIQuality {
 		VOXEL_GI_QUALITY_LOW,
 		VOXEL_GI_QUALITY_HIGH,

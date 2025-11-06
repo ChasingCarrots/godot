@@ -28,6 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+#include <cstdint>
 #ifdef GLES3_ENABLED
 
 #include "gi.h"
@@ -138,6 +139,13 @@ void GI::voxel_gi_set_use_two_bounces(RID p_voxel_gi, bool p_enable) {
 
 bool GI::voxel_gi_is_using_two_bounces(RID p_voxel_gi) const {
 	return false;
+}
+
+void GI::voxel_gi_set_cull_mask(RID p_voxel_gi, uint32_t p_layers) {
+}
+
+uint32_t GI::voxel_gi_get_cull_mask(RID p_voxel_gi) const {
+	return 0;
 }
 
 uint32_t GI::voxel_gi_get_version(RID p_voxel_gi) const {

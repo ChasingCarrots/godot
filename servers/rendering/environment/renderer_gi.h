@@ -80,6 +80,9 @@ public:
 	virtual void voxel_gi_set_use_two_bounces(RID p_voxel_gi, bool p_enable) = 0;
 	virtual bool voxel_gi_is_using_two_bounces(RID p_voxel_gi) const = 0;
 
+	virtual void voxel_gi_set_cull_mask(RID p_voxel_gi, uint32_t p_layers) = 0;
+	virtual uint32_t voxel_gi_get_cull_mask(RID p_voxel_gi) const = 0;
+
 	virtual uint32_t voxel_gi_get_version(RID p_probe) const = 0;
 
 	virtual void sdfgi_reset() = 0;

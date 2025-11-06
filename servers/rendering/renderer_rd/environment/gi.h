@@ -90,6 +90,8 @@ public:
 		bool interior = false;
 		bool use_two_bounces = true;
 
+		uint32_t cull_mask = (1 << 20) - 1;
+
 		uint32_t version = 1;
 		uint32_t data_version = 1;
 
@@ -512,6 +514,9 @@ public:
 	virtual void voxel_gi_set_use_two_bounces(RID p_voxel_gi, bool p_enable) override;
 	virtual bool voxel_gi_is_using_two_bounces(RID p_voxel_gi) const override;
 
+	virtual void voxel_gi_set_cull_mask(RID p_voxel_gi, uint32_t p_layers) override;
+	virtual uint32_t voxel_gi_get_cull_mask(RID p_voxel_gi) const override;
+
 	virtual uint32_t voxel_gi_get_version(RID p_probe) const override;
 	uint32_t voxel_gi_get_data_version(RID p_probe);
 
@@ -767,7 +772,8 @@ public:
 		uint32_t blend_ambient; // 4 - 108
 		uint32_t mipmaps; // 4 - 112
 
-		float pad[3]; // 12 - 124
+		float pad[2]; // 8 - 120
+		uint32_t cull_mask; // 4 - 124
 		float exposure_normalization; // 4 - 128
 	};
 

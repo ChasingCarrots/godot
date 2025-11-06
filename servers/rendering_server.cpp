@@ -2669,6 +2669,8 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("voxel_gi_set_interior", "voxel_gi", "enable"), &RenderingServer::voxel_gi_set_interior);
 	ClassDB::bind_method(D_METHOD("voxel_gi_set_use_two_bounces", "voxel_gi", "enable"), &RenderingServer::voxel_gi_set_use_two_bounces);
 
+	ClassDB::bind_method(D_METHOD("voxel_gi_set_cull_mask", "voxel_gi", "layers"), &RenderingServer::voxel_gi_set_cull_mask);
+
 	ClassDB::bind_method(D_METHOD("voxel_gi_set_quality", "quality"), &RenderingServer::voxel_gi_set_quality);
 
 	BIND_ENUM_CONSTANT(VOXEL_GI_QUALITY_LOW);

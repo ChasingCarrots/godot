@@ -262,6 +262,12 @@ void RendererSceneCull::_instance_pair(Instance *p_A, Instance *p_B) {
 
 	} else if (self->geometry_instance_pair_mask & (1 << RS::INSTANCE_VOXEL_GI) && B->base_type == RS::INSTANCE_VOXEL_GI && ((1 << A->base_type) & RS::INSTANCE_GEOMETRY_MASK)) {
 		InstanceVoxelGIData *voxel_gi = static_cast<InstanceVoxelGIData *>(B->base_data);
+
+		if (!(voxel_gi->cull_mask & A->layer_mask)) {
+			// Early return if the object's layer mask doesn't match the voxel_gi's cull mask.
+			return;
+		}
+
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(A->base_data);
 
 		geom->voxel_gi_instances.insert(B);
@@ -1654,6 +1660,7 @@ void RendererSceneCull::_update_instance(Instance *p_instance) const {
 		InstanceVoxelGIData *voxel_gi = static_cast<InstanceVoxelGIData *>(p_instance->base_data);
 
 		scene_render->voxel_gi_instance_set_transform_to_data(voxel_gi->probe_instance, *instance_xform);
+		voxel_gi->cull_mask = RSG::gi->voxel_gi_get_cull_mask(p_instance->base);
 	} else if (p_instance->base_type == RS::INSTANCE_PARTICLES) {
 		RSG::particles_storage->particles_set_emission_transform(p_instance->base, *instance_xform);
 	} else if (p_instance->base_type == RS::INSTANCE_PARTICLES_COLLISION) {

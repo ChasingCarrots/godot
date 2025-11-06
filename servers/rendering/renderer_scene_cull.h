@@ -788,6 +788,8 @@ public:
 
 		RID probe_instance;
 
+		uint32_t cull_mask = 0xFFFFFFFF;
+
 		bool invalid;
 		uint32_t base_version;
 

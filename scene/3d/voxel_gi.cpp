@@ -199,6 +199,15 @@ bool VoxelGIData::is_using_two_bounces() const {
 	return use_two_bounces;
 }
 
+void VoxelGIData::set_cull_mask(uint32_t p_layers) {
+	cull_mask = p_layers;
+	RS::get_singleton()->voxel_gi_set_cull_mask(probe, p_layers);
+}
+
+uint32_t VoxelGIData::get_cull_mask() const {
+	return cull_mask;
+}
+
 RID VoxelGIData::get_rid() const {
 	return probe;
 }
@@ -237,6 +246,9 @@ void VoxelGIData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_use_two_bounces", "enable"), &VoxelGIData::set_use_two_bounces);
 	ClassDB::bind_method(D_METHOD("is_using_two_bounces"), &VoxelGIData::is_using_two_bounces);
 
+	ClassDB::bind_method(D_METHOD("set_cull_mask", "layers"), &VoxelGIData::set_cull_mask);
+	ClassDB::bind_method(D_METHOD("get_cull_mask"), &VoxelGIData::get_cull_mask);
+
 	ClassDB::bind_method(D_METHOD("_set_data", "data"), &VoxelGIData::_set_data);
 	ClassDB::bind_method(D_METHOD("_get_data"), &VoxelGIData::_get_data);
 
@@ -250,6 +262,8 @@ void VoxelGIData::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "propagation", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_propagation", "get_propagation");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_two_bounces"), "set_use_two_bounces", "is_using_two_bounces");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "interior"), "set_interior", "is_interior");
+
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "cull_mask", PROPERTY_HINT_LAYERS_3D_RENDER), "set_cull_mask", "get_cull_mask");
 
 	ADD_SIGNAL(MethodInfo("fade_distance_changed"));
 }
