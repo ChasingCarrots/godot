@@ -1069,7 +1069,6 @@ Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName,
 				"_callFunctionOnAuthorityRPC", params, 1);
 		
 		if (!call_object.is_valid()) {
-			print_error(vformat("[%s] CompositeNode::CallFunctionOnAuthority: call_function_on_peers_expect_answer returned invalid object! Function name: %s", get_name(), functionName));
 			return f;
 		}
 
