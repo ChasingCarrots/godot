@@ -26,6 +26,7 @@ void CommunicationLineSystem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_server_id", "id"), &CommunicationLineSystem::set_server_id);
 	ClassDB::bind_method(D_METHOD("get_server_id"), &CommunicationLineSystem::get_server_id);
 	ClassDB::bind_method(D_METHOD("is_server"), &CommunicationLineSystem::is_server);
+	ClassDB::bind_method(D_METHOD("clear_multiplayer_peer"), &CommunicationLineSystem::clear_multiplayer_peer);
 
 	ADD_SIGNAL(MethodInfo("peer_connected", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("peer_disconnected", PropertyInfo(Variant::INT, "id")));
@@ -119,7 +120,11 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 void CommunicationLineSystem::on_peer_disconnected(int multiplayer_id) {
 	_connected_peers.erase(multiplayer_id);
 
-	emit_signal(SNAME("peer_disconnected"), multiplayer_id);
+	if (multiplayer_id == _server_id){
+		emit_signal(SNAME("server_disconnected"));
+	} else {
+		emit_signal(SNAME("peer_disconnected"), multiplayer_id);
+	}
 
 	for (auto &line : _communication_lines) {
 		line->peer_disconnected(multiplayer_id);
