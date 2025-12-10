@@ -785,9 +785,9 @@ CompositeNode *CompositeNode::GetCompositeNodeInParents(Node *node) {
 }
 
 void CompositeNode::InitializeAsAuthority() {
-	int my_id = _communication_line->get_local_multiplayer_id();
+	int my_id = GetCommunicationLine()->get_local_multiplayer_id();
 	// We are the authority! Tell the others:
-	GetCommunicationLine()->set_local_peer_bits(AUTHORITY_BIT_MASK);
+	_communication_line->set_local_peer_bits(AUTHORITY_BIT_MASK);
 	init_authority(my_id);
 	Array params;
 	params.append(my_id);
