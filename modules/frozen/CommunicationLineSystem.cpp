@@ -306,7 +306,7 @@ Error CommunicationLineSystem::poll() {
 		// We might be still connecting, or polling might have resulted in a disconnection.
 		return OK;
 	}
-
+	uint64_t time = OS::get_singleton()->get_ticks_msec();
 	while (_multiplayer_peer->get_available_packet_count()) {
 		int sender = _multiplayer_peer->get_packet_peer();
 		const uint8_t *packet;
@@ -322,6 +322,11 @@ Error CommunicationLineSystem::poll() {
 		update_status();
 		if (last_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) { // It's possible that processing a packet might have resulted in a disconnection, so check here.
 			return OK;
+		}
+		uint64_t now = OS::get_singleton()->get_ticks_msec();
+		if (now-time > 100) {
+			print_line("CommunicationLineSystem is taking long to process incoming packets! Continuing next frame.");
+			break;
 		}
 	}
 
