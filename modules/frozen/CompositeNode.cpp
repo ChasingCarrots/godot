@@ -1069,6 +1069,8 @@ Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName,
 				"_callFunctionOnAuthorityRPC", params, 1);
 		
 		if (!call_object.is_valid()) {
+			// the future should be fulfilled even when the function does not exist
+			f->set_value(Variant());
 			return f;
 		}
 
@@ -1076,6 +1078,10 @@ Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName,
 			if (f.is_valid()) {
 				// The authority bit should really only be set on one peer, so we just take the "first" answer
 				f->set_value(_call_object->get_answer(0));
+			}
+			else {
+				// the future should be fulfilled even when the function had a problem
+				f->set_value(Variant());
 			}
 		};
 	}
