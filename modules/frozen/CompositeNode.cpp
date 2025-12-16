@@ -883,7 +883,6 @@ int CompositeNode::GetAuthorityID() {
 		}
 	}
 
-	print_error(vformat("No authority set for communication_line: %s", cl->get_string_id()));
 	return -1;
 }
 
