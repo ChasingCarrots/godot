@@ -357,7 +357,7 @@ void Node3D::set_global_basis(const Basis &p_basis) {
 
 Vector3 Node3D::get_global_rotation() const {
 	ERR_READ_THREAD_GUARD_V(Vector3());
-	return get_global_transform().get_basis().get_euler();
+	return get_global_transform().get_basis().get_euler_normalized();
 }
 
 Vector3 Node3D::get_global_rotation_degrees() const {
@@ -1020,7 +1020,7 @@ void Node3D::set_disable_gizmos(bool p_enabled) {
 #endif
 }
 
-void Node3D::reparent(Node *p_parent, bool p_keep_global_transform) {
+void Node3D::reparent(RequiredParam<Node> p_parent, bool p_keep_global_transform) {
 	ERR_THREAD_GUARD;
 	if (p_keep_global_transform) {
 		Transform3D temp = get_global_transform();
@@ -1523,7 +1523,7 @@ void Node3D::_bind_methods() {
 	ADD_GROUP("Transform", "");
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM3D, "transform", PROPERTY_HINT_NONE, "suffix:m", PROPERTY_USAGE_NO_EDITOR), "set_transform", "get_transform");
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM3D, "global_transform", PROPERTY_HINT_NONE, "suffix:m", PROPERTY_USAGE_NONE), "set_global_transform", "get_global_transform");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "position", PROPERTY_HINT_RANGE, "-99999,99999,or_greater,or_less,hide_slider,suffix:m", PROPERTY_USAGE_EDITOR), "set_position", "get_position");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "position", PROPERTY_HINT_RANGE, "-99999,99999,or_greater,or_less,hide_control,suffix:m", PROPERTY_USAGE_EDITOR), "set_position", "get_position");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "rotation", PROPERTY_HINT_RANGE, "-360,360,0.1,or_less,or_greater,radians_as_degrees", PROPERTY_USAGE_EDITOR), "set_rotation", "get_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "rotation_degrees", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_rotation_degrees", "get_rotation_degrees");
 	ADD_PROPERTY(PropertyInfo(Variant::QUATERNION, "quaternion", PROPERTY_HINT_HIDE_QUATERNION_EDIT, "", PROPERTY_USAGE_EDITOR), "set_quaternion", "get_quaternion");
@@ -1546,6 +1546,8 @@ void Node3D::_bind_methods() {
 
 Node3D::Node3D() :
 		xform_change(this), _client_physics_interpolation_node_3d_list(this) {
+	_define_ancestry(AncestralClass::NODE_3D);
+
 	// Default member initializer for bitfield is a C++20 extension, so:
 
 	data.top_level = false;

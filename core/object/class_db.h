@@ -32,11 +32,13 @@
 
 #include "core/object/method_bind.h"
 #include "core/object/object.h"
+#include "core/os/rw_lock.h"
 #include "core/string/print_string.h"
 
 // Makes callable_mp readily available in all classes connecting signals.
 // Needs to come after method_bind and object have been included.
 #include "core/object/callable_method_pointer.h"
+#include "core/templates/a_hash_map.h"
 #include "core/templates/hash_set.h"
 
 #include <type_traits>
@@ -121,19 +123,20 @@ public:
 		APIType api = API_NONE;
 		ClassInfo *inherits_ptr = nullptr;
 		void *class_ptr = nullptr;
+		const GDType *gdtype = nullptr;
 
 		ObjectGDExtension *gdextension = nullptr;
 
 		HashMap<StringName, MethodBind *> method_map;
 		HashMap<StringName, LocalVector<MethodBind *>> method_map_compatibility;
-		HashMap<StringName, int64_t> constant_map;
+		AHashMap<StringName, int64_t> constant_map;
 		struct EnumInfo {
 			List<StringName> constants;
 			bool is_bitfield = false;
 		};
 
 		HashMap<StringName, EnumInfo> enum_map;
-		HashMap<StringName, MethodInfo> signal_map;
+		AHashMap<StringName, MethodInfo> signal_map;
 		List<PropertyInfo> property_list;
 		HashMap<StringName, PropertyInfo> property_map;
 
@@ -151,7 +154,7 @@ public:
 		List<StringName> dependency_list;
 #endif
 
-		HashMap<StringName, PropertySetGet> property_setget;
+		AHashMap<StringName, PropertySetGet> property_setget;
 		HashMap<StringName, Vector<uint32_t>> virtual_methods_compat;
 
 		StringName inherits;
@@ -163,9 +166,6 @@ public:
 		bool is_runtime = false;
 		// The bool argument indicates the need to postinitialize.
 		Object *(*creation_func)(bool) = nullptr;
-
-		ClassInfo() {}
-		~ClassInfo() {}
 	};
 
 	template <typename T>
@@ -219,7 +219,7 @@ public:
 	static APIType current_api;
 	static HashMap<APIType, uint32_t> api_hashes_cache;
 
-	static void _add_class(const StringName &p_class, const StringName &p_inherits);
+	static void _add_class(const GDType &p_class, const GDType *p_inherits);
 
 	static HashMap<StringName, HashMap<StringName, Variant>> default_values;
 	static HashSet<StringName> default_values_cached;
@@ -233,6 +233,10 @@ public:
 
 	static Array default_array_arg;
 	static bool is_default_array_arg(const Array &p_array);
+
+	// Types added here will be automatically cleaned up on engine shutdown.
+	// Only add types that aren't cleaned up in another way.
+	static LocalVector<GDType **> gdtype_autorelease_pool;
 
 private:
 	// Non-locking variants of get_parent_class and is_parent_class.
@@ -329,12 +333,13 @@ public:
 		T::register_custom_data_to_otdb();
 	}
 
-	static void get_class_list(List<StringName> *p_classes);
+	static void get_class_list(LocalVector<StringName> &p_classes);
 #ifdef TOOLS_ENABLED
-	static void get_extensions_class_list(List<StringName> *p_classes);
+	static void get_extensions_class_list(LocalVector<StringName> &p_classes);
 	static void get_extension_class_list(const Ref<GDExtension> &p_extension, List<StringName> *p_classes);
 	static ObjectGDExtension *get_placeholder_extension(const StringName &p_class);
 #endif
+	static const GDType *get_gdtype(const StringName &p_class);
 	static void get_inheriters_from_class(const StringName &p_class, LocalVector<StringName> &p_classes);
 	static void get_direct_inheriters_from_class(const StringName &p_class, List<StringName> *p_classes);
 	static StringName get_parent_class_nocheck(const StringName &p_class);
