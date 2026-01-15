@@ -347,6 +347,11 @@ void CompositeNode::init_authority(int authority_player_id) {
 }
 
 void CompositeNode::init_authority_rpc(int sender_id, int authority_player_id) {
+	if (_initialized_authority_id == authority_player_id) {
+		// the authority is already set (there were cases of this being called twice for clients)
+		return;
+	}
+	_initialized_authority_id = authority_player_id;
 	if (authority_player_id == GetLocalMultiplayerID()) { //We need to check manually for authority because the bits are not set yet
 		set_process(true);
 
@@ -597,6 +602,10 @@ void CompositeNode::_updateLowFrequencyData(int sender_id, const PackedByteArray
 
 void CompositeNode::_updateSingleOnChangeData(int sender_id, const PackedByteArray &dataPackage) {
 	uint8_t data_id = dataPackage[0];
+	if (_sync_data_on_change_sorting.size() <= data_id) {
+		print_error("CompositeNode Received OnChangeData for a data_id value it doesn't have.");
+		return;
+	}
 	String data_name = _sync_data_on_change_sorting[data_id];
 	int offset = 1;
 
@@ -955,6 +964,9 @@ void CompositeNode::SetupDataMultiplayerSynchronization(StringName dataName, Dat
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 	    _parentCompositeNode->SetupDataMultiplayerSynchronization(dataName, syncMode, dataType);
 	    return;
+	}
+	if (_initialized_authority_id != -1) {
+		print_error(vformat("CompositeNode Data Multiplayer Synchronization should not be set up after init_authority! (DataName:  %s)", dataName));
 	}
 
 	//Let's do a search first if the data value already exists

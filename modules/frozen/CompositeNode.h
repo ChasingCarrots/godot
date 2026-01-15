@@ -60,6 +60,7 @@ protected:
 	Ref<CommunicationLine> _communication_line;
 	PackedByteArray _send_buffer;
 	Vector<StringName> _temp_stringnames;
+	int _initialized_authority_id = -1;
 
 	struct DataValue {
 		Variant Value;
