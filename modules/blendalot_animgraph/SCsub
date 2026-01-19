@@ -1,0 +1,11 @@
+# SCsub
+
+Import('env')
+
+module_env = env.Clone()
+
+module_env.add_source_files(env.modules_sources, "*.cpp") # Add all cpp files to the build
+
+if env["tests"]:
+    module_env.Append(CPPDEFINES=["TESTS_ENABLED"])
+    module_env.add_source_files(env.modules_sources, "./tests/*.cpp")

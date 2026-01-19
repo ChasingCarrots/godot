@@ -1,6 +1,7 @@
 #include "CompositeNode.h"
 
 #include "CommunicationLineSystem.h"
+#include "core/io/compression.h"
 #include "core/string/print_string.h"
 #include "core/variant/variant.h"
 

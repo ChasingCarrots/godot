@@ -50,6 +50,8 @@
 #define TRACY_ENABLE
 
 #include <tracy/Tracy.hpp>
+#include <common/TracySystem.hpp>
+#include <tracy/TracyC.h>
 
 // Hijacking the tracy namespace so we can use their macros.
 namespace tracy {
@@ -58,9 +60,14 @@ const SourceLocationData *intern_source_location(const void *p_function_ptr, con
 
 // Define tracing macros.
 #define GodotProfileFrameMark FrameMark
+#define GodotProfileFunction() ZoneScoped; ZoneColor(0x07631F);
 #define GodotProfileZone(m_zone_name) ZoneNamedN(GD_UNIQUE_NAME(__godot_tracy_szone_), m_zone_name, true)
 #define GodotProfileZoneGroupedFirst(m_group_name, m_zone_name) ZoneNamedN(__godot_tracy_zone_##m_group_name, m_zone_name, true)
 #define GodotProfileZoneGroupedEndEarly(m_group_name, m_zone_name) __godot_tracy_zone_##m_group_name.~ScopedZone();
+#define GodotProfileDynamicZoneStart(NAME) \
+uint64_t srcloc = ___tracy_alloc_srcloc_name(__LINE__, __FILE__, strlen(__FILE__), NAME, strlen(NAME), NAME, strlen(NAME), 0); \
+TracyCZoneCtx ctx = ___tracy_emit_zone_begin_alloc(srcloc, true);
+#define GodotProfileDynamicZoneEnd() ___tracy_emit_zone_end(ctx);
 #ifndef TRACY_CALLSTACK
 #define GodotProfileZoneGrouped(m_group_name, m_zone_name)                                                                                                       \
 	GodotProfileZoneGroupedEndEarly(m_group_name, m_zone_name);                                                                                                  \
@@ -92,6 +99,9 @@ const SourceLocationData *intern_source_location(const void *p_function_ptr, con
 
 void godot_init_profiler();
 void godot_cleanup_profiler();
+
+#define GodotProfilingThreadStart(NAME)
+#define GodotProfileSendScreenshot()
 
 #elif defined(GODOT_USE_PERFETTO)
 // Use the perfetto profiler.
@@ -224,5 +234,16 @@ void godot_cleanup_profiler();
 #define GodotProfileZoneScript(m_ptr, m_file, m_function, m_name, m_line)
 // Define a zone for a system call from a script (dynamic source location).
 #define GodotProfileZoneScriptSystemCall(m_ptr, m_file, m_function, m_name, m_line)
+
+// Add a scoped block with the name of the function
+#define GodotProfileFunction()
+// Start a profiling block with a non-const name
+#define GodotProfileDynamicZoneStart(...)
+// End the current dynamic profiling block
+#define GodotProfileDynamicZoneEnd()
+// Adds a name for the current thread in the profiler
+#define GodotProfilingThreadStart(NAME)
+// Sends a screenshot (if the profiler supports it)
+#define GodotProfileSendScreenshot()
 
 #endif

@@ -30,7 +30,7 @@
 
 #include "main.h"
 
-#include "core/profiling.h"
+#include "core/profiling/profiling.h"
 #include "core/config/project_settings.h"
 #include "core/core_globals.h"
 #include "core/crypto/crypto.h"
@@ -4768,7 +4768,6 @@ static uint64_t navigation_process_max = 0;
 // will terminate the program. In case of failure, the OS exit code needs
 // to be set explicitly here (defaults to EXIT_SUCCESS).
 bool Main::iteration() {
-	PROFILE_FRAME("MainThread")
 	GodotProfileZone("Main::iteration");
 	GodotProfileZoneGroupedFirst(_profile_zone, "prepare");
 	iterating++;
@@ -4946,7 +4945,7 @@ bool Main::iteration() {
 		}
 	}
 
-	PROFILING_SEND_SCREENSHOT()
+	GodotProfileSendScreenshot();
 
 	process_ticks = OS::get_singleton()->get_ticks_usec() - process_begin;
 	process_max = MAX(process_ticks, process_max);

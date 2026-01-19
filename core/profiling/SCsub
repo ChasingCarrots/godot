@@ -59,6 +59,9 @@ if env["profiler"]:
 
         env_tracy = env.Clone()
         env_tracy.Append(CPPDEFINES=["TRACY_ENABLE"])
+        env_tracy.Append(CPPDEFINES=["TRACY_ON_DEMAND"])
+        if env["platform"] == "windows":
+            env_tracy.Append(CPPDEFINES=["TRACY_IMPORTS"])
         if env["profiler_sample_callstack"]:
             if env["platform"] not in ("windows", "linuxbsd", "android"):
                 # Reference the feature matrix in the tracy documentation.
@@ -70,7 +73,8 @@ if env["profiler"]:
         if env["profiler_track_memory"]:
             env_tracy.Append(CPPDEFINES=["GODOT_PROFILER_TRACK_MEMORY"])
         env_tracy.disable_warnings()
-        env_tracy.add_source_files(env.core_sources, str((profiler_path / "TracyClient.cpp").absolute()))
+        env.Append(LIBPATH=[str((profiler_path / "../lib/").absolute())])
+        env.Append(LIBS=['TracyClient'])
     elif env["profiler"] == "perfetto":
         if not env["profiler_path"]:
             print("profiler_path must be set when using the perfetto profiler. Aborting.")

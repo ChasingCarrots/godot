@@ -36,9 +36,9 @@
 #include "godotsteam.h"
 
 // Include some system headers
+#include "core/os/os.h"
 #include "fstream"
 #include "vector"
-
 
 Steam *Steam::singleton = nullptr;
 

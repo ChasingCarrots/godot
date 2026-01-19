@@ -46,7 +46,7 @@
 #include "tests/gdscript_test_runner.h"
 #endif
 
-#include "core/profiling.h"
+#include "core/profiling/profiling.h"
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
@@ -126,24 +126,23 @@ Object *GDScriptNativeClass::instantiate() {
 }
 
 Variant GDScriptNativeClass::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
-	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, name))
-	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, name))
+	GodotProfileDynamicZoneStart(BuildStringForProfilingIdentifier(p_method, name));
 
 	if (p_method == SNAME("new")) {
 		// Constructor.
-		PROFILE_DYNAMIC_FUNCTION_END()
+		GodotProfileDynamicZoneEnd();
 		return Object::callp(p_method, p_args, p_argcount, r_error);
 	}
 	MethodBind *method = ClassDB::get_method(name, p_method);
 	if (method && method->is_static()) {
 		// Native static method.
-		PROFILE_DYNAMIC_FUNCTION_END()
+		GodotProfileDynamicZoneEnd();
 		return method->call(nullptr, p_args, p_argcount, r_error);
 	}
 
 	r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
 
-	PROFILE_DYNAMIC_FUNCTION_END()
+	GodotProfileDynamicZoneEnd();
 
 	return Variant();
 }
@@ -430,7 +429,7 @@ bool GDScript::get_property_default_value(const StringName &p_property, Variant 
 
 ScriptInstance *GDScript::instance_create(Object *p_this) {
 	ERR_FAIL_COND_V_MSG(!valid, nullptr, "Script is invalid!");
-	PROFILE_FUNCTION()
+	GodotProfileFunction();
 
 	GDScript *top = this;
 	while (top->base.ptr()) {
@@ -770,7 +769,7 @@ Error GDScript::reload(bool p_keep_state) {
 	if (reloading) {
 		return OK;
 	}
-	PROFILE_FUNCTION()
+	GodotProfileFunction();
 	reloading = true;
 
 	bool has_instances;
@@ -963,8 +962,7 @@ void GDScript::unload_static() const {
 }
 
 Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
-	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)))
-	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)))
+	GodotProfileDynamicZoneStart(BuildStringForProfilingIdentifier(p_method, debug_get_script_name(this)));
 	GDScript *top = this;
 	while (top) {
 		if (likely(top->valid)) {
@@ -972,13 +970,13 @@ Variant GDScript::callp(const StringName &p_method, const Variant **p_args, int 
 			if (E) {
 				ERR_FAIL_COND_V_MSG(!E->value->is_static(), Variant(), "Can't call non-static function '" + String(p_method) + "' in script.");
 
-				PROFILE_DYNAMIC_FUNCTION_END()
+				GodotProfileDynamicZoneEnd();
 				return E->value->call(nullptr, p_args, p_argcount, r_error);
 			}
 		}
 		top = top->base.ptr();
 	}
-	PROFILE_DYNAMIC_FUNCTION_END()
+	GodotProfileDynamicZoneEnd();
 	//none found, regular
 
 	return Script::callp(p_method, p_args, p_argcount, r_error);
@@ -1376,7 +1374,7 @@ void GDScript::_save_orphaned_subclasses() {
 	}
 }
 
-#if defined(DEBUG_ENABLED) || defined(PROFILING_ENABLED)
+// #if defined(DEBUG_ENABLED) || defined(TRACY_ENABLE)
 String GDScript::debug_get_script_name(const Ref<Script> &p_script) {
 	if (p_script.is_valid()) {
 		Ref<GDScript> gdscript = p_script;
@@ -1398,7 +1396,7 @@ String GDScript::debug_get_script_name(const Ref<Script> &p_script) {
 
 	return "<unknown script>";
 }
-#endif
+// #endif
 
 String GDScript::canonicalize_path(const String &p_path) {
 	if (p_path.get_extension() == "gdc") {
@@ -1929,8 +1927,7 @@ void GDScriptInstance::_call_implicit_ready_recursively(GDScript *p_script) {
 }
 
 Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
-	PROFILE_DYNAMIC_FUNCTION(BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script)));
-	PROFILE_DYNAMIC_FUNCTION_START(BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script)))
+	GodotProfileDynamicZoneStart(BuildStringForProfilingIdentifier(p_method, GDScript::debug_get_script_name(script)));
 	GDScript *sptr = script.ptr();
 	if (unlikely(p_method == SceneStringName(_ready))) {
 		// Call implicit ready first, including for the super classes recursively.
@@ -1940,7 +1937,7 @@ Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_ar
 		if (likely(sptr->valid)) {
 			HashMap<StringName, GDScriptFunction *>::Iterator E = sptr->member_functions.find(p_method);
 			if (E) {
-				PROFILE_DYNAMIC_FUNCTION_END()
+				GodotProfileDynamicZoneEnd();
 				return E->value->call(this, p_args, p_argcount, r_error);
 			}
 		}
@@ -1948,7 +1945,7 @@ Variant GDScriptInstance::callp(const StringName &p_method, const Variant **p_ar
 	}
 
 	r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
-	PROFILE_DYNAMIC_FUNCTION_END()
+	GodotProfileDynamicZoneEnd();
 	return Variant();
 }
 
