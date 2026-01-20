@@ -27,7 +27,7 @@ private:
 	HashSet<int> _connected_peers;
 
 	int _remote_sender_id = 0;
-	int _server_id = 1;
+	int _server_id = -1;
 
 	void _ready();
 	void _process(double p_time);
@@ -53,6 +53,7 @@ public:
 	int get_remote_sender_id() const { return _remote_sender_id; }
 
 	Ref<CommunicationLine> grab_communication_line(const StringName &id);
+	void remove_communication_line(const Ref<CommunicationLine> removed_cl);
 
 	// access to all lines mostly for debug visualization purposes:
 	int get_number_of_communication_lines() const { return _communication_lines.size(); }
@@ -65,7 +66,9 @@ public:
 	void set_multiplayer_peer(const Ref<MultiplayerPeer> &p_peer);
 	
 	Vector<int> get_connected_peer_ids() const;
-
+	
+	void initialize_server();
+	
 	void set_server_id(const int id) {
 		_server_id = id;
 
@@ -79,7 +82,7 @@ public:
 		return _server_id;
 	}
 	bool is_server() const {
-		if (_multiplayer_peer == nullptr) { return true; }
+		if (_multiplayer_peer == nullptr) { return false; }
 
 		return get_local_multiplayer_id() == _server_id;
 	}

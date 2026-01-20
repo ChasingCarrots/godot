@@ -291,6 +291,13 @@ void CompositeNode::_enter_tree() {
 
 void CompositeNode::_exit_tree() {
 	_all_composite_nodes.erase(this);
+
+	auto cls = _communication_line->get_communication_line_system();
+	if (cls == nullptr) {
+		return;
+	}
+
+	cls->remove_communication_line(_communication_line);
 }
 
 void CompositeNode::_ready() {

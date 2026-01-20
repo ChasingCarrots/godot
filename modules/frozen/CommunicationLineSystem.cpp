@@ -7,7 +7,6 @@ constexpr int COMMUNICATION_LINE_CHANNEL_UNRELIABLE = 2;
 CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
 
 CommunicationLineSystem::CommunicationLineSystem() {
-	set_multiplayer_peer(Ref<OfflineMultiplayerPeer>(memnew(OfflineMultiplayerPeer)));
 }
 
 void CommunicationLineSystem::_bind_methods() {
@@ -17,6 +16,7 @@ void CommunicationLineSystem::_bind_methods() {
 		&CommunicationLineSystem::get_global_communication_line_system);
 
 	ClassDB::bind_method(D_METHOD("grab_communication_line", "string_id"), &CommunicationLineSystem::grab_communication_line);
+	ClassDB::bind_method(D_METHOD("remove_communication_line", "communication_line"), &CommunicationLineSystem::remove_communication_line);
 	ClassDB::bind_method(D_METHOD("get_number_of_communication_lines"), &CommunicationLineSystem::get_number_of_communication_lines);
 	ClassDB::bind_method(D_METHOD("get_communication_line", "index"), &CommunicationLineSystem::get_communication_line);
 	ClassDB::bind_method(D_METHOD("set_multiplayer_peer", "peer"), &CommunicationLineSystem::set_multiplayer_peer);
@@ -27,6 +27,7 @@ void CommunicationLineSystem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_server_id"), &CommunicationLineSystem::get_server_id);
 	ClassDB::bind_method(D_METHOD("is_server"), &CommunicationLineSystem::is_server);
 	ClassDB::bind_method(D_METHOD("clear_multiplayer_peer"), &CommunicationLineSystem::clear_multiplayer_peer);
+	ClassDB::bind_method(D_METHOD("initialize_server"), &CommunicationLineSystem::initialize_server);
 
 	ADD_SIGNAL(MethodInfo("peer_connected", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("peer_disconnected", PropertyInfo(Variant::INT, "id")));
@@ -85,6 +86,11 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 	}
 
 	_multiplayer_peer = p_peer;
+
+	//Our communication lines need the new peer id
+	for (auto cl : _communication_lines){
+		cl->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
+	}
 
 	if (_multiplayer_peer.is_valid()) {
 		_multiplayer_peer->connect("peer_connected", callable_mp(this, &CommunicationLineSystem::on_new_peer_connected));
@@ -250,24 +256,28 @@ void CommunicationLineSystem::send_packet_to_server(const PackedByteArray &bytes
 }
 
 Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const StringName &string_id) {
-	if (_multiplayer_peer == nullptr) { return nullptr; }
-
 	for (auto &line : _communication_lines) {
 		if (line->_string_id == string_id) {
 			return line;
 		}
 	}
-	Vector<int> peer_ids = get_connected_peer_ids();
 	// we don't have this line, so we'll just create it.
 	Ref<CommunicationLine> new_communication_line;
 	new_communication_line.instantiate();
 	new_communication_line->_communication_line_system = this;
-	new_communication_line->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
 	new_communication_line->_string_id = string_id;
-	new_communication_line->create_unconnected_peers(peer_ids);
 	_communication_lines.append(new_communication_line);
 
+	//If we have no MultiplayerPeer we are currently offline and can directly return the communication line
+	if (_multiplayer_peer == nullptr) {
+		return new_communication_line;
+	}
+
+	new_communication_line->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
+
 	if (is_server()) {
+		Vector<int> peer_ids = get_connected_peer_ids();
+		new_communication_line->create_unconnected_peers(peer_ids);
 		// we are the server, so we can directly set the int id
 		new_communication_line->_int_id = _next_line_id++;
 		// and send the creation info to everybody else
@@ -290,7 +300,24 @@ Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const St
 		_send_buffer->put_u16(0);
 		send_packet_to_server(_send_buffer->get_data_array(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 	}
+
 	return new_communication_line;
+}
+
+void CommunicationLineSystem::initialize_server() {
+	set_server_id(get_local_multiplayer_id());
+
+	_next_line_id = 0;
+
+	for (auto cl : _communication_lines){
+		cl->update_own_communication_state(CommunicationLine::CommunicationState::ConnectedOpen);
+		cl->_int_id = _next_line_id;
+		_next_line_id++;
+	}
+}
+
+void CommunicationLineSystem::remove_communication_line(const Ref<CommunicationLine> removed_cl) {
+	_communication_lines.erase(removed_cl);
 }
 
 Error CommunicationLineSystem::poll() {

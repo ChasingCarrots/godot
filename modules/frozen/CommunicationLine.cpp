@@ -245,7 +245,10 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 		case CommunicationLinePacketTypes::CallRemoteFunction:
 		case CommunicationLinePacketTypes::CallRemoteFunctionExpectAnswer: {
 			int function_index = packet->get_u8();
-			// TODO: check if index is valid
+			if (function_index < 0 || function_index >= _communication_functions.size()){
+				print_error(vformat("[CommunicationLine::on_packet_received | %d] invalid function index (%d) packet was skipped", get_local_multiplayer_id(), function_index));
+				return;
+			}
 			const CommunicationFunction& function = _communication_functions[function_index];
 			Vector<Variant> parameters;
 			// we always start with the sender id. that is also to ensure that the gdscript functions
