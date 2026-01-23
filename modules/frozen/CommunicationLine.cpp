@@ -663,3 +663,17 @@ TypedArray<Dictionary> CommunicationLine::get_connected_peers_list() {
 
     return peers_list;
 }
+
+void CommunicationLine::reset_communication_line(){
+	_my_peer_info.reset();
+	_other_peers.clear();
+	_send_buffer.clear();
+
+	_next_call_id = 0;
+	_communication_calls_waiting_for_answer.clear();
+
+	_received_data_amounts.clear();
+	_last_received_fetched_time = 0;
+	_sent_data_amounts.clear();
+	_last_sent_fetched_time = 0;
+}

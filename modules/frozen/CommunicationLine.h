@@ -57,6 +57,12 @@ public:
 	    _communication_state = state;
     	return true;
     }
+
+	void reset() {
+		_multiplayer_id = -1;
+		_peer_bits = 0;
+		_communication_state = 0;
+	};
 };
 
 class CommunicationCallWithAnswer : public RefCounted {
@@ -285,6 +291,7 @@ public:
 	Ref<MultiplayerPeer> get_multiplayer_peer() const;
 	int get_local_multiplayer_id() const;
 	bool is_server() const;
+	void reset_communication_line();
 };
 
 VARIANT_ENUM_CAST(CommunicationLine::CommunicationState);

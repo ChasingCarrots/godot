@@ -1,4 +1,5 @@
 #include "CommunicationLineSystem.h"
+#include "CommunicationLine.h"
 #include "modules/multiplayer/scene_multiplayer.h"
 
 constexpr int COMMUNICATION_LINE_CHANNEL_RELIABLE = 1; //Documentation mentions that channel 0 works as 3 separate channels (https://docs.godotengine.org/en/stable/classes/class_multiplayerpeer.html#class-multiplayerpeer-property-transfer-channel)
@@ -368,6 +369,12 @@ Error CommunicationLineSystem::poll() {
 void CommunicationLineSystem::clear_multiplayer_peer() {
 	last_connection_status = MultiplayerPeer::CONNECTION_DISCONNECTED;
 	_multiplayer_peer = nullptr;
+
+	//We will still have communication lines and need to reset them
+	for (auto cl : _communication_lines){
+		cl->reset_communication_line();
+		cl->update_own_communication_state(CommunicationLine::CommunicationState::WaitingForConnection);
+	}
 
 	_connected_peers.clear();
 }
