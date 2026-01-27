@@ -97,8 +97,6 @@ public:
 	    }
         _current_value = value;
         if (_composite_node.is_valid()) {
-            // if (_is_synchronized) _composite_node->SetDataOnAuthority(_value_name, _current_value);
-            // else _composite_node->SetData(_value_name, _current_value);
         	_composite_node->SetData(_value_name, _current_value);
         }
     }

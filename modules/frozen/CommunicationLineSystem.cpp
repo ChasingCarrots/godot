@@ -127,14 +127,14 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 void CommunicationLineSystem::on_peer_disconnected(int multiplayer_id) {
 	_connected_peers.erase(multiplayer_id);
 
+	for (auto &line : _communication_lines) {
+		line->peer_disconnected(multiplayer_id);
+	}
+
 	if (multiplayer_id == _server_id){
 		emit_signal(SNAME("server_disconnected"));
 	} else {
 		emit_signal(SNAME("peer_disconnected"), multiplayer_id);
-	}
-
-	for (auto &line : _communication_lines) {
-		line->peer_disconnected(multiplayer_id);
 	}
 }
 
