@@ -322,7 +322,7 @@ void RendererViewport::_draw_3d(Viewport *p_viewport) {
 }
 
 void RendererViewport::_draw_viewport(Viewport *p_viewport) {
-	GodotProfileZoneGroupedFirst("draw viewport", "preparation");
+	GodotProfileZoneGroupedFirst(_profile_zone, "preparation");
 	if (p_viewport->measure_render_time) {
 		String rt_id = "vp_begin_" + itos(p_viewport->self.get_id());
 		RSG::utilities->capture_timestamp(rt_id);
@@ -379,7 +379,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 	}
 
 	if (!scenario_draw_canvas_bg && can_draw_3d) {
-		GodotProfileZoneGrouped("draw viewport", "draw 3d");
+		GodotProfileZoneGrouped(_profile_zone, "draw_3d");
 		if (force_clear_render_target) {
 			RSG::texture_storage->render_target_do_clear_request(p_viewport->render_target);
 		}
@@ -387,7 +387,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 	}
 
 	if (can_draw_2d) {
-		GodotProfileZoneGrouped("draw viewport", "draw 2d");
+		GodotProfileZoneGrouped(_profile_zone, "draw_2d");
 		RBMap<Viewport::CanvasKey, Viewport::CanvasData *> canvas_map;
 
 		Rect2 clip_rect(0, 0, p_viewport->size.x, p_viewport->size.y);
@@ -719,7 +719,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 		}
 	}
 
-	GodotProfileZoneGrouped("draw viewport", "clear and cleanup");
+	GodotProfileZoneGrouped(_profile_zone, "clear_and_cleanup");
 
 	if (RSG::texture_storage->render_target_is_clear_requested(p_viewport->render_target)) {
 		//was never cleared in the end, force clear it

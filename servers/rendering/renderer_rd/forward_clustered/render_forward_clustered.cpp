@@ -39,6 +39,7 @@
 #include "servers/rendering/renderer_rd/uniform_set_cache_rd.h"
 #include "servers/rendering/rendering_device.h"
 #include "servers/rendering/rendering_server_default.h"
+#include "core/profiling/profiling.h"
 
 using namespace RendererSceneRenderImplementation;
 
@@ -292,6 +293,7 @@ bool RenderForwardClustered::free(RID p_rid) {
 }
 
 void RenderForwardClustered::update() {
+	GodotProfileFunction();
 	RendererSceneRenderRD::update();
 	_update_global_pipeline_data_requirements_from_project();
 	_update_global_pipeline_data_requirements_from_light_storage();

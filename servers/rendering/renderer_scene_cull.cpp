@@ -34,6 +34,7 @@
 #include "core/object/worker_thread_pool.h"
 #include "rendering_light_culler.h"
 #include "rendering_server_default.h"
+#include "core/profiling/profiling.h"
 
 #if defined(DEBUG_ENABLED) && defined(TOOLS_ENABLED)
 // This is used only to obtain node paths for user-friendly physics interpolation warnings.
@@ -3895,6 +3896,7 @@ void RendererSceneCull::render_probes() {
 }
 
 void RendererSceneCull::render_particle_colliders() {
+	GodotProfileFunction();
 	while (heightfield_particle_colliders_update_list.begin()) {
 		Instance *hfpc = *heightfield_particle_colliders_update_list.begin();
 
@@ -4142,6 +4144,7 @@ void RendererSceneCull::_update_dirty_instance(Instance *p_instance) const {
 }
 
 void RendererSceneCull::update_dirty_instances() const {
+	GodotProfileFunction();
 	while (_instance_update_list.first()) {
 		_update_dirty_instance(_instance_update_list.first()->self());
 	}
@@ -4151,6 +4154,7 @@ void RendererSceneCull::update_dirty_instances() const {
 }
 
 void RendererSceneCull::update() {
+	GodotProfileFunction();
 	//optimize bvhs
 
 	uint32_t rid_count = scenario_owner.get_rid_count();

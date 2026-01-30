@@ -60,11 +60,9 @@ const SourceLocationData *intern_source_location(const void *p_function_ptr, con
 
 // Define tracing macros.
 #define GodotProfileFrameMark FrameMark
-#define GodotProfileFunction() \
-do { if (!TracyCIsConnected) break; ZoneScoped; ZoneColor(0x07631F); } while(0)
+#define GodotProfileFunction() ZoneNamedC(___tracy_scoped_zone, 0x07631F, TracyCIsConnected)
 
-#define GodotProfileZone(m_zone_name) \
-do { if (!TracyCIsConnected) break; ZoneNamedN(GD_UNIQUE_NAME(__godot_tracy_szone_), m_zone_name, true); } while(0)
+#define GodotProfileZone(m_zone_name) ZoneNamedN(GD_UNIQUE_NAME(__godot_tracy_szone_), m_zone_name, TracyCIsConnected)
 
 #define GodotProfileZoneGroupedFirst(m_group_name, m_zone_name) \
 bool __godot_tracy_connected_##m_group_name = TracyCIsConnected; \
@@ -95,9 +93,9 @@ new (&__godot_tracy_zone_##m_group_name) tracy::ScopedZone(&TracyConcat(__tracy_
 #endif
 
 #define GodotProfileZoneScript(m_ptr, m_file, m_function, m_name, m_line) \
-	do { if (!TracyCIsConnected) break; tracy::ScopedZone __godot_tracy_script(tracy::intern_source_location(m_ptr, m_file, m_function, m_name, m_line, true)); } while(0)
+	tracy::ScopedZone __godot_tracy_script(tracy::intern_source_location(m_ptr, m_file, m_function, m_name, m_line, true), TRACY_CALLSTACK, TracyCIsConnected)
 #define GodotProfileZoneScriptSystemCall(m_ptr, m_file, m_function, m_name, m_line) \
-	do { if (!TracyCIsConnected) break; tracy::ScopedZone __godot_tracy_zone_system_call(tracy::intern_source_location(m_ptr, m_file, m_function, m_name, m_line, false)) } while(0)
+	tracy::ScopedZone __godot_tracy_zone_system_call(tracy::intern_source_location(m_ptr, m_file, m_function, m_name, m_line, false), TRACY_CALLSTACK, TracyCIsConnected)
 
 // Memory allocation
 #ifdef GODOT_PROFILER_TRACK_MEMORY
