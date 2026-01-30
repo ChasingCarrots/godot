@@ -331,6 +331,7 @@ void SceneTree::_flush_ugc() {
 }
 
 void SceneTree::_update_group_order(Group &g) {
+	GodotProfileFunction();
 	if (!g.changed) {
 		return;
 	}

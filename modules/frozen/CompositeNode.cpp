@@ -4,6 +4,7 @@
 #include "core/io/compression.h"
 #include "core/string/print_string.h"
 #include "core/variant/variant.h"
+#include "core/profiling/profiling.h"
 
 #include <core/io/marshalls.h>
 
@@ -305,6 +306,7 @@ void CompositeNode::_exit_tree() {
 }
 
 void CompositeNode::_ready() {
+	GodotProfileFunction();
 	if (!ParentCompositeNode.is_empty()) {
 		_parentCompositeNode.set(cast_to<CompositeNode>(get_node(ParentCompositeNode)));
 	}
@@ -331,6 +333,7 @@ void CompositeNode::_ready() {
 }
 
 void CompositeNode::_process(float delta) {
+	GodotProfileFunction();
 	float game_time = GameTime();
 	if (game_time >= _next_high_freq_gametime) {
 		while (game_time >= _next_high_freq_gametime) {
@@ -396,6 +399,7 @@ void CompositeNode::_peer_state_changed(int peer_id, CommunicationLine::Communic
 }
 
 void CompositeNode::_complete_sync_package(int sender_id, const PackedByteArray &package, int size_uncompressed) {
+	GodotProfileFunction();
 	PackedByteArray dataPackage;
 	Compression::Mode mode = Compression::MODE_FASTLZ;
 
@@ -443,6 +447,7 @@ void CompositeNode::_complete_sync_package(int sender_id, const PackedByteArray 
 }
 
 void CompositeNode::_sendHighFrequencyData() {
+	GodotProfileFunction();
 	_send_buffer.clear();
 	int offset = 0;
 	int index = 0;
@@ -477,6 +482,7 @@ void CompositeNode::_sendHighFrequencyData() {
 }
 
 void CompositeNode::_sendLowFrequencyData() {
+	GodotProfileFunction();
 	_send_buffer.clear();
 	int offset = 0;
 	int index = 0;
@@ -510,6 +516,7 @@ void CompositeNode::_sendLowFrequencyData() {
 }
 
 void CompositeNode::_sendOnChangeData(const DataSynchronizationSettings &sync_setting, Variant value, int skip_multiplayer_peer) {
+	GodotProfileFunction();
 	_send_buffer.clear();
 	_send_buffer.append(sync_setting.DataID);
 
@@ -539,6 +546,7 @@ void CompositeNode::_sendOnChangeData(const DataSynchronizationSettings &sync_se
 }
 
 void CompositeNode::_updateHighFrequencyData(int sender_id, const PackedByteArray &dataPackage) {
+	GodotProfileFunction();
 	_temp_stringnames.clear();
 
 	float delta_since_sent = GameTime() - decode_float(dataPackage.ptr());
@@ -576,6 +584,7 @@ void CompositeNode::_updateHighFrequencyData(int sender_id, const PackedByteArra
 }
 
 void CompositeNode::_updateLowFrequencyData(int sender_id, const PackedByteArray &dataPackage) {
+	GodotProfileFunction();
 	_temp_stringnames.clear();
 
 	float delta_since_sent = GameTime() - decode_float(dataPackage.ptr());
@@ -613,6 +622,7 @@ void CompositeNode::_updateLowFrequencyData(int sender_id, const PackedByteArray
 }
 
 void CompositeNode::_updateSingleOnChangeData(int sender_id, const PackedByteArray &dataPackage) {
+	GodotProfileFunction();
 	uint8_t data_id = dataPackage[0];
 	if (_sync_data_on_change_sorting.size() <= data_id) {
 		print_error("CompositeNode Received OnChangeData for a data_id value it doesn't have.");
@@ -816,6 +826,7 @@ void CompositeNode::InitializeAsAuthority() {
 }
 
 Ref<CommunicationLine> CompositeNode::GetCommunicationLine() {
+	GodotProfileFunction();
 	if (_communication_line.is_valid()) {
 		return _communication_line;
 	}
@@ -915,6 +926,7 @@ int CompositeNode::GetLocalMultiplayerID() {
 }
 
 void CompositeNode::SynchronizeAllToSingleClient(int client_multiplayer_id) {
+	GodotProfileFunction();
 	_send_buffer.clear();
 	int offset = 0;
 
@@ -973,6 +985,7 @@ void CompositeNode::SynchronizeAllToSingleClient(int client_multiplayer_id) {
 }
 
 void CompositeNode::SetupDataMultiplayerSynchronization(StringName dataName, DataSynchronizationMode syncMode, DataSynchronizationType dataType) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 	    _parentCompositeNode->SetupDataMultiplayerSynchronization(dataName, syncMode, dataType);
 	    return;
@@ -1069,6 +1082,7 @@ void CompositeNode::UnregisterFunction(StringName functionName, const Callable &
 }
 
 Variant CompositeNode::CallFunction(StringName functionName, const Array &parameters) {
+	GodotProfileFunction();
 	if (Callable *function_callable = _functions.getptr(functionName); function_callable != nullptr) {
 		return function_callable->callv(parameters);
 	}
@@ -1079,6 +1093,7 @@ Variant CompositeNode::CallFunction(StringName functionName, const Array &parame
 }
 
 Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName, const Array &parameters) {
+	GodotProfileFunction();
 	Ref f = memnew(FutureValue);
 
 	if (IsAuthority()) {
@@ -1119,6 +1134,7 @@ bool CompositeNode::HasCallback(StringName callbackName) {
 }
 
 void CompositeNode::RegisterCallback(StringName callbackName, const Callable &callable) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardCallbacksToParentCompositeNode.has(callbackName)) {
 		_parentCompositeNode->RegisterCallback(callbackName, callable);
 		return;
@@ -1133,6 +1149,7 @@ void CompositeNode::RegisterCallback(StringName callbackName, const Callable &ca
 }
 
 void CompositeNode::UnregisterCallback(StringName callbackName, const Callable &callable) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardCallbacksToParentCompositeNode.has(callbackName)) {
 		_parentCompositeNode->UnregisterCallback(callbackName, callable);
 		return;
@@ -1143,6 +1160,7 @@ void CompositeNode::UnregisterCallback(StringName callbackName, const Callable &
 }
 
 void CompositeNode::CallCallbacks(StringName callbackName, const Array &parameters) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardCallbacksToParentCompositeNode.has(callbackName)) {
 		_parentCompositeNode->CallCallbacks(callbackName, parameters);
 		return;
@@ -1162,6 +1180,7 @@ bool CompositeNode::HasData(StringName dataName) {
 }
 
 void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbacks, int skipMultiplayerPeer, bool increment) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 		_parentCompositeNode->SetData(dataName, value);
 		return;
@@ -1212,6 +1231,7 @@ void CompositeNode::SetData(StringName dataName, Variant value, bool skipCallbac
 }
 
 void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 		_parentCompositeNode->SetDataOnAuthority(dataName, value);
 		return;
@@ -1231,6 +1251,7 @@ void CompositeNode::SetDataOnAuthority(StringName dataName, Variant value) {
 	}
 }
 void CompositeNode::PauseData(StringName dataName) {
+	GodotProfileFunction();
 	if (!is_multiplayer_authority()) {
 		print_error(vformat("Data (%s) can only be paused on authority", dataName));
 		return;
@@ -1259,6 +1280,7 @@ void CompositeNode::PauseData(StringName dataName) {
 }
 
 void CompositeNode::UnpauseData(StringName dataName) {
+	GodotProfileFunction();
 	if (!IsAuthority()) {
 		print_error(vformat("Data (%s) can only be unpaused on authority", dataName));
 		return;
@@ -1287,6 +1309,7 @@ void CompositeNode::UnpauseData(StringName dataName) {
 }
 
 void CompositeNode::RegisterDataUpdatedCallback(StringName dataName, Callable callable, bool callIfDataExists) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 		_parentCompositeNode->RegisterDataUpdatedCallback(dataName, callable, callIfDataExists);
 		return;
@@ -1305,6 +1328,7 @@ void CompositeNode::RegisterDataUpdatedCallback(StringName dataName, Callable ca
 }
 
 void CompositeNode::UnregisterDataUpdatedCallback(StringName dataName, Callable callable) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 		_parentCompositeNode->UnregisterDataUpdatedCallback(dataName, callable);
 		return;
@@ -1315,6 +1339,7 @@ void CompositeNode::UnregisterDataUpdatedCallback(StringName dataName, Callable 
 }
 
 Variant CompositeNode::GetData(StringName dataName) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(dataName)) {
 		return _parentCompositeNode->GetData(dataName);
 	}
@@ -1325,6 +1350,7 @@ Variant CompositeNode::GetData(StringName dataName) {
 }
 
 void CompositeNode::AddDataToSumDefinition(StringName sumDataName, StringName componentDataName, float initial_value) {
+	GodotProfileFunction();
 	if (has_parent_composite_node() && ForwardDataToParentCompositeNode.has(componentDataName)) {
 		_parentCompositeNode->AddDataToSumDefinition(sumDataName, componentDataName, initial_value);
 		return;

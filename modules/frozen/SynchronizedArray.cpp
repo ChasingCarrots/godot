@@ -1,5 +1,7 @@
 #include "SynchronizedArray.h"
 
+#include "core/profiling/profiling.h"
+
 #include <core/io/compression.h>
 
 void SynchronizedArray::_bind_methods() {
@@ -38,6 +40,7 @@ SynchronizedArray::SynchronizedArray() {
 }
 
 Ref<SynchronizedArray> SynchronizedArray::create(Ref<CommunicationLine> communication_line, String prefix) {
+	GodotProfileFunction();
     Ref<SynchronizedArray> instance;
     instance.instantiate();
 
@@ -104,7 +107,8 @@ void SynchronizedArray::emit_element_changed(ElementChangeType change_type, Vari
 }
 
 void SynchronizedArray::remote_sync_all(int sender_id, int number_of_elements, PackedByteArray elements_buffer, int uncompressed_size) {
-    if (uncompressed_size > 0) {
+    GodotProfileFunction();
+	if (uncompressed_size > 0) {
     	PackedByteArray dataPackage;
     	Compression::Mode mode = Compression::MODE_FASTLZ;
 
@@ -127,11 +131,13 @@ void SynchronizedArray::remote_sync_all(int sender_id, int number_of_elements, P
 }
 
 void SynchronizedArray::remote_append(int sender_id, Variant value) {
+	GodotProfileFunction();
     _array.append(value);
     emit_element_changed(Added, value, _array.size() - 1);
 }
 
 void SynchronizedArray::remote_insert(int sender_id, int at_index, Variant value) {
+	GodotProfileFunction();
     if (at_index < 0 || at_index > _array.size()) {
         print_error("SynchronizedArray received an insert request with an index out of bounds. Appending the value instead...");
         at_index = _array.size();
@@ -141,6 +147,7 @@ void SynchronizedArray::remote_insert(int sender_id, int at_index, Variant value
 }
 
 void SynchronizedArray::remote_remove_at(int sender_id, int at_index) {
+	GodotProfileFunction();
     if (at_index < 0 || at_index >= _array.size()) {
         print_error("SynchronizedArray received a remove_at request with an index out of bounds.");
         return;
@@ -151,6 +158,7 @@ void SynchronizedArray::remote_remove_at(int sender_id, int at_index) {
 }
 
 void SynchronizedArray::remote_clear(int sender_id) {
+	GodotProfileFunction();
     for (int i = 0; i < _array.size(); i++) {
         emit_element_changed(Removed, _array[i], i);
     }
@@ -158,6 +166,7 @@ void SynchronizedArray::remote_clear(int sender_id) {
 }
 
 void SynchronizedArray::remote_change_at(int sender_id, int at_index, Variant value) {
+	GodotProfileFunction();
     if (at_index < 0 || at_index >= _array.size()) {
         print_error("SynchronizedArray received a change_at request with an index out of bounds.");
         return;
@@ -167,6 +176,7 @@ void SynchronizedArray::remote_change_at(int sender_id, int at_index, Variant va
 }
 
 void SynchronizedArray::sync_all(int to_peer_id) {
+	GodotProfileFunction();
     if (_array.is_empty()) {
         return;
     }
@@ -213,6 +223,7 @@ Variant SynchronizedArray::get_element(int index) const {
 }
 
 void SynchronizedArray::append(Variant value) {
+	GodotProfileFunction();
     _array.append(value);
 	Array params;
 	params.append(value);
@@ -220,6 +231,7 @@ void SynchronizedArray::append(Variant value) {
 }
 
 void SynchronizedArray::insert(int at_index, Variant value) {
+	GodotProfileFunction();
     if (at_index < 0) at_index = 0;
     if (at_index >= _array.size()) {
         append(value);
@@ -233,6 +245,7 @@ void SynchronizedArray::insert(int at_index, Variant value) {
 }
 
 void SynchronizedArray::erase(Variant value) {
+	GodotProfileFunction();
     int index = _array.find(value);
     if (index != -1) {
         remove_at(index);
@@ -240,6 +253,7 @@ void SynchronizedArray::erase(Variant value) {
 }
 
 void SynchronizedArray::remove_at(int at_index) {
+	GodotProfileFunction();
     if (at_index < 0 || at_index >= _array.size()) {
         print_error("SynchronizedArray.remove_at called with an index out of bounds.");
         return;
@@ -251,11 +265,13 @@ void SynchronizedArray::remove_at(int at_index) {
 }
 
 void SynchronizedArray::clear() {
+	GodotProfileFunction();
     _array.clear();
     _communication_line->call_function_on_peers(CLEAR_FUNCTION, Array());
 }
 
 void SynchronizedArray::change_at(int at_index, Variant new_value) {
+	GodotProfileFunction();
     if (at_index < 0 || at_index >= _array.size()) {
         print_error("SynchronizedArray.change_at called with an index out of bounds.");
         return;

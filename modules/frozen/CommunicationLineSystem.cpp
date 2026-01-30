@@ -1,6 +1,7 @@
 #include "CommunicationLineSystem.h"
 #include "CommunicationLine.h"
 #include "modules/multiplayer/scene_multiplayer.h"
+#include "core/profiling/profiling.h"
 
 constexpr int COMMUNICATION_LINE_CHANNEL_RELIABLE = 1; //Documentation mentions that channel 0 works as 3 separate channels (https://docs.godotengine.org/en/stable/classes/class_multiplayerpeer.html#class-multiplayerpeer-property-transfer-channel)
 constexpr int COMMUNICATION_LINE_CHANNEL_UNRELIABLE = 2;
@@ -139,6 +140,7 @@ void CommunicationLineSystem::on_peer_disconnected(int multiplayer_id) {
 }
 
 void CommunicationLineSystem::on_packet_received(int from_multiplayer_id, const PackedByteArray &packet) {
+	GodotProfileFunction();
 	_receive_buffer->clear();
 	_receive_buffer->set_data_array(packet);
 	CommunicationLinePacketTypes packet_type = static_cast<CommunicationLinePacketTypes>(_receive_buffer->get_u8());
@@ -257,6 +259,7 @@ void CommunicationLineSystem::send_packet_to_server(const PackedByteArray &bytes
 }
 
 Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const StringName &string_id) {
+	GodotProfileFunction();
 	for (auto &line : _communication_lines) {
 		if (line->_string_id == string_id) {
 			return line;
@@ -322,6 +325,7 @@ void CommunicationLineSystem::remove_communication_line(const Ref<CommunicationL
 }
 
 Error CommunicationLineSystem::poll() {
+	GodotProfileFunction();
 	update_status();
 	if (last_connection_status == MultiplayerPeer::CONNECTION_DISCONNECTED) {
 		return OK;
@@ -406,6 +410,7 @@ void CommunicationLineSystem::process_packet(const int from, const uint8_t *pack
 }
 
 void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &packet, const MultiplayerPeer::TransferMode mode) const {
+	GodotProfileFunction();
 	ERR_FAIL_COND_MSG(packet.is_empty(), "Trying to send an empty packet.");
 	ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "Trying to send a raw packet while no multiplayer peer is active.");
 	ERR_FAIL_COND_MSG(_multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED, "Trying to send a raw packet via a multiplayer peer which is not connected.");

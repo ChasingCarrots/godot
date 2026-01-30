@@ -4,6 +4,7 @@
 #include "CompositeNode.h"
 #include "CompositeNodeValue.h"
 #include "scene/3d/physics/area_3d.h"
+#include "core/profiling/profiling.h"
 
 #include <scene/3d/physics/character_body_3d.h>
 
@@ -55,6 +56,7 @@ protected:
 		}
 	}
 	void _ready() {
+		GodotProfileFunction();
 		_composite_node = CompositeNode::GetCompositeNodeInParents(this);
 		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), vformat("CompositeNodeModule has to be a child of a CompositeNode. (%s)", get_name()));
 		_composite_node->RegisterCallback("init_authority", callable_mp(this, &CompositeNodeModule::init_authority));
@@ -87,6 +89,7 @@ protected:
 	Vector<NamedCallable> RegisteredDataUpdates;
 
 	void init_authority(int player_id) {
+		GodotProfileFunction();
 		GDVIRTUAL_CALL(_ready_authority);
 	}
 
@@ -171,6 +174,7 @@ protected:
 		}
 	}
 	void _ready() {
+		GodotProfileFunction();
 		_composite_node = CompositeNode::GetCompositeNodeInParents(this);
 		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), vformat("CompositeNodeModule3D has to be a child of a CompositeNode. (%s)", get_name()));
 		_composite_node->RegisterCallback("init_authority", callable_mp(this, &CompositeNodeModule3D::init_authority));
@@ -203,6 +207,7 @@ protected:
 	Vector<NamedCallable> RegisteredDataUpdates;
 
 	void init_authority(int player_id) {
+		GodotProfileFunction();
 		GDVIRTUAL_CALL(_ready_authority);
 	}
 
@@ -287,6 +292,7 @@ protected:
 		}
 	}
 	void _ready() {
+		GodotProfileFunction();
 		_composite_node = CompositeNode::GetCompositeNodeInParents(this);
 		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), vformat("CompositeNodeModuleCharacterBody3D has to be a child of a CompositeNode. (%s)", get_name()));
 		_composite_node->RegisterCallback("init_authority", callable_mp(this, &CompositeNodeModuleCharacterBody3D::init_authority));
@@ -319,6 +325,7 @@ protected:
 	Vector<NamedCallable> RegisteredDataUpdates;
 
 	void init_authority(int player_id) {
+		GodotProfileFunction();
 		GDVIRTUAL_CALL(_ready_authority);
 	}
 
@@ -402,6 +409,7 @@ protected:
 		}
 	}
 	void _ready() {
+		GodotProfileFunction();
 		_composite_node = CompositeNode::GetCompositeNodeInParents(this);
 		ERR_FAIL_COND_MSG(!_composite_node.is_valid(), vformat("CompositeNodeModuleArea3D has to be a child of a CompositeNode. (%s)", get_name()));
 		_composite_node->RegisterCallback("init_authority", callable_mp(this, &CompositeNodeModuleArea3D::init_authority));
@@ -434,6 +442,7 @@ protected:
 	Vector<NamedCallable> RegisteredDataUpdates;
 
 	void init_authority(int player_id) {
+		GodotProfileFunction();
 		GDVIRTUAL_CALL(_ready_authority);
 	}
 

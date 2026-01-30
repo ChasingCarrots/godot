@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "node.h"
+#include "core/profiling/profiling.h"
 #include "node.compat.inc"
 
 STATIC_ASSERT_INCOMPLETE_TYPE(class, Mesh);
@@ -89,14 +90,17 @@ void Node::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_PROCESS: {
+			GodotProfileZone("NOTIFICATION_PROCESS");
 			GDVIRTUAL_CALL(_process, get_process_delta_time());
 		} break;
 
 		case NOTIFICATION_PHYSICS_PROCESS: {
+			GodotProfileZone("NOTIFICATION_PHYSICS_PROCESS");
 			GDVIRTUAL_CALL(_physics_process, get_physics_process_delta_time());
 		} break;
 
 		case NOTIFICATION_ENTER_TREE: {
+			GodotProfileZone("NOTIFICATION_ENTER_TREE");
 			ERR_FAIL_NULL(get_viewport());
 			ERR_FAIL_NULL(data.tree);
 
@@ -184,6 +188,7 @@ void Node::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_EXIT_TREE: {
+			GodotProfileZone("NOTIFICATION_EXIT_TREE");
 			ERR_FAIL_NULL(get_viewport());
 			ERR_FAIL_NULL(data.tree);
 
@@ -247,6 +252,7 @@ void Node::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_READY: {
+			GodotProfileZone("NOTIFICATION_READY");
 			if (GDVIRTUAL_IS_OVERRIDDEN(_input)) {
 				set_process_input(true);
 			}
@@ -1513,6 +1519,7 @@ String Node::adjust_name_casing(const String &p_name) {
 }
 
 void Node::_validate_child_name(Node *p_child, bool p_force_human_readable) {
+	GodotProfileFunction();
 	/* Make sure the name is unique */
 
 	if (p_force_human_readable) {
@@ -1650,6 +1657,7 @@ Node::InternalMode Node::get_internal_mode() const {
 }
 
 void Node::_add_child_nocheck(Node *p_child, const StringName &p_name, InternalMode p_internal_mode) {
+	GodotProfileFunction();
 	//add a child node quickly, without name validation
 
 	p_child->data.name = p_name;
@@ -1697,6 +1705,7 @@ void Node::_add_child_nocheck(Node *p_child, const StringName &p_name, InternalM
 }
 
 void Node::add_child(RequiredParam<Node> rp_child, bool p_force_readable_name, InternalMode p_internal) {
+	GodotProfileFunction();
 	ERR_FAIL_COND_MSG(data.tree && !Thread::is_main_thread(), "Adding children to a node inside the SceneTree is only allowed from the main thread. Use call_deferred(\"add_child\",node).");
 
 	ERR_THREAD_GUARD
@@ -1733,6 +1742,7 @@ void Node::add_sibling(RequiredParam<Node> rp_sibling, bool p_force_readable_nam
 }
 
 void Node::remove_child(RequiredParam<Node> rp_child) {
+	GodotProfileFunction();
 	ERR_FAIL_COND_MSG(data.tree && !Thread::is_main_thread(), "Removing children from a node inside the SceneTree is only allowed from the main thread. Use call_deferred(\"remove_child\",node).");
 	EXTRACT_PARAM_OR_FAIL(p_child, rp_child);
 	ERR_FAIL_COND_MSG(data.blocked > 0, "Parent node is busy adding/removing children, `remove_child()` can't be called at this time. Consider using `remove_child.call_deferred(child)` instead.");

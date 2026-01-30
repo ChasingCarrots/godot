@@ -42,6 +42,7 @@
 #include "scene/main/instance_placeholder.h"
 #include "scene/main/missing_node.h"
 #include "scene/property_utils.h"
+#include "core/profiling/profiling.h"
 
 #ifndef _3D_DISABLED
 #include "scene/3d/node_3d.h"
@@ -151,6 +152,7 @@ static Node *_find_node_by_id(Node *p_owner, Node *p_node, int32_t p_id) {
 }
 
 Node *SceneState::instantiate(GenEditState p_edit_state) const {
+	GodotProfileFunction();
 	// Nodes where instantiation failed (because something is missing.)
 	List<Node *> stray_instances;
 
@@ -2511,6 +2513,7 @@ bool PackedScene::can_instantiate() const {
 }
 
 Node *PackedScene::instantiate(GenEditState p_edit_state) const {
+	GodotProfileFunction();
 #ifndef TOOLS_ENABLED
 	ERR_FAIL_COND_V_MSG(p_edit_state != GEN_EDIT_STATE_DISABLED, nullptr, "Edit state is only for editors, does not work without tools compiled.");
 #endif

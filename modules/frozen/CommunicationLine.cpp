@@ -1,6 +1,7 @@
 #include "CommunicationLine.h"
 
 #include "CommunicationLineSystem.h"
+#include "core/profiling/profiling.h"
 
 void CommunicationCallWithAnswer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_number_of_answers"), &CommunicationCallWithAnswer::get_number_of_answers);
@@ -175,6 +176,7 @@ Variant get_value_from_buffer(StreamPeerBuffer * packet, CommunicationLine::Para
 	return {};
 }
 void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_type, int from_multiplayer_id, Ref<StreamPeerBuffer> &packet) {
+	GodotProfileFunction();
 	push_received_amount(packet->get_size());
 	switch (packet_type) {
 		case CommunicationLinePacketTypes::UpdateLinePeerState: {
@@ -445,6 +447,7 @@ int CommunicationLine::get_server_id() const {
 }
 
 void CommunicationLine::call_function_on_peers(const StringName &function_name, Array parameters, uint8_t only_on_peers_with_bits_set, uint8_t only_on_peers_with_bits_unset) {
+	GodotProfileFunction();
 	bool has_qualifying_peer = false;
 	for (const auto &peer : _other_peers) {
 		if (peer.get_communication_state() == ConnectedOpen && peer.check_peer_bits(only_on_peers_with_bits_set, only_on_peers_with_bits_unset)) {
@@ -476,6 +479,7 @@ void CommunicationLine::call_function_on_peers(const StringName &function_name, 
 }
 
 void CommunicationLine::call_function_on_peer(const StringName &function_name, Array parameters, int peer_id) {
+	GodotProfileFunction();
 	// with the direct peer sending function, we don't check for the correct state,
 	// so that this function can be used while initializing and in a whole queue of
 	// messages.
@@ -504,6 +508,7 @@ void CommunicationLine::call_function_on_peer(const StringName &function_name, A
 }
 
 Ref<CommunicationCallWithAnswer> CommunicationLine::call_function_on_peer_expect_answer(const StringName &function_name, Array parameters, int peer_id) {
+	GodotProfileFunction();
 	bool peer_found = false;
 	for (const auto &peer : _other_peers) {
 		if (peer.get_multiplayer_id() == peer_id) {
@@ -543,6 +548,7 @@ Ref<CommunicationCallWithAnswer> CommunicationLine::call_function_on_peer_expect
 }
 
 Ref<CommunicationCallWithAnswer> CommunicationLine::call_function_on_peers_expect_answer(const StringName &function_name, Array parameters, uint8_t only_on_peers_with_bits_set, uint8_t only_on_peers_with_bits_unset) {
+	GodotProfileFunction();
 	bool has_qualifying_peer = false;
 	for (const auto &peer : _other_peers) {
 		if (peer.get_communication_state() == ConnectedOpen && peer.check_peer_bits(only_on_peers_with_bits_set, only_on_peers_with_bits_unset)) {
