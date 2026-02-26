@@ -32,6 +32,7 @@
 
 #include "core/core_globals.h"
 #include "core/os/os.h"
+#include "core/profiling/profiling.h"
 
 static PrintHandlerList *print_handler_list = nullptr;
 static thread_local bool is_printing = false;
@@ -75,7 +76,7 @@ void __print_line(const String &p_string) {
 	if (!CoreGlobals::print_line_enabled) {
 		return;
 	}
-
+	GodotProfileFunction();
 	if (is_printing) {
 		__print_fallback(p_string, false);
 		return;
@@ -85,14 +86,18 @@ void __print_line(const String &p_string) {
 
 	OS::get_singleton()->print("%s\n", p_string.utf8().get_data());
 
-	_global_lock();
-	PrintHandlerList *l = print_handler_list;
-	while (l) {
-		l->printfunc(l->userdata, p_string, false, false);
-		l = l->next;
-	}
+	{
+		GodotProfileZone("print_funcs");
+		_global_lock();
+		PrintHandlerList *l = print_handler_list;
+		while (l) {
+			GodotProfileZone("print_func");
+			l->printfunc(l->userdata, p_string, false, false);
+			l = l->next;
+		}
 
-	_global_unlock();
+		_global_unlock();
+	}
 
 	is_printing = false;
 }

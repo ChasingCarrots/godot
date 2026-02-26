@@ -66,14 +66,19 @@ int AudioStreamPlayback::mix(AudioFrame *p_buffer, float p_rate_scale, int p_fra
 }
 
 PackedVector2Array AudioStreamPlayback::_mix_audio_bind(float p_rate_scale, int p_frames) {
-	Vector<AudioFrame> frames = mix_audio(p_rate_scale, p_frames);
+	thread_local LocalVector<AudioFrame> mixed;
+	mixed.clear();
+	mixed.resize(p_frames);
+
+	int frames = mix(mixed.ptr(), p_rate_scale, p_frames);
+	mixed.resize(frames);
 
 	PackedVector2Array res;
-	res.resize(frames.size());
+	res.resize(frames);
 
 	Vector2 *res_ptrw = res.ptrw();
-	for (int i = 0; i < frames.size(); i++) {
-		res_ptrw[i] = Vector2(frames[i].left, frames[i].right);
+	for (int i = 0; i < frames; i++) {
+		res_ptrw[i] = Vector2(mixed[i].left, mixed[i].right);
 	}
 
 	return res;

@@ -309,6 +309,7 @@ Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const St
 }
 
 void CommunicationLineSystem::initialize_server() {
+	GodotProfileFunction();
 	set_server_id(get_local_multiplayer_id());
 
 	_next_line_id = 0;

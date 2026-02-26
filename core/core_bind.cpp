@@ -43,6 +43,7 @@
 #include "core/os/main_loop.h"
 #include "core/os/thread_safe.h"
 #include "core/variant/typed_array.h"
+#include "profiling/profiling.h"
 
 namespace CoreBind {
 
@@ -240,6 +241,7 @@ void OS::LoggerBind::logv(const char *p_format, va_list p_list, bool p_err) {
 	if (!should_log(p_err)) {
 		return;
 	}
+	GodotProfileFunction();
 
 	constexpr int static_buf_size = 1024;
 	char static_buf[static_buf_size] = { '\0' };

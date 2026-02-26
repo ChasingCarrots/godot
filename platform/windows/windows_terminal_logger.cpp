@@ -38,12 +38,15 @@
 #include <cstdio>
 
 #define WIN32_LEAN_AND_MEAN
+#include "core/profiling/profiling.h"
+
 #include <windows.h>
 
 void WindowsTerminalLogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	if (!should_log(p_err)) {
 		return;
 	}
+	GodotProfileFunction();
 
 	const int static_buffer_size = 1024;
 	char static_buf[static_buffer_size];

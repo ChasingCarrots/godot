@@ -66,6 +66,7 @@ void CommunicationLine::_bind_methods() {
 }
 
 void CommunicationLine::create_unconnected_peers(const Vector<int> &peers) {
+	GodotProfileFunction();
 	for (int peer_id : peers) {
 		if (peer_id == _my_peer_info.get_multiplayer_id()) {
 			continue;
@@ -87,6 +88,7 @@ void CommunicationLine::create_unconnected_peers(const Vector<int> &peers) {
 }
 
 void CommunicationLine::new_peer_connected(int peer_id) {
+	GodotProfileFunction();
 	for (auto &peer : _other_peers) {
 		if (peer.get_multiplayer_id() == peer_id) {
 			// we already have that peer
@@ -107,6 +109,7 @@ void CommunicationLine::new_peer_connected(int peer_id) {
 }
 
 void CommunicationLine::peer_disconnected(int peer_id) {
+	GodotProfileFunction();
 	for (int i = 0; i < _other_peers.size(); ++i) {
 		if (_other_peers[i].get_multiplayer_id() == peer_id) {
 			emit_signal("PeerCommunicationStateChanged", peer_id, NotConnected);
@@ -117,6 +120,7 @@ void CommunicationLine::peer_disconnected(int peer_id) {
 }
 
 void CommunicationLine::update_own_communication_state(CommunicationState state) {
+	GodotProfileFunction();
 	if (_my_peer_info.get_communication_state() == state) {
 		return;
 	}
@@ -135,6 +139,7 @@ void CommunicationLine::update_own_communication_state(CommunicationState state)
 }
 
 Variant get_value_from_buffer(StreamPeerBuffer * packet, CommunicationLine::ParamType parameter_type) {
+	GodotProfileFunction();
 	switch (parameter_type) {
 		case CommunicationLine::None: break;
 		case CommunicationLine::U8: return packet->get_u8();
@@ -324,6 +329,7 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 }
 
 void CommunicationLine::finish_initialization_and_open_line() {
+	GodotProfileFunction();
 	switch (_my_peer_info.get_communication_state()) {
 		case NotConnected:
 			if (_communication_line_system->is_server()) {
@@ -340,6 +346,7 @@ void CommunicationLine::finish_initialization_and_open_line() {
 }
 
 void CommunicationLine::add_function_definition(const StringName &function_name, Callable callable, Array parameter_types, CommunicationLine::ParamType expected_answer, MultiplayerPeer::TransferMode mode) {
+	GodotProfileFunction();
 	// TODO: check if function already exists
 	CommunicationFunction new_function;
 	new_function.Name = function_name;

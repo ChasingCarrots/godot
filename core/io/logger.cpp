@@ -35,6 +35,7 @@
 #include "core/io/file_access.h"
 #include "core/object/script_backtrace.h"
 #include "core/os/time.h"
+#include "core/profiling/profiling.h"
 #include "core/templates/rb_set.h"
 
 #include "modules/modules_enabled.gen.h" // For regex.
@@ -183,6 +184,7 @@ void RotatedFileLogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	if (!should_log(p_err)) {
 		return;
 	}
+	GodotProfileFunction();
 
 	if (file.is_valid()) {
 		const int static_buf_size = 512;
@@ -222,6 +224,7 @@ void StdLogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	if (!should_log(p_err)) {
 		return;
 	}
+	GodotProfileFunction();
 
 	if (p_err) {
 		vfprintf(stderr, p_format, p_list);
@@ -243,8 +246,10 @@ void CompositeLogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	if (!should_log(p_err)) {
 		return;
 	}
+	GodotProfileFunction();
 
 	for (int i = 0; i < loggers.size(); ++i) {
+		GodotProfileZone("one_logger");
 		va_list list_copy;
 		va_copy(list_copy, p_list);
 		loggers[i]->logv(p_format, list_copy, p_err);

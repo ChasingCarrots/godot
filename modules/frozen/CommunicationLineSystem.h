@@ -2,6 +2,7 @@
 #define COMMUNICATIONLINESYSTEM_H
 
 #include "CommunicationLine.h"
+#include "core/profiling/profiling.h"
 
 #include <scene/main/node.h>
 
@@ -70,10 +71,12 @@ public:
 	void initialize_server();
 	
 	void set_server_id(const int id) {
+		GodotProfileFunction();
 		_server_id = id;
 
 		print_line("[", get_local_multiplayer_id() ,"] Server ID set to: ", id);
 		if (id != get_local_multiplayer_id()){
+			GodotProfileZone("connected_to_server_signal");
 			emit_signal(SNAME("connected_to_server"));
 		}
 	}
@@ -87,6 +90,7 @@ public:
 		return get_local_multiplayer_id() == _server_id;
 	}
 	int get_local_multiplayer_id() const {
+		GodotProfileFunction();
 		if (_multiplayer_peer == nullptr) { return -1; }
 		
 		return _multiplayer_peer->get_unique_id();
