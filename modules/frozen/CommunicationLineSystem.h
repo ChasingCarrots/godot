@@ -2,6 +2,7 @@
 #define COMMUNICATIONLINESYSTEM_H
 
 #include "CommunicationLine.h"
+#include "NetworkChunking.h"
 #include "core/profiling/profiling.h"
 
 #include <scene/main/node.h>
@@ -16,13 +17,16 @@ protected:
 
 private:
 	friend CommunicationLine;
-	// Ref<SceneMultiplayer> _scene_multiplayer;
+	friend ChunkReceiver; //We need access to process packet in ChunkReceiver
+
 	uint32_t _next_line_id = 1;
 	Vector<Ref<CommunicationLine>> _communication_lines;
 	Ref<StreamPeerBuffer> _receive_buffer;
 	Ref<StreamPeerBuffer> _send_buffer;
 
 	Ref<MultiplayerPeer> _multiplayer_peer;
+	Ref<ChunkSender> _chunk_sender;
+	Ref<ChunkReceiver> _chunk_receiver;
 	MultiplayerPeer::ConnectionStatus last_connection_status = MultiplayerPeer::CONNECTION_DISCONNECTED;
 
 	HashSet<int> _connected_peers;

@@ -16,7 +16,8 @@ enum class CommunicationLinePacketTypes {
 	UpdateLinePeerStateAndBits = 111,
 	CallRemoteFunction = 122,
 	CallRemoteFunctionExpectAnswer = 123,
-	AnswerToFunctionCall = 133
+	AnswerToFunctionCall = 133,
+	SendDataChunk = 144
 };
 
 class CommunicationLinePeer {

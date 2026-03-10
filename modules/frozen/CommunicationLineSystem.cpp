@@ -1,6 +1,5 @@
 #include "CommunicationLineSystem.h"
 #include "CommunicationLine.h"
-#include "modules/multiplayer/scene_multiplayer.h"
 #include "core/profiling/profiling.h"
 
 constexpr int COMMUNICATION_LINE_CHANNEL_RELIABLE = 1; //Documentation mentions that channel 0 works as 3 separate channels (https://docs.godotengine.org/en/stable/classes/class_multiplayerpeer.html#class-multiplayerpeer-property-transfer-channel)
@@ -63,13 +62,21 @@ void CommunicationLineSystem::_notification(int p_notification) {
 void CommunicationLineSystem::_ready() {
 	_receive_buffer.instantiate();
 	_send_buffer.instantiate();
+	_chunk_sender.instantiate();
+	_chunk_receiver.instantiate();
+	_chunk_receiver->initialize(this);
 
 	set_process(true);
+	set_process_mode(PROCESS_MODE_ALWAYS);
 }
 
 void CommunicationLineSystem::_process(double p_time) {
 	if (_multiplayer_peer.is_valid()) {
 		poll();
+	}
+
+	if (_chunk_receiver.is_valid()) {
+		_chunk_receiver->process();
 	}
 }
 
@@ -88,6 +95,8 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 	}
 
 	_multiplayer_peer = p_peer;
+
+	_chunk_sender->initialize(p_peer);
 
 	//Our communication lines need the new peer id
 	for (auto cl : _communication_lines){
@@ -232,6 +241,10 @@ void CommunicationLineSystem::on_packet_received(int from_multiplayer_id, const 
 			}
 		}
 		break;
+		case CommunicationLinePacketTypes::SendDataChunk: {
+			_chunk_receiver->receive_chunk_data(from_multiplayer_id, _receive_buffer);
+			break;
+		}
 		default: {
 			// this is a packet for a specific communication line. so we forward it:
 			uint16_t line_id = _receive_buffer->get_u16();
@@ -427,10 +440,28 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 
 	if (to > 0) {
 		ERR_FAIL_COND(!_connected_peers.has(to));
+		if (packet.size() > _multiplayer_peer->get_max_packet_size()) {
+			if (mode == MultiplayerPeer::TRANSFER_MODE_RELIABLE){
+				_chunk_sender->send_as_chunk(to, packet);
+			} else {
+				print_error(vformat("Sending chunks over %d bytes unreliable is not supported!", _multiplayer_peer->get_max_packet_size()));
+			}
+			return;
+		}
+
 		_multiplayer_peer->set_target_peer(to);
 		_multiplayer_peer->put_packet(packet.ptr(), packet.size());
 	} else {
 		for (const int &pid : _connected_peers) {
+			if (packet.size() > _multiplayer_peer->get_max_packet_size()) {
+				if (mode == MultiplayerPeer::TRANSFER_MODE_RELIABLE){
+					_chunk_sender->send_as_chunk(pid, packet);
+				} else {
+					print_error(vformat("Sending chunks over %d bytes unreliable is not supported!", _multiplayer_peer->get_max_packet_size()));
+				}
+				continue;
+			}
+
 			_multiplayer_peer->set_target_peer(pid);
 			_multiplayer_peer->put_packet(packet.ptr(), packet.size());
 		}
