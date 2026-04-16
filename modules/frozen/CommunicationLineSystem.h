@@ -59,6 +59,7 @@ public:
 
 	Ref<CommunicationLine> grab_communication_line(const StringName &id);
 	void remove_communication_line(const Ref<CommunicationLine> removed_cl);
+	void remove_all_communication_lines();
 
 	// access to all lines mostly for debug visualization purposes:
 	int get_number_of_communication_lines() const { return _communication_lines.size(); }
