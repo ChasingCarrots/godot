@@ -158,6 +158,8 @@ void CompositeNode::_bind_methods() {
 		&CompositeNode::get_composite_id);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "CompositeID", PROPERTY_HINT_NONE),
 		"", "get_composite_id");
+	ClassDB::bind_method(D_METHOD("set_composite_id", "id"),
+		&CompositeNode::set_composite_id);
 
 	ClassDB::bind_static_method("CompositeNode", D_METHOD("SetGameTimeServerOffset", "offset"),
 	    &CompositeNode::SetGameTimeServerOffset);

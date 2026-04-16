@@ -248,6 +248,7 @@ public:
 		}
 	}
 	[[nodiscard]] uint16_t get_composite_id() const { return _composite_ID; }
+	void set_composite_id(uint16_t id) { _composite_ID = id; }
 };
 
 VARIANT_ENUM_CAST(CompositeNode::DataSynchronizationMode);
