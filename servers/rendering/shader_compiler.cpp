@@ -32,6 +32,7 @@
 
 #include "servers/rendering/rendering_server_globals.h"
 #include "servers/rendering/shader_types.h"
+#include "core/profiling/profiling.h"
 
 #define SL ShaderLanguage
 
@@ -447,6 +448,7 @@ static String _get_global_shader_uniform_from_type_and_index(const String &p_buf
 }
 
 String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, GeneratedCode &r_gen_code, IdentifierActions &p_actions, const DefaultIdentifierActions &p_default_actions, bool p_assigning, bool p_use_scope) {
+	GodotProfileFunction();
 	String code;
 
 	switch (p_node->type) {
@@ -1496,6 +1498,7 @@ ShaderLanguage::DataType ShaderCompiler::_get_global_shader_uniform_type(const S
 }
 
 Error ShaderCompiler::compile(RS::ShaderMode p_mode, const String &p_code, IdentifierActions *p_actions, const String &p_path, GeneratedCode &r_gen_code) {
+	GodotProfileFunction();
 	SL::ShaderCompileInfo info;
 	info.functions = ShaderTypes::get_singleton()->get_functions(p_mode);
 	info.render_modes = ShaderTypes::get_singleton()->get_modes(p_mode);

@@ -31,6 +31,7 @@
 #include "fastnoise_lite.h"
 
 #include "core/config/engine.h"
+#include "core/profiling/profiling.h"
 
 _FastNoiseLite::FractalType FastNoiseLite::_convert_domain_warp_fractal_type_enum(DomainWarpFractalType p_domain_warp_fractal_type) {
 	_FastNoiseLite::FractalType type;
@@ -51,6 +52,7 @@ _FastNoiseLite::FractalType FastNoiseLite::_convert_domain_warp_fractal_type_enu
 }
 
 FastNoiseLite::FastNoiseLite() {
+	GodotProfileFunction();
 	_noise.SetNoiseType((_FastNoiseLite::NoiseType)noise_type);
 	_noise.SetSeed(seed);
 	_noise.SetFrequency(frequency);
@@ -93,6 +95,7 @@ FastNoiseLite::NoiseType FastNoiseLite::get_noise_type() const {
 }
 
 void FastNoiseLite::set_seed(int p_seed) {
+	GodotProfileFunction();
 	seed = p_seed;
 	_noise.SetSeed(p_seed);
 	_domain_warp_noise.SetSeed(p_seed);
@@ -302,6 +305,7 @@ real_t FastNoiseLite::get_domain_warp_fractal_gain() const {
 // Noise interface functions.
 
 real_t FastNoiseLite::get_noise_1d(real_t p_x) const {
+	GodotProfileFunction();
 	p_x += offset.x;
 	if (domain_warp_enabled) {
 		// Needed since DomainWarp expects a reference.
@@ -316,6 +320,7 @@ real_t FastNoiseLite::get_noise_2dv(Vector2 p_v) const {
 }
 
 real_t FastNoiseLite::get_noise_2d(real_t p_x, real_t p_y) const {
+	GodotProfileFunction();
 	p_x += offset.x;
 	p_y += offset.y;
 	if (domain_warp_enabled) {
@@ -329,6 +334,7 @@ real_t FastNoiseLite::get_noise_3dv(Vector3 p_v) const {
 }
 
 real_t FastNoiseLite::get_noise_3d(real_t p_x, real_t p_y, real_t p_z) const {
+	GodotProfileFunction();
 	p_x += offset.x;
 	p_y += offset.y;
 	p_z += offset.z;

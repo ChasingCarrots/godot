@@ -32,13 +32,10 @@
 
 PackedVector2Array AudioEffectInstance::_process_audio_bind(const PackedVector2Array &p_src_buffer, int p_frame_count) {
 	int count = MIN(p_frame_count, p_src_buffer.size());
+	// keep the src and dst buffers around as thread_local to minimize memory allocations between calls.
 	thread_local LocalVector<AudioFrame> src;
 	thread_local LocalVector<AudioFrame> dst;
-
-	src.clear();
 	src.resize(count);
-
-	dst.clear();
 	dst.resize(count);
 
 	AudioFrame *src_ptrw = src.ptr();
@@ -56,6 +53,15 @@ PackedVector2Array AudioEffectInstance::_process_audio_bind(const PackedVector2A
 	for (int i = 0; i < count; i++) {
 		res_ptrw[i] = Vector2(dst_r[i].left, dst_r[i].right);
 	}
+
+	// when the buffers are abnormally large, deallocate them. We don't want to waste memory unnecessarily.
+	if (src.size() > 2048) {
+		src.reset();
+	}
+	if (dst.size() > 2048) {
+		dst.reset();
+	}
+
 	return res;
 }
 

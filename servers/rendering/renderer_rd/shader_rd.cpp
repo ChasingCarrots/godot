@@ -37,9 +37,12 @@
 #include "servers/rendering/rendering_device.h"
 #include "servers/rendering/shader_include_db.h"
 
+#include "core/profiling/profiling.h"
+
 #define ENABLE_SHADER_CACHE 1
 
 void ShaderRD::_add_stage(const char *p_code, StageType p_stage_type) {
+	GodotProfileFunction();
 	Vector<String> lines = String(p_code).split("\n");
 
 	String text;
@@ -132,6 +135,7 @@ void ShaderRD::_add_stage(const char *p_code, StageType p_stage_type) {
 }
 
 void ShaderRD::setup(const char *p_vertex_code, const char *p_fragment_code, const char *p_compute_code, const char *p_name) {
+	GodotProfileFunction();
 	name = p_name;
 
 	if (p_compute_code) {
@@ -165,6 +169,7 @@ void ShaderRD::setup(const char *p_vertex_code, const char *p_fragment_code, con
 }
 
 RID ShaderRD::version_create(bool p_embedded) {
+	GodotProfileFunction();
 	//initialize() was never called
 	ERR_FAIL_COND_V(group_to_variant_map.is_empty(), RID());
 
@@ -219,6 +224,7 @@ void ShaderRD::_clear_version(Version *p_version) {
 }
 
 void ShaderRD::_build_variant_code(StringBuilder &builder, uint32_t p_variant, const Version *p_version, const StageTemplate &p_template) {
+	GodotProfileFunction();
 	for (const StageTemplate::Chunk &chunk : p_template.chunks) {
 		switch (chunk.type) {
 			case StageTemplate::Chunk::TYPE_VERSION_DEFINES: {
@@ -296,6 +302,7 @@ Vector<String> ShaderRD::_build_variant_stage_sources(uint32_t p_variant, Compil
 }
 
 void ShaderRD::_compile_variant(uint32_t p_variant, CompileData p_data) {
+	GodotProfileFunction();
 	uint32_t variant = group_to_variant_map[p_data.group][p_variant];
 	if (!variants_enabled[variant]) {
 		return; // Variant is disabled, return.
@@ -329,6 +336,7 @@ Vector<String> ShaderRD::version_build_variant_stage_sources(RID p_version, int 
 }
 
 RS::ShaderNativeSourceCode ShaderRD::version_get_native_source_code(RID p_version) {
+	GodotProfileFunction();
 	Version *version = version_owner.get_or_null(p_version);
 	RS::ShaderNativeSourceCode source_code;
 	ERR_FAIL_NULL_V(version, source_code);
@@ -433,6 +441,7 @@ String ShaderRD::_get_cache_file_path(Version *p_version, int p_group, const Str
 }
 
 bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
+	GodotProfileFunction();
 	String api_safe_name = String(RD::get_singleton()->get_device_api_name()).validate_filename().to_lower();
 	Ref<FileAccess> f;
 	if (shader_cache_user_dir_valid) {
@@ -509,6 +518,7 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 }
 
 void ShaderRD::_save_to_cache(Version *p_version, int p_group) {
+	GodotProfileFunction();
 	ERR_FAIL_COND(!shader_cache_user_dir_valid);
 	String api_safe_name = String(RD::get_singleton()->get_device_api_name()).validate_filename().to_lower();
 	const String &path = _get_cache_file_path(p_version, p_group, api_safe_name, true);
@@ -806,6 +816,7 @@ ShaderRD::ShaderRD() {
 }
 
 void ShaderRD::initialize(const Vector<String> &p_variant_defines, const String &p_general_defines, const Vector<RD::PipelineImmutableSampler> &p_immutable_samplers, const Vector<uint64_t> &p_dynamic_buffers) {
+	GodotProfileFunction();
 	ERR_FAIL_COND(variant_defines.size());
 	ERR_FAIL_COND(p_variant_defines.is_empty());
 
@@ -831,6 +842,7 @@ void ShaderRD::initialize(const Vector<String> &p_variant_defines, const String 
 }
 
 void ShaderRD::_initialize_cache() {
+	GodotProfileFunction();
 	shader_cache_user_dir_valid = !shader_cache_user_dir.is_empty();
 	shader_cache_res_dir_valid = !shader_cache_res_dir.is_empty();
 	if (!shader_cache_user_dir_valid) {
@@ -891,6 +903,7 @@ void ShaderRD::_initialize_cache() {
 
 // Same as above, but allows specifying shader compilation groups.
 void ShaderRD::initialize(const Vector<VariantDefine> &p_variant_defines, const String &p_general_defines, const Vector<RD::PipelineImmutableSampler> &p_immutable_samplers, const Vector<uint64_t> &p_dynamic_buffers) {
+	GodotProfileFunction();
 	ERR_FAIL_COND(variant_defines.size());
 	ERR_FAIL_COND(p_variant_defines.is_empty());
 
@@ -974,6 +987,7 @@ void ShaderRD::set_shader_cache_save_debug(bool p_enable) {
 }
 
 Vector<RD::ShaderStageSPIRVData> ShaderRD::compile_stages(const Vector<String> &p_stage_sources, const Vector<uint64_t> &p_dynamic_buffers) {
+	GodotProfileFunction();
 	RD::ShaderStageSPIRVData stage;
 	Vector<RD::ShaderStageSPIRVData> stages;
 	String error;
@@ -1011,6 +1025,7 @@ Vector<RD::ShaderStageSPIRVData> ShaderRD::compile_stages(const Vector<String> &
 }
 
 PackedByteArray ShaderRD::save_shader_cache_bytes(const LocalVector<int> &p_variants, const Vector<Vector<uint8_t>> &p_variant_data) {
+	GodotProfileFunction();
 	uint32_t variant_count = p_variants.size();
 	PackedByteArray bytes;
 	int64_t total_size = 0;

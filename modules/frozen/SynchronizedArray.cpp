@@ -123,6 +123,7 @@ void SynchronizedArray::remote_sync_all(int sender_id, int number_of_elements, P
     buf.instantiate();
     buf->set_data_array(elements_buffer);
 
+	_array.clear();
     for (int i = 0; i < number_of_elements; i++) {
         Variant value = buf->get_var();
         _array.append(value);

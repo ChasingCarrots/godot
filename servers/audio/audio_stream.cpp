@@ -66,8 +66,8 @@ int AudioStreamPlayback::mix(AudioFrame *p_buffer, float p_rate_scale, int p_fra
 }
 
 PackedVector2Array AudioStreamPlayback::_mix_audio_bind(float p_rate_scale, int p_frames) {
+	// keep the mixed buffer around as thread_local to minimize memory allocations between calls.
 	thread_local LocalVector<AudioFrame> mixed;
-	mixed.clear();
 	mixed.resize(p_frames);
 
 	int frames = mix(mixed.ptr(), p_rate_scale, p_frames);
@@ -79,6 +79,11 @@ PackedVector2Array AudioStreamPlayback::_mix_audio_bind(float p_rate_scale, int 
 	Vector2 *res_ptrw = res.ptrw();
 	for (int i = 0; i < frames; i++) {
 		res_ptrw[i] = Vector2(mixed[i].left, mixed[i].right);
+	}
+
+	// when the mixed buffer is abnormally large, deallocate it. We don't want to waste memory unnecessarily.
+	if (mixed.size() > 2048) {
+		mixed.reset();
 	}
 
 	return res;
