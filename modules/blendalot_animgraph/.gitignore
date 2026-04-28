@@ -1,0 +1,31 @@
+.*swp
+__pycache__
+
+# Godot 4+ specific ignores
+demo/.godot/
+demo/android/
+
+demo/.nomedia
+
+# Godot-specific ignores
+demo/.import/
+demo/export.cfg
+demo/export_credentials.cfg
+demo/*.tmp
+
+# Imported translations (automatically generated from CSV files)
+demo/*.translation
+
+# Mono-specific ignores
+demo/.mono/
+demo/data_*/
+demo/mono_crash.*.json
+
+/demo/assets/MixamoAmy_Ch46_1001_Diffuse.png
+/demo/assets/MixamoAmy_Ch46_1001_Diffuse.png.import
+/demo/assets/MixamoAmy_Ch46_1001_Glossiness.png
+/demo/assets/MixamoAmy_Ch46_1001_Glossiness.png.import
+/demo/assets/MixamoAmy_Ch46_1001_Normal.png
+/demo/assets/MixamoAmy_Ch46_1001_Normal.png.import
+/demo/assets/MixamoAmy_Image.png
+/demo/assets/MixamoAmy_Image.png.import

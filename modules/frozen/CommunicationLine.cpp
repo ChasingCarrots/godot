@@ -1,7 +1,10 @@
 #include "CommunicationLine.h"
 
 #include "CommunicationLineSystem.h"
+
+#include "core/object/class_db.h"
 #include "core/profiling/profiling.h"
+#include "core/variant/typed_array.h"
 
 void CommunicationCallWithAnswer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_number_of_answers"), &CommunicationCallWithAnswer::get_number_of_answers);

@@ -1,8 +1,10 @@
-//===========================================================================//
+//================================================================================================//
 // GodotSteam - register_types.cpp
-//===========================================================================//
+//================================================================================================//
 //
-// Copyright (c) 2015-Current | GP Garcia and Contributors (view contributors.md)
+// Copyright (c) 2015-Current | GP Garcia, Chris Ridenour, and Contributors
+//
+// View all contributors at https://godotsteam.com/contribute/contributors/
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,42 +24,56 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-//===========================================================================//
+//================================================================================================//
 
 #include "register_types.h"
+
 #include "core/config/engine.h"
-#include "core/config/project_settings.h"
 #include "core/object/class_db.h"
+
 #include "godotsteam.h"
+#include "godotsteam_multiplayer_peer.h"
+#include "godotsteam_project_settings.h"
 
 
 static Steam *SteamPtr = nullptr;
 
 
-void initialize_godotsteam_module(ModuleInitializationLevel level){
-	if(level == MODULE_INITIALIZATION_LEVEL_SERVERS){
+void initialize_godotsteam_module(ModuleInitializationLevel level) {
+	if (level == MODULE_INITIALIZATION_LEVEL_CORE) {
 		GDREGISTER_CLASS(Steam);
 		SteamPtr = memnew(Steam);
 		Engine::get_singleton()->add_singleton(Engine::Singleton("Steam", Steam::get_singleton()));
  
 		// Setup Project Settings
-		int app_id = GLOBAL_DEF_BASIC("steam/initialization/app_id", 0);
-		bool auto_init = GLOBAL_DEF_BASIC("steam/initialization/initialize_on_startup", false);
-		bool embed_callbacks = GLOBAL_DEF_BASIC("steam/initialization/embed_callbacks", false);
+		SteamProjectSettings::register_settings();
 
-		if (auto_init){
-			// Prevent intializing Steam from the editor itself
-			if (Engine::get_singleton()->is_editor_hint()) {
-				return;
-			}
-			Steam::get_singleton()->steamInitEx(app_id, embed_callbacks);
+		if (Engine::get_singleton()->is_editor_hint()) {
+			return;
+		}
+
+		if (!SteamProjectSettings::get_auto_init()) {
+			return;
+		}
+
+		Steam::get_singleton()->run_internal_initialization();
+	}
+	if (level == MODULE_INITIALIZATION_LEVEL_SERVERS) {
+		ClassDB::register_class<SteamPacketPeer>();
+		ClassDB::register_class<SteamMultiplayerPeer>();
+	}
+	if (level == MODULE_INITIALIZATION_LEVEL_SCENE) {
+		if (SteamProjectSettings::get_auto_init() && SteamProjectSettings::get_embed_callbacks()) {
+			WARN_PRINT_ONCE("[STEAM] Cannot use auto-initialization and embed callbacks together currently. Embed callbacks ignored; call run_callbacks() manually.");
+			// This just warns until we can fix the inability to link to SceneTree this early.
+			// Steam::get_singleton()->set_internal_callbacks();
 		}
 	}
 }
 
 
-void uninitialize_godotsteam_module(ModuleInitializationLevel level){
-	if(level == MODULE_INITIALIZATION_LEVEL_SERVERS){
+void uninitialize_godotsteam_module(ModuleInitializationLevel level) {
+	if (level == MODULE_INITIALIZATION_LEVEL_CORE) {
 		Engine::get_singleton()->remove_singleton("Steam");
 		memdelete(SteamPtr);
 	}

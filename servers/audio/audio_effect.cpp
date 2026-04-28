@@ -30,6 +30,8 @@
 
 #include "audio_effect.h"
 
+#include "core/object/class_db.h" // IWYU pragma: keep. `GDVIRTUAL_BIND` macro.
+
 PackedVector2Array AudioEffectInstance::_process_audio_bind(const PackedVector2Array &p_src_buffer, int p_frame_count) {
 	int count = MIN(p_frame_count, p_src_buffer.size());
 	// keep the src and dst buffers around as thread_local to minimize memory allocations between calls.
@@ -75,7 +77,7 @@ bool AudioEffectInstance::process_silence() const {
 }
 
 void AudioEffectInstance::_bind_methods() {
-	GDVIRTUAL_BIND(_process, "src_buffer", "dst_buffer", "frame_count");
+	GDVIRTUAL_BIND(_process, "src_buffer", "r_dst_buffer", "frame_count");
 	GDVIRTUAL_BIND(_process_silence);
 
 	ClassDB::bind_method(D_METHOD("process_audio", "src_buffer", "frame_count"),

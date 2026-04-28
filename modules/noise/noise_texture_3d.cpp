@@ -32,6 +32,9 @@
 
 #include "noise.h"
 
+#include "core/config/engine.h"
+#include "core/object/callable_mp.h"
+#include "core/object/class_db.h"
 #include "servers/rendering/rendering_server.h"
 
 NoiseTexture3D::NoiseTexture3D() {
@@ -77,8 +80,8 @@ void NoiseTexture3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "width", PROPERTY_HINT_RANGE, "1,2048,1,or_greater,suffix:px"), "set_width", "get_width");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "height", PROPERTY_HINT_RANGE, "1,2048,1,or_greater,suffix:px"), "set_height", "get_height");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "depth", PROPERTY_HINT_RANGE, "1,2048,1,or_greater,suffix:px"), "set_depth", "get_depth");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "noise", PROPERTY_HINT_RESOURCE_TYPE, "Noise"), "set_noise", "get_noise");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "color_ramp", PROPERTY_HINT_RESOURCE_TYPE, "Gradient"), "set_color_ramp", "get_color_ramp");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "noise", PROPERTY_HINT_RESOURCE_TYPE, Noise::get_class_static()), "set_noise", "get_noise");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "color_ramp", PROPERTY_HINT_RESOURCE_TYPE, Gradient::get_class_static()), "set_color_ramp", "get_color_ramp");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "seamless"), "set_seamless", "get_seamless");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "invert"), "set_invert", "get_invert");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "normalize"), "set_normalize", "is_normalized");
@@ -118,7 +121,10 @@ void NoiseTexture3D::_set_texture_data(const TypedArray<Image> &p_data) {
 }
 
 void NoiseTexture3D::_thread_done(const TypedArray<Image> &p_data) {
-	current_task_id = WorkerThreadPool::INVALID_TASK_ID;
+	if (current_task_id != WorkerThreadPool::INVALID_TASK_ID) {
+		WorkerThreadPool::get_singleton()->wait_for_task_completion(current_task_id);
+		current_task_id = WorkerThreadPool::INVALID_TASK_ID;
+	}
 	_set_texture_data(p_data);
 	if (regen_queued) {
 		current_task_id = WorkerThreadPool::get_singleton()->add_task(callable_mp(this, &NoiseTexture3D::_thread_function), false, "Noise Texture 3D Image generation");

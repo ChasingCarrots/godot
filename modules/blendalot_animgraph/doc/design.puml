@@ -1,0 +1,79 @@
+@startuml
+
+class Node {
+}
+
+class AnimationGraph {
+ AnimationGraphNode root_node
+ NodePath animation_player
+
+ void _notification(int p_what)
+ static void _bind_methods()
+}
+
+class AnimationGraphNode {
+ NodeTimeInfo time_info
+ SyncTrack sync_track
+
+ virtual void initialize(GraphEvaluationContext &context)
+ virtual void activate_inputs(GraphEvaluationContext &context)
+ virtual void calculate_sync_track(GraphEvaluationContext &context)
+ virtual void update_time(double p_delta)
+ virtual void evaluate(GraphEvaluationContext &context, AnimationData &data)
+
+ virtual int get_num_inputs() { return 0; }
+ virtual AnimationGraphNode* get_input_node(int input_index) { return nullptr; }
+}
+
+class AnimationGraphBlendTree {
+  // nodes are ordered by evaluation
+  Array<AnimationGraphNode> nodes
+  Array<Connection> connections
+
+  void initialize_tree()
+  void activate_nodes()
+  void calculate_sync_tracks()
+  void propagate_time()
+  void evaluate_nodes()
+}
+
+class AnimationGraphStateMachine {
+  Array<AnimationGraphNode> states
+  Array<Transition> transitions
+
+  AnimationGraphNode *current_state
+  AnimationGraphNode *previous_state
+
+  Transition* active_transition
+  double transition_time
+
+  void initialize_states()
+  void activate_transitions()
+  void calculate_sync_tracks()
+  void calculate_state_times()
+  void evaluate_nodes_and_output()
+}
+
+class AnimationGraphBlend2Node {
+  AnimationGraphNode input_0
+  AnimationGraphNode input_1
+  double blend_weight
+}
+
+class AnimationGraph2BoneIK {
+  AnimationGraphNode input
+  double blend_weight
+
+  Vector3 pole_target
+  StringName bone_name
+}
+
+Node <|-- AnimationGraph
+AnimationGraph *-- AnimationGraphNode
+
+AnimationGraphNode <|-- AnimationGraphBlendTree
+AnimationGraphNode <|-- AnimationGraphStateMachine
+AnimationGraphNode <|-- AnimationGraphBlend2Node
+AnimationGraphNode <|-- AnimationGraph2BoneIK
+
+@enduml

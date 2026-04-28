@@ -1,5 +1,9 @@
 #include "CommunicationLineSystem.h"
+
 #include "CommunicationLine.h"
+
+#include "core/object/callable_mp.h"
+#include "core/object/class_db.h"
 #include "core/profiling/profiling.h"
 
 constexpr int COMMUNICATION_LINE_CHANNEL_RELIABLE = 1; //Documentation mentions that channel 0 works as 3 separate channels (https://docs.godotengine.org/en/stable/classes/class_multiplayerpeer.html#class-multiplayerpeer-property-transfer-channel)

@@ -1,5 +1,8 @@
 #pragma once
 
+#include "blendalot_math_helper.h"
+
+#include "core/math/math_funcs.h"
 #include "core/templates/local_vector.h"
 
 #include <cassert>
@@ -21,7 +24,7 @@
  *  duration. Blended SyncTracks always have their first interval start at t = 0.0s.
  */
 struct SyncTrack {
-	static constexpr int cSyncTrackMaxIntervals = 8;
+	static constexpr int cSyncTrackMaxIntervals = 32;
 
 	SyncTrack() :
 			duration(0.f), num_intervals(1) {
@@ -59,6 +62,12 @@ struct SyncTrack {
 	}
 
 	double calc_ratio_from_sync_time(double sync_time) const {
+		// When blending SyncTracks with differing numbers of intervals the resulting SyncTrack may have
+		// additional repeats of the animation (=> "virtual sync periods", https://youtu.be/Jkv0pbp0ckQ?t=8178).
+		//
+		// Therefore, we first have to transform it back to the numbers of intervals we actually have.
+		sync_time = fmod(sync_time, num_intervals);
+
 		float interval_ratio = fmod(sync_time, 1.0f);
 		int interval = int(sync_time - interval_ratio);
 
@@ -126,19 +135,32 @@ struct SyncTrack {
 	 */
 	static SyncTrack
 	blend(float weight, const SyncTrack &track_A, const SyncTrack &track_B) {
-		assert(track_A.num_intervals == track_B.num_intervals);
+		if (Math::is_zero_approx(weight)) {
+			return track_A;
+		}
+
+		if (Math::is_zero_approx(1.0 - weight)) {
+			return track_B;
+		}
 
 		SyncTrack result;
-		result.num_intervals = track_A.num_intervals;
 
-		result.duration =
-				(1.0f - weight) * track_A.duration + weight * track_B.duration;
+		if (track_A.num_intervals != track_B.num_intervals) {
+			result.num_intervals = least_common_multiple(track_A.num_intervals, track_B.num_intervals);
+		} else {
+			result.num_intervals = track_A.num_intervals;
+		}
+		assert(result.num_intervals < cSyncTrackMaxIntervals);
 
+		float track_A_repeats = static_cast<float>(result.num_intervals / track_A.num_intervals);
+		float track_B_repeats = static_cast<float>(result.num_intervals / track_B.num_intervals);
+
+		result.duration = (1.0f - weight) * (track_A.duration * track_A_repeats) + weight * (track_B.duration * track_B_repeats);
 		result.interval_start_ratio[0] = 0.f;
 
 		for (int i = 0; i < result.num_intervals; i++) {
-			float interval_duration_A = track_A.interval_duration_ratio[i];
-			float interval_duration_B = track_B.interval_duration_ratio[i];
+			float interval_duration_A = track_A.interval_duration_ratio[i % track_A.num_intervals] / track_A_repeats;
+			float interval_duration_B = track_B.interval_duration_ratio[i % track_B.num_intervals] / track_B_repeats;
 			result.interval_duration_ratio[i] =
 					(1.0f - weight) * interval_duration_A + weight * interval_duration_B;
 
@@ -151,8 +173,6 @@ struct SyncTrack {
 				}
 			}
 		}
-
-		assert(result.num_intervals < cSyncTrackMaxIntervals);
 
 		return result;
 	}

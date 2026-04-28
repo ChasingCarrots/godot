@@ -11,8 +11,17 @@ if env["platform"]== "linuxbsd" or env["platform"] == "server":
 	env.Append(RPATH=env.Literal('\\$$ORIGIN'))
 	if env['arch'] == "x86_32":
 		env.Append(LIBPATH=["%s/sdk/redistributable_bin/linux32" % module_path])
+	# For Steam Frame / Linux ARM64
+	elif env['arch'] == "arm64":
+		env.Append(LIBPATH=["%s/sdk/redistributable_bin/linuxarm64" % module_path])
 	else: # 64 bit
 		env.Append(LIBPATH=["%s/sdk/redistributable_bin/linux64" % module_path])
+
+# If compiling for Steam Frame / Android
+if env["platform"] == "android":
+	env.Append(LIBS=["steam_api"])
+	env.Append(RPATH=env.Literal('\\$$ORIGIN'))
+	env.Append(LIBPATH=["%s/sdk/redistributable_bin/androidarm64" % module_path])
 
 # If compiling Windows
 elif env["platform"] == "windows":
@@ -39,4 +48,6 @@ elif env["platform"] == "macos":
 	env.Append(LIBS=["steam_api"])
 	env.Append(LIBPATH=['%s/sdk/redistributable_bin/osx' % module_path])
 
-env.add_source_files(env.modules_sources,"*.cpp")
+env_steam = env.Clone()
+env_steam.disable_warnings()
+env_steam.add_source_files(env.modules_sources,"*.cpp")

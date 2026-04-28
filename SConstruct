@@ -2,7 +2,7 @@
 from misc.utility.scons_hints import *
 
 EnsureSConsVersion(4, 0)
-EnsurePythonVersion(3, 8)
+EnsurePythonVersion(3, 9)
 
 # System
 import glob
@@ -199,8 +199,8 @@ opts.Add(BoolVariable("opengl3", "Enable the OpenGL/GLES3 rendering driver", Tru
 opts.Add(BoolVariable("d3d12", "Enable the Direct3D 12 rendering driver on supported platforms", False))
 opts.Add(BoolVariable("metal", "Enable the Metal rendering driver on supported platforms (Apple arm64 only)", False))
 opts.Add(BoolVariable("use_volk", "Use the volk library to load the Vulkan loader dynamically", True))
-opts.Add(BoolVariable("accesskit", "Use AccessKit C SDK", True))
-opts.Add(("accesskit_sdk_path", "Path to the AccessKit C SDK", ""))
+opts.Add(BoolVariable("accesskit", "Enable the AccessKit driver for screen reader support", True))
+opts.Add(BoolVariable("angle", "Enable the ANGLE rendering driver for OpenGL ES 3.0 on supported platforms", True))
 opts.Add(BoolVariable("sdl", "Enable the SDL3 input driver", True))
 opts.Add(
     EnumVariable(
@@ -222,6 +222,13 @@ opts.Add(
         False,
     )
 )
+opts.Add(
+    BoolVariable(
+        "profiler_record_on_demand",
+        "Record only when the profiler is connected, if the profiler supports it. In Tracy, this configures TRACY_ON_DEMAND, which has a performance impact if enabled.",
+        True,
+    )
+)
 
 
 # Advanced options
@@ -236,6 +243,7 @@ opts.Add(BoolVariable("ninja", "Use the ninja backend for faster rebuilds", Fals
 opts.Add(BoolVariable("ninja_auto_run", "Run ninja automatically after generating the ninja file", True))
 opts.Add("ninja_file", "Path to the generated ninja file", "build.ninja")
 opts.Add(BoolVariable("compiledb", "Generate compilation DB (`compile_commands.json`) for external tools", False))
+opts.Add(BoolVariable("compiledb_gen_only", "Exit after building the compilation database", False))
 opts.Add(
     "num_jobs",
     "Use up to N jobs when compiling (equivalent to `-j N`). Defaults to max jobs - 1. Ignored if -j is used.",
@@ -652,8 +660,11 @@ if env["build_profile"] != "":
             dbo = ft["disabled_build_options"]
             for c in dbo:
                 env[c] = dbo[c]
-    except json.JSONDecodeError:
-        print_error(f'Failed to open feature build profile: "{env["build_profile"]}"')
+    except json.JSONDecodeError as err:
+        print_error(f'Failed to open feature build profile due to JSON decoding error: "{env["build_profile"]}"\n{err}')
+        Exit(255)
+    except FileNotFoundError:
+        print_error(f'Feature build profile not found at: "{env["build_profile"]}"')
         Exit(255)
 
 # 'dev_mode' and 'production' are aliases to set default options if they haven't been
@@ -713,15 +724,26 @@ if cc_version_major == -1:
         "Build may fail if the compiler doesn't support C++17 fully."
     )
 elif methods.using_gcc(env):
-    if cc_version_major < 9:
-        print_error(
-            "Detected GCC version older than 9, which does not fully support "
-            "C++17, or has bugs when compiling Godot. Supported versions are 9 "
-            "and later. Use a newer GCC version, or Clang 6 or later by passing "
-            '"use_llvm=yes" to the SCons command line.'
-        )
-        Exit(255)
-    elif cc_version_metadata1 == "win32":
+    if env.get("winrt"):
+        if cc_version_major < 11:
+            print_error(
+                "Detected GCC version older than 11, which does not fully support "
+                "C++20, or has bugs when compiling Godot. Supported versions are 12 "
+                "and later. Use a newer GCC version, or Clang 14 or later by passing "
+                '"use_llvm=yes" to the SCons command line, or disable WinRT support by '
+                'passing "winrt=no" to the SCons command line.'
+            )
+            Exit(255)
+    else:
+        if cc_version_major < 9:
+            print_error(
+                "Detected GCC version older than 9, which does not fully support "
+                "C++17, or has bugs when compiling Godot. Supported versions are 9 "
+                "and later. Use a newer GCC version, or Clang 6 or later by passing "
+                '"use_llvm=yes" to the SCons command line.'
+            )
+            Exit(255)
+    if cc_version_metadata1 == "win32":
         print_error(
             "Detected mingw version is not using posix threads. Only posix "
             "version of mingw is supported. "
@@ -739,37 +761,55 @@ elif methods.using_clang(env):
             )
             Exit(255)
     else:
-        if cc_version_major < 6:
-            print_error(
-                "Detected Clang version older than 6, which does not fully support "
-                "C++17. Supported versions are Clang 6 and later."
-            )
-            Exit(255)
-        elif env["debug_paths_relative"] and cc_version_major < 10:
-            print_warning("Clang < 10 doesn't support -ffile-prefix-map, disabling `debug_paths_relative` option.")
-            env["debug_paths_relative"] = False
+        if env.get("winrt"):
+            if cc_version_major < 13:
+                print_error(
+                    "Detected Clang version older than 13, which does not fully support "
+                    "C++20. Supported versions are Clang 14 and later, or disable WinRT "
+                    'support by passing "winrt=no" to the SCons command line.'
+                )
+                Exit(255)
+        else:
+            if cc_version_major < 6:
+                print_error(
+                    "Detected Clang version older than 6, which does not fully support "
+                    "C++17. Supported versions are Clang 6 and later."
+                )
+                Exit(255)
+            elif env["debug_paths_relative"] and cc_version_major < 10:
+                print_warning("Clang < 10 doesn't support -ffile-prefix-map, disabling `debug_paths_relative` option.")
+                env["debug_paths_relative"] = False
 
 elif env.msvc:
     # Ensure latest minor builds of Visual Studio 2017/2019.
     # https://github.com/godotengine/godot/pull/94995#issuecomment-2336464574
-    if cc_version_major == 16 and cc_version_minor < 11:
-        print_error(
-            "Detected Visual Studio 2019 version older than 16.11, which has bugs "
-            "when compiling Godot. Use a newer VS2019 version, or VS2022."
-        )
-        Exit(255)
-    if cc_version_major == 15 and cc_version_minor < 9:
-        print_error(
-            "Detected Visual Studio 2017 version older than 15.9, which has bugs "
-            "when compiling Godot. Use a newer VS2017 version, or VS2019/VS2022."
-        )
-        Exit(255)
-    if cc_version_major < 15:
-        print_error(
-            "Detected Visual Studio 2015 or earlier, which is unsupported in Godot. "
-            "Supported versions are Visual Studio 2017 and later."
-        )
-        Exit(255)
+    if env.get("winrt"):
+        if cc_version_major < 16 or (cc_version_major == 16 and cc_version_minor < 11):
+            print_error(
+                "Detected Visual Studio 2019 version older than 16.11, which does not fully support "
+                "C++20. Use a newer VS2019 version, or VS2022, or disable WinRT support by passing "
+                '"winrt=no" to the SCons command line.'
+            )
+            Exit(255)
+    else:
+        if cc_version_major == 16 and cc_version_minor < 11:
+            print_error(
+                "Detected Visual Studio 2019 version older than 16.11, which has bugs "
+                "when compiling Godot. Use a newer VS2019 version, or VS2022."
+            )
+            Exit(255)
+        if cc_version_major == 15 and cc_version_minor < 9:
+            print_error(
+                "Detected Visual Studio 2017 version older than 15.9, which has bugs "
+                "when compiling Godot. Use a newer VS2017 version, or VS2019/VS2022."
+            )
+            Exit(255)
+        if cc_version_major < 15:
+            print_error(
+                "Detected Visual Studio 2015 or earlier, which is unsupported in Godot. "
+                "Supported versions are Visual Studio 2017 and later."
+            )
+            Exit(255)
 
 # Set x86 CPU instruction sets to use by the compiler's autovectorization.
 if env["arch"] == "x86_64":
@@ -1173,7 +1213,6 @@ env.Append(BUILDERS=GLSL_BUILDERS)
 
 if env["compiledb"]:
     env.Tool("compilation_db")
-    env.Alias("compiledb", env.CompilationDatabase())
     env.NoCache(env.CompilationDatabase())
     if not env["verbose"]:
         env["COMPILATIONDB_COMSTR"] = "$GENCOMSTR"
@@ -1233,6 +1272,12 @@ if env["vsproj"]:
 
 # Miscellaneous & post-build methods.
 if not env.GetOption("clean") and not env.GetOption("help"):
+    if env["compiledb"] and env["compiledb_gen_only"]:
+        from SCons.Tool.compilation_db import write_compilation_db
+
+        write_compilation_db([env.File("compile_commands.json")], [], env)
+        env.Exit()
+
     methods.dump(env)
     methods.show_progress(env)
     methods.prepare_purge(env)

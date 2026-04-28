@@ -3,6 +3,8 @@
 
 #include "CompositeNode.h"
 
+#include "core/object/callable_mp.h"
+
 class CompositeNodeValue : public RefCounted {
     GDCLASS(CompositeNodeValue, RefCounted)
 protected:

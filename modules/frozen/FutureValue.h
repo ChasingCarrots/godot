@@ -1,6 +1,7 @@
 #ifndef FUTUREVALUE_H
 #define FUTUREVALUE_H
 
+#include "core/object/class_db.h"
 #include <core/object/ref_counted.h>
 
 

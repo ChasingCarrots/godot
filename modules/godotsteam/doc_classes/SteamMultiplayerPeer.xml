@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="SteamMultiplayerPeer" inherits="MultiplayerPeer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Provides a bridge between Steam Networking Sockets and Godot's high level [MultiplayerAPI].
+	</brief_description>
+	<description>
+		A [MultiplayerPeer] implementation that connects Steam Networking Sockets to Godot's high level multiplayer API. Should be passed to [MultiplayerAPI].multiplayer_peer after being initialized by calling [code]create_lobby[/code] or [code]connect_lobby[/code].
+	</description>
+	<tutorials>
+		<link title="GodotSteam and SteamMultiplayerPeer - article by Michael Macha">https://michaelmacha.wordpress.com/2024/04/08/godotsteam-and-steammultiplayerpeer/</link>
+		<link title="Compiling from source">https://godotsteam.com/howto/multiplayer_peer/</link>
+		<link title="Changelog">https://godotsteam.com/changelog/multiplayer_peer/</link>
+	</tutorials>
+	<methods>
+		<method name="add_peer">
+			<return type="int" enum="Error" />
+			<param index="0" name="steam_id" type="int" />
+			<param index="1" name="virtual_port" type="int" default="0" />
+			<description>
+				Creates a connection with a new peer. Runs [method Steam.connectP2P] under the hood.
+				Returns [constant OK] upon success; otherwise, [constant ERR_CANT_CREATE] if the underlying P2P connection fails.
+			</description>
+		</method>
+		<method name="connect_to_lobby">
+			<return type="int" enum="Error" />
+			<param index="0" name="lobby_id" type="int" />
+			<description>
+				Checks you are in the lobby by calling [method Steam.getLobbyOwner] or prints an error [constant ERR_CANT_CREATE].
+				It then calls [method SteamMultiplayerPeer.create_client] for the host or prints an [enum Error] enum if there is no host found.
+				Finally it connects to the rest of the members of the lobby, calling add_peer for each.
+				Returns [constant OK] upon success; otherwise, [constant ERR_ALREADY_IN_USE] if [b]connection_status[/b] is not [constant MultiplayerPeer.CONNECTION_DISCONNECTED].
+			</description>
+		</method>
+		<method name="create_client">
+			<return type="int" enum="Error" />
+			<param index="0" name="steam_id" type="int" />
+			<param index="1" name="virtual_port" type="int" default="0" />
+			<description>
+				On success, this sets server to [code]false[/code] and [b]unique_id[/b] to a newly generated unique ID.
+				It then creates a listen socket with [method Steam.createListenSocketP2P] and a poll group with [method Steam.createPollGroup] under-the-hood.
+				It then calls add_peer with the host [param steam_id] and [param virtual_port].
+				Finally it sets [b]set_refuse_new_connections[/b] to [code]false[/code] and [b]connection_status[/b] to [constant MultiplayerPeer.CONNECTION_CONNECTING].
+			</description>
+		</method>
+		<method name="create_host">
+			<return type="int" enum="Error" />
+			<param index="0" name="virtual_port" type="int" default="0" />
+			<description>
+				On success, this sets server to true and [b]unique_id[/b] to 1.
+				It then creates a listen socket with [method Steam.createListenSocketP2P] and a poll group with [method Steam.createPollGroup] under-the-hood.
+				Finally it sets [b]set_refuse_new_connections[/b] to [code]false[/code] and [b]connection_status[/b] to [constant MultiplayerPeer.CONNECTION_CONNECTED].
+				Returns [enum OK] upon success; otherwise, [enum ERR_ALREADY_IN_USE] if [b]connection_status[/b] is not [constant MultiplayerPeer.CONNECTION_DISCONNECTED].
+			</description>
+		</method>
+		<method name="get_peer">
+			<return type="SteamPacketPeer" />
+			<param index="0" name="peer_id" type="int" />
+			<description>
+				Returns a [SteamPacketPeer] [RefCounted] object on success; otherwise, null.
+			</description>
+		</method>
+		<method name="get_peer_id_for_steam_id">
+			<return type="int" />
+			<param index="0" name="steam_id" type="int" />
+			<description>
+				Returns the peer ID on success or the [b]unique_id[b] if passing the local user's Steam ID; otherwise, 0.
+			</description>
+		</method>
+		<method name="get_steam_id_for_peer_id">
+			<return type="int" />
+			<param index="0" name="peer_id" type="int" />
+			<description>
+				Returns the Steam ID on success or the local user's Steam ID if passing the [b]unique_id[/b]; otherwise, 0.
+			</description>
+		</method>
+		<method name="host_with_lobby">
+			<return type="int" enum="Error" />
+			<param index="0" name="lobby_id" type="int" />
+			<description>
+				You must have created a lobby with [method Steam.createLobby] prior to calling this. If you use a [param lobby_id] you are not the owner of, this will error with [enum ERR_CANT_CREATE].
+				Sets [b]tracked_lobby[/b] to this lobby on success.
+				It then calls [method SteamMultiplayerPeer.create_host] and [method SteamMultiplayerPeer.add_peer] for all lobby members.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="debug_level" type="int" setter="set_debug_level" getter="get_debug_level" enum="SteamMultiplayerPeer.DebugLevel" default="0">
+			The debug level.
+		</member>
+		<member name="no_delay" type="bool" setter="set_no_delay" getter="get_no_delay" default="false">
+			Whether or not to use [constant Steam.NETWORKING_SEND_NO_NAGLE] flag.
+		</member>
+		<member name="no_nagle" type="bool" setter="set_no_nagle" getter="get_no_nagle" default="false">
+			Whether or not to use [constant Steam.NETWORKING_SEND_NO_DELAY] flag.
+		</member>
+	</members>
+	<constants>
+		<constant name="DEBUG_LEVEL_NONE" value="0" enum="DebugLevel">
+		</constant>
+		<constant name="DEBUG_LEVEL_PEER" value="1" enum="DebugLevel">
+		</constant>
+		<constant name="DEBUG_LEVEL_STEAM" value="2" enum="DebugLevel">
+		</constant>
+	</constants>
+</class>

@@ -1,8 +1,10 @@
-//===========================================================================//
+//================================================================================================//
 // GodotSteam - godotsteam_constants.h
-//===========================================================================//
+//================================================================================================//
 //
-// Copyright (c) 2015-Current | GP Garcia and Contributors (view contributors.md)
+// Copyright (c) 2015-Current | GP Garcia and Contributors
+//
+// View all contributors at https://godotsteam.com/contribute/contributors/
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,31 +24,40 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-//===========================================================================//
+//================================================================================================//
+
 
 #ifndef GODOTSTEAM_CONSTANTS_H
 #define GODOTSTEAM_CONSTANTS_H
 
 
-// Constants with 'deprecated/': these were listed in the SDK docs but do not exist in the header files; safe to remove probably
-// Possibly deprecated or never existed?
+// Define Steam API constants
 #define ACCOUNT_ID_INVALID k_uAccountIdInvalid
 #define API_CALL_INVALID k_uAPICallInvalid
 #define APP_ID_INVALID k_uAppIdInvalid
 #define AUTH_TICKET_INVALID k_HAuthTicketInvalid
 #define DEPOT_ID_INVALID k_uDepotIdInvalid
 #define GAME_EXTRA_INFO_MAX k_cchGameExtraInfoMax
-#define INVALID_BREAKPAD_HANDLE 0 //deprecated?
-#define QUERY_PORT_ERROR 0xFFFE //deprecated?
-#define QUERY_PORT_NOT_INITIALIZED 0xFFFF //deprecated?
+#define MAX_STEAM_DATAGRAM_GAME_COORDINATOR_SERVER_LOGIN_APP_DATA k_cbMaxSteamDatagramGameCoordinatorServerLoginAppData
+#define MAX_STEAM_DATAGRAM_GAME_COORDINATOR_SERVER_LOGIN_SERIALIZED k_cbMaxSteamDatagramGameCoordinatorServerLoginSerialized
+#define PARTY_BEACON_ID_INVALID k_ulPartyBeaconIdInvalid
+#define QUERY_PORT_ERROR k_usFriendGameInfoQueryPort_Error
+#define QUERY_PORT_NOT_INITIALIZED k_usFriendGameInfoQueryPort_NotInitialized
 #define STEAM_ACCOUNT_ID_MASK k_unSteamAccountIDMask
 #define STEAM_ACCOUNT_INSTANCE_MASK k_unSteamAccountInstanceMask
-#define STEAM_BUFFER_SIZE 255 //deprecated?
-#define STEAM_LARGE_BUFFER_SIZE 8160 //deprecated?
-#define STEAM_MAX_ERROR_MESSAGE 1024
-#define STEAM_USER_CONSOLE_INSTANCE 2 //deprecated?
-#define STEAM_USER_DESKTOP_INSTANCE k_unSteamUserDefaultInstance
-#define STEAM_USER_WEB_INSTANCE 4 //deprecated?
+#define STEAM_BUFFER_SIZE 255 // Custom to GodotSteam
+#define STEAM_DATAGRAM_MAX_SERIALIZED_TICKET k_cbSteamDatagramMaxSerializedTicket
+#define STEAM_ID_NIL k_steamIDNil
+#define STEAM_ID_OUT_OF_DATE_GAME_SERVER k_steamIDOutofDateGS
+#define STEAM_ID_LAN_MODE_GAME_SERVER k_steamIDLanModeGS
+#define STEAM_ID_NOT_INIT_YET_GAME_SERVER k_steamIDNotInitYetGS
+#define STEAM_ID_NON_GAME_SERVER k_steamIDNonSteamGS
+#define STEAM_LARGE_BUFFER_SIZE 8160 // Custom to GodotSteam
+#define STEAM_MAX_ERROR_MESSAGE k_cchMaxSteamErrMsg
+#define STEAM_USER_DEFAULT_INSTANCE k_unSteamUserDefaultInstance
+
+// Define Apps constants
+#define APP_PROOF_OF_PURCHASE_KEY_MAX k_cubAppProofOfPurchaseKeyMax
 
 // Define Friends constants
 #define CHAT_METADATA_MAX k_cubChatMetadataMax
@@ -63,7 +74,7 @@
 #define PERSONA_NAME_MAX_UTF16 k_cwchPersonaNameMax
 
 // Define HTML Surface constants
-#define INVALID_HTMLBROWSER 0
+#define INVALID_HTMLBROWSER INVALID_HTMLBROWSER
 
 // Define HTTP constants
 #define HTTPCOOKIE_INVALID_HANDLE INVALID_HTTPCOOKIE_HANDLE
@@ -78,9 +89,16 @@
 #define INPUT_MAX_DIGITAL_ACTIONS STEAM_INPUT_MAX_DIGITAL_ACTIONS
 #define INPUT_MAX_ORIGINS STEAM_INPUT_MAX_ORIGINS
 #define INPUT_MIN_ANALOG_ACTION_DATA STEAM_INPUT_MIN_ANALOG_ACTION_DATA
+#define SONY_PAD_TRIGGER_EFFECT_CONTROL_POINT_NUM SCE_PAD_TRIGGER_EFFECT_CONTROL_POINT_NUM
+#define SONY_PAD_TRIGGER_EFFECT_PARAM_INDEX_FOR_R2 SCE_PAD_TRIGGER_EFFECT_PARAM_INDEX_FOR_R2
+#define SONY_PAD_TRIGGER_EFFECT_PARAM_INDEX_FOR_L2 SCE_PAD_TRIGGER_EFFECT_PARAM_INDEX_FOR_L2
+#define SONY_PAD_TRIGGER_EFFECT_TRIGGER_MASK_L2 SCE_PAD_TRIGGER_EFFECT_TRIGGER_MASK_L2
+#define SONY_PAD_TRIGGER_EFFECT_TRIGGER_MASK_R2 SCE_PAD_TRIGGER_EFFECT_TRIGGER_MASK_R2
+#define SONY_PAD_TRIGGER_EFFECT_TRIGGER_NUM SCE_PAD_TRIGGER_EFFECT_TRIGGER_NUM
 
 // Define Inventory constants
 #define INVENTORY_RESULT_INVALID k_SteamInventoryResultInvalid
+#define INVENTORY_UPDATE_HANDLE_INVALID k_SteamInventoryUpdateHandleInvalid
 #define ITEM_INSTANCE_ID_INVALID k_SteamItemInstanceIDInvalid
 
 // Define Matchmaking constants
@@ -98,12 +116,12 @@
 #define MAX_GAME_SERVER_NAME k_cbMaxGameServerName
 #define MAX_GAME_SERVER_TAGS k_cbMaxGameServerTags
 
-// Define Music Remote constants
-#define MUSIC_NAME_MAX_LENGTH k_SteamMusicNameMaxLength
-#define MUSIC_PNG_MAX_LENGTH k_SteamMusicPNGMaxLength
-
 // Define Networking Socket constants
+#define DATAGRAM_POP_ID_DEV k_SteamDatagramPOPID_dev
 #define MAX_STEAM_PACKET_SIZE k_cbMaxSteamNetworkingSocketsMessageSizeSend
+#define NET_POLL_GROUP_INVALID k_HSteamNetPollGroup_Invalid
+#define NETWORKING_SOCKETS_FAKE_UDP_PORT_RECOMMENDED_MTU k_cbSteamNetworkingSocketsFakeUDPPortRecommendedMTU
+#define NETWORKING_SOCKETS_FAKE_UDP_PORT_MAX_MESSAGE_SIZE k_cbSteamNetworkingSocketsFakeUDPPortMaxMessageSize
 
 // Define Networking Types constants | Found in steamnetworkingtypes.h
 #define LISTEN_SOCKET_INVALID k_HSteamListenSocket_Invalid
@@ -172,7 +190,7 @@
 #define UGC_UPDATE_HANDLE_INVALID k_UGCUpdateHandleInvalid
 
 // Define User Stats constants
-#define LEADERBOARD_DETAIL_MAX k_cLeaderboardDetailsMax
+#define LEADERBOARD_DETAILS_MAX k_cLeaderboardDetailsMax
 #define LEADERBOARD_NAME_MAX k_cchLeaderboardNameMax
 #define STAT_NAME_MAX k_cchStatNameMax
 
