@@ -130,9 +130,10 @@ void CommunicationLine::update_own_communication_state(CommunicationState state)
 	_my_peer_info.set_communication_state(state);
 	if (!_other_peers.is_empty()) {
 		_send_buffer.clear();
-		_send_buffer.put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::UpdateLinePeerState));
+		_send_buffer.put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::UpdateLinePeerStateAndBits));
 		_send_buffer.put_u16(_int_id);
 		_send_buffer.put_u8(static_cast<uint8_t>(state));
+		_send_buffer.put_u8(_my_peer_info.get_peer_bits());
 		for (auto &peer : _other_peers) {
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer.get_multiplayer_id(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 			push_sent_amount(_send_buffer.get_size());
@@ -240,16 +241,40 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 			uint8_t bits = packet->get_u8();
 			for (auto &peer : _other_peers) {
 				if (peer.get_multiplayer_id() == from_multiplayer_id) {
+					uint8_t bits_before = peer.get_peer_bits();
+					bool emit_bits_changed = peer.reset_peer_bits(bits);
 					if (peer.set_communication_state(state)) {
+						if (state == ConnectedOpen) {
+							// the connection to this peer is newly established, lets send them our own state
+							_send_buffer.clear();
+							_send_buffer.put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::UpdateLinePeerStateAndBits));
+							_send_buffer.put_u16(_int_id);
+							_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_communication_state()));
+							_send_buffer.put_u8(_my_peer_info.get_peer_bits());
+							_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), from_multiplayer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+							push_sent_amount(_send_buffer.get_size());
+						}
 						emit_signal("PeerCommunicationStateChanged", from_multiplayer_id, state);
 					}
-					uint8_t bits_before = peer.get_peer_bits();
-					if (peer.reset_peer_bits(bits)) {
+					if (emit_bits_changed) {
 						emit_signal("PeerBitsChanged", from_multiplayer_id, bits, bits_before);
 					}
 					return;
 				}
 			}
+			// we don't even have this peer in our list, yet!
+			CommunicationLinePeer new_peer;
+			new_peer.set_multiplayer_id(from_multiplayer_id);
+			new_peer.set_communication_state(state);
+			_other_peers.push_back(new_peer);
+			// also update the peer of our state
+			_send_buffer.clear();
+			_send_buffer.put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::UpdateLinePeerStateAndBits));
+			_send_buffer.put_u16(_int_id);
+			_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_communication_state()));
+			_send_buffer.put_u8(_my_peer_info.get_peer_bits());
+			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), from_multiplayer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+			push_sent_amount(_send_buffer.get_size());
 		}
 		break;
 		case CommunicationLinePacketTypes::CallRemoteFunction:
