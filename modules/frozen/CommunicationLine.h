@@ -89,9 +89,18 @@ public:
 	std::function<void(CommunicationCallWithAnswer*)> AnswerReceivedCallback;
 
 	int get_number_of_answers() const { return PeerAnswers.size(); }
-	int get_peer_id(int index) const { return PeerAnswers[index].MultiplayerID; }
-	Variant get_answer(int index) const { return PeerAnswers[index].Answer; }
-	int get_time_to_answer(int index) const { return PeerAnswers[index].TimeToAnswer; }
+	int get_peer_id(int index) const {
+		ERR_FAIL_COND_V_MSG(PeerAnswers.size() <= index, -1, "Index out of bounds. Call get_number_of_answers() to get the number of answers.");
+		return PeerAnswers[index].MultiplayerID;
+	}
+	Variant get_answer(int index) const {
+		ERR_FAIL_COND_V_MSG(PeerAnswers.size() <= index, Variant(), "Index out of bounds. Call get_number_of_answers() to get the number of answers.");
+		return PeerAnswers[index].Answer;
+	}
+	int get_time_to_answer(int index) const {
+		ERR_FAIL_COND_V_MSG(PeerAnswers.size() <= index, -1, "Index out of bounds. Call get_number_of_answers() to get the number of answers.");
+		return PeerAnswers[index].TimeToAnswer;
+	}
 };
 
 
