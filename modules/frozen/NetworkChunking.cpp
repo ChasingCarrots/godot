@@ -7,12 +7,15 @@
 
 void ChunkSender::initialize(Ref<MultiplayerPeer> peer) {
     _send_buffer.instantiate();
-    _multiplayer_peer = peer;
+    _multiplayer_peer.instantiate();
+    _multiplayer_peer->set_ref(peer);
 }
 
 void ChunkSender::send_as_chunk(const int to, const PackedByteArray &packet) {
     ERR_FAIL_COND_MSG(_send_buffer.is_null(), "_send_buffer is null");
     ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "_multiplayer_peer is null");
+    Ref<MultiplayerPeer> multiplayer_peer = _multiplayer_peer->get_ref();
+    ERR_FAIL_COND_MSG(multiplayer_peer.is_null(), "_multiplayer_peer target is no longer valid");
     ERR_FAIL_COND_MSG(packet.is_empty(), "Cannot chunk empty packet");
     ERR_FAIL_COND_MSG(packet.size() > MAX_CHUNK_SIZE, "Packet exceeds MAX_CHUNK_SIZE");
 
@@ -40,8 +43,8 @@ void ChunkSender::send_as_chunk(const int to, const PackedByteArray &packet) {
 
         PackedByteArray slice = _send_buffer->get_data_array();
 
-        _multiplayer_peer->set_target_peer(to);
-        _multiplayer_peer->put_packet(slice.ptr(), slice.size());
+        multiplayer_peer->set_target_peer(to);
+        multiplayer_peer->put_packet(slice.ptr(), slice.size());
 
         print_line("Send slice: ", i, " | with size: ", slice.size());
     }

@@ -27,7 +27,7 @@ void CommunicationLineSystem::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("grab_communication_line", "string_id"), &CommunicationLineSystem::grab_communication_line);
 	ClassDB::bind_method(D_METHOD("remove_communication_line", "communication_line"), &CommunicationLineSystem::remove_communication_line);
-	ClassDB::bind_method(D_METHOD("remove_all_communication_line"), &CommunicationLineSystem::remove_all_communication_lines);
+	ClassDB::bind_method(D_METHOD("remove_all_communication_lines"), &CommunicationLineSystem::remove_all_communication_lines);
 	ClassDB::bind_method(D_METHOD("get_number_of_communication_lines"), &CommunicationLineSystem::get_number_of_communication_lines);
 	ClassDB::bind_method(D_METHOD("get_communication_line", "index"), &CommunicationLineSystem::get_communication_line);
 	ClassDB::bind_method(D_METHOD("set_multiplayer_peer", "peer"), &CommunicationLineSystem::set_multiplayer_peer);

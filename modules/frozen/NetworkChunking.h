@@ -26,7 +26,7 @@ class ChunkSender : public RefCounted
 {
     uint16_t _chunkId = 0;
     Ref<StreamPeerBuffer> _send_buffer;
-    Ref<MultiplayerPeer> _multiplayer_peer;
+    Ref<WeakRef> _multiplayer_peer;
 
 public:
     void initialize(Ref<MultiplayerPeer> peer);
