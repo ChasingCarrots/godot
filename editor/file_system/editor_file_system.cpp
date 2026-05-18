@@ -60,6 +60,17 @@ EditorFileSystem::ScannedDirectory *EditorFileSystem::first_scan_root_dir = null
 //the name is the version, to keep compatibility with different versions of Godot
 #define CACHE_FILE_NAME "filesystem_cache10"
 
+static StringName _get_display_file_type_for_path(const String &p_path, const StringName &p_type) {
+	if (p_type == SNAME("PackedScene")) {
+		const String ext = p_path.get_extension().to_lower();
+		if (ext == "gltf" || ext == "glb") {
+			return SNAME("GltfScene");
+		}
+	}
+
+	return p_type;
+}
+
 int EditorFileSystemDirectory::find_file_index(const String &p_file) const {
 	for (int i = 0; i < files.size(); i++) {
 		if (files[i]->file == p_file) {
@@ -1262,7 +1273,7 @@ void EditorFileSystem::_process_file_system(const ScannedDirectory *p_scan_dir, 
 			uint64_t import_mt = FileAccess::get_modified_time(path + ".import");
 
 			if (fc) {
-				fi->type = fc->type;
+				fi->type = _get_display_file_type_for_path(path, fc->type);
 				fi->resource_script_class = fc->resource_script_class;
 				fi->uid = fc->uid;
 				fi->deps = fc->deps;
@@ -1295,7 +1306,7 @@ void EditorFileSystem::_process_file_system(const ScannedDirectory *p_scan_dir, 
 				}
 
 				if (fc->type.is_empty()) {
-					fi->type = ResourceLoader::get_resource_type(path);
+					fi->type = _get_display_file_type_for_path(path, ResourceLoader::get_resource_type(path));
 					fi->resource_script_class = ResourceLoader::get_resource_script_class(path);
 					fi->import_group_file = ResourceLoader::get_import_group_file(path);
 					//there is also the chance that file type changed due to reimport, must probably check this somehow here (or kind of note it for next time in another file?)
@@ -1353,7 +1364,7 @@ void EditorFileSystem::_process_file_system(const ScannedDirectory *p_scan_dir, 
 				}
 			} else {
 				//new or modified time
-				fi->type = ResourceLoader::get_resource_type(path);
+				fi->type = _get_display_file_type_for_path(path, ResourceLoader::get_resource_type(path));
 				fi->resource_script_class = ResourceLoader::get_resource_script_class(path);
 				if (fi->type == "" && textfile_extensions.has(ext)) {
 					fi->type = "TextFile";
@@ -1526,7 +1537,7 @@ void EditorFileSystem::_scan_fs_changes(EditorFileSystemDirectory *p_dir, ScanPr
 					fi->import_modified_time = 0;
 					fi->import_md5 = "";
 					fi->import_dest_paths = Vector<String>();
-					fi->type = ResourceLoader::get_resource_type(path);
+					fi->type = _get_display_file_type_for_path(path, ResourceLoader::get_resource_type(path));
 					fi->resource_script_class = ResourceLoader::get_resource_script_class(path);
 					if (fi->type == "" && textfile_extensions.has(ext)) {
 						fi->type = "TextFile";
@@ -2767,7 +2778,7 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 		fs->files[cpos]->import_dest_paths = dest_paths;
 		fs->files[cpos]->deps = _get_dependencies(file);
 		fs->files[cpos]->uid = uid;
-		fs->files[cpos]->type = importer->get_resource_type();
+			fs->files[cpos]->type = _get_display_file_type_for_path(file, importer->get_resource_type());
 		if (fs->files[cpos]->type == "" && textfile_extensions.has(file.get_extension())) {
 			fs->files[cpos]->type = "TextFile";
 		}
@@ -3046,7 +3057,7 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 		fs->files[cpos]->import_md5 = FileAccess::get_md5(p_file + ".import");
 		fs->files[cpos]->import_dest_paths = dest_paths;
 		fs->files[cpos]->deps = _get_dependencies(p_file);
-		fs->files[cpos]->type = importer->get_resource_type();
+			fs->files[cpos]->type = _get_display_file_type_for_path(p_file, importer->get_resource_type());
 		fs->files[cpos]->resource_script_class = ResourceLoader::get_resource_script_class(p_file);
 		fs->files[cpos]->uid = uid;
 		fs->files[cpos]->import_valid = fs->files[cpos]->type == "TextFile" ? true : ResourceLoader::is_import_valid(p_file);
