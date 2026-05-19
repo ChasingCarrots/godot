@@ -635,8 +635,8 @@ void EditorAssetInstaller::_notification(int p_what) {
 				extension_icon_map["tscn"] = get_editor_theme_icon(SNAME("PackedScene"));
 				extension_icon_map["escn"] = get_editor_theme_icon(SNAME("PackedScene"));
 				extension_icon_map["dae"] = get_editor_theme_icon(SNAME("PackedScene"));
-				extension_icon_map["gltf"] = get_editor_theme_icon(SNAME("GltfScene"));
-				extension_icon_map["glb"] = get_editor_theme_icon(SNAME("GltfScene"));
+				extension_icon_map["gltf"] = get_editor_theme_icon(SNAME("PackedScene"));
+				extension_icon_map["glb"] = get_editor_theme_icon(SNAME("PackedScene"));
 
 				extension_icon_map["gdshader"] = get_editor_theme_icon(SNAME("Shader"));
 				extension_icon_map["gdshaderinc"] = get_editor_theme_icon(SNAME("TextFile"));

@@ -227,6 +227,11 @@ Ref<Texture2D> FileSystemDock::_get_tree_item_icon(bool p_is_valid, const String
 	}
 }
 
+static bool _is_gltf_scene_file(const String &p_path) {
+	const String ext = p_path.get_extension().to_lower();
+	return ext == "gltf" || ext == "glb";
+}
+
 void FileSystemDock::_create_tree(TreeItem *p_parent, EditorFileSystemDirectory *p_dir, Vector<String> &uncollapsed_paths, bool p_select_in_favorites, bool p_unfold_path) {
 	// Create a tree item for the subdirectory.
 	TreeItem *subdirectory_item = tree->create_item(p_parent);
@@ -324,7 +329,11 @@ void FileSystemDock::_create_tree(TreeItem *p_parent, EditorFileSystemDirectory 
 			const String file_metadata = lpath.path_join(file_info.name);
 			file_item->set_text(0, file_info.name);
 			file_item->set_structured_text_bidi_override(0, TextServer::STRUCTURED_TEXT_FILE);
-			file_item->set_icon(0, _get_tree_item_icon(!file_info.import_broken, file_info.type, file_info.icon_path));
+			if (_is_gltf_scene_file(file_metadata)) {
+				file_item->set_icon(0, get_editor_theme_icon(SNAME("GltfScene")));
+			} else {
+				file_item->set_icon(0, _get_tree_item_icon(!file_info.import_broken, file_info.type, file_info.icon_path));
+			}
 			if (da->is_link(file_metadata)) {
 				file_item->set_icon_overlay(0, get_editor_theme_icon(SNAME("LinkOverlay")));
 				// TRANSLATORS: This is a tooltip for a file that is a symbolic link to another file.
@@ -447,7 +456,11 @@ void FileSystemDock::_update_tree(const Vector<String> &p_uncollapsed_paths, boo
 			int index;
 			EditorFileSystemDirectory *dir = EditorFileSystem::get_singleton()->find_file(favorite, &index);
 			if (dir) {
-				icon = _get_tree_item_icon(dir->get_file_import_is_valid(index), dir->get_file_type(index), dir->get_file_icon_path(index));
+					if (_is_gltf_scene_file(favorite)) {
+						icon = get_editor_theme_icon(SNAME("GltfScene"));
+					} else {
+						icon = _get_tree_item_icon(dir->get_file_import_is_valid(index), dir->get_file_type(index), dir->get_file_icon_path(index));
+					}
 			} else {
 				icon = get_editor_theme_icon(SNAME("File"));
 			}
@@ -1207,7 +1220,11 @@ void FileSystemDock::_update_file_list(bool p_keep_selection) {
 		String tooltip = fpath;
 
 		// Select the icons.
-		type_icon = _get_tree_item_icon(!finfo->import_broken, finfo->type, finfo->icon_path);
+		if (_is_gltf_scene_file(fpath)) {
+			type_icon = get_editor_theme_icon(SNAME("GltfScene"));
+		} else {
+			type_icon = _get_tree_item_icon(!finfo->import_broken, finfo->type, finfo->icon_path);
+		}
 		if (!finfo->import_broken) {
 			big_icon = file_thumbnail;
 		} else {
