@@ -1086,10 +1086,43 @@ void CompositeNode::UnregisterFunction(StringName functionName, const Callable &
 	}
 }
 
+Variant CompositeNode::call_callable_with_error_handling(StringName functionName, const Array &parameters, Callable *function_callable) {
+	int argcount = parameters.size();
+	const Variant **argptrs = nullptr;
+	if (argcount) {
+		argptrs = (const Variant **)alloca(sizeof(Variant *) * argcount);
+		for (int i = 0; i < argcount; i++) {
+			argptrs[i] = &parameters[i];
+		}
+	}
+	Callable::CallError ce;
+	Variant ret;
+	function_callable->callp(argptrs, argcount, ret, ce);
+	switch (ce.error) {
+		case Callable::CallError::CALL_ERROR_INVALID_METHOD:
+			ERR_PRINT("Callable call returned Invalid Method with function: " + String(functionName));
+		case Callable::CallError::CALL_ERROR_INVALID_ARGUMENT:
+			ERR_PRINT("Invalid argument passed to function: " + String(functionName));
+			break;
+		case Callable::CallError::CALL_ERROR_TOO_MANY_ARGUMENTS:
+			ERR_PRINT("Too many arguments passed to function: " + String(functionName));
+			break;
+		case Callable::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS:
+			ERR_PRINT("Too few arguments passed to function: " + String(functionName));
+			break;
+		case Callable::CallError::CALL_ERROR_INSTANCE_IS_NULL:
+			ERR_PRINT("Instance is null while calling function: " + String(functionName));
+			break;
+		case Callable::CallError::CALL_ERROR_METHOD_NOT_CONST:
+			ERR_PRINT("Method is not const while calling function: " + String(functionName));
+			break;
+	}
+	return ret;
+}
 Variant CompositeNode::CallFunction(StringName functionName, const Array &parameters) {
 	GodotProfileFunction();
 	if (Callable *function_callable = _functions.getptr(functionName); function_callable != nullptr) {
-		return function_callable->callv(parameters);
+		return call_callable_with_error_handling(functionName, parameters, function_callable);
 	}
 	if (has_parent_composite_node()) {
 	    return _parentCompositeNode->CallFunction(functionName, parameters);
@@ -1172,7 +1205,7 @@ void CompositeNode::CallCallbacks(StringName callbackName, const Array &paramete
 	}
 	if (Vector<Callable> *callback_callbacks = _callbacks.getptr(callbackName); callback_callbacks != nullptr) {
 		for (auto& callback_callback : *callback_callbacks) {
-			callback_callback.callv(parameters);
+			call_callable_with_error_handling(callbackName, parameters, &callback_callback);
 		}
 	}
 }

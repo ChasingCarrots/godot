@@ -202,6 +202,7 @@ public:
 	bool HasFunction(StringName functionName) const { return _functions.has(functionName); }
 	bool RegisterFunction(StringName functionName, Callable callable);
 	void UnregisterFunction(StringName functionName, const Callable &callable);
+	Variant call_callable_with_error_handling(StringName functionName, const Array &parameters, Callable *function_callable);
 	Variant CallFunction(StringName functionName, const Array &parameters);
 	Ref<FutureValue> CallFunctionOnAuthority(StringName functionName, const Array &parameters);
 
