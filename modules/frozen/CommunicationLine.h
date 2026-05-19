@@ -190,17 +190,17 @@ private:
 	}
 	uint32_t get_received_amount_and_prune(uint64_t from_time) {
 		uint32_t total_amount_in_time = 0;
-		constexpr uint16_t max_uint16 = -1;
+		constexpr int time_wrap_around = 1 << 16; // Time is stored as a uint16_t, so it wraps around at 65536 (not 65535).
 		int from_time_casted = static_cast<uint16_t>(from_time);
 		for (int i = _received_data_amounts.size() - 1; i >= 0; i--) {
 			int check_time = _received_data_amounts[i].Time;
-			if (abs(from_time_casted - check_time) > max_uint16 / 2) {
+			if (abs(from_time_casted - check_time) > time_wrap_around / 2) {
 				// one did wrap around, the other one didn't, so either subtract or
 				// add the wrap around number
 				if (check_time > from_time_casted) {
-					check_time -= max_uint16;
+					check_time -= time_wrap_around;
 				} else {
-					check_time += max_uint16;
+					check_time += time_wrap_around;
 				}
 			}
 			if (check_time >= from_time_casted) {
@@ -216,17 +216,17 @@ private:
 	}
 	uint32_t get_sent_amount_and_prune(uint64_t from_time) {
 		uint32_t total_amount_in_time = 0;
-		constexpr uint16_t max_uint16 = -1;
+		constexpr int time_wrap_around = 1 << 16; // Time is stored as a uint16_t, so it wraps around at 65536 (not 65535).
 		int from_time_casted = static_cast<uint16_t>(from_time);
 		for (int i = _sent_data_amounts.size() - 1; i >= 0; i--) {
 			int check_time = _sent_data_amounts[i].Time;
-			if (abs(from_time_casted - check_time) > max_uint16 / 2) {
+			if (abs(from_time_casted - check_time) > time_wrap_around / 2) {
 				// one did wrap around, the other one didn't, so either subtract or
 				// add the wrap around number
 				if (check_time > from_time_casted) {
-					check_time -= max_uint16;
+					check_time -= time_wrap_around;
 				} else {
-					check_time += max_uint16;
+					check_time += time_wrap_around;
 				}
 			}
 			if (check_time >= from_time_casted) {

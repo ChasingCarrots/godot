@@ -12,6 +12,11 @@ constexpr int COMMUNICATION_LINE_CHANNEL_UNRELIABLE = 2;
 CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
 
 CommunicationLineSystem::CommunicationLineSystem() {
+	_receive_buffer.instantiate();
+	_send_buffer.instantiate();
+	_chunk_sender.instantiate();
+	_chunk_receiver.instantiate();
+	_chunk_receiver->initialize(this);
 }
 
 void CommunicationLineSystem::_bind_methods() {
@@ -65,12 +70,6 @@ void CommunicationLineSystem::_notification(int p_notification) {
 }
 
 void CommunicationLineSystem::_ready() {
-	_receive_buffer.instantiate();
-	_send_buffer.instantiate();
-	_chunk_sender.instantiate();
-	_chunk_receiver.instantiate();
-	_chunk_receiver->initialize(this);
-
 	set_process(true);
 	set_process_mode(PROCESS_MODE_ALWAYS);
 }
@@ -94,8 +93,7 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 			"Supplied MultiplayerPeer must be connecting or connected.");
 
 	if (_multiplayer_peer.is_valid()) {
-		_multiplayer_peer->disconnect("peer_connected", callable_mp(this, &CommunicationLineSystem::on_new_peer_connected));
-		_multiplayer_peer->disconnect("peer_disconnected", callable_mp(this, &CommunicationLineSystem::on_peer_disconnected));
+		// clear_multiplayer_peer() disconnects the old peer's signals for us.
 		clear_multiplayer_peer();
 	}
 
@@ -103,9 +101,14 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 
 	_chunk_sender->initialize(p_peer);
 
+	int peer_id = 0;
+	if(p_peer.is_valid()) {
+		peer_id = p_peer->get_unique_id();
+	}
+
 	//Our communication lines need the new peer id
 	for (auto cl : _communication_lines){
-		cl->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
+		cl->_my_peer_info.set_multiplayer_id(peer_id);
 	}
 
 	if (_multiplayer_peer.is_valid()) {
@@ -122,6 +125,8 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 		// we send the new peer all the current communication lines, so they are up to speed!
 		_send_buffer->clear();
 		_send_buffer->put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::CreateMultipleLines));
+		// the line count is sent as a single byte; more than 255 lines would silently truncate.
+		DEV_ASSERT(_communication_lines.size() <= 255);
 		_send_buffer->put_u8(_communication_lines.size());
 		for (const auto &line : _communication_lines) {
 			_send_buffer->put_string(line->_string_id);
@@ -296,17 +301,26 @@ Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const St
 	}
 
 	new_communication_line->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
+	register_communication_line(new_communication_line);
+
+	return new_communication_line;
+}
+
+void CommunicationLineSystem::register_communication_line(const Ref<CommunicationLine> &line) {
+	GodotProfileFunction();
+	ERR_FAIL_COND(line.is_null());
+	ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "Cannot register a communication line without a multiplayer peer.");
 
 	if (is_server()) {
 		Vector<int> peer_ids = get_connected_peer_ids();
-		new_communication_line->create_unconnected_peers(peer_ids);
+		line->create_unconnected_peers(peer_ids);
 		// we are the server, so we can directly set the int id
-		new_communication_line->_int_id = _next_line_id++;
+		line->_int_id = _next_line_id++;
 		// and send the creation info to everybody else
 		_send_buffer->clear();
 		_send_buffer->put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::CreateSingleLine));
-		_send_buffer->put_string(string_id);
-		_send_buffer->put_u16(new_communication_line->_int_id);
+		_send_buffer->put_string(line->_string_id);
+		_send_buffer->put_u16(line->_int_id);
 		for (int to_id : peer_ids) {
 			if (to_id == get_server_id()) {
 				continue;
@@ -317,25 +331,44 @@ Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const St
 		// we are just a client, so we request the creation (and the int id) from the server:
 		_send_buffer->clear();
 		_send_buffer->put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::CreateSingleLine));
-		_send_buffer->put_string(string_id);
+		_send_buffer->put_string(line->_string_id);
 		// the int id is 0 until the server created one for us
 		_send_buffer->put_u16(0);
 		send_packet_to_server(_send_buffer->get_data_array(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 	}
+}
 
-	return new_communication_line;
+void CommunicationLineSystem::set_server_id(const int id) {
+	GodotProfileFunction();
+	_server_id = id;
+
+	print_line("[", get_local_multiplayer_id(), "] Server ID set to: ", id);
+	if (id != get_local_multiplayer_id()) {
+		GodotProfileZone("connected_to_server_signal");
+		emit_signal(SNAME("connected_to_server"));
+
+		// We are a client and now know the server. Communication lines created
+		// while offline (or before a previous connection) are still unregistered,
+		// so register them with the server now.
+		if (_multiplayer_peer.is_valid()) {
+			for (const auto &cl : _communication_lines) {
+				if (cl->_int_id == 0) {
+					register_communication_line(cl);
+				}
+			}
+		}
+	}
 }
 
 void CommunicationLineSystem::initialize_server() {
 	GodotProfileFunction();
 	set_server_id(get_local_multiplayer_id());
 
-	_next_line_id = 0;
+	_next_line_id = 1;
 
 	for (auto cl : _communication_lines){
 		cl->update_own_communication_state(CommunicationLine::CommunicationState::ConnectedOpen);
-		cl->_int_id = _next_line_id;
-		_next_line_id++;
+		register_communication_line(cl);
 	}
 }
 
@@ -399,6 +432,17 @@ Error CommunicationLineSystem::poll() {
 
 void CommunicationLineSystem::clear_multiplayer_peer() {
 	last_connection_status = MultiplayerPeer::CONNECTION_DISCONNECTED;
+
+	if (_multiplayer_peer.is_valid()) {
+		const Callable on_connected = callable_mp(this, &CommunicationLineSystem::on_new_peer_connected);
+		if (_multiplayer_peer->is_connected("peer_connected", on_connected)) {
+			_multiplayer_peer->disconnect("peer_connected", on_connected);
+		}
+		const Callable on_disconnected = callable_mp(this, &CommunicationLineSystem::on_peer_disconnected);
+		if (_multiplayer_peer->is_connected("peer_disconnected", on_disconnected)) {
+			_multiplayer_peer->disconnect("peer_disconnected", on_disconnected);
+		}
+	}
 	_multiplayer_peer = nullptr;
 
 	//We will still have communication lines and need to reset them

@@ -44,6 +44,7 @@ private:
 	Error poll();
 	void clear_multiplayer_peer();
 	void update_status();
+	void register_communication_line(const Ref<CommunicationLine> &line);
 	void process_packet(int from, const uint8_t *packet, int packet_len);
 	void send_to_peer(int to, const PackedByteArray &packet, MultiplayerPeer::TransferMode mode) const;
 	Ref<MultiplayerPeer> get_multiplayer_peer() { return _multiplayer_peer; }
@@ -75,16 +76,7 @@ public:
 	
 	void initialize_server();
 	
-	void set_server_id(const int id) {
-		GodotProfileFunction();
-		_server_id = id;
-
-		print_line("[", get_local_multiplayer_id() ,"] Server ID set to: ", id);
-		if (id != get_local_multiplayer_id()){
-			GodotProfileZone("connected_to_server_signal");
-			emit_signal(SNAME("connected_to_server"));
-		}
-	}
+	void set_server_id(int id);
 	
 	int get_server_id() const {
 		return _server_id;
