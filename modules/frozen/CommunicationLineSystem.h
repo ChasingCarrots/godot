@@ -4,11 +4,28 @@
 #include "CommunicationLine.h"
 #include "NetworkChunking.h"
 #include "core/profiling/profiling.h"
+#include "core/templates/hash_map.h"
 
 #include <scene/main/node.h>
 
 class CommunicationLineSystem : public Node {
 	GDCLASS(CommunicationLineSystem, Node)
+
+public:
+	// Sub-types for packets sent on the dedicated ping/control channels.
+	enum class PingPacketType : uint8_t { Request, Response };
+	enum class ControlPacketType : uint8_t { Disconnect };
+
+	// Per-connection tracking info for a single connected peer.
+	struct PeerConnection {
+		uint32_t ping_ms = 0;            // last measured round-trip time
+		float jitter_ms = 0.0f;          // EWMA of |rtt - smoothed_rtt|
+		float packet_loss = 0.0f;        // EWMA, 0..1
+		int64_t clock_offset_ms = 0;     // estimated (remote_now - local_now)
+		uint64_t last_ping_sent_time = 0;
+		uint64_t last_packet_time = 0;   // any packet from this peer; used for timeout
+		bool awaiting_pong = false;      // a ping is outstanding (packet-loss sampling)
+	};
 
 protected:
 	// Required entry point that the API calls to bind our class to Godot.
@@ -29,7 +46,11 @@ private:
 	Ref<ChunkReceiver> _chunk_receiver;
 	MultiplayerPeer::ConnectionStatus last_connection_status = MultiplayerPeer::CONNECTION_DISCONNECTED;
 
-	HashSet<int> _connected_peers;
+	HashMap<int, PeerConnection> _connected_peers;
+
+	double _time_since_last_ping = 0.0;
+	bool _closing = false;
+	uint64_t _close_requested_time = 0;
 
 	int _remote_sender_id = 0;
 	int _server_id = -1;
@@ -46,7 +67,12 @@ private:
 	void update_status();
 	void register_communication_line(const Ref<CommunicationLine> &line);
 	void process_packet(int from, const uint8_t *packet, int packet_len);
+	void handle_ping_packet(int from, const uint8_t *packet, int packet_len);
+	void handle_control_packet(int from, const uint8_t *packet, int packet_len);
+	void send_pings();
+	void check_peer_timeouts();
 	void send_to_peer(int to, const PackedByteArray &packet, MultiplayerPeer::TransferMode mode) const;
+	void send_internal_packet(int to, const PackedByteArray &packet, MultiplayerPeer::TransferMode mode, int channel) const;
 	Ref<MultiplayerPeer> get_multiplayer_peer() { return _multiplayer_peer; }
 
 	static CommunicationLineSystem *_global_coms;
@@ -73,7 +99,17 @@ public:
 	void set_multiplayer_peer(const Ref<MultiplayerPeer> &p_peer);
 	
 	Vector<int> get_connected_peer_ids() const;
-	
+
+	// Per-connection tracking, queryable from GDScript.
+	int get_peer_ping(int peer_id) const;
+	float get_peer_jitter(int peer_id) const;
+	float get_peer_packet_loss(int peer_id) const;
+	int get_peer_clock_offset(int peer_id) const;
+
+	// Gracefully leaves the mesh: tells every peer we are disconnecting so they
+	// drop us immediately, then closes the local peer and emits "connection_closed".
+	void close_connection();
+
 	void initialize_server();
 	
 	void set_server_id(int id);

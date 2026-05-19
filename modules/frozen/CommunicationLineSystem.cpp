@@ -8,6 +8,12 @@
 
 constexpr int COMMUNICATION_LINE_CHANNEL_RELIABLE = 1; //Documentation mentions that channel 0 works as 3 separate channels (https://docs.godotengine.org/en/stable/classes/class_multiplayerpeer.html#class-multiplayerpeer-property-transfer-channel)
 constexpr int COMMUNICATION_LINE_CHANNEL_UNRELIABLE = 2;
+constexpr int COMMUNICATION_LINE_CHANNEL_PING = 3;
+constexpr int COMMUNICATION_LINE_CHANNEL_CONTROL = 4;
+
+constexpr uint64_t PING_INTERVAL_MS = 1000; // how often we ping each connected peer
+constexpr uint64_t PEER_TIMEOUT_MS = 5000; // no packet for this long -> peer is considered gone
+constexpr uint64_t CLOSE_GRACE_MS = 300; // time we keep polling after close_connection() so the disconnect packet flushes
 
 CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
 
@@ -34,6 +40,11 @@ void CommunicationLineSystem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_multiplayer_peer"), &CommunicationLineSystem::get_multiplayer_peer);
 	ClassDB::bind_method(D_METHOD("get_remote_sender_id"), &CommunicationLineSystem::get_remote_sender_id);
 	ClassDB::bind_method(D_METHOD("get_connected_peer_ids"), &CommunicationLineSystem::get_connected_peer_ids);
+	ClassDB::bind_method(D_METHOD("get_peer_ping", "peer_id"), &CommunicationLineSystem::get_peer_ping);
+	ClassDB::bind_method(D_METHOD("get_peer_jitter", "peer_id"), &CommunicationLineSystem::get_peer_jitter);
+	ClassDB::bind_method(D_METHOD("get_peer_packet_loss", "peer_id"), &CommunicationLineSystem::get_peer_packet_loss);
+	ClassDB::bind_method(D_METHOD("get_peer_clock_offset", "peer_id"), &CommunicationLineSystem::get_peer_clock_offset);
+	ClassDB::bind_method(D_METHOD("close_connection"), &CommunicationLineSystem::close_connection);
 	ClassDB::bind_method(D_METHOD("set_server_id", "id"), &CommunicationLineSystem::set_server_id);
 	ClassDB::bind_method(D_METHOD("get_server_id"), &CommunicationLineSystem::get_server_id);
 	ClassDB::bind_method(D_METHOD("is_server"), &CommunicationLineSystem::is_server);
@@ -42,9 +53,11 @@ void CommunicationLineSystem::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("peer_connected", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("peer_disconnected", PropertyInfo(Variant::INT, "id")));
+	ADD_SIGNAL(MethodInfo("peer_timed_out", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("connected_to_server"));
 	ADD_SIGNAL(MethodInfo("connection_failed"));
 	ADD_SIGNAL(MethodInfo("server_disconnected"));
+	ADD_SIGNAL(MethodInfo("connection_closed"));
 }
 
 void CommunicationLineSystem::_notification(int p_notification) {
@@ -81,6 +94,29 @@ void CommunicationLineSystem::_process(double p_time) {
 
 	if (_chunk_receiver.is_valid()) {
 		_chunk_receiver->process();
+	}
+
+	// poll() may have torn down the peer, so re-check before doing connection tracking.
+	if (_multiplayer_peer.is_valid() && last_connection_status == MultiplayerPeer::CONNECTION_CONNECTED) {
+		if (_closing) {
+			// We are gracefully leaving: keep polling (done above) so the disconnect
+			// packet flushes, then tear down once the grace period elapsed - or earlier
+			// if every peer already acknowledged by dropping us.
+			uint64_t now = OS::get_singleton()->get_ticks_msec();
+			if (_connected_peers.is_empty() || now - _close_requested_time > CLOSE_GRACE_MS) {
+				_multiplayer_peer->close();
+				clear_multiplayer_peer();
+				_closing = false;
+				emit_signal(SNAME("connection_closed"));
+			}
+		} else {
+			_time_since_last_ping += p_time;
+			if (_time_since_last_ping * 1000.0 >= static_cast<double>(PING_INTERVAL_MS)) {
+				_time_since_last_ping = 0.0;
+				send_pings();
+			}
+			check_peer_timeouts();
+		}
 	}
 }
 
@@ -119,7 +155,9 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 }
 
 void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
-	_connected_peers.insert(multiplayer_id);
+	PeerConnection peer_connection;
+	peer_connection.last_packet_time = OS::get_singleton()->get_ticks_msec();
+	_connected_peers.insert(multiplayer_id, peer_connection);
 
 	if (!_communication_lines.is_empty() && is_server()) {
 		// we send the new peer all the current communication lines, so they are up to speed!
@@ -401,6 +439,7 @@ Error CommunicationLineSystem::poll() {
 	uint64_t time = OS::get_singleton()->get_ticks_msec();
 	while (_multiplayer_peer->get_available_packet_count()) {
 		int sender = _multiplayer_peer->get_packet_peer();
+		int channel = _multiplayer_peer->get_packet_channel();
 		const uint8_t *packet;
 		int len;
 
@@ -408,7 +447,20 @@ Error CommunicationLineSystem::poll() {
 		ERR_FAIL_COND_V_MSG(err != OK, err, vformat("Error getting packet! %d", err));
 
 		_remote_sender_id = sender;
-		process_packet(sender, packet, len);
+
+		// Any packet from a known peer counts as a sign of life for timeout detection.
+		if (HashMap<int, PeerConnection>::Iterator it = _connected_peers.find(sender)) {
+			it->value.last_packet_time = OS::get_singleton()->get_ticks_msec();
+		}
+
+		if (channel == COMMUNICATION_LINE_CHANNEL_PING) {
+			handle_ping_packet(sender, packet, len);
+		} else if (channel == COMMUNICATION_LINE_CHANNEL_CONTROL) {
+			handle_control_packet(sender, packet, len);
+		} else {
+			process_packet(sender, packet, len);
+		}
+
 		_remote_sender_id = 0;
 
 		update_status();
@@ -452,6 +504,8 @@ void CommunicationLineSystem::clear_multiplayer_peer() {
 	}
 
 	_connected_peers.clear();
+	_time_since_last_ping = 0.0;
+	_closing = false;
 }
 
 void CommunicationLineSystem::update_status() {
@@ -509,7 +563,8 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 		_multiplayer_peer->set_target_peer(to);
 		_multiplayer_peer->put_packet(packet.ptr(), packet.size());
 	} else {
-		for (const int &pid : _connected_peers) {
+		for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
+			const int pid = E.key;
 			if (packet.size() > _multiplayer_peer->get_max_packet_size()) {
 				if (mode == MultiplayerPeer::TRANSFER_MODE_RELIABLE){
 					_chunk_sender->send_as_chunk(pid, packet);
@@ -529,9 +584,187 @@ Vector<int> CommunicationLineSystem::get_connected_peer_ids() const {
 	ERR_FAIL_COND_V_MSG(_multiplayer_peer.is_null(), Vector<int>(), "No multiplayer peer is assigned. Assume no peers are connected.");
 
 	Vector<int> ret;
-	for (const int &E : _connected_peers) {
-		ret.push_back(E);
+	for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
+		ret.push_back(E.key);
 	}
 
 	return ret;
+}
+
+void CommunicationLineSystem::send_internal_packet(const int to, const PackedByteArray &packet, const MultiplayerPeer::TransferMode mode, const int channel) const {
+	ERR_FAIL_COND_MSG(packet.is_empty(), "Trying to send an empty internal packet.");
+	ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "Trying to send an internal packet while no multiplayer peer is active.");
+	ERR_FAIL_COND_MSG(_multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED, "Trying to send an internal packet via a multiplayer peer which is not connected.");
+	// Ping/control packets are tiny by design, so chunking (as in send_to_peer) is never needed here.
+	ERR_FAIL_COND_MSG(packet.size() > _multiplayer_peer->get_max_packet_size(), "Internal packet exceeds the maximum packet size.");
+
+	_multiplayer_peer->set_transfer_channel(channel);
+	_multiplayer_peer->set_transfer_mode(mode);
+	_multiplayer_peer->set_target_peer(to);
+	_multiplayer_peer->put_packet(packet.ptr(), packet.size());
+}
+
+void CommunicationLineSystem::send_pings() {
+	GodotProfileFunction();
+	const uint64_t now = OS::get_singleton()->get_ticks_msec();
+
+	_send_buffer->clear();
+	_send_buffer->put_u8(static_cast<uint8_t>(PingPacketType::Request));
+	_send_buffer->put_u32(static_cast<uint32_t>(now));
+	const PackedByteArray request = _send_buffer->get_data_array();
+
+	for (KeyValue<int, PeerConnection> &E : _connected_peers) {
+		PeerConnection &peer = E.value;
+
+		// Sample the previous ping for the packet-loss EWMA: if it is still
+		// outstanding, it was very likely lost (an unreliable ping/pong round-trip
+		// should comfortably fit within one PING_INTERVAL_MS).
+		const float lost = peer.awaiting_pong ? 1.0f : 0.0f;
+		peer.packet_loss += (lost - peer.packet_loss) * 0.1f;
+
+		peer.awaiting_pong = true;
+		peer.last_ping_sent_time = now;
+		send_internal_packet(E.key, request, MultiplayerPeer::TRANSFER_MODE_UNRELIABLE, COMMUNICATION_LINE_CHANNEL_PING);
+	}
+}
+
+void CommunicationLineSystem::handle_ping_packet(const int from, const uint8_t *packet, const int packet_len) {
+	GodotProfileFunction();
+	_receive_buffer->clear();
+	{
+		PackedByteArray data;
+		data.resize(packet_len);
+		memcpy(data.ptrw(), packet, packet_len);
+		_receive_buffer->set_data_array(data);
+	}
+
+	const PingPacketType ping_type = static_cast<PingPacketType>(_receive_buffer->get_u8());
+	switch (ping_type) {
+		case PingPacketType::Request: {
+			// Echo the requester's timestamp back unchanged and append our own clock
+			// so the requester can estimate the round-trip time and our clock offset.
+			const uint32_t requester_ticks = _receive_buffer->get_u32();
+			_send_buffer->clear();
+			_send_buffer->put_u8(static_cast<uint8_t>(PingPacketType::Response));
+			_send_buffer->put_u32(requester_ticks);
+			_send_buffer->put_u32(static_cast<uint32_t>(OS::get_singleton()->get_ticks_msec()));
+			send_internal_packet(from, _send_buffer->get_data_array(), MultiplayerPeer::TRANSFER_MODE_UNRELIABLE, COMMUNICATION_LINE_CHANNEL_PING);
+		} break;
+		case PingPacketType::Response: {
+			HashMap<int, PeerConnection>::Iterator it = _connected_peers.find(from);
+			if (!it) {
+				return; // peer disconnected in the meantime
+			}
+			PeerConnection &peer = it->value;
+
+			const uint32_t requester_ticks = _receive_buffer->get_u32();
+			const uint32_t responder_ticks = _receive_buffer->get_u32();
+			const uint64_t now = OS::get_singleton()->get_ticks_msec();
+
+			// Round-trip time. The send timestamp travels inside the packet, so this
+			// stays correct even if responses arrive out of order.
+			const uint32_t rtt = static_cast<uint32_t>(now) - requester_ticks;
+
+			// Jitter: EWMA of how much this RTT deviates from the last measurement.
+			int64_t deviation = static_cast<int64_t>(rtt) - static_cast<int64_t>(peer.ping_ms);
+			if (deviation < 0) {
+				deviation = -deviation;
+			}
+			peer.jitter_ms += (static_cast<float>(deviation) - peer.jitter_ms) * 0.125f;
+
+			peer.ping_ms = rtt;
+
+			// Estimate the remote clock at "now": its reply timestamp plus the time
+			// the reply spent travelling back (~ half the round-trip).
+			const int64_t est_remote_now = static_cast<int64_t>(responder_ticks) + static_cast<int64_t>(rtt) / 2;
+			peer.clock_offset_ms = est_remote_now - static_cast<int64_t>(now);
+
+			peer.awaiting_pong = false;
+		} break;
+	}
+}
+
+void CommunicationLineSystem::handle_control_packet(const int from, const uint8_t *packet, const int packet_len) {
+	GodotProfileFunction();
+	if (packet_len < 1) {
+		return;
+	}
+	const ControlPacketType control_type = static_cast<ControlPacketType>(packet[0]);
+	switch (control_type) {
+		case ControlPacketType::Disconnect: {
+			// The peer told us it is leaving the mesh. Drop it right away instead of
+			// waiting for the timeout. disconnect_peer() triggers the multiplayer
+			// peer's own "peer_disconnected" signal -> on_peer_disconnected() cleanup.
+			if (_connected_peers.has(from)) {
+				_multiplayer_peer->disconnect_peer(from);
+			}
+		} break;
+	}
+}
+
+void CommunicationLineSystem::check_peer_timeouts() {
+	const uint64_t now = OS::get_singleton()->get_ticks_msec();
+
+	// Collect first: disconnect_peer() mutates _connected_peers via on_peer_disconnected().
+	Vector<int> timed_out;
+	for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
+		if (now - E.value.last_packet_time > PEER_TIMEOUT_MS) {
+			timed_out.push_back(E.key);
+		}
+	}
+
+	for (const int peer_id : timed_out) {
+		print_line(vformat("[%d] Peer %d timed out after %d ms without a packet.", get_local_multiplayer_id(), peer_id, static_cast<int>(PEER_TIMEOUT_MS)));
+		emit_signal(SNAME("peer_timed_out"), peer_id);
+		if (_multiplayer_peer.is_valid()) {
+			_multiplayer_peer->disconnect_peer(peer_id);
+		}
+	}
+}
+
+int CommunicationLineSystem::get_peer_ping(const int peer_id) const {
+	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
+	ERR_FAIL_COND_V_MSG(!it, -1, vformat("Peer %d is not connected.", peer_id));
+	return static_cast<int>(it->value.ping_ms);
+}
+
+float CommunicationLineSystem::get_peer_jitter(const int peer_id) const {
+	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
+	ERR_FAIL_COND_V_MSG(!it, -1.0f, vformat("Peer %d is not connected.", peer_id));
+	return it->value.jitter_ms;
+}
+
+float CommunicationLineSystem::get_peer_packet_loss(const int peer_id) const {
+	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
+	ERR_FAIL_COND_V_MSG(!it, -1.0f, vformat("Peer %d is not connected.", peer_id));
+	return it->value.packet_loss;
+}
+
+int CommunicationLineSystem::get_peer_clock_offset(const int peer_id) const {
+	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
+	ERR_FAIL_COND_V_MSG(!it, 0, vformat("Peer %d is not connected.", peer_id));
+	return static_cast<int>(it->value.clock_offset_ms);
+}
+
+void CommunicationLineSystem::close_connection() {
+	GodotProfileFunction();
+	if (_multiplayer_peer.is_null() || _multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED) {
+		// Nothing to close - just report completion so callers can rely on the signal.
+		emit_signal(SNAME("connection_closed"));
+		return;
+	}
+	if (_closing) {
+		return; // already closing
+	}
+
+	// Tell every peer we are leaving so they drop us immediately. Sent reliably so
+	// it is not lost; _process() keeps polling for CLOSE_GRACE_MS so it can flush.
+	PackedByteArray disconnect_packet;
+	disconnect_packet.push_back(static_cast<uint8_t>(ControlPacketType::Disconnect));
+	for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
+		send_internal_packet(E.key, disconnect_packet, MultiplayerPeer::TRANSFER_MODE_RELIABLE, COMMUNICATION_LINE_CHANNEL_CONTROL);
+	}
+
+	_closing = true;
+	_close_requested_time = OS::get_singleton()->get_ticks_msec();
 }
