@@ -176,10 +176,6 @@ void CommunicationLine::update_own_communication_state(CommunicationState state)
 		_send_buffer.put_u8(static_cast<uint8_t>(state));
 		_send_buffer.put_u8(_my_peer_info.get_peer_bits());
 		for (auto &peer : _other_peers) {
-			if (peer.get_communication_state() == NotConnected) {
-				// no point updating a peer that isn't on this line at all.
-				continue;
-			}
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer.get_multiplayer_id(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 			push_sent_amount(_send_buffer.get_size());
 		}
@@ -732,10 +728,6 @@ inline void CommunicationLine::set_local_peer_bits(uint8_t bit) {
 		_send_buffer.put_u16(_int_id);
 		_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_peer_bits()));
 		for (auto &peer : _other_peers) {
-			if (peer.get_communication_state() == NotConnected) {
-				// no point updating a peer that isn't on this line at all.
-				continue;
-			}
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer.get_multiplayer_id(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 			push_sent_amount(_send_buffer.get_size());
 		}
@@ -749,10 +741,6 @@ inline void CommunicationLine::unset_local_peer_bits(uint8_t bit) {
 		_send_buffer.put_u16(_int_id);
 		_send_buffer.put_u8(static_cast<uint8_t>(_my_peer_info.get_peer_bits()));
 		for (auto &peer : _other_peers) {
-			if (peer.get_communication_state() == NotConnected) {
-				// no point updating a peer that isn't on this line at all.
-				continue;
-			}
 			_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), peer.get_multiplayer_id(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 			push_sent_amount(_send_buffer.get_size());
 		}
@@ -793,9 +781,6 @@ TypedArray<Dictionary> CommunicationLine::get_connected_peers_list() {
 }
 
 void CommunicationLine::reset_communication_line(){
-	// drop the int id so the line is treated as unregistered again; it will be
-	// re-registered with the server once a connection is (re-)established.
-	_int_id = 0;
 	_my_peer_info.reset();
 	_other_peers.clear();
 	_send_buffer.clear();

@@ -65,7 +65,6 @@ private:
 	Error poll();
 	void clear_multiplayer_peer();
 	void update_status();
-	void register_communication_line(const Ref<CommunicationLine> &line);
 	void process_packet(int from, const uint8_t *packet, int packet_len);
 	void handle_ping_packet(int from, const uint8_t *packet, int packet_len);
 	void handle_control_packet(int from, const uint8_t *packet, int packet_len);

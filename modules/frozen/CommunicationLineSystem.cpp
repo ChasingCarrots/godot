@@ -178,7 +178,7 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 	for (auto &line : _communication_lines) {
 		line->new_peer_connected(multiplayer_id);
 	}
-	
+
 	emit_signal(SNAME("peer_connected"), multiplayer_id);
 }
 
@@ -339,26 +339,17 @@ Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const St
 	}
 
 	new_communication_line->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
-	register_communication_line(new_communication_line);
-
-	return new_communication_line;
-}
-
-void CommunicationLineSystem::register_communication_line(const Ref<CommunicationLine> &line) {
-	GodotProfileFunction();
-	ERR_FAIL_COND(line.is_null());
-	ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "Cannot register a communication line without a multiplayer peer.");
 
 	if (is_server()) {
 		Vector<int> peer_ids = get_connected_peer_ids();
-		line->create_unconnected_peers(peer_ids);
+		new_communication_line->create_unconnected_peers(peer_ids);
 		// we are the server, so we can directly set the int id
-		line->_int_id = _next_line_id++;
+		new_communication_line->_int_id = _next_line_id++;
 		// and send the creation info to everybody else
 		_send_buffer->clear();
 		_send_buffer->put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::CreateSingleLine));
-		_send_buffer->put_string(line->_string_id);
-		_send_buffer->put_u16(line->_int_id);
+		_send_buffer->put_string(string_id);
+		_send_buffer->put_u16(new_communication_line->_int_id);
 		for (int to_id : peer_ids) {
 			if (to_id == get_server_id()) {
 				continue;
@@ -369,11 +360,13 @@ void CommunicationLineSystem::register_communication_line(const Ref<Communicatio
 		// we are just a client, so we request the creation (and the int id) from the server:
 		_send_buffer->clear();
 		_send_buffer->put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::CreateSingleLine));
-		_send_buffer->put_string(line->_string_id);
+		_send_buffer->put_string(string_id);
 		// the int id is 0 until the server created one for us
 		_send_buffer->put_u16(0);
 		send_packet_to_server(_send_buffer->get_data_array(), MultiplayerPeer::TRANSFER_MODE_RELIABLE);
 	}
+
+	return new_communication_line;
 }
 
 void CommunicationLineSystem::set_server_id(const int id) {
@@ -384,17 +377,6 @@ void CommunicationLineSystem::set_server_id(const int id) {
 	if (id != get_local_multiplayer_id()) {
 		GodotProfileZone("connected_to_server_signal");
 		emit_signal(SNAME("connected_to_server"));
-
-		// We are a client and now know the server. Communication lines created
-		// while offline (or before a previous connection) are still unregistered,
-		// so register them with the server now.
-		if (_multiplayer_peer.is_valid()) {
-			for (const auto &cl : _communication_lines) {
-				if (cl->_int_id == 0) {
-					register_communication_line(cl);
-				}
-			}
-		}
 	}
 }
 
@@ -406,7 +388,8 @@ void CommunicationLineSystem::initialize_server() {
 
 	for (auto cl : _communication_lines){
 		cl->update_own_communication_state(CommunicationLine::CommunicationState::ConnectedOpen);
-		register_communication_line(cl);
+		cl->_int_id = _next_line_id;
+		_next_line_id++;
 	}
 }
 
