@@ -107,7 +107,7 @@ public:
 
 	// Gracefully leaves the mesh: tells every peer we are disconnecting so they
 	// drop us immediately, then closes the local peer and emits "connection_closed".
-	void close_connection();
+	bool close_connection();
 
 	void initialize_server();
 	

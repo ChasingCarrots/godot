@@ -12,7 +12,7 @@ constexpr int COMMUNICATION_LINE_CHANNEL_PING = 3;
 constexpr int COMMUNICATION_LINE_CHANNEL_CONTROL = 4;
 
 constexpr uint64_t PING_INTERVAL_MS = 1000; // how often we ping each connected peer
-constexpr uint64_t PEER_TIMEOUT_MS = 5000; // no packet for this long -> peer is considered gone
+constexpr uint64_t PEER_TIMEOUT_MS = 60000; // no packet for this long -> peer is considered gone
 constexpr uint64_t CLOSE_GRACE_MS = 300; // time we keep polling after close_connection() so the disconnect packet flushes
 
 CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
@@ -116,6 +116,15 @@ void CommunicationLineSystem::_process(double p_time) {
 				send_pings();
 			}
 			check_peer_timeouts();
+		}
+	}
+	else if (_closing) {
+		// make sure that the connection_closed signal is emmitted
+		// when someone is waiting for it.
+		uint64_t now = OS::get_singleton()->get_ticks_msec();
+		if ( now - _close_requested_time > CLOSE_GRACE_MS) {
+			_closing = false;
+			emit_signal(SNAME("connection_closed"));
 		}
 	}
 }
@@ -729,15 +738,13 @@ int CommunicationLineSystem::get_peer_clock_offset(const int peer_id) const {
 	return static_cast<int>(it->value.clock_offset_ms);
 }
 
-void CommunicationLineSystem::close_connection() {
+bool CommunicationLineSystem::close_connection() {
 	GodotProfileFunction();
 	if (_multiplayer_peer.is_null() || _multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED) {
-		// Nothing to close - just report completion so callers can rely on the signal.
-		emit_signal(SNAME("connection_closed"));
-		return;
+		return false;
 	}
 	if (_closing) {
-		return; // already closing
+		return true; // already closing, return true to signal that the caller can wait for connection_closed
 	}
 
 	// Tell every peer we are leaving so they drop us immediately. Sent reliably so
@@ -750,4 +757,6 @@ void CommunicationLineSystem::close_connection() {
 
 	_closing = true;
 	_close_requested_time = OS::get_singleton()->get_ticks_msec();
+
+	return true;
 }
