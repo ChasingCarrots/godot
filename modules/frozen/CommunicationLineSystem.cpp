@@ -96,6 +96,14 @@ void CommunicationLineSystem::_process(double p_time) {
 		_chunk_receiver->process();
 	}
 
+	// Resolve any calls whose answer never arrived, so a lost answer can't leak its call id.
+	uint64_t process_now = OS::get_singleton()->get_ticks_msec();
+	for (const Ref<CommunicationLine> &communication_line : _communication_lines) {
+		if (communication_line.is_valid()) {
+			communication_line->process_pending_calls(process_now);
+		}
+	}
+
 	// poll() may have torn down the peer, so re-check before doing connection tracking.
 	if (_multiplayer_peer.is_valid() && last_connection_status == MultiplayerPeer::CONNECTION_CONNECTED) {
 		if (_closing) {

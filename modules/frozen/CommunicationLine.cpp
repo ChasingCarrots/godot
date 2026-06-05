@@ -355,7 +355,10 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 			if (call_error.error != Callable::CallError::CALL_OK) {
 				print_error(vformat("CommunicationLine::CallRemoteFunction %s call_error: %s", function.Name, Variant::get_callable_error_text(function.FunctionCallable, args, parameters.size(), call_error)));
 			}
-			else if (packet_type == CommunicationLinePacketTypes::CallRemoteFunctionExpectAnswer) {
+			// Always send the answer when one is expected - even if the call errored
+			// (return_value is then null). Otherwise the caller's pending call id would
+			// never be freed and would eventually collide once the 8-bit id wraps.
+			if (packet_type == CommunicationLinePacketTypes::CallRemoteFunctionExpectAnswer) {
 				uint8_t call_id = packet->get_u8();
 				_send_buffer.clear();
 				_send_buffer.put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::AnswerToFunctionCall));
@@ -701,6 +704,35 @@ Ref<CommunicationCallWithAnswer> CommunicationLine::call_function_on_peers_expec
 		print_error(vformat("CommunicationLine::call_function_on_peers: failed to send function %s", function_name));
 	}
 	return {};
+}
+
+void CommunicationLine::process_pending_calls(uint64_t now) {
+	// Collect the timed-out calls first, then resolve them, so that a signal handler
+	// (or callback) can't observe or mutate the pending list while we're iterating it.
+	Vector<Ref<CommunicationCallWithAnswer>> timed_out_calls;
+	for (int call_i = _communication_calls_waiting_for_answer.size() - 1; call_i >= 0; --call_i) {
+		const Ref<CommunicationCallWithAnswer> &call = _communication_calls_waiting_for_answer[call_i];
+		if (now - call->TicksAtSendTime <= PENDING_CALL_TIMEOUT_MS) {
+			continue;
+		}
+		// Treat every peer that never answered as having answered with a null value.
+		for (auto &peer_answer : call->PeerAnswers) {
+			if (peer_answer.TimeToAnswer == -1) {
+				peer_answer.Answer = Variant();
+				peer_answer.TimeToAnswer = now - call->TicksAtSendTime;
+			}
+		}
+		const CommunicationFunction &function = _communication_functions[call->FunctionIndex];
+		print_error(vformat("CommunicationLine::process_pending_calls: call id %d to %s timed out after %d ms; resolving with null answer.", call->FunctionCallNumber, function.Name, (int)(now - call->TicksAtSendTime)));
+		timed_out_calls.push_back(call);
+		_communication_calls_waiting_for_answer.remove_at(call_i);
+	}
+	for (const Ref<CommunicationCallWithAnswer> &call : timed_out_calls) {
+		call->emit_signal("AnswerReceived");
+		if (call->AnswerReceivedCallback) {
+			call->AnswerReceivedCallback(call.ptr());
+		}
+	}
 }
 
 CommunicationLine::CommunicationState CommunicationLine::get_peer_state(int peer_id) const {

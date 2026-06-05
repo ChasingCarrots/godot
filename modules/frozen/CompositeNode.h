@@ -204,7 +204,7 @@ public:
 	void UnregisterFunction(StringName functionName, const Callable &callable);
 	Variant call_callable_with_error_handling(StringName functionName, const Array &parameters, Callable *function_callable);
 	Variant CallFunction(StringName functionName, const Array &parameters);
-	Ref<FutureValue> CallFunctionOnAuthority(StringName functionName, const Array &parameters);
+	Ref<FutureValue> CallFunctionOnAuthority(StringName functionName, const Array &parameters, bool expect_answer = false);
 
     bool HasCallback(StringName callbackName);
 	void RegisterCallback(StringName callbackName, const Callable &callable);

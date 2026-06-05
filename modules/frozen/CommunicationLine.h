@@ -163,6 +163,9 @@ private:
 	Vector<CommunicationFunction> _communication_functions;
 	uint8_t _next_call_id = 0;
 	Vector<Ref<CommunicationCallWithAnswer>> _communication_calls_waiting_for_answer;
+	// Calls still waiting after this long are considered lost and resolved with a null
+	// answer, so a missing answer can never leak its (8-bit) call id permanently.
+	static constexpr uint64_t PENDING_CALL_TIMEOUT_MS = 5000;
 
 	struct DataAmountWithTime {
 		uint16_t Amount;
@@ -254,6 +257,9 @@ private:
 
 public:
 	void finish_initialization_and_open_line();
+	// Resolve and drop any calls that have been waiting for an answer longer than
+	// PENDING_CALL_TIMEOUT_MS. Driven once per frame by CommunicationLineSystem.
+	void process_pending_calls(uint64_t now);
 
 	void add_function_definition(const StringName &function_name, Callable callable, Array parameter_types, ParamType expected_answer, MultiplayerPeer::TransferMode mode);
 	void call_function_on_peers(const StringName &function_name, Array parameters, uint8_t only_on_peers_with_bits_set = 0, uint8_t only_on_peers_with_bits_unset = 0);

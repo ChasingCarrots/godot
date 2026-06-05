@@ -202,8 +202,8 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::UnregisterFunction);
 	ClassDB::bind_method(D_METHOD("CallFunction", "functionName", "parameters"),
 	    &CompositeNode::CallFunction);
-	ClassDB::bind_method(D_METHOD("CallFunctionOnAuthority", "functionName", "parameters"),
-	    &CompositeNode::CallFunctionOnAuthority);
+	ClassDB::bind_method(D_METHOD("CallFunctionOnAuthority", "functionName", "parameters", "expect_answer"),
+	    &CompositeNode::CallFunctionOnAuthority, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("HasCallback", "callbackName"),
 		&CompositeNode::HasCallback);
 	ClassDB::bind_method(D_METHOD("RegisterCallback", "callbackName", "callable"),
@@ -1130,37 +1130,52 @@ Variant CompositeNode::CallFunction(StringName functionName, const Array &parame
 	return Variant();
 }
 
-Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName, const Array &parameters) {
+Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName, const Array &parameters, bool expect_answer) {
 	GodotProfileFunction();
-	Ref f = memnew(FutureValue);
 
 	if (IsAuthority()) {
-		// We are the authority, so call the function directly and return the value
-		f->set_value(CallFunction(functionName, parameters));
-	} else {
-		Array params;
-		params.append(functionName);
-		params.append(parameters);
-		Ref<CommunicationCallWithAnswer> call_object = _communication_line->call_function_on_peers_expect_answer(
-				"_callFunctionOnAuthorityRPC", params, 1);
-		
-		if (!call_object.is_valid()) {
-			// the future should be fulfilled even when the function does not exist
-			f->set_value(Variant());
-			return f;
+		// We are the authority, so call the function directly (for its side effects)
+		// and, if requested, return the value.
+		Variant result = CallFunction(functionName, parameters);
+		if (!expect_answer) {
+			return {};
 		}
-
-		call_object->AnswerReceivedCallback = [f](auto _call_object) {
-			if (f.is_valid()) {
-				// The authority bit should really only be set on one peer, so we just take the "first" answer
-				f->set_value(_call_object->get_answer(0));
-			}
-			else {
-				// the future should be fulfilled even when the function had a problem
-				f->set_value(Variant());
-			}
-		};
+		Ref f = memnew(FutureValue);
+		f->set_value(result);
+		return f;
 	}
+
+	Array params;
+	params.append(functionName);
+	params.append(parameters);
+
+	if (!expect_answer) {
+		// Fire-and-forget: do not expect an answer, so no pending call is registered
+		// and no (limited, 8-bit) call id is consumed.
+		_communication_line->call_function_on_peers("_callFunctionOnAuthorityRPC", params, 1);
+		return {};
+	}
+
+	Ref f = memnew(FutureValue);
+	Ref<CommunicationCallWithAnswer> call_object = _communication_line->call_function_on_peers_expect_answer(
+			"_callFunctionOnAuthorityRPC", params, 1);
+
+	if (!call_object.is_valid()) {
+		// the future should be fulfilled even when the function does not exist
+		f->set_value(Variant());
+		return f;
+	}
+
+	call_object->AnswerReceivedCallback = [f](auto _call_object) {
+		if (f.is_valid()) {
+			// The authority bit should really only be set on one peer, so we just take the "first" answer
+			f->set_value(_call_object->get_answer(0));
+		}
+		else {
+			// the future should be fulfilled even when the function had a problem
+			f->set_value(Variant());
+		}
+	};
 
 	return f;
 }
