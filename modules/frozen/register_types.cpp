@@ -7,6 +7,7 @@
 #include "CompositeNodeValue.h"
 #include "CompositeNodeModules.h"
 #include "SynchronizedArray.h"
+#include "VoxelGrid.h"
 
 
 void initialize_frozen_module(ModuleInitializationLevel p_level) {
@@ -24,6 +25,7 @@ void initialize_frozen_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CompositeNodeModuleArea3D>();
 	ClassDB::register_class<CompositeNodeValue>();
 	ClassDB::register_class<SynchronizedArray>();
+	ClassDB::register_class<VoxelGrid>();
 }
 
 void uninitialize_frozen_module(ModuleInitializationLevel p_level) {
