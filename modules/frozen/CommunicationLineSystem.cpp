@@ -581,7 +581,9 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 }
 
 Vector<int> CommunicationLineSystem::get_connected_peer_ids() const {
-	ERR_FAIL_COND_V_MSG(_multiplayer_peer.is_null(), Vector<int>(), "No multiplayer peer is assigned. Assume no peers are connected.");
+	if(_multiplayer_peer.is_null()) {
+		return Vector<int>();
+	}
 
 	Vector<int> ret;
 	for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
