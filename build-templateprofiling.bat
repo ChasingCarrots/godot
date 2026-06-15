@@ -1,1 +1,1 @@
-scons target=template_profiling debug_symbols=yes tools=no use_breakpad=no production=yes lto=auto
+scons target=template_release debug_symbols=yes tools=no use_breakpad=no production=yes lto=auto profiler=tracy profiler_path=j:/code/tracy
