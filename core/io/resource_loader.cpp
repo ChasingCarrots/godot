@@ -43,6 +43,7 @@
 #include "core/os/condition_variable.h"
 #include "core/os/os.h"
 #include "core/os/safe_binary_mutex.h"
+#include "core/profiling/profiling.h"
 #include "core/string/print_string.h"
 #include "core/string/translation_server.h"
 #include "core/templates/rb_set.h"
@@ -163,6 +164,7 @@ void ResourceFormatLoader::get_recognized_extensions(List<String> *p_extensions)
 }
 
 Ref<Resource> ResourceFormatLoader::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	GodotProfileFunction();
 	Variant res;
 	if (GDVIRTUAL_CALL(_load, p_path, p_original_path, p_use_sub_threads, p_cache_mode, res)) {
 		if (res.get_type() == Variant::INT) { // Error code, abort.
@@ -273,6 +275,7 @@ ResourceLoader::LoadToken::~LoadToken() {
 }
 
 Ref<Resource> ResourceLoader::_load(const String &p_path, const String &p_original_path, const String &p_type_hint, CacheMode p_cache_mode, Error *r_error, bool p_use_sub_threads, float *r_progress) {
+	GodotProfileFunction();
 	const String &original_path = p_original_path.is_empty() ? p_path : p_original_path;
 	load_nesting++;
 
@@ -335,6 +338,7 @@ Ref<Resource> ResourceLoader::_load(const String &p_path, const String &p_origin
 // This implementation must allow re-entrancy for a task that started awaiting in a deeper stack frame.
 // The load task token must be manually re-referenced before this is called, which includes threaded runs.
 void ResourceLoader::_run_load_task(void *p_userdata) {
+	GodotProfileFunction();
 	ThreadLoadTask &load_task = *(ThreadLoadTask *)p_userdata;
 	int thread_index = WorkerThreadPool::get_singleton()->get_thread_index();
 	String thread_waiting_on_backup;
@@ -698,6 +702,7 @@ String ResourceLoader::_validate_local_path(const String &p_path) {
 }
 
 Error ResourceLoader::load_threaded_request(const String &p_path, const String &p_type_hint, bool p_use_sub_threads, CacheMode p_cache_mode) {
+	GodotProfileFunction();
 	Ref<ResourceLoader::LoadToken> token = _load_start(p_path, p_type_hint, p_use_sub_threads ? LOAD_THREAD_DISTRIBUTE : LOAD_THREAD_SPAWN_SINGLE, p_cache_mode, true);
 	return token.is_valid() ? OK : FAILED;
 }
@@ -723,6 +728,7 @@ void ResourceLoader::_load_threaded_request_setup_user_token(LoadToken *p_token,
 }
 
 Ref<Resource> ResourceLoader::load(const String &p_path, const String &p_type_hint, CacheMode p_cache_mode, Error *r_error) {
+	GodotProfileFunction();
 	if (r_error) {
 		*r_error = OK;
 	}
@@ -748,6 +754,7 @@ Ref<Resource> ResourceLoader::load(const String &p_path, const String &p_type_hi
 }
 
 Ref<ResourceLoader::LoadToken> ResourceLoader::_load_start(const String &p_path, const String &p_type_hint, LoadThreadMode p_thread_mode, CacheMode p_cache_mode, bool p_for_user) {
+	GodotProfileFunction();
 	String local_path = _validate_local_path(p_path);
 	ERR_FAIL_COND_V(local_path.is_empty(), Ref<ResourceLoader::LoadToken>());
 
@@ -885,6 +892,7 @@ float ResourceLoader::_dependency_get_progress(const String &p_path) {
 }
 
 ResourceLoader::ThreadLoadStatus ResourceLoader::load_threaded_get_status(const String &p_path, float *r_progress) {
+	GodotProfileFunction();
 	bool ensure_progress = false;
 	ThreadLoadStatus status = THREAD_LOAD_IN_PROGRESS;
 	{
@@ -930,6 +938,7 @@ ResourceLoader::ThreadLoadStatus ResourceLoader::load_threaded_get_status(const 
 }
 
 Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_error) {
+	GodotProfileFunction();
 	if (r_error) {
 		*r_error = OK;
 	}
@@ -1026,6 +1035,7 @@ void ResourceLoader::notify_dependency_error(const String &p_path, const String 
 }
 
 Ref<Resource> ResourceLoader::_load_complete_inner(LoadToken &p_load_token, Error *r_error, MutexLock<SafeBinaryMutex<BINARY_MUTEX_TAG>> &p_thread_load_lock) {
+	GodotProfileFunction();
 	if (r_error) {
 		*r_error = OK;
 	}

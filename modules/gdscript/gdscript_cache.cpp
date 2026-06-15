@@ -37,6 +37,7 @@
 
 #include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
+#include "core/profiling/profiling.h"
 #include "core/templates/vector.h"
 
 GDScriptParserRef::Status GDScriptParserRef::get_status() const {
@@ -301,6 +302,7 @@ Vector<uint8_t> GDScriptCache::get_binary_tokens(const String &p_path) {
 }
 
 Ref<GDScript> GDScriptCache::get_shallow_script(const String &p_path, Error &r_error, const String &p_owner) {
+	GodotProfileFunction();
 	MutexLock lock(singleton->mutex);
 
 	if (!p_owner.is_empty() && p_path != p_owner) {
@@ -344,6 +346,7 @@ Ref<GDScript> GDScriptCache::get_shallow_script(const String &p_path, Error &r_e
 }
 
 Ref<GDScript> GDScriptCache::get_full_script(const String &p_path, Error &r_error, const String &p_owner, bool p_update_from_disk) {
+	GodotProfileFunction();
 	MutexLock lock(singleton->mutex);
 
 	if (!p_owner.is_empty() && p_path != p_owner) {

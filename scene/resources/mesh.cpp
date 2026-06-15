@@ -32,6 +32,7 @@
 
 #include "core/math/convex_hull.h"
 #include "core/object/class_db.h"
+#include "core/profiling/profiling.h"
 #include "core/templates/pair.h"
 #include "scene/resources/surface_tool.h"
 #include "servers/rendering/rendering_server.h"
@@ -1585,6 +1586,7 @@ void ArrayMesh::_create_if_empty() const {
 }
 
 void ArrayMesh::_set_surfaces(const Array &p_surfaces) {
+	GodotProfileFunction();
 	Vector<RenderingServerTypes::SurfaceData> surface_data;
 	Vector<Ref<Material>> surface_materials;
 	Vector<String> surface_names;

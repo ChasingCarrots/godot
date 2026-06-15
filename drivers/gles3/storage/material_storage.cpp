@@ -35,6 +35,7 @@
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/io/resource_loader.h"
+#include "core/profiling/profiling.h"
 #include "drivers/gles3/rasterizer_canvas_gles3.h"
 #include "drivers/gles3/rasterizer_gles3.h"
 #include "drivers/gles3/storage/config.h"
@@ -2431,6 +2432,7 @@ void MaterialStorage::_material_queue_update(GLES3::Material *material, bool p_u
 }
 
 void MaterialStorage::_update_queued_materials() {
+	GodotProfileFunction();
 	while (material_update_list.first()) {
 		Material *material = material_update_list.first()->self();
 

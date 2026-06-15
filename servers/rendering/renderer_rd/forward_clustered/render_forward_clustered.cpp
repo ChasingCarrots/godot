@@ -4982,6 +4982,7 @@ uint32_t RenderForwardClustered::geometry_instance_get_pair_mask() {
 }
 
 void RenderForwardClustered::mesh_generate_pipelines(RID p_mesh, bool p_background_compilation) {
+	GodotProfileFunction();
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 	RendererRD::MeshStorage *mesh_storage = RendererRD::MeshStorage::get_singleton();
 	RID shadow_mesh = mesh_storage->mesh_get_shadow_mesh(p_mesh);

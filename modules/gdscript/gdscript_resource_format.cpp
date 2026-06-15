@@ -35,8 +35,10 @@
 
 #include "core/io/file_access.h"
 #include "core/object/class_db.h"
+#include "core/profiling/profiling.h"
 
 Ref<Resource> ResourceFormatLoaderGDScript::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	GodotProfileFunction();
 	Error err;
 	bool ignoring = p_cache_mode == CACHE_MODE_IGNORE || p_cache_mode == CACHE_MODE_IGNORE_DEEP;
 	Ref<GDScript> scr = GDScriptCache::get_full_script(p_original_path, err, "", ignoring);

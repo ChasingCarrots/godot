@@ -35,6 +35,7 @@
 #include "core/io/missing_resource.h"
 #include "core/object/class_db.h"
 #include "core/object/script_language.h"
+#include "core/profiling/profiling.h"
 #include "scene/property_utils.h"
 
 void ResourceLoaderText::_printerr() {
@@ -450,6 +451,7 @@ void ResourceLoaderText::_count_resources() {
 }
 
 Error ResourceLoaderText::load() {
+	GodotProfileFunction();
 	if (error != OK) {
 		return error;
 	}
@@ -1119,6 +1121,7 @@ Error ResourceLoaderText::rename_dependencies(Ref<FileAccess> p_f, const String 
 }
 
 void ResourceLoaderText::open(Ref<FileAccess> p_f, bool p_skip_first_tag) {
+	GodotProfileFunction();
 	error = OK;
 
 	lines = 1;
@@ -1431,6 +1434,7 @@ ResourceUID::ID ResourceLoaderText::get_uid(Ref<FileAccess> p_f) {
 /////////////////////
 
 Ref<Resource> ResourceFormatLoaderText::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	GodotProfileFunction();
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}

@@ -36,6 +36,7 @@
 #include "core/os/os.h"
 #include "core/os/safe_binary_mutex.h"
 #include "core/os/thread_safe.h"
+#include "core/profiling/profiling.h"
 
 WorkerThreadPool::Task *const WorkerThreadPool::ThreadData::YIELDING = (Task *)1;
 
@@ -55,6 +56,7 @@ thread_local WorkerThreadPool::UnlockableLocks WorkerThreadPool::unlockable_lock
 #endif
 
 void WorkerThreadPool::_process_task(Task *p_task) {
+	GodotProfileFunction();
 #ifdef THREADS_ENABLED
 	int pool_thread_index = thread_ids[Thread::get_caller_id()];
 	ThreadData &curr_thread = threads[pool_thread_index];

@@ -33,10 +33,12 @@
 #include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
 #include "core/object/class_db.h"
+#include "core/profiling/profiling.h"
 #include "scene/resources/bit_map.h"
 #include "servers/rendering/rendering_server.h"
 
 Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r_height, Ref<Image> &image, bool &r_request_3d, bool &r_request_normal, bool &r_request_roughness, int &mipmap_limit, int p_size_limit) {
+	GodotProfileFunction();
 	alpha_cache.unref();
 
 	ERR_FAIL_COND_V(image.is_null(), ERR_INVALID_PARAMETER);
@@ -130,6 +132,7 @@ Image::Format CompressedTexture2D::get_format() const {
 }
 
 Error CompressedTexture2D::load(const String &p_path) {
+	GodotProfileFunction();
 	int lw, lh;
 	Ref<Image> image;
 	image.instantiate();

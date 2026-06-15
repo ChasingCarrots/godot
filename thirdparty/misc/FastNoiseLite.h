@@ -52,8 +52,6 @@
 
 #include <cmath>
 
-#include "core/profiling/profiling.h"
-
 namespace fastnoiselite {
 
 class FastNoiseLite
@@ -986,7 +984,6 @@ private:
     template <typename FNfloat>
     float SingleSimplex(int seed, FNfloat x, FNfloat y) const
     {
-    	GodotProfileFunction();
         // 2D OpenSimplex2 case uses the same algorithm as ordinary Simplex.
 
         const float SQRT3 = 1.7320508075688772935274463415059f;
@@ -1058,7 +1055,6 @@ private:
     template <typename FNfloat>
     float SingleOpenSimplex2(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-    	GodotProfileFunction();
         // 3D OpenSimplex2 case uses two offset rotated cube grids.
 
         /*
@@ -1161,7 +1157,6 @@ private:
     template <typename FNfloat>
     float SingleOpenSimplex2S(int seed, FNfloat x, FNfloat y) const
     {
-    	GodotProfileFunction();
         // 2D OpenSimplex2S case is a modified 2D simplex noise.
 
         const FNfloat SQRT3 = (FNfloat)1.7320508075688772935274463415059;
@@ -1293,7 +1288,6 @@ private:
     template <typename FNfloat>
     float SingleOpenSimplex2S(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-    	GodotProfileFunction();
         // 3D OpenSimplex2S case uses two offset rotated cube grids.
 
         /*
@@ -1490,7 +1484,6 @@ private:
     template <typename FNfloat>
     float SingleCellular(int seed, FNfloat x, FNfloat y) const
     {
-    	GodotProfileFunction();
         int xr = FastRound(x);
         int yr = FastRound(y);
 
@@ -1627,7 +1620,6 @@ private:
     template <typename FNfloat>
     float SingleCellular(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-    	GodotProfileFunction();
         int xr = FastRound(x);
         int yr = FastRound(y);
         int zr = FastRound(z);
@@ -1788,7 +1780,6 @@ private:
     template <typename FNfloat>
     float SinglePerlin(int seed, FNfloat x, FNfloat y) const
     {
-    	GodotProfileFunction();
         int x0 = FastFloor(x);
         int y0 = FastFloor(y);
 
@@ -1814,7 +1805,6 @@ private:
     template <typename FNfloat>
     float SinglePerlin(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-    	GodotProfileFunction();
         int x0 = FastFloor(x);
         int y0 = FastFloor(y);
         int z0 = FastFloor(z);
@@ -1854,7 +1844,6 @@ private:
     template <typename FNfloat>
     float SingleValueCubic(int seed, FNfloat x, FNfloat y) const
     {
-    	GodotProfileFunction();
         int x1 = FastFloor(x);
         int y1 = FastFloor(y);
 
@@ -1885,7 +1874,6 @@ private:
     template <typename FNfloat>
     float SingleValueCubic(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-    	GodotProfileFunction();
         int x1 = FastFloor(x);
         int y1 = FastFloor(y);
         int z1 = FastFloor(z);
@@ -1943,7 +1931,6 @@ private:
     template <typename FNfloat>
     float SingleValue(int seed, FNfloat x, FNfloat y) const
     {
-    	GodotProfileFunction();
         int x0 = FastFloor(x);
         int y0 = FastFloor(y);
 
@@ -1964,7 +1951,6 @@ private:
     template <typename FNfloat>
     float SingleValue(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-    	GodotProfileFunction();
         int x0 = FastFloor(x);
         int y0 = FastFloor(y);
         int z0 = FastFloor(z);
@@ -1997,7 +1983,6 @@ private:
     template <typename FNfloat>
     void DoSingleDomainWarp(int seed, float amp, float freq, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr) const
     {
-    	GodotProfileFunction();
         switch (mDomainWarpType)
         {
         case DomainWarpType_OpenSimplex2:
@@ -2015,7 +2000,6 @@ private:
     template <typename FNfloat>
     void DoSingleDomainWarp(int seed, float amp, float freq, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr) const
     {
-    	GodotProfileFunction();
         switch (mDomainWarpType)
         {
         case DomainWarpType_OpenSimplex2:
@@ -2036,7 +2020,6 @@ private:
     template <typename FNfloat>
     void DomainWarpSingle(FNfloat& x, FNfloat& y) const
     {
-    	GodotProfileFunction();
         int seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
@@ -2051,7 +2034,6 @@ private:
     template <typename FNfloat>
     void DomainWarpSingle(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-    	GodotProfileFunction();
         int seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
@@ -2070,7 +2052,6 @@ private:
     template <typename FNfloat>
     void DomainWarpFractalProgressive(FNfloat& x, FNfloat& y) const
     {
-    	GodotProfileFunction();
         int seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
@@ -2092,7 +2073,6 @@ private:
     template <typename FNfloat>
     void DomainWarpFractalProgressive(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-    	GodotProfileFunction();
         int seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
@@ -2118,7 +2098,6 @@ private:
     template <typename FNfloat>
     void DomainWarpFractalIndependent(FNfloat& x, FNfloat& y) const
     {
-    	GodotProfileFunction();
         FNfloat xs = x;
         FNfloat ys = y;
         TransformDomainWarpCoordinate(xs, ys);
@@ -2140,7 +2119,6 @@ private:
     template <typename FNfloat>
     void DomainWarpFractalIndependent(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-    	GodotProfileFunction();
         FNfloat xs = x;
         FNfloat ys = y;
         FNfloat zs = z;
@@ -2166,7 +2144,6 @@ private:
     template <typename FNfloat>
     void SingleDomainWarpBasicGrid(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr) const
     {
-    	GodotProfileFunction();
         FNfloat xf = x * frequency;
         FNfloat yf = y * frequency;
 
@@ -2200,7 +2177,6 @@ private:
     template <typename FNfloat>
     void SingleDomainWarpBasicGrid(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr) const
     {
-    	GodotProfileFunction();
         FNfloat xf = x * frequency;
         FNfloat yf = y * frequency;
         FNfloat zf = z * frequency;
@@ -2263,7 +2239,6 @@ private:
     template <typename FNfloat>
     void SingleDomainWarpSimplexGradient(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr, bool outGradOnly) const
     {
-    	GodotProfileFunction();
         const float SQRT3 = 1.7320508075688772935274463415059f;
         const float G2 = (3 - SQRT3) / 6;
 
@@ -2362,7 +2337,6 @@ private:
     template <typename FNfloat>
     void SingleDomainWarpOpenSimplex2Gradient(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr, bool outGradOnly) const
     {
-    	GodotProfileFunction();
         x *= frequency;
         y *= frequency;
         z *= frequency;

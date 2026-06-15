@@ -31,6 +31,7 @@
 #include "noise.h"
 
 #include "core/object/class_db.h"
+#include "core/profiling/profiling.h"
 
 #include <cfloat> // FLT_MAX
 
@@ -84,6 +85,8 @@ uint8_t Noise::_alpha_blend<uint8_t>(uint8_t p_bg, uint8_t p_fg, int p_alpha) co
 
 Vector<Ref<Image>> Noise::_get_image(int p_width, int p_height, int p_depth, bool p_invert, bool p_in_3d_space, bool p_normalize) const {
 	ERR_FAIL_COND_V(p_width <= 0 || p_height <= 0 || p_depth <= 0, Vector<Ref<Image>>());
+
+	GodotProfileFunction();
 
 	Vector<Ref<Image>> images;
 	images.resize(p_depth);

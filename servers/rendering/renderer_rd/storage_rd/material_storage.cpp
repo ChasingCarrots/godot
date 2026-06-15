@@ -34,6 +34,7 @@
 #include "core/config/project_settings.h"
 #include "core/io/resource_loader.h"
 #include "core/math/projection.h"
+#include "core/profiling/profiling.h"
 #include "core/templates/local_vector.h"
 #include "servers/rendering/renderer_rd/forward_clustered/scene_shader_forward_clustered.h"
 #include "servers/rendering/renderer_rd/forward_mobile/scene_shader_forward_mobile.h"
@@ -2421,6 +2422,7 @@ void MaterialStorage::_material_queue_update(Material *material, bool p_uniform,
 }
 
 void MaterialStorage::_update_queued_materials() {
+	GodotProfileFunction();
 	SelfList<Material>::List copy;
 	{
 		MutexLock lock(material_update_list_mutex);

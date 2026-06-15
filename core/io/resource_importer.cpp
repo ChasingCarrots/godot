@@ -35,6 +35,7 @@
 #include "core/io/image.h"
 #include "core/object/class_db.h"
 #include "core/os/os.h"
+#include "core/profiling/profiling.h"
 #include "core/variant/variant_parser.h"
 
 bool ResourceFormatImporter::SortImporterByName::operator()(const Ref<ResourceImporter> &p_a, const Ref<ResourceImporter> &p_b) const {
@@ -156,6 +157,7 @@ Error ResourceFormatImporter::_get_path_and_type(const String &p_path, PathAndTy
 }
 
 Ref<Resource> ResourceFormatImporter::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	GodotProfileFunction();
 #ifdef TOOLS_ENABLED
 	// When loading a resource on startup, we use the load_on_startup callback,
 	// which executes the loading in the EditorFileSystem. It can reimport
@@ -170,6 +172,7 @@ Ref<Resource> ResourceFormatImporter::load(const String &p_path, const String &p
 }
 
 Ref<Resource> ResourceFormatImporter::load_internal(const String &p_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode, bool p_silence_errors) {
+	GodotProfileFunction();
 	PathAndType pat;
 	Error err = _get_path_and_type(p_path, pat, true);
 

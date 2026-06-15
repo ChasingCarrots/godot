@@ -36,6 +36,7 @@
 #include "core/io/missing_resource.h"
 #include "core/object/class_db.h"
 #include "core/object/script_language.h"
+#include "core/profiling/profiling.h"
 #include "core/version.h"
 #include "scene/property_utils.h"
 #include "scene/resources/packed_scene.h"
@@ -619,6 +620,7 @@ Ref<Resource> ResourceLoaderBinary::get_resource() {
 }
 
 Error ResourceLoaderBinary::load() {
+	GodotProfileFunction();
 	if (error != OK) {
 		return error;
 	}
@@ -920,6 +922,7 @@ void ResourceLoaderBinary::get_dependencies(Ref<FileAccess> p_f, List<String> *p
 }
 
 void ResourceLoaderBinary::open(Ref<FileAccess> p_f, bool p_no_resources, bool p_keep_uuid_paths) {
+	GodotProfileFunction();
 	error = OK;
 
 	f = p_f;
@@ -1146,6 +1149,7 @@ String ResourceLoaderBinary::recognize_script_class(Ref<FileAccess> p_f) {
 }
 
 Ref<Resource> ResourceFormatLoaderBinary::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	GodotProfileFunction();
 	if (r_error) {
 		*r_error = ERR_FILE_CANT_OPEN;
 	}
