@@ -20,9 +20,15 @@ CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
 CommunicationLineSystem::CommunicationLineSystem() {
 	_receive_buffer.instantiate();
 	_send_buffer.instantiate();
+	_thread_receive_buffer.instantiate();
+	_thread_send_buffer.instantiate();
 	_chunk_sender.instantiate();
 	_chunk_receiver.instantiate();
 	_chunk_receiver->initialize(this);
+}
+
+CommunicationLineSystem::~CommunicationLineSystem() {
+	_stop_poll_thread();
 }
 
 void CommunicationLineSystem::_bind_methods() {
@@ -45,6 +51,10 @@ void CommunicationLineSystem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_peer_packet_loss", "peer_id"), &CommunicationLineSystem::get_peer_packet_loss);
 	ClassDB::bind_method(D_METHOD("get_peer_clock_offset", "peer_id"), &CommunicationLineSystem::get_peer_clock_offset);
 	ClassDB::bind_method(D_METHOD("close_connection"), &CommunicationLineSystem::close_connection);
+	ClassDB::bind_method(D_METHOD("disconnect_peer", "peer_id"), &CommunicationLineSystem::disconnect_peer);
+	ClassDB::bind_method(D_METHOD("lock_multiplayer_peer"), &CommunicationLineSystem::lock_multiplayer_peer);
+	ClassDB::bind_method(D_METHOD("unlock_multiplayer_peer"), &CommunicationLineSystem::unlock_multiplayer_peer);
+	ClassDB::bind_method(D_METHOD("get_local_multiplayer_id"), &CommunicationLineSystem::get_local_multiplayer_id);
 	ClassDB::bind_method(D_METHOD("set_server_id", "id"), &CommunicationLineSystem::set_server_id);
 	ClassDB::bind_method(D_METHOD("get_server_id"), &CommunicationLineSystem::get_server_id);
 	ClassDB::bind_method(D_METHOD("is_server"), &CommunicationLineSystem::is_server);
@@ -74,9 +84,10 @@ void CommunicationLineSystem::_notification(int p_notification) {
 			_ready();
 		break;
 		case NOTIFICATION_EXIT_TREE:
+			_stop_poll_thread();
 			if (_multiplayer_peer.is_valid()) {
-				_multiplayer_peer->disconnect("peer_connected", callable_mp(this, &CommunicationLineSystem::on_new_peer_connected));
-				_multiplayer_peer->disconnect("peer_disconnected", callable_mp(this, &CommunicationLineSystem::on_peer_disconnected));
+				_multiplayer_peer->disconnect("peer_connected", callable_mp(this, &CommunicationLineSystem::_on_peer_connected_trampoline));
+				_multiplayer_peer->disconnect("peer_disconnected", callable_mp(this, &CommunicationLineSystem::_on_peer_disconnected_trampoline));
 			}
 		break;
 	}
@@ -89,7 +100,10 @@ void CommunicationLineSystem::_ready() {
 
 void CommunicationLineSystem::_process(double p_time) {
 	if (_multiplayer_peer.is_valid()) {
-		poll();
+		// update_status() tears down (and clears the queues) if the poll thread saw
+		// a disconnect, so the drain below only runs on a healthy peer.
+		update_status();
+		_drain_network_events();
 	}
 
 	if (_chunk_receiver.is_valid()) {
@@ -104,25 +118,33 @@ void CommunicationLineSystem::_process(double p_time) {
 		}
 	}
 
-	// poll() may have torn down the peer, so re-check before doing connection tracking.
+	// Draining events may have torn down the peer, so re-check before doing connection tracking.
 	if (_multiplayer_peer.is_valid() && last_connection_status == MultiplayerPeer::CONNECTION_CONNECTED) {
 		if (_closing) {
-			// We are gracefully leaving: keep polling (done above) so the disconnect
-			// packet flushes, then tear down once the grace period elapsed - or earlier
-			// if every peer already acknowledged by dropping us.
+			// We are gracefully leaving: the poll thread keeps the peer serviced so
+			// the disconnect packet flushes, then we tear down once the grace period
+			// elapsed - or earlier if every peer already acknowledged by dropping us.
+			bool peers_empty;
+			{
+				MutexLock lock(_connected_peers_mutex);
+				peers_empty = _connected_peers.is_empty();
+			}
 			uint64_t now = OS::get_singleton()->get_ticks_msec();
-			if (_connected_peers.is_empty() || now - _close_requested_time > CLOSE_GRACE_MS) {
-				_multiplayer_peer->close();
+			if (peers_empty || now - _close_requested_time > CLOSE_GRACE_MS) {
+				{
+					// Only lock around close(): clear_multiplayer_peer() joins the
+					// poll thread, which would deadlock if we still held the mutex.
+					MutexLock lock(_peer_mutex);
+					_multiplayer_peer->close();
+					_cached_status.store(_multiplayer_peer->get_connection_status());
+				}
 				clear_multiplayer_peer();
 				_closing = false;
 				emit_signal(SNAME("connection_closed"));
 			}
 		} else {
-			_time_since_last_ping += p_time;
-			if (_time_since_last_ping * 1000.0 >= static_cast<double>(PING_INTERVAL_MS)) {
-				_time_since_last_ping = 0.0;
-				send_pings();
-			}
+			// Pings are sent from the poll thread; timeout detection stays here
+			// because it emits script-visible signals.
 			check_peer_timeouts();
 		}
 	}
@@ -146,10 +168,12 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 			"Supplied MultiplayerPeer must be connecting or connected.");
 
 	if (_multiplayer_peer.is_valid()) {
-		// clear_multiplayer_peer() disconnects the old peer's signals for us.
+		// clear_multiplayer_peer() stops the poll thread and disconnects the old
+		// peer's signals for us.
 		clear_multiplayer_peer();
 	}
 
+	// No poll thread is running here, so the peer can be accessed directly.
 	_multiplayer_peer = p_peer;
 
 	_chunk_sender->initialize(p_peer);
@@ -158,6 +182,8 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 	if(p_peer.is_valid()) {
 		peer_id = p_peer->get_unique_id();
 	}
+	_cached_unique_id = peer_id;
+	_cached_status.store(p_peer.is_valid() ? p_peer->get_connection_status() : MultiplayerPeer::CONNECTION_DISCONNECTED);
 
 	//Our communication lines need the new peer id
 	for (auto cl : _communication_lines){
@@ -165,16 +191,23 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 	}
 
 	if (_multiplayer_peer.is_valid()) {
-		_multiplayer_peer->connect("peer_connected", callable_mp(this, &CommunicationLineSystem::on_new_peer_connected));
-		_multiplayer_peer->connect("peer_disconnected", callable_mp(this, &CommunicationLineSystem::on_peer_disconnected));
+		_multiplayer_peer->connect("peer_connected", callable_mp(this, &CommunicationLineSystem::_on_peer_connected_trampoline));
+		_multiplayer_peer->connect("peer_disconnected", callable_mp(this, &CommunicationLineSystem::_on_peer_disconnected_trampoline));
 	}
 	update_status();
+
+	if (_multiplayer_peer.is_valid()) {
+		_start_poll_thread();
+	}
 }
 
 void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 	PeerConnection peer_connection;
 	peer_connection.last_packet_time = OS::get_singleton()->get_ticks_msec();
-	_connected_peers.insert(multiplayer_id, peer_connection);
+	{
+		MutexLock lock(_connected_peers_mutex);
+		_connected_peers.insert(multiplayer_id, peer_connection);
+	}
 
 	if (!_communication_lines.is_empty() && is_server()) {
 		// we send the new peer all the current communication lines, so they are up to speed!
@@ -200,7 +233,10 @@ void CommunicationLineSystem::on_new_peer_connected(int multiplayer_id) {
 }
 
 void CommunicationLineSystem::on_peer_disconnected(int multiplayer_id) {
-	_connected_peers.erase(multiplayer_id);
+	{
+		MutexLock lock(_connected_peers_mutex);
+		_connected_peers.erase(multiplayer_id);
+	}
 
 	for (auto &line : _communication_lines) {
 		line->peer_disconnected(multiplayer_id);
@@ -258,7 +294,7 @@ void CommunicationLineSystem::on_packet_received(int from_multiplayer_id, const 
 				Ref<CommunicationLine> new_communication_line;
 				new_communication_line.instantiate();
 				new_communication_line->_communication_line_system = this;
-				new_communication_line->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
+				new_communication_line->_my_peer_info.set_multiplayer_id(get_local_multiplayer_id());
 				new_communication_line->_string_id = string_id;
 				new_communication_line->_int_id = int_id;
 				new_communication_line->create_unconnected_peers(peer_ids);
@@ -295,7 +331,7 @@ void CommunicationLineSystem::on_packet_received(int from_multiplayer_id, const 
 					Ref<CommunicationLine> new_communication_line;
 					new_communication_line.instantiate();
 					new_communication_line->_communication_line_system = this;
-					new_communication_line->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
+					new_communication_line->_my_peer_info.set_multiplayer_id(get_local_multiplayer_id());
 					new_communication_line->_string_id = string_id;
 					new_communication_line->_int_id = int_id;
 					new_communication_line->create_unconnected_peers(peer_ids);
@@ -355,7 +391,7 @@ Ref<CommunicationLine> CommunicationLineSystem::grab_communication_line(const St
 		return new_communication_line;
 	}
 
-	new_communication_line->_my_peer_info.set_multiplayer_id(_multiplayer_peer->get_unique_id());
+	new_communication_line->_my_peer_info.set_multiplayer_id(get_local_multiplayer_id());
 
 	if (is_server()) {
 		Vector<int> peer_ids = get_connected_peer_ids();
@@ -418,84 +454,221 @@ void CommunicationLineSystem::remove_communication_line(const Ref<CommunicationL
 	_communication_lines.erase(removed_cl);
 }
 
-Error CommunicationLineSystem::poll() {
+void CommunicationLineSystem::_poll_thread_func(void *p_self) {
+	Thread::set_name("CommunicationLineSystem");
+	CommunicationLineSystem *self = static_cast<CommunicationLineSystem *>(p_self);
+	while (!self->_poll_thread_exit.load(std::memory_order_relaxed)) {
+		self->_poll_iteration();
+		// ~1ms granularity is far below network jitter; no need to spin.
+		OS::get_singleton()->delay_usec(1000);
+	}
+}
+
+void CommunicationLineSystem::_poll_iteration() {
 	GodotProfileFunction();
-	if (_multiplayer_peer == nullptr){
-		return OK;
+	MutexLock lock(_peer_mutex);
+	if (_multiplayer_peer.is_null()) {
+		return;
 	}
 
-	update_status();
-	if (last_connection_status == MultiplayerPeer::CONNECTION_DISCONNECTED) {
-		return OK;
+	MultiplayerPeer::ConnectionStatus status = _multiplayer_peer->get_connection_status();
+	_cached_status.store(status);
+	if (status == MultiplayerPeer::CONNECTION_DISCONNECTED) {
+		return;
 	}
 
+	// ENet emits peer_connected/peer_disconnected from inside poll(), i.e. on
+	// this thread; the trampolines turn them into queued events.
 	_multiplayer_peer->poll();
 
-	update_status();
-	if (last_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) {
+	status = _multiplayer_peer->get_connection_status();
+	_cached_status.store(status);
+	if (status != MultiplayerPeer::CONNECTION_CONNECTED) {
 		// We might be still connecting, or polling might have resulted in a disconnection.
-		return OK;
+		return;
 	}
-	uint64_t time = OS::get_singleton()->get_ticks_msec();
-	while (_multiplayer_peer->get_available_packet_count()) {
+
+	while (_multiplayer_peer->get_available_packet_count() > 0) {
 		int sender = _multiplayer_peer->get_packet_peer();
 		int channel = _multiplayer_peer->get_packet_channel();
+
 		const uint8_t *packet;
 		int len;
-
 		Error err = _multiplayer_peer->get_packet(&packet, len);
-		ERR_FAIL_COND_V_MSG(err != OK, err, vformat("Error getting packet! %d", err));
-
-		_remote_sender_id = sender;
-
-		// Any packet from a known peer counts as a sign of life for timeout detection.
-		if (HashMap<int, PeerConnection>::Iterator it = _connected_peers.find(sender)) {
-			it->value.last_packet_time = OS::get_singleton()->get_ticks_msec();
+		if (err != OK) {
+			ERR_PRINT(vformat("Error getting packet! %d", err));
+			break;
 		}
 
+		// Any packet from a known peer is a sign of life for timeout detection.
+		// Done here so peers don't look stale when the main thread stalls.
+		{
+			MutexLock peers_lock(_connected_peers_mutex);
+			if (HashMap<int, PeerConnection>::Iterator it = _connected_peers.find(sender)) {
+				it->value.last_packet_time = OS::get_singleton()->get_ticks_msec();
+			}
+		}
+
+		// Ping and control packets are latency-sensitive and independent of game
+		// state, so they are handled right here on the poll thread.
 		if (channel == COMMUNICATION_LINE_CHANNEL_PING) {
 			handle_ping_packet(sender, packet, len);
-		} else if (channel == COMMUNICATION_LINE_CHANNEL_CONTROL) {
-			handle_control_packet(sender, packet, len);
-		} else {
-			process_packet(sender, packet, len);
+			continue;
+		}
+		if (channel == COMMUNICATION_LINE_CHANNEL_CONTROL && _handle_control_packet_threaded(sender, packet, len)) {
+			continue;
 		}
 
-		_remote_sender_id = 0;
+		NetworkEvent event;
+		event.type = NetworkEvent::Type::Packet;
+		event.peer_id = sender;
+		event.channel = channel;
+		event.data.resize(len);
+		memcpy(event.data.ptrw(), packet, len);
+		_push_network_event(std::move(event));
+	}
+
+	// Ping cadence runs here so RTT/jitter/loss stats stay live - and remote peers
+	// don't sample phantom loss - while the main thread stalls.
+	if (!_closing.load()) {
+		uint64_t now = OS::get_singleton()->get_ticks_msec();
+		if (now - _last_ping_send_time_ms >= PING_INTERVAL_MS) {
+			_last_ping_send_time_ms = now;
+			send_pings();
+		}
+	}
+}
+
+void CommunicationLineSystem::_start_poll_thread() {
+	if (_poll_thread.is_started()) {
+		return;
+	}
+	_last_ping_send_time_ms = OS::get_singleton()->get_ticks_msec(); // first ping after one full interval
+	_poll_thread_exit.store(false);
+	Thread::Settings settings;
+	settings.priority = Thread::Priority::PRIORITY_HIGH;
+	_poll_thread.start(_poll_thread_func, this, settings);
+}
+
+void CommunicationLineSystem::_stop_poll_thread() {
+	if (!_poll_thread.is_started()) {
+		return;
+	}
+	// Callers must not hold _peer_mutex here: the thread needs it to finish.
+	_poll_thread_exit.store(true);
+	_poll_thread.wait_to_finish();
+}
+
+void CommunicationLineSystem::_push_network_event(NetworkEvent &&p_event) {
+	MutexLock lock(_event_queue_mutex);
+	_event_queue.push_back(std::move(p_event));
+}
+
+void CommunicationLineSystem::_on_peer_connected_trampoline(int multiplayer_id) {
+	// Runs on whichever thread the peer emits from; only touch the event queue.
+	NetworkEvent event;
+	event.type = NetworkEvent::Type::PeerConnected;
+	event.peer_id = multiplayer_id;
+	_push_network_event(std::move(event));
+}
+
+void CommunicationLineSystem::_on_peer_disconnected_trampoline(int multiplayer_id) {
+	NetworkEvent event;
+	event.type = NetworkEvent::Type::PeerDisconnected;
+	event.peer_id = multiplayer_id;
+	_push_network_event(std::move(event));
+}
+
+void CommunicationLineSystem::_drain_network_events() {
+	GodotProfileFunction();
+	if (_multiplayer_peer.is_null()) {
+		return;
+	}
+
+	uint64_t time = OS::get_singleton()->get_ticks_msec();
+	while (true) {
+		if (_pending_index >= _pending_events.size()) {
+			_pending_events.clear();
+			_pending_index = 0;
+			MutexLock lock(_event_queue_mutex);
+			if (_event_queue.is_empty()) {
+				break;
+			}
+			_pending_events = std::move(_event_queue); // move-assign resets _event_queue
+		}
+
+		// Move the event out: handlers can tear down the peer, which clears
+		// _pending_events underneath us.
+		NetworkEvent event = std::move(_pending_events[_pending_index]);
+		_pending_index++;
+
+		switch (event.type) {
+			case NetworkEvent::Type::PeerConnected:
+				on_new_peer_connected(event.peer_id);
+				break;
+			case NetworkEvent::Type::PeerDisconnected:
+				on_peer_disconnected(event.peer_id);
+				break;
+			case NetworkEvent::Type::Packet: {
+				if (last_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) {
+					break; // Packets are only processed while connected, as before.
+				}
+				_remote_sender_id = event.peer_id;
+
+				// Ping packets never reach this queue (handled on the poll thread);
+				// control packets land here only when the thread deferred them.
+				if (event.channel == COMMUNICATION_LINE_CHANNEL_CONTROL) {
+					handle_control_packet(event.peer_id, event.data.ptr(), event.data.size());
+				} else {
+					on_packet_received(event.peer_id, event.data);
+				}
+
+				_remote_sender_id = 0;
+			} break;
+		}
 
 		update_status();
-		if (last_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) { // It's possible that processing a packet might have resulted in a disconnection, so check here.
-			return OK;
+		if (_multiplayer_peer.is_null()) {
+			// Processing the event tore the peer down; the queues are already cleared.
+			return;
 		}
+
 		uint64_t now = OS::get_singleton()->get_ticks_msec();
-		if (now-time > 100) {
+		if (now - time > 100) {
 			print_line("CommunicationLineSystem is taking long to process incoming packets! Continuing next frame.");
 			break;
 		}
 	}
-
-	update_status();
-	if (last_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) { // Signals might have triggered disconnection.
-		return OK;
-	}
-
-	return OK;
 }
 
 void CommunicationLineSystem::clear_multiplayer_peer() {
+	// Stop the poll thread first; afterwards the peer is ours alone.
+	// (Callers must not hold _peer_mutex, the thread needs it to finish.)
+	_stop_poll_thread();
+
 	last_connection_status = MultiplayerPeer::CONNECTION_DISCONNECTED;
+	_cached_status.store(MultiplayerPeer::CONNECTION_DISCONNECTED);
+	_cached_unique_id = 0;
 
 	if (_multiplayer_peer.is_valid()) {
-		const Callable on_connected = callable_mp(this, &CommunicationLineSystem::on_new_peer_connected);
+		const Callable on_connected = callable_mp(this, &CommunicationLineSystem::_on_peer_connected_trampoline);
 		if (_multiplayer_peer->is_connected("peer_connected", on_connected)) {
 			_multiplayer_peer->disconnect("peer_connected", on_connected);
 		}
-		const Callable on_disconnected = callable_mp(this, &CommunicationLineSystem::on_peer_disconnected);
+		const Callable on_disconnected = callable_mp(this, &CommunicationLineSystem::_on_peer_disconnected_trampoline);
 		if (_multiplayer_peer->is_connected("peer_disconnected", on_disconnected)) {
 			_multiplayer_peer->disconnect("peer_disconnected", on_disconnected);
 		}
 	}
 	_multiplayer_peer = nullptr;
+
+	// Drop events from the old peer so they cannot leak into the next session.
+	{
+		MutexLock lock(_event_queue_mutex);
+		_event_queue.clear();
+	}
+	_pending_events.clear();
+	_pending_index = 0;
 
 	//We will still have communication lines and need to reset them
 	for (auto cl : _communication_lines){
@@ -503,13 +676,18 @@ void CommunicationLineSystem::clear_multiplayer_peer() {
 		cl->update_own_communication_state(CommunicationLine::CommunicationState::WaitingForConnection);
 	}
 
-	_connected_peers.clear();
-	_time_since_last_ping = 0.0;
+	{
+		MutexLock lock(_connected_peers_mutex);
+		_connected_peers.clear();
+	}
+	_last_ping_send_time_ms = 0;
 	_closing = false;
 }
 
 void CommunicationLineSystem::update_status() {
-	MultiplayerPeer::ConnectionStatus status = _multiplayer_peer.is_valid() ? _multiplayer_peer->get_connection_status() : MultiplayerPeer::CONNECTION_DISCONNECTED;
+	// The peer's live status is published by the poll thread; reading the cache
+	// keeps this main-thread hot path lock-free.
+	MultiplayerPeer::ConnectionStatus status = _multiplayer_peer.is_valid() ? static_cast<MultiplayerPeer::ConnectionStatus>(_cached_status.load()) : MultiplayerPeer::CONNECTION_DISCONNECTED;
 	if (last_connection_status != status) {
 		if (status == MultiplayerPeer::CONNECTION_DISCONNECTED) {
 			if (last_connection_status == MultiplayerPeer::CONNECTION_CONNECTING) {
@@ -518,6 +696,12 @@ void CommunicationLineSystem::update_status() {
 				emit_signal(SNAME("server_disconnected"));
 			}
 			clear_multiplayer_peer();
+		} else if (status == MultiplayerPeer::CONNECTION_CONNECTED) {
+			// Refresh the cached id in case the peer only settled on it while connecting.
+			MutexLock lock(_peer_mutex);
+			if (_multiplayer_peer.is_valid()) {
+				_cached_unique_id = _multiplayer_peer->get_unique_id();
+			}
 		}
 		last_connection_status = status;
 	}
@@ -537,6 +721,11 @@ void CommunicationLineSystem::process_packet(const int from, const uint8_t *pack
 void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &packet, const MultiplayerPeer::TransferMode mode) const {
 	GodotProfileFunction();
 	ERR_FAIL_COND_MSG(packet.is_empty(), "Trying to send an empty packet.");
+
+	// The transfer channel/mode/target setters and put_packet form one stateful
+	// sequence on the peer; hold the lock for the whole send so the poll thread
+	// cannot interleave. Also covers ChunkSender::send_as_chunk below.
+	MutexLock lock(_peer_mutex);
 	ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "Trying to send a raw packet while no multiplayer peer is active.");
 	ERR_FAIL_COND_MSG(_multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED, "Trying to send a raw packet via a multiplayer peer which is not connected.");
 
@@ -550,7 +739,10 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 	_multiplayer_peer->set_transfer_mode(mode);
 
 	if (to > 0) {
-		ERR_FAIL_COND(!_connected_peers.has(to));
+		{
+			MutexLock peers_lock(_connected_peers_mutex);
+			ERR_FAIL_COND(!_connected_peers.has(to));
+		}
 		if (packet.size() > _multiplayer_peer->get_max_packet_size()) {
 			if (mode == MultiplayerPeer::TRANSFER_MODE_RELIABLE){
 				_chunk_sender->send_as_chunk(to, packet);
@@ -563,8 +755,16 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 		_multiplayer_peer->set_target_peer(to);
 		_multiplayer_peer->put_packet(packet.ptr(), packet.size());
 	} else {
-		for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
-			const int pid = E.key;
+		// Snapshot first: put_packet is a peer call and must not happen while
+		// holding _connected_peers_mutex.
+		Vector<int> targets;
+		{
+			MutexLock peers_lock(_connected_peers_mutex);
+			for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
+				targets.push_back(E.key);
+			}
+		}
+		for (const int pid : targets) {
 			if (packet.size() > _multiplayer_peer->get_max_packet_size()) {
 				if (mode == MultiplayerPeer::TRANSFER_MODE_RELIABLE){
 					_chunk_sender->send_as_chunk(pid, packet);
@@ -586,6 +786,7 @@ Vector<int> CommunicationLineSystem::get_connected_peer_ids() const {
 	}
 
 	Vector<int> ret;
+	MutexLock lock(_connected_peers_mutex);
 	for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
 		ret.push_back(E.key);
 	}
@@ -595,6 +796,8 @@ Vector<int> CommunicationLineSystem::get_connected_peer_ids() const {
 
 void CommunicationLineSystem::send_internal_packet(const int to, const PackedByteArray &packet, const MultiplayerPeer::TransferMode mode, const int channel) const {
 	ERR_FAIL_COND_MSG(packet.is_empty(), "Trying to send an empty internal packet.");
+
+	MutexLock lock(_peer_mutex);
 	ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "Trying to send an internal packet while no multiplayer peer is active.");
 	ERR_FAIL_COND_MSG(_multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED, "Trying to send an internal packet via a multiplayer peer which is not connected.");
 	// Ping/control packets are tiny by design, so chunking (as in send_to_peer) is never needed here.
@@ -610,57 +813,70 @@ void CommunicationLineSystem::send_pings() {
 	GodotProfileFunction();
 	const uint64_t now = OS::get_singleton()->get_ticks_msec();
 
-	_send_buffer->clear();
-	_send_buffer->put_u8(static_cast<uint8_t>(PingPacketType::Request));
-	_send_buffer->put_u32(static_cast<uint32_t>(now));
-	const PackedByteArray request = _send_buffer->get_data_array();
+	_thread_send_buffer->clear();
+	_thread_send_buffer->put_u8(static_cast<uint8_t>(PingPacketType::Request));
+	_thread_send_buffer->put_u32(static_cast<uint32_t>(now));
+	const PackedByteArray request = _thread_send_buffer->get_data_array();
 
-	for (KeyValue<int, PeerConnection> &E : _connected_peers) {
-		PeerConnection &peer = E.value;
+	// Update stats under the peers lock, but send only after releasing it:
+	// sending is a peer call and must not happen while holding the leaf lock.
+	Vector<int> ping_targets;
+	{
+		MutexLock peers_lock(_connected_peers_mutex);
+		for (KeyValue<int, PeerConnection> &E : _connected_peers) {
+			PeerConnection &peer = E.value;
 
-		// Sample the previous ping for the packet-loss EWMA: if it is still
-		// outstanding, it was very likely lost (an unreliable ping/pong round-trip
-		// should comfortably fit within one PING_INTERVAL_MS).
-		const float lost = peer.awaiting_pong ? 1.0f : 0.0f;
-		peer.packet_loss += (lost - peer.packet_loss) * 0.1f;
+			// Sample the previous ping for the packet-loss EWMA: if it is still
+			// outstanding, it was very likely lost (an unreliable ping/pong round-trip
+			// should comfortably fit within one PING_INTERVAL_MS).
+			const float lost = peer.awaiting_pong ? 1.0f : 0.0f;
+			peer.packet_loss += (lost - peer.packet_loss) * 0.1f;
 
-		peer.awaiting_pong = true;
-		peer.last_ping_sent_time = now;
-		send_internal_packet(E.key, request, MultiplayerPeer::TRANSFER_MODE_UNRELIABLE, COMMUNICATION_LINE_CHANNEL_PING);
+			peer.awaiting_pong = true;
+			peer.last_ping_sent_time = now;
+			ping_targets.push_back(E.key);
+		}
+	}
+
+	for (const int peer_id : ping_targets) {
+		send_internal_packet(peer_id, request, MultiplayerPeer::TRANSFER_MODE_UNRELIABLE, COMMUNICATION_LINE_CHANNEL_PING);
 	}
 }
 
 void CommunicationLineSystem::handle_ping_packet(const int from, const uint8_t *packet, const int packet_len) {
 	GodotProfileFunction();
-	_receive_buffer->clear();
+	_thread_receive_buffer->clear();
 	{
-		PackedByteArray data;
-		data.resize(packet_len);
-		memcpy(data.ptrw(), packet, packet_len);
-		_receive_buffer->set_data_array(data);
+		PackedByteArray packet_data;
+		packet_data.resize(packet_len);
+		memcpy(packet_data.ptrw(), packet, packet_len);
+		_thread_receive_buffer->set_data_array(packet_data);
 	}
 
-	const PingPacketType ping_type = static_cast<PingPacketType>(_receive_buffer->get_u8());
+	const PingPacketType ping_type = static_cast<PingPacketType>(_thread_receive_buffer->get_u8());
 	switch (ping_type) {
 		case PingPacketType::Request: {
 			// Echo the requester's timestamp back unchanged and append our own clock
 			// so the requester can estimate the round-trip time and our clock offset.
-			const uint32_t requester_ticks = _receive_buffer->get_u32();
-			_send_buffer->clear();
-			_send_buffer->put_u8(static_cast<uint8_t>(PingPacketType::Response));
-			_send_buffer->put_u32(requester_ticks);
-			_send_buffer->put_u32(static_cast<uint32_t>(OS::get_singleton()->get_ticks_msec()));
-			send_internal_packet(from, _send_buffer->get_data_array(), MultiplayerPeer::TRANSFER_MODE_UNRELIABLE, COMMUNICATION_LINE_CHANNEL_PING);
+			// Answering here (instead of after a main-thread round trip) keeps the
+			// measured RTT honest even when the main thread stalls.
+			const uint32_t requester_ticks = _thread_receive_buffer->get_u32();
+			_thread_send_buffer->clear();
+			_thread_send_buffer->put_u8(static_cast<uint8_t>(PingPacketType::Response));
+			_thread_send_buffer->put_u32(requester_ticks);
+			_thread_send_buffer->put_u32(static_cast<uint32_t>(OS::get_singleton()->get_ticks_msec()));
+			send_internal_packet(from, _thread_send_buffer->get_data_array(), MultiplayerPeer::TRANSFER_MODE_UNRELIABLE, COMMUNICATION_LINE_CHANNEL_PING);
 		} break;
 		case PingPacketType::Response: {
+			MutexLock peers_lock(_connected_peers_mutex); // pure stats update, no peer calls below
 			HashMap<int, PeerConnection>::Iterator it = _connected_peers.find(from);
 			if (!it) {
 				return; // peer disconnected in the meantime
 			}
 			PeerConnection &peer = it->value;
 
-			const uint32_t requester_ticks = _receive_buffer->get_u32();
-			const uint32_t responder_ticks = _receive_buffer->get_u32();
+			const uint32_t requester_ticks = _thread_receive_buffer->get_u32();
+			const uint32_t responder_ticks = _thread_receive_buffer->get_u32();
 			const uint64_t now = OS::get_singleton()->get_ticks_msec();
 
 			// Round-trip time. The send timestamp travels inside the packet, so this
@@ -686,22 +902,40 @@ void CommunicationLineSystem::handle_ping_packet(const int from, const uint8_t *
 	}
 }
 
+bool CommunicationLineSystem::_handle_control_packet_threaded(const int from, const uint8_t *packet, const int packet_len) {
+	if (packet_len < 1) {
+		return true; // malformed, drop
+	}
+	const ControlPacketType control_type = static_cast<ControlPacketType>(packet[0]);
+	switch (control_type) {
+		case ControlPacketType::Disconnect: {
+			// The peer told us it is leaving; drop it now instead of waiting for the
+			// timeout. disconnect_peer() makes the peer emit its own "peer_disconnected"
+			// on a later poll -> queued event -> on_peer_disconnected() on the main thread.
+			bool known_peer;
+			{
+				MutexLock peers_lock(_connected_peers_mutex);
+				known_peer = _connected_peers.has(from);
+			}
+			if (known_peer) {
+				_multiplayer_peer->disconnect_peer(from);
+			}
+			return true;
+		}
+	}
+	// Unknown to the thread: queue it so handle_control_packet() runs on the
+	// main thread. Future control types that need main-thread state go there.
+	return false;
+}
+
 void CommunicationLineSystem::handle_control_packet(const int from, const uint8_t *packet, const int packet_len) {
 	GodotProfileFunction();
 	if (packet_len < 1) {
 		return;
 	}
-	const ControlPacketType control_type = static_cast<ControlPacketType>(packet[0]);
-	switch (control_type) {
-		case ControlPacketType::Disconnect: {
-			// The peer told us it is leaving the mesh. Drop it right away instead of
-			// waiting for the timeout. disconnect_peer() triggers the multiplayer
-			// peer's own "peer_disconnected" signal -> on_peer_disconnected() cleanup.
-			if (_connected_peers.has(from)) {
-				_multiplayer_peer->disconnect_peer(from);
-			}
-		} break;
-	}
+	// Only control messages that _handle_control_packet_threaded() deferred end
+	// up here; currently every known type is handled on the poll thread.
+	print_error(vformat("Received unhandled control packet type %d from peer %d.", packet[0], from));
 }
 
 void CommunicationLineSystem::check_peer_timeouts() {
@@ -709,9 +943,12 @@ void CommunicationLineSystem::check_peer_timeouts() {
 
 	// Collect first: disconnect_peer() mutates _connected_peers via on_peer_disconnected().
 	Vector<int> timed_out;
-	for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
-		if (now - E.value.last_packet_time > PEER_TIMEOUT_MS) {
-			timed_out.push_back(E.key);
+	{
+		MutexLock lock(_connected_peers_mutex);
+		for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
+			if (now - E.value.last_packet_time > PEER_TIMEOUT_MS) {
+				timed_out.push_back(E.key);
+			}
 		}
 	}
 
@@ -719,30 +956,40 @@ void CommunicationLineSystem::check_peer_timeouts() {
 		print_line(vformat("[%d] Peer %d timed out after %d ms without a packet.", get_local_multiplayer_id(), peer_id, static_cast<int>(PEER_TIMEOUT_MS)));
 		emit_signal(SNAME("peer_timed_out"), peer_id);
 		if (_multiplayer_peer.is_valid()) {
-			_multiplayer_peer->disconnect_peer(peer_id);
+			disconnect_peer(peer_id);
 		}
 	}
 }
 
+void CommunicationLineSystem::disconnect_peer(const int peer_id) {
+	MutexLock lock(_peer_mutex);
+	ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "Trying to disconnect a peer while no multiplayer peer is active.");
+	_multiplayer_peer->disconnect_peer(peer_id);
+}
+
 int CommunicationLineSystem::get_peer_ping(const int peer_id) const {
+	MutexLock lock(_connected_peers_mutex); // stats are written by the poll thread
 	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
 	ERR_FAIL_COND_V_MSG(!it, -1, vformat("Peer %d is not connected.", peer_id));
 	return static_cast<int>(it->value.ping_ms);
 }
 
 float CommunicationLineSystem::get_peer_jitter(const int peer_id) const {
+	MutexLock lock(_connected_peers_mutex); // stats are written by the poll thread
 	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
 	ERR_FAIL_COND_V_MSG(!it, -1.0f, vformat("Peer %d is not connected.", peer_id));
 	return it->value.jitter_ms;
 }
 
 float CommunicationLineSystem::get_peer_packet_loss(const int peer_id) const {
+	MutexLock lock(_connected_peers_mutex); // stats are written by the poll thread
 	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
 	ERR_FAIL_COND_V_MSG(!it, -1.0f, vformat("Peer %d is not connected.", peer_id));
 	return it->value.packet_loss;
 }
 
 int CommunicationLineSystem::get_peer_clock_offset(const int peer_id) const {
+	MutexLock lock(_connected_peers_mutex); // stats are written by the poll thread
 	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
 	ERR_FAIL_COND_V_MSG(!it, 0, vformat("Peer %d is not connected.", peer_id));
 	return static_cast<int>(it->value.clock_offset_ms);
@@ -750,7 +997,7 @@ int CommunicationLineSystem::get_peer_clock_offset(const int peer_id) const {
 
 bool CommunicationLineSystem::close_connection() {
 	GodotProfileFunction();
-	if (_multiplayer_peer.is_null() || _multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED) {
+	if (_multiplayer_peer.is_null() || last_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) {
 		return false;
 	}
 	if (_closing) {
@@ -758,11 +1005,14 @@ bool CommunicationLineSystem::close_connection() {
 	}
 
 	// Tell every peer we are leaving so they drop us immediately. Sent reliably so
-	// it is not lost; _process() keeps polling for CLOSE_GRACE_MS so it can flush.
+	// it is not lost; the poll thread keeps servicing the peer for CLOSE_GRACE_MS
+	// so it can flush.
 	PackedByteArray disconnect_packet;
 	disconnect_packet.push_back(static_cast<uint8_t>(ControlPacketType::Disconnect));
-	for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
-		send_internal_packet(E.key, disconnect_packet, MultiplayerPeer::TRANSFER_MODE_RELIABLE, COMMUNICATION_LINE_CHANNEL_CONTROL);
+	// Snapshot first: sending is a peer call and must not happen while holding
+	// _connected_peers_mutex.
+	for (const int peer_id : get_connected_peer_ids()) {
+		send_internal_packet(peer_id, disconnect_packet, MultiplayerPeer::TRANSFER_MODE_RELIABLE, COMMUNICATION_LINE_CHANNEL_CONTROL);
 	}
 
 	_closing = true;

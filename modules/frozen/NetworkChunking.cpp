@@ -11,6 +11,8 @@ void ChunkSender::initialize(Ref<MultiplayerPeer> peer) {
     _multiplayer_peer->set_ref(peer);
 }
 
+// Touches the peer directly, so this must run under CommunicationLineSystem's
+// _peer_mutex; the only caller is CLS::send_to_peer, which already holds it.
 void ChunkSender::send_as_chunk(const int to, const PackedByteArray &packet) {
     ERR_FAIL_COND_MSG(_send_buffer.is_null(), "_send_buffer is null");
     ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "_multiplayer_peer is null");
