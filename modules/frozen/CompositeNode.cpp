@@ -300,6 +300,13 @@ void CompositeNode::_exit_tree() {
 		CallCallbacks("BeingDestroyed", {});
 	}
 
+	// Symmetric to the registrations in _ready(): remove our callbacks from the parent so its
+	// callback vectors don't retain dead entries pointing at this (soon-to-be-freed) node.
+	if (_parentCompositeNode.is_valid()) {
+		_parentCompositeNode->UnregisterCallback("init_authority", callable_mp(this, &CompositeNode::init_authority));
+		_parentCompositeNode->UnregisterCallback("SynchronizeAllToSingleClient", callable_mp(this, &CompositeNode::SynchronizeAllToSingleClient));
+	}
+
 	_all_composite_nodes.erase(this);
 
 	auto cls = _communication_line->get_communication_line_system();
@@ -1095,6 +1102,21 @@ Variant CompositeNode::call_callable_with_error_handling(StringName functionName
 			argptrs[i] = &parameters[i];
 		}
 	}
+	// Guard against stale callables. A plain Callable(node, "method") whose target object has been
+	// freed (registered via RegisterCallback but never UnregisterCallback'd) hits the non-custom
+	// branch of Callable::callp, whose null-check is compiled out in release builds -> null deref.
+	// Custom callables (callable_mp) are already guarded inside callp via is_valid().
+	if (function_callable == nullptr || function_callable->is_null() ||
+			(!function_callable->is_custom() &&
+					ObjectDB::get_instance(function_callable->get_object_id()) == nullptr)) {
+		// TODO(frozen): temporary diagnostic to locate the leaking RegisterCallback site. Downgrade
+		// or remove once the register/unregister asymmetry is fixed.
+		ERR_PRINT("CompositeNode: skipping stale callback '" + String(functionName) + "' -> method '" +
+				(function_callable ? String(function_callable->get_method()) : String("<null>")) +
+				"' (target object freed without UnregisterCallback)");
+		return Variant();
+	}
+
 	Callable::CallError ce;
 	Variant ret;
 	function_callable->callp(argptrs, argcount, ret, ce);
@@ -1219,7 +1241,12 @@ void CompositeNode::CallCallbacks(StringName callbackName, const Array &paramete
 		return;
 	}
 	if (Vector<Callable> *callback_callbacks = _callbacks.getptr(callbackName); callback_callbacks != nullptr) {
-		for (auto& callback_callback : *callback_callbacks) {
+		// Copy before iterating: CallCallbacks can run re-entrantly (e.g. a coroutine resumed from a
+		// network answer), and a callback may RegisterCallback/UnregisterCallback on the same key (or
+		// free a node whose _exit_tree fires "BeingDestroyed"), reallocating/erasing the live vector
+		// and dangling the iterator.
+		Vector<Callable> callbacks_snapshot = *callback_callbacks;
+		for (Callable &callback_callback : callbacks_snapshot) {
 			call_callable_with_error_handling(callbackName, parameters, &callback_callback);
 		}
 	}
