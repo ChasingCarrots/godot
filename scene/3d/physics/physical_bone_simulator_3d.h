@@ -39,11 +39,22 @@ class PhysicalBoneSimulator3D : public SkeletonModifier3D {
 
 	bool simulating = false;
 
+	bool follow_animation = false;
+	real_t muscle_stiffness = 16.0;
+	real_t muscle_damping = 0.4;
+	real_t muscle_max_speed = 20.0;
+
+	real_t max_stretch_ratio = 1.5;
+
+	real_t max_body_linear_speed = 0.0; // m/s
+	real_t max_body_angular_speed = 0.0; // rad/s
+
 	struct SimulatedBone {
 		int parent;
 		Vector<int> child_bones;
 
 		Transform3D global_pose;
+		Transform3D animation_global_pose;
 
 		PhysicalBone3D *physical_bone = nullptr;
 		PhysicalBone3D *cache_parent_physical_bone = nullptr;
@@ -51,6 +62,7 @@ class PhysicalBoneSimulator3D : public SkeletonModifier3D {
 		SimulatedBone() {
 			parent = -1;
 			global_pose = Transform3D();
+			animation_global_pose = Transform3D();
 			physical_bone = nullptr;
 			cache_parent_physical_bone = nullptr;
 		}
@@ -81,6 +93,22 @@ public:
 	bool is_compat = false;
 #endif // _DISABLE_DEPRECATED
 	bool is_simulating_physics() const;
+
+	void set_follow_animation(bool p_enable);
+	bool is_following_animation() const;
+	void set_muscle_stiffness(real_t p_stiffness);
+	real_t get_muscle_stiffness() const;
+	void set_muscle_damping(real_t p_damping);
+	real_t get_muscle_damping() const;
+	void set_muscle_max_speed(real_t p_speed);
+	real_t get_muscle_max_speed() const;
+	void set_max_stretch_ratio(real_t p_ratio);
+	real_t get_max_stretch_ratio() const;
+	void set_max_body_linear_speed(real_t p_speed);
+	real_t get_max_body_linear_speed() const;
+	void set_max_body_angular_speed(real_t p_speed);
+	real_t get_max_body_angular_speed() const;
+	Transform3D get_bone_animation_pose(int p_bone) const;
 
 	int find_bone(const String &p_name) const;
 	String get_bone_name(int p_bone) const;

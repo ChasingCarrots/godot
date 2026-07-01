@@ -89,6 +89,15 @@ bool PhysicalBone3D::is_using_custom_integrator() {
 	return custom_integrator;
 }
 
+void PhysicalBone3D::set_use_continuous_collision_detection(bool p_enable) {
+	ccd = p_enable;
+	PhysicsServer3D::get_singleton()->body_set_enable_continuous_collision_detection(get_rid(), p_enable);
+}
+
+bool PhysicalBone3D::is_using_continuous_collision_detection() const {
+	return ccd;
+}
+
 void PhysicalBone3D::reset_physics_simulation_state() {
 	if (simulate_physics) {
 		_start_physics_simulation();
@@ -807,6 +816,8 @@ void PhysicalBone3D::_body_state_changed(PhysicsDirectBodyState3D *p_state) {
 		return;
 	}
 
+	_clamp_body_velocity(p_state);
+
 	if (GDVIRTUAL_IS_OVERRIDDEN(_integrate_forces)) {
 		_sync_body_state(p_state);
 
@@ -823,6 +834,8 @@ void PhysicalBone3D::_body_state_changed(PhysicsDirectBodyState3D *p_state) {
 	_sync_body_state(p_state);
 	_on_transform_changed();
 
+	_apply_muscle_torque(p_state);
+
 	Transform3D global_transform(p_state->get_transform());
 
 	// Update simulator
@@ -833,6 +846,149 @@ void PhysicalBone3D::_body_state_changed(PhysicsDirectBodyState3D *p_state) {
 			simulator->set_bone_global_pose(bone_id, skeleton->get_global_transform().affine_inverse() * (global_transform * body_offset_inverse));
 		}
 	}
+}
+
+void PhysicalBone3D::_capture_rest_relative_pose() {
+	rest_separation = -1.0;
+	PhysicalBoneSimulator3D *simulator = get_simulator();
+	if (!simulator || bone_id == -1) {
+		return;
+	}
+	PhysicalBone3D *parent_pb = simulator->get_physical_bone_parent(bone_id);
+	if (!parent_pb || parent_pb->get_bone_id() == -1) {
+		rest_separation = 0.0;
+		return;
+	}
+	const Transform3D self_rest = simulator->get_bone_global_pose(bone_id);
+	const Transform3D parent_rest = simulator->get_bone_global_pose(parent_pb->get_bone_id());
+	rest_relative_pose = parent_rest.affine_inverse() * self_rest;
+	rest_separation = rest_relative_pose.origin.length();
+}
+
+bool PhysicalBone3D::_recover_if_exploded(PhysicsDirectBodyState3D *p_state, const Transform3D &p_parent_pose) {
+	PhysicalBoneSimulator3D *simulator = get_simulator();
+	Skeleton3D *skeleton = get_skeleton();
+	if (!simulator || !skeleton) {
+		return false;
+	}
+	const real_t ratio = simulator->get_max_stretch_ratio();
+	if (ratio <= 1.0 || rest_separation <= CMP_EPSILON) {
+		return false;
+	}
+
+	const Transform3D skeleton_global = skeleton->get_global_transform();
+	const Transform3D self_pose = skeleton_global.affine_inverse() * p_state->get_transform() * body_offset_inverse;
+	const real_t separation = (self_pose.origin - p_parent_pose.origin).length();
+	if (separation <= ratio * rest_separation) {
+		return false;
+	}
+
+	const Transform3D reset_skeleton_pose = p_parent_pose * rest_relative_pose;
+	const Transform3D reset_world = skeleton_global * reset_skeleton_pose * body_offset;
+	p_state->set_transform(reset_world);
+	p_state->set_linear_velocity(Vector3());
+	p_state->set_angular_velocity(Vector3());
+	simulator->set_bone_global_pose(bone_id, reset_skeleton_pose);
+	return true;
+}
+
+void PhysicalBone3D::_clamp_body_velocity(PhysicsDirectBodyState3D *p_state) {
+	PhysicalBoneSimulator3D *simulator = get_simulator();
+	if (!simulator) {
+		return;
+	}
+
+	const Vector3 linear = p_state->get_linear_velocity();
+	if (!linear.is_finite()) {
+		p_state->set_linear_velocity(Vector3());
+	} else {
+		const real_t max_linear = simulator->get_max_body_linear_speed();
+		const real_t length = linear.length();
+		if (max_linear > 0.0 && length > max_linear) {
+			p_state->set_linear_velocity(linear * (max_linear / length));
+		}
+	}
+
+	const Vector3 angular = p_state->get_angular_velocity();
+	if (!angular.is_finite()) {
+		p_state->set_angular_velocity(Vector3());
+	} else {
+		const real_t max_angular = simulator->get_max_body_angular_speed();
+		const real_t length = angular.length();
+		if (max_angular > 0.0 && length > max_angular) {
+			p_state->set_angular_velocity(angular * (max_angular / length));
+		}
+	}
+}
+
+void PhysicalBone3D::_apply_muscle_torque(PhysicsDirectBodyState3D *p_state) {
+	PhysicalBoneSimulator3D *simulator = get_simulator();
+	Skeleton3D *skeleton = get_skeleton();
+	if (!simulator || !skeleton || bone_id == -1) {
+		return;
+	}
+
+	PhysicalBone3D *parent_pb = simulator->get_physical_bone_parent(bone_id);
+	if (!parent_pb || parent_pb->get_bone_id() == -1) {
+		return;
+	}
+	const int parent_bone = parent_pb->get_bone_id();
+	const Transform3D parent_physics = simulator->get_bone_global_pose(parent_bone);
+
+	if (_recover_if_exploded(p_state, parent_physics)) {
+		return;
+	}
+
+	if (!simulator->is_following_animation() || muscle_scale <= 0.0) {
+		return;
+	}
+	const real_t stiffness = simulator->get_muscle_stiffness() * muscle_scale;
+	const real_t dt = p_state->get_step();
+	if (stiffness <= 0.0 || dt <= 0.0) {
+		return;
+	}
+
+	const Transform3D self_anim = simulator->get_bone_animation_pose(bone_id);
+	const Transform3D parent_anim = simulator->get_bone_animation_pose(parent_bone);
+	const Transform3D target_skeleton_pose = parent_physics * (parent_anim.affine_inverse() * self_anim);
+
+	const Transform3D target = skeleton->get_global_transform() * target_skeleton_pose * body_offset;
+	const Basis current_basis = p_state->get_transform().basis.orthonormalized();
+	const Basis target_basis = target.basis.orthonormalized();
+
+	Quaternion error_quat = (target_basis * current_basis.inverse()).get_rotation_quaternion();
+	if (error_quat.w < 0.0) {
+		error_quat = -error_quat;
+	}
+	const Vector3 imaginary(error_quat.x, error_quat.y, error_quat.z);
+	const real_t sin_half = imaginary.length();
+	Vector3 angular_error;
+	if (sin_half > CMP_EPSILON) {
+		const real_t angle = 2.0 * Math::atan2(sin_half, error_quat.w);
+		angular_error = (imaginary / sin_half) * angle;
+	}
+
+	Vector3 desired_angular_velocity = angular_error * stiffness;
+	const real_t max_speed = simulator->get_muscle_max_speed();
+	if (max_speed > 0.0 && desired_angular_velocity.length() > max_speed) {
+		desired_angular_velocity = desired_angular_velocity.normalized() * max_speed;
+	}
+	const Vector3 velocity_correction = (desired_angular_velocity - p_state->get_angular_velocity()) * simulator->get_muscle_damping();
+
+	const Basis inverse_inertia_tensor = p_state->get_inverse_inertia_tensor();
+	if (Math::is_zero_approx(inverse_inertia_tensor.determinant())) {
+		return;
+	}
+	const Vector3 torque = inverse_inertia_tensor.inverse().xform(velocity_correction) / dt;
+	p_state->apply_torque(torque);
+}
+
+void PhysicalBone3D::set_muscle_scale(real_t p_scale) {
+	muscle_scale = MAX(0.0, p_scale);
+}
+
+real_t PhysicalBone3D::get_muscle_scale() const {
+	return muscle_scale;
 }
 
 void PhysicalBone3D::_bind_methods() {
@@ -889,8 +1045,14 @@ void PhysicalBone3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_use_custom_integrator", "enable"), &PhysicalBone3D::set_use_custom_integrator);
 	ClassDB::bind_method(D_METHOD("is_using_custom_integrator"), &PhysicalBone3D::is_using_custom_integrator);
 
+	ClassDB::bind_method(D_METHOD("set_use_continuous_collision_detection", "enable"), &PhysicalBone3D::set_use_continuous_collision_detection);
+	ClassDB::bind_method(D_METHOD("is_using_continuous_collision_detection"), &PhysicalBone3D::is_using_continuous_collision_detection);
+
 	ClassDB::bind_method(D_METHOD("set_can_sleep", "able_to_sleep"), &PhysicalBone3D::set_can_sleep);
 	ClassDB::bind_method(D_METHOD("is_able_to_sleep"), &PhysicalBone3D::is_able_to_sleep);
+
+	ClassDB::bind_method(D_METHOD("set_muscle_scale", "scale"), &PhysicalBone3D::set_muscle_scale);
+	ClassDB::bind_method(D_METHOD("get_muscle_scale"), &PhysicalBone3D::get_muscle_scale);
 
 	GDVIRTUAL_BIND(_integrate_forces, "state");
 
@@ -906,6 +1068,7 @@ void PhysicalBone3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "bounce", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_bounce", "get_bounce");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity_scale", PROPERTY_HINT_RANGE, "-8,8,0.001,or_less,or_greater"), "set_gravity_scale", "get_gravity_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "custom_integrator"), "set_use_custom_integrator", "is_using_custom_integrator");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "continuous_cd"), "set_use_continuous_collision_detection", "is_using_continuous_collision_detection");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "linear_damp_mode", PROPERTY_HINT_ENUM, "Combine,Replace"), "set_linear_damp_mode", "get_linear_damp_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "linear_damp", PROPERTY_HINT_RANGE, "0,100,0.001,or_greater"), "set_linear_damp", "get_linear_damp");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "angular_damp_mode", PROPERTY_HINT_ENUM, "Combine,Replace"), "set_angular_damp_mode", "get_angular_damp_mode");
@@ -913,6 +1076,7 @@ void PhysicalBone3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "linear_velocity", PROPERTY_HINT_NONE, "suffix:m/s"), "set_linear_velocity", "get_linear_velocity");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "angular_velocity", PROPERTY_HINT_NONE, U"radians_as_degrees,suffix:\u00B0/s"), "set_angular_velocity", "get_angular_velocity");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "can_sleep"), "set_can_sleep", "is_able_to_sleep");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "muscle_scale", PROPERTY_HINT_RANGE, "0,4,0.01,or_greater"), "set_muscle_scale", "get_muscle_scale");
 
 	BIND_ENUM_CONSTANT(DAMP_MODE_COMBINE);
 	BIND_ENUM_CONSTANT(DAMP_MODE_REPLACE);
@@ -1346,12 +1510,14 @@ void PhysicalBone3D::_start_physics_simulation() {
 	}
 	reset_to_rest_position();
 	set_body_mode(PhysicsServer3D::BODY_MODE_RIGID);
+	PhysicsServer3D::get_singleton()->body_set_enable_continuous_collision_detection(get_rid(), ccd);
 	PhysicsServer3D::get_singleton()->body_set_collision_layer(get_rid(), get_collision_layer());
 	PhysicsServer3D::get_singleton()->body_set_collision_mask(get_rid(), get_collision_mask());
 	PhysicsServer3D::get_singleton()->body_set_collision_priority(get_rid(), get_collision_priority());
 	PhysicsServer3D::get_singleton()->body_set_state_sync_callback(get_rid(), callable_mp(this, &PhysicalBone3D::_body_state_changed));
 	set_as_top_level(true);
 	_internal_simulate_physics = true;
+	_capture_rest_relative_pose();
 }
 
 void PhysicalBone3D::_stop_physics_simulation() {

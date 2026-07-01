@@ -367,12 +367,83 @@ void PhysicalBoneSimulator3D::set_bone_global_pose(int p_bone, const Transform3D
 	bones[p_bone].global_pose = p_pose;
 }
 
+void PhysicalBoneSimulator3D::set_follow_animation(bool p_enable) {
+	follow_animation = p_enable;
+}
+
+bool PhysicalBoneSimulator3D::is_following_animation() const {
+	return follow_animation;
+}
+
+void PhysicalBoneSimulator3D::set_muscle_stiffness(real_t p_stiffness) {
+	muscle_stiffness = MAX(0.0, p_stiffness);
+}
+
+real_t PhysicalBoneSimulator3D::get_muscle_stiffness() const {
+	return muscle_stiffness;
+}
+
+void PhysicalBoneSimulator3D::set_muscle_damping(real_t p_damping) {
+	muscle_damping = CLAMP(p_damping, 0.0, 1.0);
+}
+
+real_t PhysicalBoneSimulator3D::get_muscle_damping() const {
+	return muscle_damping;
+}
+
+void PhysicalBoneSimulator3D::set_muscle_max_speed(real_t p_speed) {
+	muscle_max_speed = MAX(0.0, p_speed);
+}
+
+real_t PhysicalBoneSimulator3D::get_muscle_max_speed() const {
+	return muscle_max_speed;
+}
+
+void PhysicalBoneSimulator3D::set_max_stretch_ratio(real_t p_ratio) {
+	max_stretch_ratio = MAX(0.0, p_ratio);
+}
+
+real_t PhysicalBoneSimulator3D::get_max_stretch_ratio() const {
+	return max_stretch_ratio;
+}
+
+void PhysicalBoneSimulator3D::set_max_body_linear_speed(real_t p_speed) {
+	max_body_linear_speed = MAX(0.0, p_speed);
+}
+
+real_t PhysicalBoneSimulator3D::get_max_body_linear_speed() const {
+	return max_body_linear_speed;
+}
+
+void PhysicalBoneSimulator3D::set_max_body_angular_speed(real_t p_speed) {
+	max_body_angular_speed = MAX(0.0, p_speed);
+}
+
+real_t PhysicalBoneSimulator3D::get_max_body_angular_speed() const {
+	return max_body_angular_speed;
+}
+
+Transform3D PhysicalBoneSimulator3D::get_bone_animation_pose(int p_bone) const {
+	const int bone_size = bones.size();
+	ERR_FAIL_INDEX_V(p_bone, bone_size, Transform3D());
+	return bones[p_bone].animation_global_pose;
+}
+
 void PhysicalBoneSimulator3D::_process_modification(double p_delta) {
 	Skeleton3D *skeleton = get_skeleton();
 	if (!skeleton) {
 		return;
 	}
 	ERR_FAIL_COND(skeleton->get_bone_count() != (int)bones.size());
+
+	if (simulating && follow_animation) {
+		for (int i = 0; i < skeleton->get_bone_count(); i++) {
+			if (bones[i].physical_bone && bones[i].physical_bone->is_simulating_physics()) {
+				bones[i].animation_global_pose = skeleton->get_bone_global_pose(i);
+			}
+		}
+	}
+
 	for (int i = 0; i < skeleton->get_bone_count(); i++) {
 		if (!bones[i].physical_bone) {
 			continue;
@@ -388,6 +459,33 @@ void PhysicalBoneSimulator3D::_process_modification(double p_delta) {
 
 void PhysicalBoneSimulator3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_simulating_physics"), &PhysicalBoneSimulator3D::is_simulating_physics);
+
+	ClassDB::bind_method(D_METHOD("set_follow_animation", "enable"), &PhysicalBoneSimulator3D::set_follow_animation);
+	ClassDB::bind_method(D_METHOD("is_following_animation"), &PhysicalBoneSimulator3D::is_following_animation);
+	ClassDB::bind_method(D_METHOD("set_muscle_stiffness", "stiffness"), &PhysicalBoneSimulator3D::set_muscle_stiffness);
+	ClassDB::bind_method(D_METHOD("get_muscle_stiffness"), &PhysicalBoneSimulator3D::get_muscle_stiffness);
+	ClassDB::bind_method(D_METHOD("set_muscle_damping", "damping"), &PhysicalBoneSimulator3D::set_muscle_damping);
+	ClassDB::bind_method(D_METHOD("get_muscle_damping"), &PhysicalBoneSimulator3D::get_muscle_damping);
+	ClassDB::bind_method(D_METHOD("set_muscle_max_speed", "speed"), &PhysicalBoneSimulator3D::set_muscle_max_speed);
+	ClassDB::bind_method(D_METHOD("get_muscle_max_speed"), &PhysicalBoneSimulator3D::get_muscle_max_speed);
+	ClassDB::bind_method(D_METHOD("set_max_stretch_ratio", "ratio"), &PhysicalBoneSimulator3D::set_max_stretch_ratio);
+	ClassDB::bind_method(D_METHOD("get_max_stretch_ratio"), &PhysicalBoneSimulator3D::get_max_stretch_ratio);
+	ClassDB::bind_method(D_METHOD("set_max_body_linear_speed", "speed"), &PhysicalBoneSimulator3D::set_max_body_linear_speed);
+	ClassDB::bind_method(D_METHOD("get_max_body_linear_speed"), &PhysicalBoneSimulator3D::get_max_body_linear_speed);
+	ClassDB::bind_method(D_METHOD("set_max_body_angular_speed", "speed"), &PhysicalBoneSimulator3D::set_max_body_angular_speed);
+	ClassDB::bind_method(D_METHOD("get_max_body_angular_speed"), &PhysicalBoneSimulator3D::get_max_body_angular_speed);
+	ClassDB::bind_method(D_METHOD("get_bone_animation_pose", "bone_idx"), &PhysicalBoneSimulator3D::get_bone_animation_pose);
+
+	ADD_GROUP("Muscle", "muscle_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "follow_animation"), "set_follow_animation", "is_following_animation");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "muscle_stiffness", PROPERTY_HINT_RANGE, "0,100,0.1,or_greater"), "set_muscle_stiffness", "get_muscle_stiffness");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "muscle_damping", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_muscle_damping", "get_muscle_damping");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "muscle_max_speed", PROPERTY_HINT_RANGE, "0,60,0.1,or_greater"), "set_muscle_max_speed", "get_muscle_max_speed");
+
+	ADD_GROUP("Stability", "");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_stretch_ratio", PROPERTY_HINT_RANGE, "1,4,0.05,or_greater"), "set_max_stretch_ratio", "get_max_stretch_ratio");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_body_linear_speed", PROPERTY_HINT_RANGE, "0,50,0.1,or_greater,suffix:m/s"), "set_max_body_linear_speed", "get_max_body_linear_speed");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_body_angular_speed", PROPERTY_HINT_RANGE, "0,60,0.1,or_greater,radians_as_degrees,suffix:°/s"), "set_max_body_angular_speed", "get_max_body_angular_speed");
 
 	ClassDB::bind_method(D_METHOD("physical_bones_stop_simulation"), &PhysicalBoneSimulator3D::physical_bones_stop_simulation);
 	ClassDB::bind_method(D_METHOD("physical_bones_start_simulation", "bones"), &PhysicalBoneSimulator3D::physical_bones_start_simulation_on, DEFVAL(Array()));

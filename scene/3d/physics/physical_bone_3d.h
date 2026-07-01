@@ -185,12 +185,23 @@ private:
 	bool can_sleep = true;
 
 	bool custom_integrator = false;
+	bool ccd = false;
 
 	DampMode linear_damp_mode = DAMP_MODE_COMBINE;
 	DampMode angular_damp_mode = DAMP_MODE_COMBINE;
 
 	real_t linear_damp = 0.0;
 	real_t angular_damp = 0.0;
+
+	real_t muscle_scale = 1.0;
+
+	Transform3D rest_relative_pose;
+	real_t rest_separation = -1.0;
+
+	void _capture_rest_relative_pose();
+	bool _recover_if_exploded(PhysicsDirectBodyState3D *p_state, const Transform3D &p_parent_pose);
+	void _clamp_body_velocity(PhysicsDirectBodyState3D *p_state);
+	void _apply_muscle_torque(PhysicsDirectBodyState3D *p_state);
 
 protected:
 	bool _set(const StringName &p_name, const Variant &p_value);
@@ -226,6 +237,9 @@ public:
 
 	void set_use_custom_integrator(bool p_enable);
 	bool is_using_custom_integrator();
+
+	void set_use_continuous_collision_detection(bool p_enable);
+	bool is_using_continuous_collision_detection() const;
 
 #ifdef TOOLS_ENABLED
 	void _set_gizmo_move_joint(bool p_move_joint);
@@ -284,6 +298,9 @@ public:
 
 	void set_can_sleep(bool p_active);
 	bool is_able_to_sleep() const;
+
+	void set_muscle_scale(real_t p_scale);
+	real_t get_muscle_scale() const;
 
 	void apply_central_impulse(const Vector3 &p_impulse);
 	void apply_impulse(const Vector3 &p_impulse, const Vector3 &p_position = Vector3());
