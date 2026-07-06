@@ -110,12 +110,53 @@ void PhysicalBone3D::reset_to_rest_position() {
 	PhysicalBoneSimulator3D *simulator = get_simulator();
 	Skeleton3D *skeleton = get_skeleton();
 	if (simulator && skeleton) {
+		const Transform3D sim_space = simulator->get_simulation_space();
 		if (bone_id == -1) {
-			set_global_transform((skeleton->get_global_transform() * body_offset).orthonormalized());
+			set_global_transform((sim_space * skeleton->get_global_transform() * body_offset).orthonormalized());
 		} else {
-			set_global_transform((skeleton->get_global_transform() * simulator->get_bone_global_pose(bone_id) * body_offset).orthonormalized());
+			set_global_transform((sim_space * skeleton->get_global_transform() * simulator->get_bone_global_pose(bone_id) * body_offset).orthonormalized());
 		}
 	}
+}
+
+void PhysicalBone3D::track_kinematic_velocity(double p_delta) {
+	PhysicalBoneSimulator3D *simulator = get_simulator();
+	if (!simulator || bone_id == -1) {
+		return;
+	}
+	const Transform3D curr = simulator->get_bone_global_pose(bone_id);
+	if (kinematic_prev_valid && p_delta > 0.0) {
+		seed_limb_linear = (curr.origin - kinematic_prev_pose.origin) / p_delta;
+
+		const Quaternion delta_rot = (curr.basis * kinematic_prev_pose.basis.inverse()).get_rotation_quaternion().normalized();
+		const real_t angle = delta_rot.get_angle();
+		if (angle > CMP_EPSILON && angle < Math::PI) {
+			seed_limb_angular = delta_rot.get_axis() * (angle / p_delta);
+		} else {
+			seed_limb_angular = Vector3();
+		}
+		seed_velocity_valid = true;
+	}
+	kinematic_prev_pose = curr;
+	kinematic_prev_valid = true;
+}
+
+void PhysicalBone3D::relocalize(const Transform3D &p_delta) {
+	if (!_internal_simulate_physics) {
+		return;
+	}
+	const Transform3D new_xform = p_delta * get_global_transform();
+	const Vector3 new_linear = p_delta.basis.xform(linear_velocity);
+	const Vector3 new_angular = p_delta.basis.xform(angular_velocity);
+	PhysicsServer3D *ps = PhysicsServer3D::get_singleton();
+	ps->body_set_state(get_rid(), PhysicsServer3D::BODY_STATE_TRANSFORM, new_xform);
+	ps->body_set_state(get_rid(), PhysicsServer3D::BODY_STATE_LINEAR_VELOCITY, new_linear);
+	ps->body_set_state(get_rid(), PhysicsServer3D::BODY_STATE_ANGULAR_VELOCITY, new_angular);
+	set_ignore_transform_notification(true);
+	set_global_transform(new_xform);
+	set_ignore_transform_notification(false);
+	linear_velocity = new_linear;
+	angular_velocity = new_angular;
 }
 
 bool PhysicalBone3D::PinJointData::_set(const StringName &p_name, const Variant &p_value, RID j) {
@@ -838,12 +879,11 @@ void PhysicalBone3D::_body_state_changed(PhysicsDirectBodyState3D *p_state) {
 
 	Transform3D global_transform(p_state->get_transform());
 
-	// Update simulator
 	PhysicalBoneSimulator3D *simulator = get_simulator();
 	Skeleton3D *skeleton = get_skeleton();
 	if (simulator && skeleton) {
 		if (bone_id != -1) {
-			simulator->set_bone_global_pose(bone_id, skeleton->get_global_transform().affine_inverse() * (global_transform * body_offset_inverse));
+			simulator->set_bone_global_pose(bone_id, skeleton->get_global_transform().affine_inverse() * (simulator->get_simulation_space_inverse() * global_transform * body_offset_inverse));
 		}
 	}
 }
@@ -877,14 +917,14 @@ bool PhysicalBone3D::_recover_if_exploded(PhysicsDirectBodyState3D *p_state, con
 	}
 
 	const Transform3D skeleton_global = skeleton->get_global_transform();
-	const Transform3D self_pose = skeleton_global.affine_inverse() * p_state->get_transform() * body_offset_inverse;
+	const Transform3D self_pose = skeleton_global.affine_inverse() * simulator->get_simulation_space_inverse() * p_state->get_transform() * body_offset_inverse;
 	const real_t separation = (self_pose.origin - p_parent_pose.origin).length();
 	if (separation <= ratio * rest_separation) {
 		return false;
 	}
 
 	const Transform3D reset_skeleton_pose = p_parent_pose * rest_relative_pose;
-	const Transform3D reset_world = skeleton_global * reset_skeleton_pose * body_offset;
+	const Transform3D reset_world = simulator->get_simulation_space() * skeleton_global * reset_skeleton_pose * body_offset;
 	p_state->set_transform(reset_world);
 	p_state->set_linear_velocity(Vector3());
 	p_state->set_angular_velocity(Vector3());
@@ -952,7 +992,7 @@ void PhysicalBone3D::_apply_muscle_torque(PhysicsDirectBodyState3D *p_state) {
 	const Transform3D parent_anim = simulator->get_bone_animation_pose(parent_bone);
 	const Transform3D target_skeleton_pose = parent_physics * (parent_anim.affine_inverse() * self_anim);
 
-	const Transform3D target = skeleton->get_global_transform() * target_skeleton_pose * body_offset;
+	const Transform3D target = simulator->get_simulation_space() * skeleton->get_global_transform() * target_skeleton_pose * body_offset;
 	const Basis current_basis = p_state->get_transform().basis.orthonormalized();
 	const Basis target_basis = target.basis.orthonormalized();
 
@@ -1518,6 +1558,34 @@ void PhysicalBone3D::_start_physics_simulation() {
 	set_as_top_level(true);
 	_internal_simulate_physics = true;
 	_capture_rest_relative_pose();
+
+	if (seed_velocity_valid) {
+		PhysicalBoneSimulator3D *simulator = get_simulator();
+		Skeleton3D *skeleton = get_skeleton();
+		const Basis skeleton_basis = skeleton ? skeleton->get_global_transform().basis : Basis();
+		const Basis sim_basis = simulator ? simulator->get_simulation_space().basis : Basis();
+		Vector3 linear = sim_basis.xform(skeleton_basis.xform(seed_limb_linear));
+		Vector3 angular = sim_basis.xform(skeleton_basis.xform(seed_limb_angular));
+		if (simulator) {
+			linear += simulator->get_body_linear_velocity();
+			const real_t max_linear = simulator->get_max_body_linear_speed();
+			if (max_linear > 0.0 && linear.length() > max_linear) {
+				linear = linear.normalized() * max_linear;
+			}
+			const real_t max_angular = simulator->get_max_body_angular_speed();
+			if (max_angular > 0.0 && angular.length() > max_angular) {
+				angular = angular.normalized() * max_angular;
+			}
+		}
+		if (linear.is_finite() && angular.is_finite()) {
+			linear_velocity = linear;
+			angular_velocity = angular;
+			PhysicsServer3D::get_singleton()->body_set_state(get_rid(), PhysicsServer3D::BODY_STATE_LINEAR_VELOCITY, linear);
+			PhysicsServer3D::get_singleton()->body_set_state(get_rid(), PhysicsServer3D::BODY_STATE_ANGULAR_VELOCITY, angular);
+		}
+	}
+	seed_velocity_valid = false;
+	kinematic_prev_valid = false;
 }
 
 void PhysicalBone3D::_stop_physics_simulation() {

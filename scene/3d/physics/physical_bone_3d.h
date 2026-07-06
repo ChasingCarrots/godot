@@ -198,6 +198,12 @@ private:
 	Transform3D rest_relative_pose;
 	real_t rest_separation = -1.0;
 
+	Transform3D kinematic_prev_pose;
+	bool kinematic_prev_valid = false;
+	Vector3 seed_limb_linear;
+	Vector3 seed_limb_angular;
+	bool seed_velocity_valid = false;
+
 	void _capture_rest_relative_pose();
 	bool _recover_if_exploded(PhysicsDirectBodyState3D *p_state, const Transform3D &p_parent_pose);
 	void _clamp_body_velocity(PhysicsDirectBodyState3D *p_state);
@@ -307,6 +313,10 @@ public:
 
 	void reset_physics_simulation_state();
 	void reset_to_rest_position();
+
+	void track_kinematic_velocity(double p_delta);
+
+	void relocalize(const Transform3D &p_delta);
 
 	PhysicalBone3D();
 	~PhysicalBone3D();

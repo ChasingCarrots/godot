@@ -49,6 +49,11 @@ class PhysicalBoneSimulator3D : public SkeletonModifier3D {
 	real_t max_body_linear_speed = 0.0; // m/s
 	real_t max_body_angular_speed = 0.0; // rad/s
 
+	Vector3 body_linear_velocity;
+
+	Transform3D simulation_space;
+	Transform3D simulation_space_inverse;
+
 	struct SimulatedBone {
 		int parent;
 		Vector<int> child_bones;
@@ -106,6 +111,15 @@ public:
 	real_t get_max_stretch_ratio() const;
 	void set_max_body_linear_speed(real_t p_speed);
 	real_t get_max_body_linear_speed() const;
+
+	void set_body_linear_velocity(const Vector3 &p_velocity);
+	Vector3 get_body_linear_velocity() const;
+
+	void set_simulation_space(const Transform3D &p_transform);
+	Transform3D get_simulation_space() const;
+	Transform3D get_simulation_space_inverse() const;
+
+	void relocalize_simulation(const Transform3D &p_delta);
 	void set_max_body_angular_speed(real_t p_speed);
 	real_t get_max_body_angular_speed() const;
 	Transform3D get_bone_animation_pose(int p_bone) const;

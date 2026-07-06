@@ -423,6 +423,35 @@ real_t PhysicalBoneSimulator3D::get_max_body_angular_speed() const {
 	return max_body_angular_speed;
 }
 
+void PhysicalBoneSimulator3D::set_body_linear_velocity(const Vector3 &p_velocity) {
+	body_linear_velocity = p_velocity;
+}
+
+Vector3 PhysicalBoneSimulator3D::get_body_linear_velocity() const {
+	return body_linear_velocity;
+}
+
+void PhysicalBoneSimulator3D::set_simulation_space(const Transform3D &p_transform) {
+	simulation_space = p_transform;
+	simulation_space_inverse = p_transform.affine_inverse();
+}
+
+void PhysicalBoneSimulator3D::relocalize_simulation(const Transform3D &p_delta) {
+	for (uint32_t i = 0; i < bones.size(); i++) {
+		if (bones[i].physical_bone && bones[i].physical_bone->is_simulating_physics()) {
+			bones[i].physical_bone->relocalize(p_delta);
+		}
+	}
+}
+
+Transform3D PhysicalBoneSimulator3D::get_simulation_space() const {
+	return simulation_space;
+}
+
+Transform3D PhysicalBoneSimulator3D::get_simulation_space_inverse() const {
+	return simulation_space_inverse;
+}
+
 Transform3D PhysicalBoneSimulator3D::get_bone_animation_pose(int p_bone) const {
 	const int bone_size = bones.size();
 	ERR_FAIL_INDEX_V(p_bone, bone_size, Transform3D());
@@ -451,6 +480,7 @@ void PhysicalBoneSimulator3D::_process_modification(double p_delta) {
 		if (bones[i].physical_bone->is_simulating_physics() == false) {
 			_bone_pose_updated(skeleton, i);
 			bones[i].physical_bone->reset_to_rest_position();
+			bones[i].physical_bone->track_kinematic_velocity(p_delta);
 		} else if (simulating) {
 			skeleton->set_bone_global_pose(i, bones[i].global_pose);
 		}
@@ -474,6 +504,11 @@ void PhysicalBoneSimulator3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_max_body_linear_speed"), &PhysicalBoneSimulator3D::get_max_body_linear_speed);
 	ClassDB::bind_method(D_METHOD("set_max_body_angular_speed", "speed"), &PhysicalBoneSimulator3D::set_max_body_angular_speed);
 	ClassDB::bind_method(D_METHOD("get_max_body_angular_speed"), &PhysicalBoneSimulator3D::get_max_body_angular_speed);
+	ClassDB::bind_method(D_METHOD("set_body_linear_velocity", "velocity"), &PhysicalBoneSimulator3D::set_body_linear_velocity);
+	ClassDB::bind_method(D_METHOD("get_body_linear_velocity"), &PhysicalBoneSimulator3D::get_body_linear_velocity);
+	ClassDB::bind_method(D_METHOD("set_simulation_space", "transform"), &PhysicalBoneSimulator3D::set_simulation_space);
+	ClassDB::bind_method(D_METHOD("get_simulation_space"), &PhysicalBoneSimulator3D::get_simulation_space);
+	ClassDB::bind_method(D_METHOD("relocalize_simulation", "delta"), &PhysicalBoneSimulator3D::relocalize_simulation);
 	ClassDB::bind_method(D_METHOD("get_bone_animation_pose", "bone_idx"), &PhysicalBoneSimulator3D::get_bone_animation_pose);
 
 	ADD_GROUP("Muscle", "muscle_");
