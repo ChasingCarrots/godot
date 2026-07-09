@@ -1653,7 +1653,8 @@ void RendererSceneCull::_update_instance(Instance *p_instance) const {
 
 		RSG::light_storage->reflection_probe_instance_set_transform(reflection_probe->instance, *instance_xform);
 
-		if (p_instance->scenario && p_instance->array_index >= 0) {
+		if (p_instance->scenario && p_instance->array_index >= 0 &&
+				RSG::light_storage->reflection_probe_get_update_mode(p_instance->base) != RSE::REFLECTION_PROBE_UPDATE_MANUAL) {
 			InstanceData &idata = p_instance->scenario->instance_data[p_instance->array_index];
 			idata.flags |= InstanceData::FLAG_REFLECTION_PROBE_DIRTY;
 		}
@@ -3874,7 +3875,8 @@ void RendererSceneCull::render_probes() {
 			RID base = ref_probe->self()->owner->base;
 
 			switch (RSG::light_storage->reflection_probe_get_update_mode(base)) {
-				case RSE::REFLECTION_PROBE_UPDATE_ONCE: {
+				case RSE::REFLECTION_PROBE_UPDATE_ONCE:
+				case RSE::REFLECTION_PROBE_UPDATE_MANUAL: {
 					if (busy) { // Already rendering something.
 						break;
 					}

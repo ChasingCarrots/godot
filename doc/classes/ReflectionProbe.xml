@@ -13,6 +13,14 @@
 	<tutorials>
 		<link title="Reflection probes">$DOCS_URL/tutorials/3d/global_illumination/reflection_probes.html</link>
 	</tutorials>
+	<methods>
+		<method name="bake">
+			<return type="void" />
+			<description>
+				Queues a one-shot recapture of the probe's reflections on the next frame. Intended for use with [constant UPDATE_MANUAL], where the probe does not automatically recapture when moved; call this after changes that affect the captured scene, such as toggling a light.
+			</description>
+		</method>
+	</methods>
 	<members>
 		<member name="ambient_color" type="Color" setter="set_ambient_color" getter="get_ambient_color" default="Color(0, 0, 0, 1)">
 			The custom ambient color to use within the [ReflectionProbe]'s box defined by its [member size]. Only effective if [member ambient_mode] is [constant AMBIENT_COLOR].
@@ -62,7 +70,7 @@
 			[b]Note:[/b] To better fit areas that are not aligned to the grid, you can rotate the [ReflectionProbe] node.
 		</member>
 		<member name="update_mode" type="int" setter="set_update_mode" getter="get_update_mode" enum="ReflectionProbe.UpdateMode" default="0">
-			Sets how frequently the [ReflectionProbe] is updated. Can be [constant UPDATE_ONCE] or [constant UPDATE_ALWAYS].
+			Sets how frequently the [ReflectionProbe] is updated. Can be [constant UPDATE_ONCE], [constant UPDATE_ALWAYS], or [constant UPDATE_MANUAL].
 		</member>
 	</members>
 	<constants>
@@ -71,6 +79,9 @@
 		</constant>
 		<constant name="UPDATE_ALWAYS" value="1" enum="UpdateMode">
 			Update the probe every frame. This provides better results for fast-moving dynamic objects (such as cars). However, it has a significant performance cost. Due to the cost, it's recommended to only use one ReflectionProbe with [constant UPDATE_ALWAYS] at most per scene. For all other use cases, use [constant UPDATE_ONCE].
+		</constant>
+		<constant name="UPDATE_MANUAL" value="2" enum="UpdateMode">
+			Like [constant UPDATE_ONCE], the probe captures its reflections once, but unlike [constant UPDATE_ONCE] it does [i]not[/i] recapture when the [ReflectionProbe] is moved. This is much cheaper for probes that move constantly (such as one attached to a moving vehicle interior) while still overriding ambient lighting via [member ambient_mode]. Call [method bake] to request a recapture when the captured scene changes.
 		</constant>
 		<constant name="AMBIENT_DISABLED" value="0" enum="AmbientMode">
 			Do not apply any ambient lighting inside the [ReflectionProbe]'s box defined by its [member size].

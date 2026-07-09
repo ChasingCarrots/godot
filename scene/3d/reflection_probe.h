@@ -39,6 +39,7 @@ public:
 	enum UpdateMode {
 		UPDATE_ONCE,
 		UPDATE_ALWAYS,
+		UPDATE_MANUAL,
 	};
 
 	enum AmbientMode {
@@ -122,6 +123,8 @@ public:
 
 	void set_update_mode(UpdateMode p_mode);
 	UpdateMode get_update_mode() const;
+
+	void bake();
 
 	virtual AABB get_aabb() const override;
 

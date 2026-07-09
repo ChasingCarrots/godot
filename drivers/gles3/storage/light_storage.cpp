@@ -525,6 +525,10 @@ void LightStorage::reflection_probe_set_update_mode(RID p_probe, RSE::Reflection
 	reflection_probe->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_REFLECTION_PROBE);
 }
 
+void LightStorage::reflection_probe_set_dirty(RID p_probe) {
+	// GLES3 does not currently bake reflection probe cubemaps, so there is nothing to invalidate.
+}
+
 void LightStorage::reflection_probe_set_intensity(RID p_probe, float p_intensity) {
 	ReflectionProbe *reflection_probe = reflection_probe_owner.get_or_null(p_probe);
 	ERR_FAIL_NULL(reflection_probe);

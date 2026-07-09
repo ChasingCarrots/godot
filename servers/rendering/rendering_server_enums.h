@@ -311,6 +311,7 @@ enum LightProjectorFilter {
 enum ReflectionProbeUpdateMode {
 	REFLECTION_PROBE_UPDATE_ONCE,
 	REFLECTION_PROBE_UPDATE_ALWAYS,
+	REFLECTION_PROBE_UPDATE_MANUAL,
 };
 
 enum ReflectionProbeAmbientMode {

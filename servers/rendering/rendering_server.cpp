@@ -2609,6 +2609,7 @@ void RenderingServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("reflection_probe_create"), &RenderingServer::reflection_probe_create);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_update_mode", "probe", "mode"), &RenderingServer::reflection_probe_set_update_mode);
+	ClassDB::bind_method(D_METHOD("reflection_probe_set_dirty", "probe"), &RenderingServer::reflection_probe_set_dirty);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_intensity", "probe", "intensity"), &RenderingServer::reflection_probe_set_intensity);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_blend_distance", "probe", "blend_distance"), &RenderingServer::reflection_probe_set_blend_distance);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_ambient_mode", "probe", "mode"), &RenderingServer::reflection_probe_set_ambient_mode);
@@ -2627,6 +2628,7 @@ void RenderingServer::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(RSE::REFLECTION_PROBE_UPDATE_ONCE);
 	BIND_ENUM_CONSTANT(RSE::REFLECTION_PROBE_UPDATE_ALWAYS);
+	BIND_ENUM_CONSTANT(RSE::REFLECTION_PROBE_UPDATE_MANUAL);
 
 	BIND_ENUM_CONSTANT(RSE::REFLECTION_PROBE_AMBIENT_DISABLED);
 	BIND_ENUM_CONSTANT(RSE::REFLECTION_PROBE_AMBIENT_ENVIRONMENT);

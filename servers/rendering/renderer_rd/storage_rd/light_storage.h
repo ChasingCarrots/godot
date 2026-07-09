@@ -248,6 +248,9 @@ private:
 		float mesh_lod_threshold = 0.01;
 		float baked_exposure = 1.0;
 
+		// Bumped by reflection_probe_set_dirty() to force MANUAL/ONCE probe instances to rebake on demand.
+		uint32_t version = 0;
+
 		Dependency dependency;
 	};
 	mutable RID_Owner<ReflectionProbe, true> reflection_probe_owner;
@@ -294,6 +297,7 @@ private:
 		bool dirty = true;
 		bool rendering = false;
 		int processing_layer = 1;
+		uint32_t last_version = 0;
 
 		uint64_t last_pass = 0;
 		uint32_t cull_mask = 0;
@@ -863,6 +867,7 @@ public:
 	virtual void reflection_probe_free(RID p_rid) override;
 
 	virtual void reflection_probe_set_update_mode(RID p_probe, RSE::ReflectionProbeUpdateMode p_mode) override;
+	virtual void reflection_probe_set_dirty(RID p_probe) override;
 	virtual void reflection_probe_set_intensity(RID p_probe, float p_intensity) override;
 	virtual void reflection_probe_set_blend_distance(RID p_probe, float p_blend_distance) override;
 	virtual void reflection_probe_set_ambient_mode(RID p_probe, RSE::ReflectionProbeAmbientMode p_mode) override;

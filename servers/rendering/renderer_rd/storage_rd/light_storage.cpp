@@ -1285,6 +1285,13 @@ void LightStorage::reflection_probe_set_update_mode(RID p_probe, RSE::Reflection
 	reflection_probe->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_REFLECTION_PROBE);
 }
 
+void LightStorage::reflection_probe_set_dirty(RID p_probe) {
+	ReflectionProbe *reflection_probe = reflection_probe_owner.get_or_null(p_probe);
+	ERR_FAIL_NULL(reflection_probe);
+
+	reflection_probe->version++;
+}
+
 void LightStorage::reflection_probe_set_intensity(RID p_probe, float p_intensity) {
 	ReflectionProbe *reflection_probe = reflection_probe_owner.get_or_null(p_probe);
 	ERR_FAIL_NULL(reflection_probe);
@@ -1631,7 +1638,9 @@ void LightStorage::reflection_probe_instance_set_transform(RID p_instance, const
 	ERR_FAIL_NULL(rpi);
 
 	rpi->transform = p_transform;
-	rpi->dirty = true;
+	if (reflection_probe_get_update_mode(rpi->probe) != RSE::REFLECTION_PROBE_UPDATE_MANUAL) {
+		rpi->dirty = true;
+	}
 }
 
 bool LightStorage::reflection_probe_has_atlas_index(RID p_instance) {
@@ -1683,6 +1692,14 @@ bool LightStorage::reflection_probe_instance_needs_redraw(RID p_instance) {
 	}
 
 	if (LightStorage::get_singleton()->reflection_probe_get_update_mode(rpi->probe) == RSE::REFLECTION_PROBE_UPDATE_ALWAYS) {
+		return true;
+	}
+
+	// A reflection_probe_set_dirty() call bumps the probe version; sync it here so an on-demand
+	// rebake reaches every viewport's instance exactly once.
+	ReflectionProbe *probe = reflection_probe_owner.get_or_null(rpi->probe);
+	if (probe && probe->version != rpi->last_version) {
+		rpi->last_version = probe->version;
 		return true;
 	}
 

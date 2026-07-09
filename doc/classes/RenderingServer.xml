@@ -3441,6 +3441,13 @@
 				Sets the render cull mask for this reflection probe. Only instances with a matching layer will be reflected by this probe. Equivalent to [member ReflectionProbe.cull_mask].
 			</description>
 		</method>
+		<method name="reflection_probe_set_dirty">
+			<return type="void" />
+			<param index="0" name="probe" type="RID" />
+			<description>
+				Queues a one-shot recapture of the reflection probe's reflections on the next frame, even if its update mode would not otherwise trigger one. Used to refresh a [constant REFLECTION_PROBE_UPDATE_MANUAL] probe after the captured scene changes. Equivalent to [method ReflectionProbe.bake].
+			</description>
+		</method>
 		<method name="reflection_probe_set_enable_box_projection">
 			<return type="void" />
 			<param index="0" name="probe" type="RID" />
@@ -5179,6 +5186,9 @@
 		</constant>
 		<constant name="REFLECTION_PROBE_UPDATE_ALWAYS" value="1" enum="ReflectionProbeUpdateMode">
 			Reflection probe will update each frame. This mode is necessary to capture moving objects.
+		</constant>
+		<constant name="REFLECTION_PROBE_UPDATE_MANUAL" value="2" enum="ReflectionProbeUpdateMode">
+			Reflection probe will capture once and then stop, and unlike [constant REFLECTION_PROBE_UPDATE_ONCE] will not recapture when moved. Use [method reflection_probe_set_dirty] to request a recapture.
 		</constant>
 		<constant name="REFLECTION_PROBE_AMBIENT_DISABLED" value="0" enum="ReflectionProbeAmbientMode">
 			Do not apply any ambient lighting inside the reflection probe's box defined by its size.
