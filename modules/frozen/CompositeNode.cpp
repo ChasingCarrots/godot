@@ -1163,7 +1163,16 @@ Ref<FutureValue> CompositeNode::CallFunctionOnAuthority(StringName functionName,
 			return {};
 		}
 		Ref f = memnew(FutureValue);
-		f->set_value(result);
+		Object *function_state = result.get_type() == Variant::OBJECT ? result.get_validated_object() : nullptr;
+		if (function_state != nullptr && function_state->is_class("GDScriptFunctionState")) {
+			// The GDScript function suspended on an await, so what we got back is its function
+			// state, not the return value. Fulfill the future once it completes - callers use
+			// "if not answer.has_value(): await answer.ValueWasSet" and would otherwise read the
+			// (truthy) function state as the answer.
+			function_state->connect("completed", callable_mp(f.ptr(), &FutureValue::set_value), Object::CONNECT_ONE_SHOT);
+		} else {
+			f->set_value(result);
+		}
 		return f;
 	}
 

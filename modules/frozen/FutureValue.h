@@ -14,6 +14,7 @@ protected:
 		ClassDB::bind_method(D_METHOD("has_value"), &FutureValue::has_value);
 		ClassDB::bind_method(D_METHOD("get_value"), &FutureValue::get_value);
 		ClassDB::bind_method(D_METHOD("set_value", "value"), &FutureValue::set_value);
+		ClassDB::bind_method(D_METHOD("wait_for_value"), &FutureValue::wait_for_value);
 
 		ADD_SIGNAL(MethodInfo("ValueWasSet", PropertyInfo(Variant::NIL, "value")));
 	}
@@ -33,6 +34,12 @@ public:
 		if (ValueWasSetCallback) {
 			ValueWasSetCallback(value);
 		}
+	}
+	Variant wait_for_value() {
+		if (_value_was_set) {
+			return _value;
+		}
+		return Signal(this, SNAME("ValueWasSet"));
 	}
 };
 

@@ -252,6 +252,10 @@ private:
 
 	void fill_send_buffer_with_value(ParamType value_type, const Variant &value);
 	int fill_send_buffer_with_function_parameters(const StringName &function_name, const Array &parameters);
+	void send_answer_to_function_call(int to_peer_id, uint8_t call_id, int function_index, const Variant &answer);
+	// Slot for GDScriptFunctionState::completed, which supplies the answer as the first argument
+	// and gets the routing information bound. See on_packet_received.
+	void send_answer_to_function_call_deferred(const Variant &answer, int to_peer_id, int call_id, int function_index);
 	int get_server_id() const;
 	TypedArray<Dictionary> get_connected_peers_list();
 

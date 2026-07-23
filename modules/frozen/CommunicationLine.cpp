@@ -2,6 +2,7 @@
 
 #include "CommunicationLineSystem.h"
 
+#include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/profiling/profiling.h"
 #include "core/variant/typed_array.h"
@@ -360,13 +361,19 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 			// never be freed and would eventually collide once the 8-bit id wraps.
 			if (packet_type == CommunicationLinePacketTypes::CallRemoteFunctionExpectAnswer) {
 				uint8_t call_id = packet->get_u8();
-				_send_buffer.clear();
-				_send_buffer.put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::AnswerToFunctionCall));
-				_send_buffer.put_u16(_int_id);
-				_send_buffer.put_u8(call_id);
-				fill_send_buffer_with_value(function.ExpectedAnswer, return_value);
-				_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), from_multiplayer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
-				push_sent_amount(_send_buffer.get_size());
+				Object *function_state = return_value.get_type() == Variant::OBJECT ? return_value.get_validated_object() : nullptr;
+				if (function_state != nullptr && function_state->is_class("GDScriptFunctionState")) {
+					// The GDScript function suspended on an await, so what we got back is its
+					// function state, not the answer. Send the real answer once it completes -
+					// otherwise the caller would receive an unserializable object (which decodes
+					// to null) instead of the actual return value.
+					function_state->connect("completed",
+							callable_mp(this, &CommunicationLine::send_answer_to_function_call_deferred)
+									.bind(from_multiplayer_id, static_cast<int>(call_id), function_index),
+							Object::CONNECT_ONE_SHOT);
+				} else {
+					send_answer_to_function_call(from_multiplayer_id, call_id, function_index, return_value);
+				}
 			}
 		}
 		break;
@@ -410,6 +417,29 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 		default: // this is just so that there is no compiler warning...
 		break;
 	}
+}
+
+void CommunicationLine::send_answer_to_function_call(int to_peer_id, uint8_t call_id, int function_index, const Variant &answer) {
+	GodotProfileFunction();
+	if (function_index < 0 || function_index >= _communication_functions.size()) {
+		return;
+	}
+	const CommunicationFunction &function = _communication_functions[function_index];
+	_send_buffer.clear();
+	_send_buffer.put_u8(static_cast<uint8_t>(CommunicationLinePacketTypes::AnswerToFunctionCall));
+	_send_buffer.put_u16(_int_id);
+	_send_buffer.put_u8(call_id);
+	fill_send_buffer_with_value(function.ExpectedAnswer, answer);
+	_communication_line_system->send_packet_to_peer(_send_buffer.get_data_array(), to_peer_id, MultiplayerPeer::TRANSFER_MODE_RELIABLE);
+	push_sent_amount(_send_buffer.get_size());
+}
+
+void CommunicationLine::send_answer_to_function_call_deferred(const Variant &answer, int to_peer_id, int call_id, int function_index) {
+	// Note that the caller may already have given up on us: pending calls are resolved with a
+	// null answer after PENDING_CALL_TIMEOUT_MS, and this answer then arrives for a call id that
+	// is no longer known (or, worse, has been reused). Answerable functions should not await
+	// anything slow.
+	send_answer_to_function_call(to_peer_id, static_cast<uint8_t>(call_id), function_index, answer);
 }
 
 void CommunicationLine::finish_initialization_and_open_line() {
