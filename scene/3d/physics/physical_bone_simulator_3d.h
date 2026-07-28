@@ -38,6 +38,7 @@ class PhysicalBoneSimulator3D : public SkeletonModifier3D {
 	GDCLASS(PhysicalBoneSimulator3D, SkeletonModifier3D);
 
 	bool simulating = false;
+	bool playback = false;
 
 	bool follow_animation = false;
 	real_t muscle_stiffness = 16.0;
@@ -77,6 +78,10 @@ class PhysicalBoneSimulator3D : public SkeletonModifier3D {
 
 	/// This is a slow API, so it's cached
 	PhysicalBone3D *_get_physical_bone_parent(int p_bone);
+	LocalVector<int> simulated_bone_order;
+	void _rebuild_simulated_bone_order();
+	bool _decode_pose_snapshot(const PackedByteArray &p_snapshot, Vector3 &r_root_origin, LocalVector<Quaternion> &r_rotations) const;
+	void _rebuild_poses_from_locals(const Vector3 &p_root_origin, const LocalVector<Quaternion> &p_rotations);
 	void _rebuild_physical_bones_cache();
 	void _reset_physical_bones_state();
 
@@ -120,6 +125,14 @@ public:
 	Transform3D get_simulation_space_inverse() const;
 
 	void relocalize_simulation(const Transform3D &p_delta);
+
+	void set_playback(bool p_enable);
+	bool is_playback() const;
+
+	PackedByteArray get_pose_snapshot();
+	void apply_pose_snapshot(const PackedByteArray &p_snapshot);
+	void apply_pose_snapshot_interpolated(const PackedByteArray &p_from, const PackedByteArray &p_to, real_t p_weight);
+
 	void set_max_body_angular_speed(real_t p_speed);
 	real_t get_max_body_angular_speed() const;
 	Transform3D get_bone_animation_pose(int p_bone) const;

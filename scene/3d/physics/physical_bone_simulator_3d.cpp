@@ -31,9 +31,67 @@
 #include "physical_bone_simulator_3d.h"
 
 #include "core/config/engine.h"
+#include "core/io/marshalls.h"
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "scene/3d/physics/physical_bone_3d.h"
+
+namespace {
+
+constexpr uint8_t POSE_SNAPSHOT_VERSION = 1;
+constexpr int POSE_SNAPSHOT_HEADER_SIZE = 2;
+constexpr int POSE_SNAPSHOT_ROOT_SIZE = 16;
+constexpr int POSE_SNAPSHOT_BONE_SIZE = 4; 
+
+uint32_t compress_quaternion(const Quaternion &p_quaternion) {
+	Quaternion q = p_quaternion.normalized();
+	int largest = 0;
+	real_t largest_abs = Math::abs(q[0]);
+	for (int i = 1; i < 4; i++) {
+		const real_t component_abs = Math::abs(q[i]);
+		if (component_abs > largest_abs) {
+			largest_abs = component_abs;
+			largest = i;
+		}
+	}
+	if (q[largest] < 0.0) {
+		q = -q;
+	}
+
+	uint32_t packed = static_cast<uint32_t>(largest) << 30;
+	int shift = 20;
+	for (int i = 0; i < 4; i++) {
+		if (i == largest) {
+			continue;
+		}
+		const real_t normalized = CLAMP(q[i] * real_t(Math::SQRT2), real_t(-1.0), real_t(1.0));
+		const uint32_t quantized = static_cast<uint32_t>(Math::round((normalized * 0.5 + 0.5) * 1023.0));
+		packed |= (quantized & 0x3FF) << shift;
+		shift -= 10;
+	}
+	return packed;
+}
+
+Quaternion decompress_quaternion(uint32_t p_packed) {
+	const int largest = static_cast<int>(p_packed >> 30);
+	real_t components[4] = { 0.0, 0.0, 0.0, 0.0 };
+	real_t sum_of_squares = 0.0;
+	int shift = 20;
+	for (int i = 0; i < 4; i++) {
+		if (i == largest) {
+			continue;
+		}
+		const uint32_t quantized = (p_packed >> shift) & 0x3FF;
+		shift -= 10;
+		const real_t component = (real_t(quantized) / 1023.0 * 2.0 - 1.0) / real_t(Math::SQRT2);
+		components[i] = component;
+		sum_of_squares += component * component;
+	}
+	components[largest] = Math::sqrt(MAX(real_t(0.0), real_t(1.0) - sum_of_squares));
+	return Quaternion(components[0], components[1], components[2], components[3]).normalized();
+}
+
+}
 
 void PhysicalBoneSimulator3D::_skeleton_changed(Skeleton3D *p_old, Skeleton3D *p_new) {
 	if (p_old) {
@@ -73,7 +131,7 @@ void PhysicalBoneSimulator3D::_bone_list_changed() {
 
 void PhysicalBoneSimulator3D::_pose_updated() {
 	Skeleton3D *skeleton = get_skeleton();
-	if (!skeleton || simulating) {
+	if (!skeleton || simulating || playback) {
 		return;
 	}
 	// If this triggers that means that we likely haven't rebuilt the bone list yet.
@@ -202,6 +260,42 @@ void PhysicalBoneSimulator3D::_rebuild_physical_bones_cache() {
 			}
 		}
 	}
+	_rebuild_simulated_bone_order();
+}
+
+void PhysicalBoneSimulator3D::_rebuild_simulated_bone_order() {
+	simulated_bone_order.clear();
+	const int b_size = bones.size();
+
+	LocalVector<int> depths;
+	int max_depth = 0;
+	for (int i = 0; i < b_size; ++i) {
+		if (!bones[i].physical_bone) {
+			continue;
+		}
+		int depth = 0;
+		int walk = bones[i].parent;
+		for (int guard = 0; walk >= 0 && walk < b_size && guard < b_size; ++guard) {
+			if (bones[walk].physical_bone) {
+				depth++;
+			}
+			walk = bones[walk].parent;
+		}
+		simulated_bone_order.push_back(i);
+		depths.push_back(depth);
+		max_depth = MAX(max_depth, depth);
+	}
+
+	LocalVector<int> sorted;
+	sorted.reserve(simulated_bone_order.size());
+	for (int depth = 0; depth <= max_depth; ++depth) {
+		for (uint32_t i = 0; i < simulated_bone_order.size(); ++i) {
+			if (depths[i] == depth) {
+				sorted.push_back(simulated_bone_order[i]);
+			}
+		}
+	}
+	simulated_bone_order = sorted;
 }
 
 #ifndef DISABLE_DEPRECATED
@@ -452,6 +546,160 @@ Transform3D PhysicalBoneSimulator3D::get_simulation_space_inverse() const {
 	return simulation_space_inverse;
 }
 
+void PhysicalBoneSimulator3D::set_playback(bool p_enable) {
+	playback = p_enable;
+}
+
+bool PhysicalBoneSimulator3D::is_playback() const {
+	return playback;
+}
+
+PackedByteArray PhysicalBoneSimulator3D::get_pose_snapshot() {
+	PackedByteArray snapshot;
+	Skeleton3D *skeleton = get_skeleton();
+	if (!skeleton || simulated_bone_order.is_empty()) {
+		return snapshot;
+	}
+	ERR_FAIL_COND_V(skeleton->get_bone_count() != (int)bones.size(), snapshot);
+
+	const int bone_count = simulated_bone_order.size();
+	ERR_FAIL_COND_V_MSG(bone_count > 255, snapshot, "Pose snapshots support at most 255 simulated bones.");
+
+	snapshot.resize(POSE_SNAPSHOT_HEADER_SIZE + POSE_SNAPSHOT_ROOT_SIZE + (bone_count - 1) * POSE_SNAPSHOT_BONE_SIZE);
+	uint8_t *write = snapshot.ptrw();
+
+	write[0] = POSE_SNAPSHOT_VERSION;
+	write[1] = static_cast<uint8_t>(bone_count);
+	int offset = POSE_SNAPSHOT_HEADER_SIZE;
+
+	for (int i = 0; i < bone_count; i++) {
+		const int bone_id = simulated_bone_order[i];
+		const Transform3D &pose = bones[bone_id].global_pose;
+
+		if (i == 0) {
+			offset += encode_float(pose.origin.x, &write[offset]);
+			offset += encode_float(pose.origin.y, &write[offset]);
+			offset += encode_float(pose.origin.z, &write[offset]);
+			offset += encode_uint32(compress_quaternion(pose.basis.get_rotation_quaternion()), &write[offset]);
+			continue;
+		}
+
+		PhysicalBone3D *parent_pb = get_physical_bone_parent(bone_id);
+		const int parent_bone = (parent_pb && parent_pb->get_bone_id() != -1) ? parent_pb->get_bone_id() : -1;
+		if (parent_bone == -1) {
+			offset += encode_uint32(compress_quaternion(pose.basis.get_rotation_quaternion()), &write[offset]);
+			continue;
+		}
+
+		ERR_FAIL_INDEX_V(parent_bone, (int)bones.size(), PackedByteArray());
+		const Basis relative = bones[parent_bone].global_pose.basis.inverse() * pose.basis;
+		offset += encode_uint32(compress_quaternion(relative.get_rotation_quaternion()), &write[offset]);
+	}
+
+	return snapshot;
+}
+
+bool PhysicalBoneSimulator3D::_decode_pose_snapshot(const PackedByteArray &p_snapshot, Vector3 &r_root_origin, LocalVector<Quaternion> &r_rotations) const {
+	const int bone_count = simulated_bone_order.size();
+	const int expected_size = POSE_SNAPSHOT_HEADER_SIZE + POSE_SNAPSHOT_ROOT_SIZE + (bone_count - 1) * POSE_SNAPSHOT_BONE_SIZE;
+	ERR_FAIL_COND_V_MSG(p_snapshot.size() != expected_size, false, "Pose snapshot size does not match this simulator's bone set.");
+
+	const uint8_t *read = p_snapshot.ptr();
+	ERR_FAIL_COND_V_MSG(read[0] != POSE_SNAPSHOT_VERSION, false, "Pose snapshot version mismatch.");
+	ERR_FAIL_COND_V_MSG(read[1] != bone_count, false, "Pose snapshot bone count does not match this simulator.");
+
+	r_rotations.resize(bone_count);
+	int offset = POSE_SNAPSHOT_HEADER_SIZE;
+
+	for (int i = 0; i < bone_count; i++) {
+		if (i == 0) {
+			r_root_origin.x = decode_float(&read[offset]);
+			offset += 4;
+			r_root_origin.y = decode_float(&read[offset]);
+			offset += 4;
+			r_root_origin.z = decode_float(&read[offset]);
+			offset += 4;
+		}
+		r_rotations[i] = decompress_quaternion(decode_uint32(&read[offset]));
+		offset += 4;
+	}
+	return true;
+}
+
+void PhysicalBoneSimulator3D::_rebuild_poses_from_locals(const Vector3 &p_root_origin, const LocalVector<Quaternion> &p_rotations) {
+	Skeleton3D *skeleton = get_skeleton();
+	if (!skeleton) {
+		return;
+	}
+	const int bone_count = simulated_bone_order.size();
+
+	for (int i = 0; i < bone_count; i++) {
+		const int bone_id = simulated_bone_order[i];
+
+		if (i == 0) {
+			bones[bone_id].global_pose = Transform3D(Basis(p_rotations[i]), p_root_origin);
+			continue;
+		}
+
+		PhysicalBone3D *parent_pb = get_physical_bone_parent(bone_id);
+		const int parent_bone = (parent_pb && parent_pb->get_bone_id() != -1) ? parent_pb->get_bone_id() : -1;
+		if (parent_bone == -1) {
+			bones[bone_id].global_pose = Transform3D(Basis(p_rotations[i]), bones[bone_id].global_pose.origin);
+			continue;
+		}
+		ERR_FAIL_INDEX(parent_bone, (int)bones.size());
+
+		const Transform3D parent_rest = skeleton->get_bone_global_rest(parent_bone);
+		const Transform3D self_rest = skeleton->get_bone_global_rest(bone_id);
+		const Vector3 rest_offset = parent_rest.basis.inverse().xform(self_rest.origin - parent_rest.origin);
+
+		const Transform3D parent_pose = bones[parent_bone].global_pose;
+		bones[bone_id].global_pose = Transform3D(
+				parent_pose.basis * Basis(p_rotations[i]),
+				parent_pose.origin + parent_pose.basis.xform(rest_offset));
+	}
+}
+
+void PhysicalBoneSimulator3D::apply_pose_snapshot(const PackedByteArray &p_snapshot) {
+	if (!get_skeleton() || simulated_bone_order.is_empty()) {
+		return;
+	}
+	ERR_FAIL_COND(get_skeleton()->get_bone_count() != (int)bones.size());
+
+	Vector3 root_origin;
+	LocalVector<Quaternion> rotations;
+	if (!_decode_pose_snapshot(p_snapshot, root_origin, rotations)) {
+		return;
+	}
+	_rebuild_poses_from_locals(root_origin, rotations);
+}
+
+void PhysicalBoneSimulator3D::apply_pose_snapshot_interpolated(const PackedByteArray &p_from, const PackedByteArray &p_to, real_t p_weight) {
+	if (!get_skeleton() || simulated_bone_order.is_empty()) {
+		return;
+	}
+	ERR_FAIL_COND(get_skeleton()->get_bone_count() != (int)bones.size());
+
+	Vector3 from_origin;
+	Vector3 to_origin;
+	LocalVector<Quaternion> from_rotations;
+	LocalVector<Quaternion> to_rotations;
+	if (!_decode_pose_snapshot(p_from, from_origin, from_rotations)) {
+		return;
+	}
+	if (!_decode_pose_snapshot(p_to, to_origin, to_rotations)) {
+		return;
+	}
+
+	const real_t weight = CLAMP(p_weight, real_t(0.0), real_t(1.0));
+	LocalVector<Quaternion> blended;
+	blended.resize(from_rotations.size());
+	for (uint32_t i = 0; i < from_rotations.size(); i++) {
+		blended[i] = from_rotations[i].slerp(to_rotations[i], weight);
+	}
+	_rebuild_poses_from_locals(from_origin.lerp(to_origin, weight), blended);
+}
+
 Transform3D PhysicalBoneSimulator3D::get_bone_animation_pose(int p_bone) const {
 	const int bone_size = bones.size();
 	ERR_FAIL_INDEX_V(p_bone, bone_size, Transform3D());
@@ -464,6 +712,14 @@ void PhysicalBoneSimulator3D::_process_modification(double p_delta) {
 		return;
 	}
 	ERR_FAIL_COND(skeleton->get_bone_count() != (int)bones.size());
+
+	if (playback) {
+		for (const int bone_id : simulated_bone_order) {
+			skeleton->set_bone_global_pose(bone_id, bones[bone_id].global_pose);
+			bones[bone_id].physical_bone->reset_to_rest_position();
+		}
+		return;
+	}
 
 	if (simulating && follow_animation) {
 		for (int i = 0; i < skeleton->get_bone_count(); i++) {
@@ -509,7 +765,13 @@ void PhysicalBoneSimulator3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_simulation_space", "transform"), &PhysicalBoneSimulator3D::set_simulation_space);
 	ClassDB::bind_method(D_METHOD("get_simulation_space"), &PhysicalBoneSimulator3D::get_simulation_space);
 	ClassDB::bind_method(D_METHOD("relocalize_simulation", "delta"), &PhysicalBoneSimulator3D::relocalize_simulation);
+	ClassDB::bind_method(D_METHOD("set_playback", "enable"), &PhysicalBoneSimulator3D::set_playback);
+	ClassDB::bind_method(D_METHOD("is_playback"), &PhysicalBoneSimulator3D::is_playback);
+	ClassDB::bind_method(D_METHOD("get_pose_snapshot"), &PhysicalBoneSimulator3D::get_pose_snapshot);
+	ClassDB::bind_method(D_METHOD("apply_pose_snapshot", "snapshot"), &PhysicalBoneSimulator3D::apply_pose_snapshot);
+	ClassDB::bind_method(D_METHOD("apply_pose_snapshot_interpolated", "from", "to", "weight"), &PhysicalBoneSimulator3D::apply_pose_snapshot_interpolated);
 	ClassDB::bind_method(D_METHOD("get_bone_animation_pose", "bone_idx"), &PhysicalBoneSimulator3D::get_bone_animation_pose);
+	ClassDB::bind_method(D_METHOD("get_bone_global_pose", "bone_idx"), &PhysicalBoneSimulator3D::get_bone_global_pose);
 
 	ADD_GROUP("Muscle", "muscle_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "follow_animation"), "set_follow_animation", "is_following_animation");
