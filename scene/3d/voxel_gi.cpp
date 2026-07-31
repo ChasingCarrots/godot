@@ -307,6 +307,8 @@ void VoxelGI::set_probe_data(const Ref<VoxelGIData> &p_data) {
 	if (p_data.is_valid()) {
 		RS::get_singleton()->instance_set_base(get_instance(), p_data->get_rid());
 		RS::get_singleton()->voxel_gi_set_baked_exposure_normalization(p_data->get_rid(), _get_camera_exposure_normalization());
+		RS::get_singleton()->voxel_gi_set_intensity(p_data->get_rid(), intensity);
+		RS::get_singleton()->voxel_gi_set_affect_fog(p_data->get_rid(), affect_fog);
 	} else {
 		RS::get_singleton()->instance_set_base(get_instance(), RID());
 	}
@@ -349,6 +351,30 @@ void VoxelGI::set_size(const Vector3 &p_size) {
 
 Vector3 VoxelGI::get_size() const {
 	return size;
+}
+
+void VoxelGI::set_intensity(float p_intensity) {
+	intensity = CLAMP(p_intensity, 0.0, 1.0);
+
+	if (probe_data.is_valid()) {
+		RS::get_singleton()->voxel_gi_set_intensity(probe_data->get_rid(), intensity);
+	}
+}
+
+float VoxelGI::get_intensity() const {
+	return intensity;
+}
+
+void VoxelGI::set_affect_fog(bool p_enable) {
+	affect_fog = p_enable;
+
+	if (probe_data.is_valid()) {
+		RS::get_singleton()->voxel_gi_set_affect_fog(probe_data->get_rid(), affect_fog);
+	}
+}
+
+bool VoxelGI::is_affecting_fog() const {
+	return affect_fog;
 }
 
 void VoxelGI::set_camera_attributes(const Ref<CameraAttributes> &p_camera_attributes) {
@@ -609,6 +635,12 @@ void VoxelGI::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_size", "size"), &VoxelGI::set_size);
 	ClassDB::bind_method(D_METHOD("get_size"), &VoxelGI::get_size);
 
+	ClassDB::bind_method(D_METHOD("set_intensity", "intensity"), &VoxelGI::set_intensity);
+	ClassDB::bind_method(D_METHOD("get_intensity"), &VoxelGI::get_intensity);
+
+	ClassDB::bind_method(D_METHOD("set_affect_fog", "enable"), &VoxelGI::set_affect_fog);
+	ClassDB::bind_method(D_METHOD("is_affecting_fog"), &VoxelGI::is_affecting_fog);
+
 	ClassDB::bind_method(D_METHOD("set_camera_attributes", "camera_attributes"), &VoxelGI::set_camera_attributes);
 	ClassDB::bind_method(D_METHOD("get_camera_attributes"), &VoxelGI::get_camera_attributes);
 
@@ -618,6 +650,8 @@ void VoxelGI::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "subdiv", PROPERTY_HINT_ENUM, "64,128,256,512"), "set_subdiv", "get_subdiv");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "size", PROPERTY_HINT_NONE, "suffix:m"), "set_size", "get_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "intensity", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_intensity", "get_intensity");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "affect_fog"), "set_affect_fog", "is_affecting_fog");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "camera_attributes", PROPERTY_HINT_RESOURCE_TYPE, "CameraAttributesPractical,CameraAttributesPhysical"), "set_camera_attributes", "get_camera_attributes");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_RESOURCE_TYPE, VoxelGIData::get_class_static(), PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_ALWAYS_DUPLICATE), "set_probe_data", "get_probe_data");
 

@@ -128,6 +128,8 @@ private:
 
 	Subdiv subdiv = SUBDIV_128;
 	Vector3 size = Vector3(20, 20, 20);
+	float intensity = 1.0;
+	bool affect_fog = true;
 	Ref<CameraAttributes> camera_attributes;
 
 	struct PlotMesh {
@@ -162,6 +164,12 @@ public:
 
 	void set_size(const Vector3 &p_size);
 	Vector3 get_size() const;
+
+	void set_intensity(float p_intensity);
+	float get_intensity() const;
+
+	void set_affect_fog(bool p_enable);
+	bool is_affecting_fog() const;
 
 	void set_camera_attributes(const Ref<CameraAttributes> &p_camera_attributes);
 	Ref<CameraAttributes> get_camera_attributes() const;

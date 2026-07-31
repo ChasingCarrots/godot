@@ -304,6 +304,32 @@ float GI::voxel_gi_get_energy(RID p_voxel_gi) const {
 	return voxel_gi->energy;
 }
 
+void GI::voxel_gi_set_intensity(RID p_voxel_gi, float p_intensity) {
+	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
+	ERR_FAIL_NULL(voxel_gi);
+
+	voxel_gi->intensity = p_intensity;
+}
+
+float GI::voxel_gi_get_intensity(RID p_voxel_gi) const {
+	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
+	ERR_FAIL_NULL_V(voxel_gi, 1.0);
+	return voxel_gi->intensity;
+}
+
+void GI::voxel_gi_set_affect_fog(RID p_voxel_gi, bool p_enable) {
+	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
+	ERR_FAIL_NULL(voxel_gi);
+
+	voxel_gi->affect_fog = p_enable;
+}
+
+bool GI::voxel_gi_is_affecting_fog(RID p_voxel_gi) const {
+	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
+	ERR_FAIL_NULL_V(voxel_gi, true);
+	return voxel_gi->affect_fog;
+}
+
 void GI::voxel_gi_set_baked_exposure_normalization(RID p_voxel_gi, float p_baked_exposure) {
 	VoxelGI *voxel_gi = voxel_gi_owner.get_or_null(p_voxel_gi);
 	ERR_FAIL_NULL(voxel_gi);
@@ -3934,6 +3960,8 @@ void GI::setup_voxel_gi_instances(RenderDataRD *p_render_data, Ref<RenderSceneBu
 				gipd.normal_bias = voxel_gi_get_normal_bias(base_probe);
 				gipd.blend_ambient = !voxel_gi_is_interior(base_probe);
 				gipd.mipmaps = gipi->mipmaps.size();
+				gipd.intensity = voxel_gi_get_intensity(base_probe);
+				gipd.affect_fog = voxel_gi_is_affecting_fog(base_probe);
 				gipd.exposure_normalization = 1.0;
 				if (p_render_data->camera_attributes.is_valid()) {
 					float exposure_normalization = RSG::camera_attributes->camera_attributes_get_exposure_normalization_factor(p_render_data->camera_attributes);

@@ -66,6 +66,12 @@ public:
 	virtual void voxel_gi_set_energy(RID p_voxel_gi, float p_range) override;
 	virtual float voxel_gi_get_energy(RID p_voxel_gi) const override;
 
+	virtual void voxel_gi_set_intensity(RID p_voxel_gi, float p_intensity) override;
+	virtual float voxel_gi_get_intensity(RID p_voxel_gi) const override;
+
+	virtual void voxel_gi_set_affect_fog(RID p_voxel_gi, bool p_enable) override;
+	virtual bool voxel_gi_is_affecting_fog(RID p_voxel_gi) const override;
+
 	virtual void voxel_gi_set_baked_exposure_normalization(RID p_voxel_gi, float p_baked_exposure) override;
 	virtual float voxel_gi_get_baked_exposure_normalization(RID p_voxel_gi) const override;
 

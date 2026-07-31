@@ -4613,6 +4613,14 @@
 				Returns the transform to cell space for the specified voxel GI data instance. See also [method voxel_gi_allocate_data].
 			</description>
 		</method>
+		<method name="voxel_gi_set_affect_fog">
+			<return type="void" />
+			<param index="0" name="voxel_gi" type="RID" />
+			<param index="1" name="enable" type="bool" />
+			<description>
+				Sets the [member VoxelGI.affect_fog] value to use on the specified [param voxel_gi]'s [RID].
+			</description>
+		</method>
 		<method name="voxel_gi_set_baked_exposure_normalization">
 			<return type="void" />
 			<param index="0" name="voxel_gi" type="RID" />
@@ -4651,6 +4659,14 @@
 			<param index="1" name="energy" type="float" />
 			<description>
 				Sets the [member VoxelGIData.energy] value to use on the specified [param voxel_gi]'s [RID].
+			</description>
+		</method>
+		<method name="voxel_gi_set_intensity">
+			<return type="void" />
+			<param index="0" name="voxel_gi" type="RID" />
+			<param index="1" name="intensity" type="float" />
+			<description>
+				Sets the [member VoxelGI.intensity] value to use on the specified [param voxel_gi]'s [RID].
 			</description>
 		</method>
 		<method name="voxel_gi_set_interior">

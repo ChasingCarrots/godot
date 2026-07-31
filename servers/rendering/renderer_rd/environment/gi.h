@@ -84,6 +84,8 @@ public:
 		float fade_distance = 1.0;
 		float dynamic_range = 2.0;
 		float energy = 1.0;
+		float intensity = 1.0;
+		bool affect_fog = true;
 		float baked_exposure = 1.0;
 		float bias = 1.4;
 		float normal_bias = 0.0;
@@ -509,6 +511,12 @@ public:
 	virtual void voxel_gi_set_energy(RID p_voxel_gi, float p_energy) override;
 	virtual float voxel_gi_get_energy(RID p_voxel_gi) const override;
 
+	virtual void voxel_gi_set_intensity(RID p_voxel_gi, float p_intensity) override;
+	virtual float voxel_gi_get_intensity(RID p_voxel_gi) const override;
+
+	virtual void voxel_gi_set_affect_fog(RID p_voxel_gi, bool p_enable) override;
+	virtual bool voxel_gi_is_affecting_fog(RID p_voxel_gi) const override;
+
 	virtual void voxel_gi_set_baked_exposure_normalization(RID p_voxel_gi, float p_baked_exposure) override;
 	virtual float voxel_gi_get_baked_exposure_normalization(RID p_voxel_gi) const override;
 
@@ -782,7 +790,8 @@ public:
 		uint32_t blend_ambient; // 4 - 108
 		uint32_t mipmaps; // 4 - 112
 
-		float pad[2]; // 8 - 120
+		float intensity; // 4 - 116
+		uint32_t affect_fog; // 4 - 120
 		uint32_t cull_mask; // 4 - 124
 		float exposure_normalization; // 4 - 128
 	};

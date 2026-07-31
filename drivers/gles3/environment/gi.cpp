@@ -112,6 +112,20 @@ float GI::voxel_gi_get_energy(RID p_voxel_gi) const {
 	return 0.0;
 }
 
+void GI::voxel_gi_set_intensity(RID p_voxel_gi, float p_intensity) {
+}
+
+float GI::voxel_gi_get_intensity(RID p_voxel_gi) const {
+	return 1.0;
+}
+
+void GI::voxel_gi_set_affect_fog(RID p_voxel_gi, bool p_enable) {
+}
+
+bool GI::voxel_gi_is_affecting_fog(RID p_voxel_gi) const {
+	return true;
+}
+
 void GI::voxel_gi_set_baked_exposure_normalization(RID p_voxel_gi, float p_baked_exposure) {
 }
 

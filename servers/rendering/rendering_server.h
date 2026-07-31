@@ -401,6 +401,8 @@ public:
 	virtual void voxel_gi_set_dynamic_range(RID p_voxel_gi, float p_range) = 0;
 	virtual void voxel_gi_set_propagation(RID p_voxel_gi, float p_range) = 0;
 	virtual void voxel_gi_set_energy(RID p_voxel_gi, float p_energy) = 0;
+	virtual void voxel_gi_set_intensity(RID p_voxel_gi, float p_intensity) = 0;
+	virtual void voxel_gi_set_affect_fog(RID p_voxel_gi, bool p_enable) = 0;
 	virtual void voxel_gi_set_baked_exposure_normalization(RID p_voxel_gi, float p_baked_exposure) = 0;
 	virtual void voxel_gi_set_bias(RID p_voxel_gi, float p_bias) = 0;
 	virtual void voxel_gi_set_normal_bias(RID p_voxel_gi, float p_range) = 0;

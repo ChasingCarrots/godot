@@ -93,7 +93,8 @@ struct VoxelGIData {
 	bool blend_ambient; // 4 - 108
 	uint mipmaps; // 4 - 112
 
-	vec2 pad; // 12 - 120
+	float intensity; // 4 - 116
+	bool affect_fog; // 4 - 120
 	uint cull_mask; // 4 - 124
 	float exposure_normalization; // 4 - 128
 };
@@ -708,6 +709,10 @@ void main() {
 		vec3 world_pos = mat3(params.cam_rotation) * view_pos;
 
 		for (uint i = 0; i < params.max_voxel_gi_instances; i++) {
+			if (!voxel_gi_instances.data[i].affect_fog) {
+				continue;
+			}
+
 			vec3 position = (voxel_gi_instances.data[i].xform * vec4(world_pos, 1.0)).xyz;
 
 			vec3 bounds = voxel_gi_instances.data[i].bounds;
@@ -733,7 +738,7 @@ void main() {
 					fade = pow(fade_axes.x * fade_axes.y * fade_axes.z, 2.0);
 				}
 
-				light.rgb *= voxel_gi_instances.data[i].dynamic_range * params.gi_inject * voxel_gi_instances.data[i].exposure_normalization;
+				light.rgb *= voxel_gi_instances.data[i].dynamic_range * params.gi_inject * voxel_gi_instances.data[i].exposure_normalization * voxel_gi_instances.data[i].intensity;
 
 				total_light += light.rgb * fade;
 			}

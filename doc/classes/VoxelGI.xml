@@ -33,11 +33,17 @@
 		</method>
 	</methods>
 	<members>
+		<member name="affect_fog" type="bool" setter="set_affect_fog" getter="is_affecting_fog" default="true">
+			If [code]true[/code], this [VoxelGI]'s indirect lighting is injected into volumetric fog (see [member Environment.volumetric_fog_gi_inject]). If [code]false[/code], the [VoxelGI] still lights geometry, but leaves the fog untouched.
+		</member>
 		<member name="camera_attributes" type="CameraAttributes" setter="set_camera_attributes" getter="get_camera_attributes">
 			The [CameraAttributes] resource that specifies exposure levels to bake at. Auto-exposure and non exposure properties will be ignored. Exposure settings should be used to reduce the dynamic range present when baking. If exposure is too high, the [VoxelGI] will have banding artifacts or may have over-exposure artifacts.
 		</member>
 		<member name="data" type="VoxelGIData" setter="set_probe_data" getter="get_probe_data">
 			The [VoxelGIData] resource that holds the data for this [VoxelGI].
+		</member>
+		<member name="intensity" type="float" setter="set_intensity" getter="get_intensity" default="1.0">
+			The strength of the indirect lighting contributed by this [VoxelGI]. A value of [code]0.0[/code] makes the [VoxelGI] contribute nothing, while a value of [code]1.0[/code] contributes its full baked lighting.
 		</member>
 		<member name="size" type="Vector3" setter="set_size" getter="get_size" default="Vector3(20, 20, 20)">
 			The size of the area covered by the [VoxelGI]. This must be [code]1.0[/code] or greater on each axis.

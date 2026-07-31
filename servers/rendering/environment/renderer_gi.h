@@ -74,6 +74,12 @@ public:
 	virtual void voxel_gi_set_energy(RID p_voxel_gi, float p_energy) = 0;
 	virtual float voxel_gi_get_energy(RID p_voxel_gi) const = 0;
 
+	virtual void voxel_gi_set_intensity(RID p_voxel_gi, float p_intensity) = 0;
+	virtual float voxel_gi_get_intensity(RID p_voxel_gi) const = 0;
+
+	virtual void voxel_gi_set_affect_fog(RID p_voxel_gi, bool p_enable) = 0;
+	virtual bool voxel_gi_is_affecting_fog(RID p_voxel_gi) const = 0;
+
 	virtual void voxel_gi_set_baked_exposure_normalization(RID p_voxel_gi, float p_baked_exposure) = 0;
 	virtual float voxel_gi_get_baked_exposure_normalization(RID p_voxel_gi) const = 0;
 

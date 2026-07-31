@@ -598,6 +598,8 @@ public:
 	FUNC2(voxel_gi_set_dynamic_range, RID, float)
 	FUNC2(voxel_gi_set_propagation, RID, float)
 	FUNC2(voxel_gi_set_energy, RID, float)
+	FUNC2(voxel_gi_set_intensity, RID, float)
+	FUNC2(voxel_gi_set_affect_fog, RID, bool)
 	FUNC2(voxel_gi_set_baked_exposure_normalization, RID, float)
 	FUNC2(voxel_gi_set_bias, RID, float)
 	FUNC2(voxel_gi_set_normal_bias, RID, float)

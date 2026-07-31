@@ -94,7 +94,8 @@ struct VoxelGIData {
 	bool blend_ambient; // 4 - 108
 	uint mipmaps; // 4 - 112
 
-	vec2 pad; // 12 - 120
+	float intensity; // 4 - 116
+	bool affect_fog; // 4 - 120
 	uint cull_mask; // 4 - 124
 	float exposure_normalization; // 4 - 128
 };
@@ -608,7 +609,7 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 		light.a = 1.0;
 	}
 
-	out_diff += light * blend * fade;
+	out_diff += light * voxel_gi_instances.data[index].intensity * blend * fade;
 
 	//radiance
 	vec4 irr_light = voxel_cone_trace(voxel_gi_textures[index], cell_size, position, ref_vec, tan(roughness * 0.5 * M_PI * 0.99), max_distance, voxel_gi_instances.data[index].bias);
@@ -617,7 +618,7 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 		irr_light.a = 1.0;
 	}
 
-	out_spec += irr_light * blend * fade;
+	out_spec += irr_light * voxel_gi_instances.data[index].intensity * blend * fade;
 
 	out_blend += blend;
 }

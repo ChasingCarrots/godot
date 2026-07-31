@@ -99,7 +99,9 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 		vec4 cone_light = voxel_cone_trace_45_degrees(voxel_gi_textures[index], cell_size, position, dir, cone_angle_tan, max_distance, voxel_gi_instances.data[index].bias);
 
 		if (voxel_gi_instances.data[index].blend_ambient) {
-			cone_light.rgb = mix(ambient, cone_light.rgb, min(1.0, cone_light.a / 0.95));
+			cone_light.rgb = mix(ambient, cone_light.rgb, min(1.0, cone_light.a / 0.95) * voxel_gi_instances.data[index].intensity);
+		} else {
+			cone_light.rgb *= voxel_gi_instances.data[index].intensity;
 		}
 
 		light += cone_weights[i] * cone_light.rgb;
@@ -111,7 +113,9 @@ void voxel_gi_compute(uint index, vec3 position, vec3 normal, vec3 ref_vec, mat3
 	//irradiance
 	vec4 irr_light = voxel_cone_trace(voxel_gi_textures[index], cell_size, position, ref_vec, tan(roughness * 0.5 * M_PI * 0.99), max_distance, voxel_gi_instances.data[index].bias);
 	if (voxel_gi_instances.data[index].blend_ambient) {
-		irr_light.rgb = mix(environment, irr_light.rgb, min(1.0, irr_light.a / 0.95));
+		irr_light.rgb = mix(environment, irr_light.rgb, min(1.0, irr_light.a / 0.95) * voxel_gi_instances.data[index].intensity);
+	} else {
+		irr_light.rgb *= voxel_gi_instances.data[index].intensity;
 	}
 	irr_light.rgb *= voxel_gi_instances.data[index].dynamic_range * voxel_gi_instances.data[index].exposure_normalization;
 	//irr_light=vec3(0.0);
