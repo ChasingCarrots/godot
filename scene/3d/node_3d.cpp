@@ -1088,6 +1088,8 @@ Ref<World3D> Node3D::get_world_3d() const {
 }
 
 void Node3D::_propagate_visibility_changed() {
+	data.fti_global_xform_interp_set = false;
+
 	notification(NOTIFICATION_VISIBILITY_CHANGED);
 	emit_signal(SceneStringName(visibility_changed));
 
