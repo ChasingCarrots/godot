@@ -732,7 +732,9 @@ public:
 		if (multimesh == nullptr) {
 			return RID();
 		}
-		if (!multimesh->uniform_set_3d.is_valid()) {
+		// The cached set can be freed without us being notified (e.g. when the shader it was
+		// created against is rebuilt), so ownership must be checked, not just nullness.
+		if (!RD::get_singleton()->uniform_set_is_valid(multimesh->uniform_set_3d)) {
 			if (!multimesh->buffer.is_valid()) {
 				return RID();
 			}
@@ -753,7 +755,8 @@ public:
 		if (multimesh == nullptr) {
 			return RID();
 		}
-		if (!multimesh->uniform_set_2d.is_valid()) {
+		// Same as the 3D variant: the cached set can be freed without notification.
+		if (!RD::get_singleton()->uniform_set_is_valid(multimesh->uniform_set_2d)) {
 			if (!multimesh->buffer.is_valid()) {
 				return RID();
 			}
@@ -804,7 +807,9 @@ public:
 		if (skeleton->use_2d) {
 			return RID();
 		}
-		if (!skeleton->uniform_set_3d.is_valid()) {
+		// The cached set can be freed without us being notified (e.g. when the shader it was
+		// created against is rebuilt), so ownership must be checked, not just nullness.
+		if (!RD::get_singleton()->uniform_set_is_valid(skeleton->uniform_set_3d)) {
 			Vector<RD::Uniform> uniforms;
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;

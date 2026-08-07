@@ -562,7 +562,11 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 				RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, pipeline_rd);
 			}
 
-			if (xforms_uniform_set.is_valid() && prev_xforms_uniform_set != xforms_uniform_set) {
+			// The instance caches this RID and the set it points at can be freed without the
+			// instance being notified, so check ownership and not just nullness, as the
+			// material uniform set below already does. Do not try to re-dirty the instance
+			// from here: _mark_dirty() frees the surface caches this loop is iterating.
+			if (xforms_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(xforms_uniform_set) && prev_xforms_uniform_set != xforms_uniform_set) {
 				RD::get_singleton()->draw_list_bind_uniform_set(draw_list, xforms_uniform_set, TRANSFORMS_UNIFORM_SET);
 				prev_xforms_uniform_set = xforms_uniform_set;
 			}
