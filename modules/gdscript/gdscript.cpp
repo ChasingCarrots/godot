@@ -1547,10 +1547,20 @@ GDScript::~GDScript() {
 	}
 	destructing = true;
 
-	if (is_print_verbose_enabled()) {
+	{
 		MutexLock lock(func_ptrs_to_update_mutex);
 		if (!func_ptrs_to_update.is_empty()) {
-			print_line(vformat("GDScript: %d orphaned lambdas becoming invalid at destruction of script '%s'.", func_ptrs_to_update.size(), fully_qualified_name));
+			if (is_print_verbose_enabled()) {
+				print_line(vformat("GDScript: %d orphaned lambdas becoming invalid at destruction of script '%s'.", func_ptrs_to_update.size(), fully_qualified_name));
+			}
+			// Detach them: their `script` back-pointer and list element dangle once this
+			// script is gone, and ~UpdatableFuncPtr would lock an already freed mutex.
+			for (UpdatableFuncPtr *updatable : func_ptrs_to_update) {
+				updatable->ptr = nullptr;
+				updatable->script = nullptr;
+				updatable->list_element = nullptr;
+			}
+			func_ptrs_to_update.clear();
 		}
 	}
 
