@@ -1,4 +1,4 @@
-/**************************************************************************/
+﻿/**************************************************************************/
 /*  luminance.cpp                                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
@@ -68,6 +68,19 @@ Luminance::Luminance(bool p_prefer_raster_effects) {
 		for (int i = 0; i < LUMINANCE_REDUCE_FRAGMENT_MAX; i++) {
 			luminance_reduce_raster.pipelines[i].clear();
 		}
+
+		// Histogram metering. Needs compute, SSBO atomics and shared memory, so it
+		// is only available on this path; the raster path keeps using the reduction.
+		Vector<String> single_mode;
+		single_mode.push_back("\n");
+
+		histogram.build_shader.initialize(single_mode);
+		histogram.build_shader_version = histogram.build_shader.version_create();
+		histogram.build_pipeline = RD::get_singleton()->compute_pipeline_create(histogram.build_shader.version_get_shader(histogram.build_shader_version, 0));
+
+		histogram.resolve_shader.initialize(single_mode);
+		histogram.resolve_shader_version = histogram.resolve_shader.version_create();
+		histogram.resolve_pipeline = RD::get_singleton()->compute_pipeline_create(histogram.resolve_shader.version_get_shader(histogram.resolve_shader_version, 0));
 	}
 }
 
@@ -76,6 +89,8 @@ Luminance::~Luminance() {
 		luminance_reduce_raster.shader.version_free(luminance_reduce_raster.shader_version);
 	} else {
 		luminance_reduce.shader.version_free(luminance_reduce.shader_version);
+		histogram.build_shader.version_free(histogram.build_shader_version);
+		histogram.resolve_shader.version_free(histogram.resolve_shader_version);
 	}
 }
 
@@ -84,6 +99,26 @@ void Luminance::LuminanceBuffers::set_prefer_raster_effects(bool p_prefer_raster
 }
 
 void Luminance::LuminanceBuffers::configure(RenderSceneBuffersRD *p_render_buffers) {
+	if (!prefer_raster_effects) {
+		// Histogram metering meters the source in a single pass, so there is no
+		// reduction chain to allocate: just the 1x1 ping-pong pair the rest of the
+		// renderer samples as the exposure texture, plus the bin buffer.
+		RD::TextureFormat tf;
+		tf.format = RD::DATA_FORMAT_R32_SFLOAT;
+		tf.width = 1;
+		tf.height = 1;
+		tf.usage_bits = RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT;
+
+		reduce.push_back(RD::get_singleton()->texture_create(tf, RD::TextureView()));
+
+		current = RD::get_singleton()->texture_create(tf, RD::TextureView());
+		RD::get_singleton()->texture_clear(current, Color(0.0, 0.0, 0.0), 0u, 1u, 0u, 1u);
+
+		histogram_buffer = RD::get_singleton()->storage_buffer_create(LUMINANCE_HISTOGRAM_BINS * sizeof(uint32_t));
+
+		return;
+	}
+
 	Size2i internal_size = p_render_buffers->get_internal_size();
 	int w = internal_size.x;
 	int h = internal_size.y;
@@ -129,6 +164,11 @@ void Luminance::LuminanceBuffers::free_data() {
 	if (current.is_valid()) {
 		RD::get_singleton()->free_rid(current);
 		current = RID();
+	}
+
+	if (histogram_buffer.is_valid()) {
+		RD::get_singleton()->free_rid(histogram_buffer);
+		histogram_buffer = RID();
 	}
 }
 
@@ -252,6 +292,88 @@ void Luminance::luminance_reduction(RID p_source_texture, const Size2i p_source_
 
 		RD::get_singleton()->compute_list_end();
 	}
+
+	SWAP(p_luminance_buffers->current, p_luminance_buffers->reduce.write[p_luminance_buffers->reduce.size() - 1]);
+}
+
+void Luminance::luminance_histogram(RID p_source_texture, const Size2i p_source_size, Ref<LuminanceBuffers> p_luminance_buffers, float p_min_luminance, float p_max_luminance, float p_adjust, float p_low_percent, float p_high_percent, float p_histogram_min_luminance, float p_histogram_max_luminance, bool p_set) {
+	ERR_FAIL_COND(prefer_raster_effects);
+	ERR_FAIL_COND(p_luminance_buffers.is_null());
+	ERR_FAIL_COND(p_luminance_buffers->histogram_buffer.is_null());
+
+	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
+	ERR_FAIL_NULL(uniform_set_cache);
+	MaterialStorage *material_storage = MaterialStorage::get_singleton();
+	ERR_FAIL_NULL(material_storage);
+
+	RID default_sampler = material_storage->sampler_rd_get_default(RSE::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+	RID dest_texture = p_luminance_buffers->reduce[p_luminance_buffers->reduce.size() - 1];
+
+	// The metering range is binned in log space, so the bottom has to stay clear of
+	// zero, and the range has to be wide enough to divide by.
+	float histogram_min = MAX(p_histogram_min_luminance, (float)CMP_EPSILON);
+	float histogram_max = MAX(p_histogram_max_luminance, histogram_min * 2.0f);
+	float log_min = Math::log2(histogram_min);
+	float log_range = Math::log2(histogram_max) - log_min;
+
+	RD::get_singleton()->buffer_clear(p_luminance_buffers->histogram_buffer, 0, LUMINANCE_HISTOGRAM_BINS * sizeof(uint32_t));
+
+	RD::Uniform u_histogram(RD::UNIFORM_TYPE_STORAGE_BUFFER, 0, p_luminance_buffers->histogram_buffer);
+
+	RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+
+	// Pass 1: bin every texel of the source by log2(luminance).
+	{
+		LuminanceHistogramBuildPushConstant push_constant;
+		memset(&push_constant, 0, sizeof(LuminanceHistogramBuildPushConstant));
+
+		push_constant.source_size[0] = p_source_size.x;
+		push_constant.source_size[1] = p_source_size.y;
+		push_constant.min_luminance = histogram_min;
+		push_constant.log_min = log_min;
+		push_constant.inv_log_range = 1.0f / log_range;
+
+		RID shader = histogram.build_shader.version_get_shader(histogram.build_shader_version, 0);
+		RD::Uniform u_source_texture(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>({ default_sampler, p_source_texture }));
+
+		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, histogram.build_pipeline);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 0, u_source_texture), 0);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 1, u_histogram), 1);
+		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(LuminanceHistogramBuildPushConstant));
+
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_source_size.x, p_source_size.y, 1);
+	}
+
+	RD::get_singleton()->compute_list_add_barrier(compute_list);
+
+	// Pass 2: trim the outlying percentiles and average the rest into the 1x1 target.
+	{
+		LuminanceHistogramResolvePushConstant push_constant;
+		memset(&push_constant, 0, sizeof(LuminanceHistogramResolvePushConstant));
+
+		push_constant.low_percent = CLAMP(p_low_percent, 0.0f, 1.0f);
+		push_constant.high_percent = CLAMP(p_high_percent, push_constant.low_percent, 1.0f);
+		push_constant.log_min = log_min;
+		push_constant.log_range = log_range;
+		push_constant.min_clamp = p_min_luminance;
+		push_constant.max_clamp = p_max_luminance;
+		push_constant.exposure_adjust = p_adjust;
+		push_constant.set_immediate = p_set ? 1 : 0;
+
+		RID shader = histogram.resolve_shader.version_get_shader(histogram.resolve_shader_version, 0);
+		RD::Uniform u_dest_texture(RD::UNIFORM_TYPE_IMAGE, 0, dest_texture);
+		RD::Uniform u_current_texture(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>({ default_sampler, p_luminance_buffers->current }));
+
+		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, histogram.resolve_pipeline);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 0, u_histogram), 0);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 1, u_dest_texture), 1);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 2, u_current_texture), 2);
+		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(LuminanceHistogramResolvePushConstant));
+
+		RD::get_singleton()->compute_list_dispatch(compute_list, 1, 1, 1);
+	}
+
+	RD::get_singleton()->compute_list_end();
 
 	SWAP(p_luminance_buffers->current, p_luminance_buffers->reduce.write[p_luminance_buffers->reduce.size() - 1]);
 }

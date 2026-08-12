@@ -567,7 +567,17 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
 		double step = RSG::camera_attributes->camera_attributes_get_auto_exposure_adjust_speed(p_render_data->camera_attributes) * time_step;
 		float auto_exposure_min_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_min_sensitivity(p_render_data->camera_attributes);
 		float auto_exposure_max_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_max_sensitivity(p_render_data->camera_attributes);
-		luminance->luminance_reduction(rb->get_internal_texture(), rb->get_internal_size(), luminance_buffers, auto_exposure_min_sensitivity, auto_exposure_max_sensitivity, step, set_immediate);
+		if (luminance->can_use_histogram()) {
+			luminance->luminance_histogram(rb->get_internal_texture(), rb->get_internal_size(), luminance_buffers, auto_exposure_min_sensitivity, auto_exposure_max_sensitivity, step,
+					RSG::camera_attributes->camera_attributes_get_auto_exposure_low_percent(p_render_data->camera_attributes),
+					RSG::camera_attributes->camera_attributes_get_auto_exposure_high_percent(p_render_data->camera_attributes),
+					RSG::camera_attributes->camera_attributes_get_auto_exposure_histogram_min_luminance(p_render_data->camera_attributes),
+					RSG::camera_attributes->camera_attributes_get_auto_exposure_histogram_max_luminance(p_render_data->camera_attributes),
+					set_immediate);
+		} else {
+			// No compute/storage support, fall back to whole-frame mean metering.
+			luminance->luminance_reduction(rb->get_internal_texture(), rb->get_internal_size(), luminance_buffers, auto_exposure_min_sensitivity, auto_exposure_max_sensitivity, step, set_immediate);
+		}
 
 		// Swap final reduce with prev luminance.
 

@@ -31,11 +31,14 @@
 #pragma once
 
 #include "servers/rendering/renderer_rd/pipeline_cache_rd.h"
+#include "servers/rendering/renderer_rd/shaders/effects/luminance_histogram_build.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/luminance_histogram_resolve.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/luminance_reduce_raster.glsl.gen.h"
 #include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
 
 #define RB_LUMINANCE_BUFFERS SNAME("luminance_buffers")
+#define LUMINANCE_HISTOGRAM_BINS 256
 
 namespace RendererRD {
 
@@ -86,6 +89,35 @@ private:
 		PipelineCacheRD pipelines[LUMINANCE_REDUCE_FRAGMENT_MAX];
 	} luminance_reduce_raster;
 
+	struct LuminanceHistogramBuildPushConstant {
+		int32_t source_size[2];
+		float min_luminance;
+		float log_min;
+		float inv_log_range;
+		float pad[3];
+	};
+
+	struct LuminanceHistogramResolvePushConstant {
+		float low_percent;
+		float high_percent;
+		float log_min;
+		float log_range;
+		float min_clamp;
+		float max_clamp;
+		float exposure_adjust;
+		uint32_t set_immediate;
+	};
+
+	struct LuminanceHistogram {
+		LuminanceHistogramBuildShaderRD build_shader;
+		RID build_shader_version;
+		RID build_pipeline;
+
+		LuminanceHistogramResolveShaderRD resolve_shader;
+		RID resolve_shader_version;
+		RID resolve_pipeline;
+	} histogram;
+
 public:
 	class LuminanceBuffers : public RenderBufferCustomDataRD {
 		GDCLASS(LuminanceBuffers, RenderBufferCustomDataRD);
@@ -96,6 +128,7 @@ public:
 	public:
 		Vector<RID> reduce;
 		RID current;
+		RID histogram_buffer;
 
 		virtual void configure(RenderSceneBuffersRD *p_render_buffers) override;
 		virtual void free_data() override;
@@ -106,6 +139,9 @@ public:
 	Ref<LuminanceBuffers> get_luminance_buffers(Ref<RenderSceneBuffersRD> p_render_buffers);
 	RID get_current_luminance_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
 	void luminance_reduction(RID p_source_texture, const Size2i p_source_size, Ref<LuminanceBuffers> p_luminance_buffers, float p_min_luminance, float p_max_luminance, float p_adjust, bool p_set = false);
+	void luminance_histogram(RID p_source_texture, const Size2i p_source_size, Ref<LuminanceBuffers> p_luminance_buffers, float p_min_luminance, float p_max_luminance, float p_adjust, float p_low_percent, float p_high_percent, float p_histogram_min_luminance, float p_histogram_max_luminance, bool p_set = false);
+
+	_FORCE_INLINE_ bool can_use_histogram() const { return !prefer_raster_effects; }
 
 	Luminance(bool p_prefer_raster_effects);
 	~Luminance();

@@ -159,6 +159,39 @@ void RendererCameraAttributes::camera_attributes_set_auto_exposure(RID p_camera_
 	cam_attributes->auto_exposure_scale = p_scale;
 }
 
+void RendererCameraAttributes::camera_attributes_set_auto_exposure_histogram(RID p_camera_attributes, float p_low_percent, float p_high_percent, float p_min_luminance, float p_max_luminance) {
+	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
+	ERR_FAIL_NULL(cam_attributes);
+	cam_attributes->auto_exposure_low_percent = p_low_percent;
+	cam_attributes->auto_exposure_high_percent = p_high_percent;
+	cam_attributes->auto_exposure_histogram_min_luminance = p_min_luminance;
+	cam_attributes->auto_exposure_histogram_max_luminance = p_max_luminance;
+}
+
+float RendererCameraAttributes::camera_attributes_get_auto_exposure_low_percent(RID p_camera_attributes) {
+	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
+	ERR_FAIL_NULL_V(cam_attributes, 0.0);
+	return cam_attributes->auto_exposure_low_percent;
+}
+
+float RendererCameraAttributes::camera_attributes_get_auto_exposure_high_percent(RID p_camera_attributes) {
+	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
+	ERR_FAIL_NULL_V(cam_attributes, 1.0);
+	return cam_attributes->auto_exposure_high_percent;
+}
+
+float RendererCameraAttributes::camera_attributes_get_auto_exposure_histogram_min_luminance(RID p_camera_attributes) {
+	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
+	ERR_FAIL_NULL_V(cam_attributes, 0.0);
+	return cam_attributes->auto_exposure_histogram_min_luminance;
+}
+
+float RendererCameraAttributes::camera_attributes_get_auto_exposure_histogram_max_luminance(RID p_camera_attributes) {
+	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
+	ERR_FAIL_NULL_V(cam_attributes, 0.0);
+	return cam_attributes->auto_exposure_histogram_max_luminance;
+}
+
 float RendererCameraAttributes::camera_attributes_get_auto_exposure_min_sensitivity(RID p_camera_attributes) {
 	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
 	ERR_FAIL_NULL_V(cam_attributes, 0.0);

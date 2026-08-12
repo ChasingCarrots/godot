@@ -63,6 +63,17 @@
 				Sets the parameters to use with the auto-exposure effect. These parameters take on the same meaning as their counterparts in [CameraAttributes] and [CameraAttributesPractical].
 			</description>
 		</method>
+		<method name="camera_attributes_set_auto_exposure_histogram">
+			<return type="void" />
+			<param index="0" name="camera_attributes" type="RID" />
+			<param index="1" name="low_percent" type="float" />
+			<param index="2" name="high_percent" type="float" />
+			<param index="3" name="min_luminance" type="float" />
+			<param index="4" name="max_luminance" type="float" />
+			<description>
+				Sets the parameters to use with histogram-based auto-exposure metering. [param low_percent] and [param high_percent] take on the same meaning as their counterparts in [CameraAttributes]. [param min_luminance] and [param max_luminance] bound the histogram's binning range in linear luminance, corresponding to [member CameraAttributes.auto_exposure_histogram_min_ev] and [member CameraAttributes.auto_exposure_histogram_max_ev] converted from EV100.
+			</description>
+		</method>
 		<method name="camera_attributes_set_dof_blur">
 			<return type="void" />
 			<param index="0" name="camera_attributes" type="RID" />

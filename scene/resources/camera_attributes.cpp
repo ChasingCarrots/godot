@@ -49,6 +49,9 @@ float CameraAttributes::get_exposure_multiplier() const {
 void CameraAttributes::set_exposure_sensitivity(float p_sensitivity) {
 	exposure_sensitivity = p_sensitivity;
 	_update_exposure();
+	// The histogram range is stored in EV100 but sent as luminance, which is
+	// scaled by the sensitivity, so it has to be resent.
+	_update_auto_exposure_histogram();
 	emit_changed();
 }
 
@@ -94,6 +97,55 @@ float CameraAttributes::get_auto_exposure_scale() const {
 	return auto_exposure_scale;
 }
 
+void CameraAttributes::set_auto_exposure_low_percent(float p_low_percent) {
+	auto_exposure_low_percent = p_low_percent;
+	_update_auto_exposure_histogram();
+}
+
+float CameraAttributes::get_auto_exposure_low_percent() const {
+	return auto_exposure_low_percent;
+}
+
+void CameraAttributes::set_auto_exposure_high_percent(float p_high_percent) {
+	auto_exposure_high_percent = p_high_percent;
+	_update_auto_exposure_histogram();
+}
+
+float CameraAttributes::get_auto_exposure_high_percent() const {
+	return auto_exposure_high_percent;
+}
+
+void CameraAttributes::set_auto_exposure_histogram_min_ev(float p_min_ev) {
+	auto_exposure_histogram_min_ev = p_min_ev;
+	_update_auto_exposure_histogram();
+}
+
+float CameraAttributes::get_auto_exposure_histogram_min_ev() const {
+	return auto_exposure_histogram_min_ev;
+}
+
+void CameraAttributes::set_auto_exposure_histogram_max_ev(float p_max_ev) {
+	auto_exposure_histogram_max_ev = p_max_ev;
+	_update_auto_exposure_histogram();
+}
+
+float CameraAttributes::get_auto_exposure_histogram_max_ev() const {
+	return auto_exposure_histogram_max_ev;
+}
+
+void CameraAttributes::_update_auto_exposure_histogram() {
+	// The metering range is authored in EV100; the renderer meters in the linear
+	// luminance units of the internal buffer, so use the same EV100 -> luminance
+	// conversion CameraAttributesPhysical uses for its min/max.
+	RS::get_singleton()->camera_attributes_set_auto_exposure_histogram(
+			camera_attributes,
+			auto_exposure_low_percent,
+			auto_exposure_high_percent,
+			std::pow(2.0, auto_exposure_histogram_min_ev) * (12.5 / exposure_sensitivity),
+			std::pow(2.0, auto_exposure_histogram_max_ev) * (12.5 / exposure_sensitivity));
+	emit_changed();
+}
+
 RID CameraAttributes::get_rid() const {
 	return camera_attributes;
 }
@@ -126,6 +178,15 @@ void CameraAttributes::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_auto_exposure_scale", "exposure_grey"), &CameraAttributes::set_auto_exposure_scale);
 	ClassDB::bind_method(D_METHOD("get_auto_exposure_scale"), &CameraAttributes::get_auto_exposure_scale);
 
+	ClassDB::bind_method(D_METHOD("set_auto_exposure_low_percent", "low_percent"), &CameraAttributes::set_auto_exposure_low_percent);
+	ClassDB::bind_method(D_METHOD("get_auto_exposure_low_percent"), &CameraAttributes::get_auto_exposure_low_percent);
+	ClassDB::bind_method(D_METHOD("set_auto_exposure_high_percent", "high_percent"), &CameraAttributes::set_auto_exposure_high_percent);
+	ClassDB::bind_method(D_METHOD("get_auto_exposure_high_percent"), &CameraAttributes::get_auto_exposure_high_percent);
+	ClassDB::bind_method(D_METHOD("set_auto_exposure_histogram_min_ev", "min_ev"), &CameraAttributes::set_auto_exposure_histogram_min_ev);
+	ClassDB::bind_method(D_METHOD("get_auto_exposure_histogram_min_ev"), &CameraAttributes::get_auto_exposure_histogram_min_ev);
+	ClassDB::bind_method(D_METHOD("set_auto_exposure_histogram_max_ev", "max_ev"), &CameraAttributes::set_auto_exposure_histogram_max_ev);
+	ClassDB::bind_method(D_METHOD("get_auto_exposure_histogram_max_ev"), &CameraAttributes::get_auto_exposure_histogram_max_ev);
+
 	ADD_GROUP("Exposure", "exposure_");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "exposure_sensitivity", PROPERTY_HINT_RANGE, "0.1,32000.0,0.1,suffix:ISO"), "set_exposure_sensitivity", "get_exposure_sensitivity");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "exposure_multiplier", PROPERTY_HINT_RANGE, "0.0,8.0,0.001,or_greater"), "set_exposure_multiplier", "get_exposure_multiplier");
@@ -134,10 +195,15 @@ void CameraAttributes::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_exposure_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_auto_exposure_enabled", "is_auto_exposure_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_scale", PROPERTY_HINT_RANGE, "0.01,64,0.01"), "set_auto_exposure_scale", "get_auto_exposure_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_speed", PROPERTY_HINT_RANGE, "0.01,64,0.01"), "set_auto_exposure_speed", "get_auto_exposure_speed");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_low_percent", PROPERTY_HINT_RANGE, "0.0,1.0,0.01"), "set_auto_exposure_low_percent", "get_auto_exposure_low_percent");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_high_percent", PROPERTY_HINT_RANGE, "0.0,1.0,0.01"), "set_auto_exposure_high_percent", "get_auto_exposure_high_percent");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_histogram_min_ev", PROPERTY_HINT_RANGE, "-16.0,16.0,0.01,or_greater,or_less,suffix:EV100"), "set_auto_exposure_histogram_min_ev", "get_auto_exposure_histogram_min_ev");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_histogram_max_ev", PROPERTY_HINT_RANGE, "-16.0,16.0,0.01,or_greater,or_less,suffix:EV100"), "set_auto_exposure_histogram_max_ev", "get_auto_exposure_histogram_max_ev");
 }
 
 CameraAttributes::CameraAttributes() {
 	camera_attributes = RS::get_singleton()->camera_attributes_create();
+	_update_auto_exposure_histogram();
 }
 
 CameraAttributes::~CameraAttributes() {

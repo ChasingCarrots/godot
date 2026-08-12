@@ -49,6 +49,13 @@ private:
 		float auto_exposure_scale = 1.0;
 		uint64_t auto_exposure_version = 0;
 
+		// Histogram metering. Percentiles of the pixel population to discard at each
+		// end; luminances bounding the log-space binning range.
+		float auto_exposure_low_percent = 0.40;
+		float auto_exposure_high_percent = 0.95;
+		float auto_exposure_histogram_min_luminance = 0.00048828125; // EV100 -8 at ISO 100.
+		float auto_exposure_histogram_max_luminance = 8192.0; // EV100 16 at ISO 100.
+
 		bool dof_blur_far_enabled = false;
 		float dof_blur_far_distance = 10;
 		float dof_blur_far_transition = 5;
@@ -100,6 +107,11 @@ public:
 	float camera_attributes_get_exposure_normalization_factor(RID p_camera_attributes);
 
 	void camera_attributes_set_auto_exposure(RID p_camera_attributes, bool p_enable, float p_min_sensitivity, float p_max_sensitivity, float p_speed, float p_scale);
+	void camera_attributes_set_auto_exposure_histogram(RID p_camera_attributes, float p_low_percent, float p_high_percent, float p_min_luminance, float p_max_luminance);
+	float camera_attributes_get_auto_exposure_low_percent(RID p_camera_attributes);
+	float camera_attributes_get_auto_exposure_high_percent(RID p_camera_attributes);
+	float camera_attributes_get_auto_exposure_histogram_min_luminance(RID p_camera_attributes);
+	float camera_attributes_get_auto_exposure_histogram_max_luminance(RID p_camera_attributes);
 	float camera_attributes_get_auto_exposure_min_sensitivity(RID p_camera_attributes);
 	float camera_attributes_get_auto_exposure_max_sensitivity(RID p_camera_attributes);
 	float camera_attributes_get_auto_exposure_adjust_speed(RID p_camera_attributes);

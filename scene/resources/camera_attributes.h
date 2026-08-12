@@ -52,7 +52,19 @@ protected:
 	float auto_exposure_max = 64.0;
 	float auto_exposure_speed = 0.5;
 	float auto_exposure_scale = 0.4;
+
+	// Histogram metering. The range is always expressed in EV100 regardless of the
+	// units the subclass uses for min/max, since it describes the metering range
+	// rather than a sensitivity.
+	float auto_exposure_low_percent = 0.40;
+	float auto_exposure_high_percent = 0.95;
+	float auto_exposure_histogram_min_ev = -8.0;
+	float auto_exposure_histogram_max_ev = 16.0;
+
 	virtual void _update_auto_exposure() {}
+	// Shared by both subclasses: converts the EV100 histogram range into the linear
+	// luminance units the renderer meters in, and pushes it to the server.
+	void _update_auto_exposure_histogram();
 
 public:
 	virtual RID get_rid() const override;
@@ -69,6 +81,15 @@ public:
 	float get_auto_exposure_speed() const;
 	void set_auto_exposure_scale(float p_auto_exposure_scale);
 	float get_auto_exposure_scale() const;
+
+	void set_auto_exposure_low_percent(float p_low_percent);
+	float get_auto_exposure_low_percent() const;
+	void set_auto_exposure_high_percent(float p_high_percent);
+	float get_auto_exposure_high_percent() const;
+	void set_auto_exposure_histogram_min_ev(float p_min_ev);
+	float get_auto_exposure_histogram_min_ev() const;
+	void set_auto_exposure_histogram_max_ev(float p_max_ev);
+	float get_auto_exposure_histogram_max_ev() const;
 
 	CameraAttributes();
 	~CameraAttributes();

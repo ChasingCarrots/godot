@@ -16,6 +16,20 @@
 			If [code]true[/code], enables the tonemapping auto exposure mode of the scene renderer. If [code]true[/code], the renderer will automatically determine the exposure setting to adapt to the scene's illumination and the observed light.
 			[b]Note:[/b] Auto-exposure is only supported in the Forward+ rendering method, not Mobile or Compatibility.
 		</member>
+		<member name="auto_exposure_high_percent" type="float" setter="set_auto_exposure_high_percent" getter="get_auto_exposure_high_percent" default="0.95">
+			The brightest end of the metered pixel population, as a fraction. Pixels above this percentile are excluded from metering, so small very bright areas (the sun, a lamp, a muzzle flash) do not darken the whole image. Lower this to ignore more highlights.
+			[b]Note:[/b] Histogram metering requires the Forward+ rendering method. On devices without compute support the renderer falls back to whole-frame average metering and this property is ignored.
+		</member>
+		<member name="auto_exposure_histogram_max_ev" type="float" setter="set_auto_exposure_histogram_max_ev" getter="get_auto_exposure_histogram_max_ev" default="16.0">
+			The brightest luminance the metering histogram can represent, in EV100. Anything brighter is metered as if it were this bright. This bounds the histogram's binning range and is independent of the exposure clamp imposed by the minimum and maximum sensitivity.
+		</member>
+		<member name="auto_exposure_histogram_min_ev" type="float" setter="set_auto_exposure_histogram_min_ev" getter="get_auto_exposure_histogram_min_ev" default="-8.0">
+			The darkest luminance the metering histogram can represent, in EV100. Anything darker is metered as if it were this dark. Widening the gap to [member auto_exposure_histogram_max_ev] covers more of the scene at the cost of coarser resolution, since the range is divided into a fixed number of bins.
+		</member>
+		<member name="auto_exposure_low_percent" type="float" setter="set_auto_exposure_low_percent" getter="get_auto_exposure_low_percent" default="0.4">
+			The darkest end of the metered pixel population, as a fraction. Pixels below this percentile are excluded from metering, so small very dark areas (a doorway, a shadowed corner) do not brighten the whole image. Raise this to ignore more shadows.
+			[b]Note:[/b] Histogram metering requires the Forward+ rendering method. On devices without compute support the renderer falls back to whole-frame average metering and this property is ignored.
+		</member>
 		<member name="auto_exposure_scale" type="float" setter="set_auto_exposure_scale" getter="get_auto_exposure_scale" default="0.4">
 			The scale of the auto exposure effect. Affects the intensity of auto exposure.
 		</member>
