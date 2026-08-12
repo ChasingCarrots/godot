@@ -4261,6 +4261,14 @@
 				Sets the default texture repeat mode for the specified [param viewport] RID.
 			</description>
 		</method>
+		<method name="viewport_set_depth_only">
+			<return type="void" />
+			<param index="0" name="viewport" type="RID" />
+			<param index="1" name="enable" type="bool" />
+			<description>
+				If [param enable] is [code]true[/code], the viewport only renders the depth of the scene's geometry, skipping lights, shadows, decals, global illumination, sky and transparent geometry. A [CompositorEffect] using [constant CompositorEffect.EFFECT_CALLBACK_TYPE_POST_OPAQUE] is expected to turn the resulting depth buffer into an image. Equivalent to [member Viewport.depth_only].
+			</description>
+		</method>
 		<method name="viewport_set_disable_2d">
 			<return type="void" />
 			<param index="0" name="viewport" type="RID" />
@@ -4491,6 +4499,14 @@
 			<param index="1" name="enable" type="bool" />
 			<description>
 				If [code]true[/code], enables occlusion culling on the specified viewport. Equivalent to [member ProjectSettings.rendering/occlusion_culling/use_occlusion_culling].
+			</description>
+		</method>
+		<method name="viewport_set_use_shadows">
+			<return type="void" />
+			<param index="0" name="viewport" type="RID" />
+			<param index="1" name="enable" type="bool" />
+			<description>
+				If [param enable] is [code]false[/code], lights do not cast shadows when rendering this viewport. Unlike a positional shadow atlas size of [code]0[/code], this also skips directional light shadows. Equivalent to [member Viewport.use_shadows].
 			</description>
 		</method>
 		<method name="viewport_set_use_taa">

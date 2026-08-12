@@ -790,6 +790,8 @@ public:
 	FUNC3(viewport_set_positional_shadow_atlas_size, RID, int, bool)
 	FUNC3(viewport_set_sdf_oversize_and_scale, RID, RSE::ViewportSDFOversize, RSE::ViewportSDFScale)
 	FUNC3(viewport_set_positional_shadow_atlas_quadrant_subdivision, RID, int, int)
+	FUNC2(viewport_set_use_shadows, RID, bool)
+	FUNC2(viewport_set_depth_only, RID, bool)
 	FUNC2(viewport_set_msaa_2d, RID, RSE::ViewportMSAA)
 	FUNC2(viewport_set_msaa_3d, RID, RSE::ViewportMSAA)
 	FUNC2(viewport_set_screen_space_aa, RID, RSE::ViewportScreenSpaceAA)

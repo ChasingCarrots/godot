@@ -62,6 +62,9 @@ public:
 
 	uint64_t render_pass;
 
+	// Set per viewport draw by RendererViewport, mirroring `set_debug_draw_mode`.
+	bool depth_only_mode = false;
+
 	static RendererSceneCull *singleton;
 
 	/* EVENT QUEUING */
@@ -1395,6 +1398,13 @@ public:
 
 	/* Misc */
 	PASS1(set_debug_draw_mode, RSE::ViewportDebugDraw)
+
+	// Kept locally as well as forwarded, so culling can skip work the depth-only pass
+	// would never consume (see `_render_scene`).
+	virtual void set_depth_only_mode(bool p_enable) override {
+		depth_only_mode = p_enable;
+		scene_render->set_depth_only_mode(p_enable);
+	}
 
 	PASS1(decals_set_filter, RSE::DecalFilter)
 	PASS1(light_projectors_set_filter, RSE::LightProjectorFilter)

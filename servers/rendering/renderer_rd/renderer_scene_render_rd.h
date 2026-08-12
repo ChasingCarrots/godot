@@ -90,6 +90,9 @@ protected:
 	virtual void setup_render_buffer_data(Ref<RenderSceneBuffersRD> p_render_buffers) = 0;
 
 	virtual void _render_scene(RenderDataRD *p_render_data, const Color &p_default_color) = 0;
+	// Depth-only pass for viewports that only need a depth buffer (see `viewport_set_depth_only`).
+	// Returns false when the renderer has no depth-only path, so the caller falls back to `_render_scene`.
+	virtual bool _render_depth_only(RenderDataRD *p_render_data, const Color &p_default_color) { return false; }
 	virtual void _render_buffers_debug_draw(const RenderDataRD *p_render_data);
 
 	virtual void _render_material(const Transform3D &p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal, const PagedArray<RenderGeometryInstance *> &p_instances, RID p_framebuffer, const Rect2i &p_region, float p_exposure_normalization) = 0;
@@ -128,6 +131,7 @@ protected:
 
 private:
 	RSE::ViewportDebugDraw debug_draw = RSE::VIEWPORT_DEBUG_DRAW_DISABLED;
+	bool depth_only_mode = false;
 	static RendererSceneRenderRD *singleton;
 
 	/* Shadow atlas */
@@ -345,6 +349,13 @@ public:
 	virtual void set_debug_draw_mode(RSE::ViewportDebugDraw p_debug_draw) override;
 	_FORCE_INLINE_ RSE::ViewportDebugDraw get_debug_draw_mode() const {
 		return debug_draw;
+	}
+
+	virtual void set_depth_only_mode(bool p_enable) override {
+		depth_only_mode = p_enable;
+	}
+	_FORCE_INLINE_ bool is_depth_only_mode() const {
+		return depth_only_mode;
 	}
 
 	virtual void set_time(double p_time, double p_step) override;

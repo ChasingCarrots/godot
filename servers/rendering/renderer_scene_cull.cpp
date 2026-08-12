@@ -2789,7 +2789,10 @@ void RendererSceneCull::render_camera(const Ref<RenderSceneBuffers> &p_render_bu
 	// For now just cull on the first camera
 	RendererSceneOcclusionCull::get_singleton()->buffer_update(p_viewport, camera_data.main_transform, camera_data.main_projection, camera_data.is_orthogonal);
 
-	_render_scene(&camera_data, p_render_buffers, environment, camera->attributes, compositor, camera->visible_layers, p_scenario, p_viewport, p_shadow_atlas, RID(), -1, p_screen_mesh_lod_threshold, p_window_output_max_value, true, r_render_info);
+	// A depth-only viewport consumes no shadow maps, so never pay for rendering them.
+	const bool using_shadows = !depth_only_mode && RSG::viewport->viewport_is_using_shadows(p_viewport);
+
+	_render_scene(&camera_data, p_render_buffers, environment, camera->attributes, compositor, camera->visible_layers, p_scenario, p_viewport, p_shadow_atlas, RID(), -1, p_screen_mesh_lod_threshold, p_window_output_max_value, using_shadows, r_render_info);
 #endif
 }
 
@@ -3306,6 +3309,10 @@ void RendererSceneCull::_scene_particles_set_view_axis(RID p_particles, const Ve
 void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_camera_data, const Ref<RenderSceneBuffers> &p_render_buffers, RID p_environment, RID p_force_camera_attributes, RID p_compositor, uint32_t p_visible_layers, RID p_scenario, RID p_viewport, RID p_shadow_atlas, RID p_reflection_probe, int p_reflection_probe_pass, float p_screen_mesh_lod_threshold, float p_window_output_max_value, bool p_using_shadows, RenderingServerTypes::RenderInfo *r_render_info) {
 	Instance *render_reflection_probe = instance_owner.get_or_null(p_reflection_probe); //if null, not rendering to it
 
+	// Reflection probes are rendered from within a viewport's draw, so they must not
+	// inherit the viewport's depth-only mode.
+	const bool depth_only = depth_only_mode && p_reflection_probe.is_null();
+
 	// Prepare the light - camera volume culling system.
 	light_culler->prepare_camera(p_camera_data->main_transform, p_camera_data->main_projection);
 
@@ -3318,7 +3325,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 
 	scene_render->set_scene_pass(render_pass);
 
-	if (p_reflection_probe.is_null()) {
+	if (p_reflection_probe.is_null() && !depth_only) {
 		//no rendering code here, this is only to set up what needs to be done, request regions, etc.
 		scene_render->sdfgi_update(p_render_buffers, p_environment, camera_position); //update conditions for SDFGI (whether its used or not)
 	}
@@ -3400,7 +3407,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	{ //sdfgi
 		cull.sdfgi.region_count = 0;
 
-		if (p_reflection_probe.is_null()) {
+		if (p_reflection_probe.is_null() && !depth_only) {
 			cull.sdfgi.cascade_light_count = 0;
 
 			uint32_t prev_cascade = 0xFFFFFFFF;

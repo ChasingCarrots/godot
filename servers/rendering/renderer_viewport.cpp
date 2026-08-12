@@ -902,6 +902,7 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 
 				// render...
 				RSG::scene->set_debug_draw_mode(vp->debug_draw);
+				RSG::scene->set_depth_only_mode(vp->depth_only);
 
 				// and draw viewport
 				_draw_viewport(vp);
@@ -929,6 +930,7 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 #endif // XR_DISABLED
 		{
 			RSG::scene->set_debug_draw_mode(vp->debug_draw);
+			RSG::scene->set_depth_only_mode(vp->depth_only);
 
 			// render standard mono camera
 			_draw_viewport(vp);
@@ -974,6 +976,7 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 	}
 
 	RSG::scene->set_debug_draw_mode(RSE::VIEWPORT_DEBUG_DRAW_DISABLED);
+	RSG::scene->set_depth_only_mode(false);
 
 	total_objects_drawn = objects_drawn;
 	total_vertices_drawn = vertices_drawn;
@@ -1390,6 +1393,39 @@ void RendererViewport::viewport_set_positional_shadow_atlas_quadrant_subdivision
 	ERR_FAIL_NULL(viewport);
 
 	RSG::light_storage->shadow_atlas_set_quadrant_subdivision(viewport->shadow_atlas, p_quadrant, p_subdiv);
+}
+
+void RendererViewport::viewport_set_use_shadows(RID p_viewport, bool p_use_shadows) {
+	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	ERR_FAIL_NULL(viewport);
+
+	viewport->use_shadows = p_use_shadows;
+}
+
+bool RendererViewport::viewport_is_using_shadows(RID p_viewport) const {
+	const Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	// Rendering paths without a viewport (reflection probes) keep the default behavior.
+	if (!viewport) {
+		return true;
+	}
+
+	return viewport->use_shadows;
+}
+
+void RendererViewport::viewport_set_depth_only(RID p_viewport, bool p_depth_only) {
+	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	ERR_FAIL_NULL(viewport);
+
+	viewport->depth_only = p_depth_only;
+}
+
+bool RendererViewport::viewport_is_depth_only(RID p_viewport) const {
+	const Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	if (!viewport) {
+		return false;
+	}
+
+	return viewport->depth_only;
 }
 
 void RendererViewport::viewport_set_msaa_2d(RID p_viewport, RSE::ViewportMSAA p_msaa) {

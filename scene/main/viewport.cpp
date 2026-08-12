@@ -3898,6 +3898,36 @@ bool Viewport::is_using_occlusion_culling() const {
 	return use_occlusion_culling;
 }
 
+void Viewport::set_use_shadows(bool p_use_shadows) {
+	ERR_MAIN_THREAD_GUARD;
+	if (use_shadows == p_use_shadows) {
+		return;
+	}
+
+	use_shadows = p_use_shadows;
+	RS::get_singleton()->viewport_set_use_shadows(viewport, p_use_shadows);
+}
+
+bool Viewport::is_using_shadows() const {
+	ERR_READ_THREAD_GUARD_V(false);
+	return use_shadows;
+}
+
+void Viewport::set_depth_only(bool p_depth_only) {
+	ERR_MAIN_THREAD_GUARD;
+	if (depth_only == p_depth_only) {
+		return;
+	}
+
+	depth_only = p_depth_only;
+	RS::get_singleton()->viewport_set_depth_only(viewport, p_depth_only);
+}
+
+bool Viewport::is_depth_only() const {
+	ERR_READ_THREAD_GUARD_V(false);
+	return depth_only;
+}
+
 void Viewport::set_debug_draw(DebugDraw p_debug_draw) {
 	ERR_MAIN_THREAD_GUARD;
 	debug_draw = p_debug_draw;
@@ -5239,6 +5269,12 @@ void Viewport::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_positional_shadow_atlas_16_bits", "enable"), &Viewport::set_positional_shadow_atlas_16_bits);
 	ClassDB::bind_method(D_METHOD("get_positional_shadow_atlas_16_bits"), &Viewport::get_positional_shadow_atlas_16_bits);
 
+	ClassDB::bind_method(D_METHOD("set_use_shadows", "enable"), &Viewport::set_use_shadows);
+	ClassDB::bind_method(D_METHOD("is_using_shadows"), &Viewport::is_using_shadows);
+
+	ClassDB::bind_method(D_METHOD("set_depth_only", "enable"), &Viewport::set_depth_only);
+	ClassDB::bind_method(D_METHOD("is_depth_only"), &Viewport::is_depth_only);
+
 	ClassDB::bind_method(D_METHOD("set_snap_controls_to_pixels", "enabled"), &Viewport::set_snap_controls_to_pixels);
 	ClassDB::bind_method(D_METHOD("is_snap_controls_to_pixels_enabled"), &Viewport::is_snap_controls_to_pixels_enabled);
 
@@ -5396,6 +5432,8 @@ void Viewport::_bind_methods() {
 	ADD_GROUP("SDF", "sdf_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "sdf_oversize", PROPERTY_HINT_ENUM, "100%,120%,150%,200%"), "set_sdf_oversize", "get_sdf_oversize");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "sdf_scale", PROPERTY_HINT_ENUM, "100%,50%,25%"), "set_sdf_scale", "get_sdf_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_shadows"), "set_use_shadows", "is_using_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "depth_only"), "set_depth_only", "is_depth_only");
 	ADD_GROUP("Positional Shadow Atlas", "positional_shadow_atlas_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "positional_shadow_atlas_size"), "set_positional_shadow_atlas_size", "get_positional_shadow_atlas_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "positional_shadow_atlas_16_bits"), "set_positional_shadow_atlas_16_bits", "get_positional_shadow_atlas_16_bits");

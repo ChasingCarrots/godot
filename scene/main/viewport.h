@@ -315,6 +315,9 @@ private:
 	bool positional_shadow_atlas_16_bits = true;
 	PositionalShadowAtlasQuadrantSubdiv positional_shadow_atlas_quadrant_subdiv[4];
 
+	bool use_shadows = true;
+	bool depth_only = false;
+
 	MSAA msaa_2d = MSAA_DISABLED;
 	MSAA msaa_3d = MSAA_DISABLED;
 	ScreenSpaceAA screen_space_aa = SCREEN_SPACE_AA_DISABLED;
@@ -577,6 +580,12 @@ public:
 
 	void set_positional_shadow_atlas_16_bits(bool p_16_bits);
 	bool get_positional_shadow_atlas_16_bits() const;
+
+	void set_use_shadows(bool p_use_shadows);
+	bool is_using_shadows() const;
+
+	void set_depth_only(bool p_depth_only);
+	bool is_depth_only() const;
 
 	void set_positional_shadow_atlas_quadrant_subdiv(int p_quadrant, PositionalShadowAtlasQuadrantSubdiv p_subdiv);
 	PositionalShadowAtlasQuadrantSubdiv get_positional_shadow_atlas_quadrant_subdiv(int p_quadrant) const;

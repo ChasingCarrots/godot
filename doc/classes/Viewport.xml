@@ -341,6 +341,12 @@
 		<member name="debug_draw" type="int" setter="set_debug_draw" getter="get_debug_draw" enum="Viewport.DebugDraw" default="0">
 			The overlay mode for test rendered geometry in debug purposes.
 		</member>
+		<member name="depth_only" type="bool" setter="set_depth_only" getter="is_depth_only" default="false">
+			If [code]true[/code], only the depth of the scene's geometry is rendered for this viewport. Lights, shadows, decals, global illumination, sky and transparent geometry are all skipped, which makes this far cheaper than a regular render.
+			Nothing writes color in this mode, so the viewport shows only the background color unless a [CompositorEffect] with a callback type of [constant CompositorEffect.EFFECT_CALLBACK_TYPE_POST_OPAQUE] is assigned (via [member Camera3D.compositor] or [member Environment]) to turn the depth buffer into an image.
+			[b]Note:[/b] Only supported by the Forward+ rendering method. Other rendering methods fall back to a regular render.
+			[b]Note:[/b] Not compatible with MSAA. Set [member msaa_3d] to [constant MSAA_DISABLED] when using this.
+		</member>
 		<member name="disable_3d" type="bool" setter="set_disable_3d" getter="is_3d_disabled" default="false">
 			Disable 3D rendering (but keep 2D rendering).
 		</member>
@@ -475,6 +481,10 @@
 			If [code]true[/code], [OccluderInstance3D] nodes will be usable for occlusion culling in 3D for this viewport. For the root viewport, [member ProjectSettings.rendering/occlusion_culling/use_occlusion_culling] must be set to [code]true[/code] instead.
 			[b]Note:[/b] Enabling occlusion culling has a cost on the CPU. Only enable occlusion culling if you actually plan to use it, and think whether your scene can actually benefit from occlusion culling. Large, open scenes with few or no objects blocking the view will generally not benefit much from occlusion culling. Large open scenes generally benefit more from mesh LOD and visibility ranges ([member GeometryInstance3D.visibility_range_begin] and [member GeometryInstance3D.visibility_range_end]) compared to occlusion culling.
 			[b]Note:[/b] Due to memory constraints, occlusion culling is not supported by default in Web export templates. It can be enabled by compiling custom Web export templates with [code]module_raycast_enabled=yes[/code].
+		</member>
+		<member name="use_shadows" type="bool" setter="set_use_shadows" getter="is_using_shadows" default="true">
+			If [code]false[/code], lights do not cast shadows when rendering this viewport. Shadow maps are re-rendered for every viewport that draws the scene, so disabling shadows on secondary viewports (such as a camera feed rendered into a [SubViewport]) avoids paying for them more than once per frame.
+			Unlike setting [member positional_shadow_atlas_size] to [code]0[/code], this also skips [DirectionalLight3D] shadows.
 		</member>
 		<member name="use_taa" type="bool" setter="set_use_taa" getter="is_using_taa" default="false">
 			Enables temporal antialiasing for this viewport. TAA works by jittering the camera and accumulating the images of the last rendered frames, motion vector rendering is used to account for camera and object motion.

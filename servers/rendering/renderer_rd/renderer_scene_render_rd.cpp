@@ -1489,7 +1489,7 @@ void RendererSceneRenderRD::render_scene(const Ref<RenderSceneBuffers> &p_render
 
 	PagedArray<RID> empty;
 
-	if (get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_UNSHADED || get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_OVERDRAW) {
+	if (get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_UNSHADED || get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_OVERDRAW || is_depth_only_mode()) {
 		render_data.lights = &empty;
 		render_data.reflection_probes = &empty;
 		render_data.voxel_gi_instances = &empty;
@@ -1499,7 +1499,8 @@ void RendererSceneRenderRD::render_scene(const Ref<RenderSceneBuffers> &p_render
 	if (get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_UNSHADED ||
 			get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_OVERDRAW ||
 			get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_LIGHTING ||
-			get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_PSSM_SPLITS) {
+			get_debug_draw_mode() == RSE::VIEWPORT_DEBUG_DRAW_PSSM_SPLITS ||
+			is_depth_only_mode()) {
 		render_data.decals = &empty;
 	}
 
@@ -1508,6 +1509,14 @@ void RendererSceneRenderRD::render_scene(const Ref<RenderSceneBuffers> &p_render
 		clear_color = texture_storage->render_target_get_clear_request_color(rb->get_render_target());
 	} else {
 		clear_color = RSG::texture_storage->get_default_clear_color();
+	}
+
+	if (is_depth_only_mode() && p_reflection_probe.is_null()) {
+		// Renders geometry depth only; a CompositorEffect is expected to turn it into color.
+		// Renderers without a depth-only path fall through to the regular render.
+		if (_render_depth_only(&render_data, clear_color)) {
+			return;
+		}
 	}
 
 	//calls _pre_opaque_render between depth pre-pass and opaque pass

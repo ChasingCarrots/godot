@@ -593,6 +593,9 @@ public:
 	virtual void viewport_set_positional_shadow_atlas_size(RID p_viewport, int p_size, bool p_16_bits = true) = 0;
 	virtual void viewport_set_positional_shadow_atlas_quadrant_subdivision(RID p_viewport, int p_quadrant, int p_subdiv) = 0;
 
+	virtual void viewport_set_use_shadows(RID p_viewport, bool p_use_shadows) = 0;
+	virtual void viewport_set_depth_only(RID p_viewport, bool p_depth_only) = 0;
+
 	virtual void viewport_set_msaa_3d(RID p_viewport, RSE::ViewportMSAA p_msaa) = 0;
 	virtual void viewport_set_msaa_2d(RID p_viewport, RSE::ViewportMSAA p_msaa) = 0;
 

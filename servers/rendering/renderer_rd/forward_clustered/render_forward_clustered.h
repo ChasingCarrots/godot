@@ -800,6 +800,7 @@ protected:
 	/* Rendering */
 
 	virtual void _render_scene(RenderDataRD *p_render_data, const Color &p_default_bg_color) override;
+	virtual bool _render_depth_only(RenderDataRD *p_render_data, const Color &p_default_bg_color) override; // Defined in render_forward_clustered_depth_only.cpp.
 	virtual void _render_buffers_debug_draw(const RenderDataRD *p_render_data) override;
 
 	virtual void _render_material(const Transform3D &p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal, const PagedArray<RenderGeometryInstance *> &p_instances, RID p_framebuffer, const Rect2i &p_region, float p_exposure_normalization) override;
