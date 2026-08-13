@@ -282,4 +282,95 @@ TEST_CASE("[PackedScene] Recreate State") {
 	memdelete(scene);
 }
 
+// Builds `root -> child -> grandchild` plus a second `root -> sibling`, all owned by the root,
+// mimicking the freshly built node tree an importer packs into `.godot/imported/`.
+static Node *_make_unique_id_test_scene() {
+	Node *root = memnew(Node);
+	root->set_name("Root");
+
+	Node *child = memnew(Node);
+	child->set_name("Child");
+	root->add_child(child);
+	child->set_owner(root);
+
+	Node *grandchild = memnew(Node);
+	grandchild->set_name("GrandChild");
+	child->add_child(grandchild);
+	grandchild->set_owner(root);
+
+	Node *sibling = memnew(Node);
+	sibling->set_name("Sibling");
+	root->add_child(sibling);
+	sibling->set_owner(root);
+
+	return root;
+}
+
+static Vector<int32_t> _pack_and_collect_unique_ids(Node *p_scene) {
+	PackedScene packed_scene;
+	REQUIRE(packed_scene.pack(p_scene) == OK);
+
+	Ref<SceneState> state = packed_scene.get_state();
+	REQUIRE(state.is_valid());
+
+	Vector<int32_t> ids;
+	for (int i = 0; i < state->get_node_count(); i++) {
+		ids.push_back(state->get_node_unique_id(i));
+	}
+	return ids;
+}
+
+TEST_CASE("[PackedScene] Unique Scene IDs Are Deterministic") {
+	// Nodes without an ID must be assigned one derived from the node itself, never a random one.
+	// Imported scenes are re-packed locally by every user, so random IDs would differ per machine
+	// and per re-import, making every scene that overrides a node inside such an instance churn
+	// on save. See `SceneState::_parse_node()`.
+	Node *scene_a = _make_unique_id_test_scene();
+	Node *scene_b = _make_unique_id_test_scene();
+
+	const Vector<int32_t> ids_a = _pack_and_collect_unique_ids(scene_a);
+	const Vector<int32_t> ids_b = _pack_and_collect_unique_ids(scene_b);
+
+	REQUIRE(ids_a.size() == 4);
+
+	SUBCASE("Two identical trees packed separately get identical IDs") {
+		CHECK(ids_a == ids_b);
+	}
+
+	SUBCASE("IDs are assigned, unique and positive") {
+		HashSet<int32_t> seen;
+		for (const int32_t id : ids_a) {
+			CHECK(id != Node::UNIQUE_SCENE_ID_UNASSIGNED);
+			CHECK(id > 0);
+			CHECK_FALSE(seen.has(id));
+			seen.insert(id);
+		}
+	}
+
+	SUBCASE("Re-packing the same scene keeps the IDs") {
+		CHECK(_pack_and_collect_unique_ids(scene_a) == ids_a);
+	}
+
+	memdelete(scene_a);
+	memdelete(scene_b);
+}
+
+TEST_CASE("[PackedScene] Existing Unique Scene IDs Are Preserved") {
+	// An ID that a node already carries must survive packing, otherwise renaming or moving
+	// a node would rewrite IDs that other scenes reference.
+	Node *scene = _make_unique_id_test_scene();
+	Node *child = scene->get_child(0);
+	child->set_unique_scene_id(12345);
+
+	const Vector<int32_t> ids = _pack_and_collect_unique_ids(scene);
+	CHECK(ids[1] == 12345);
+	CHECK(child->get_unique_scene_id() == 12345);
+
+	// Renaming must not change it either.
+	child->set_name("RenamedChild");
+	CHECK(_pack_and_collect_unique_ids(scene)[1] == 12345);
+
+	memdelete(scene);
+}
+
 } // namespace TestPackedScene

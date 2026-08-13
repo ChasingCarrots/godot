@@ -455,6 +455,15 @@ Ref<Resource> Resource::duplicate_for_local_scene(Node *p_for_scene, DuplicateRe
 	params.local_scene = p_for_scene;
 	const Ref<Resource> &dupe = _duplicate(params);
 
+	if (dupe.is_valid()) {
+		// `_duplicate()` only copies storage properties, and the scene unique ID is not one of them.
+		// The duplicate is what replaces this resource in the scene, so it is also what gets written
+		// back when the scene is saved. Without carrying the ID over, the saver would consider it a
+		// brand new resource and generate another ID on every single save, which shows up as a
+		// spurious diff (`SubResource("ShaderMaterial_abcde")`) for everyone working on the scene.
+		dupe->scene_unique_id = scene_unique_id;
+	}
+
 	thread_duplicate_remap_cache = remap_cache_backup;
 	thread_duplicate_remap_cache_needs_deallocation = remap_cache_needs_deallocation_backup;
 

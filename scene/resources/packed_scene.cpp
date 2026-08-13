@@ -37,6 +37,7 @@
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/object/script_language.h"
+#include "core/templates/hashfuncs.h"
 #include "core/templates/local_vector.h"
 #include "core/variant/callable_bind.h"
 #include "scene/2d/node_2d.h"
@@ -1104,15 +1105,26 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Has
 			// Clashes will always happen with instantiated scenes, so it is normal
 			// to expect them to be resolved.
 
-			while (true) {
-				uint32_t data = ResourceUID::get_singleton()->create_id();
+			// The ID must be derived deterministically from the node itself instead of being
+			// randomly generated. Imported scenes (glTF, FBX, Blender...) are re-packed locally
+			// by every user into the machine-local `.godot/imported/` cache, so a random ID would
+			// give the very same node a different ID on every machine and on every re-import.
+			// Any scene overriding a property on a node inside such an instance adopts that ID
+			// (see `SceneState::instantiate()`) and would rewrite it on every save, producing
+			// endless spurious diffs for everyone working on the project.
+			// The path inside the scene being packed is the most stable identity available here,
+			// and it is unique per node, so clashes only come from the 31 bit hash space and are
+			// resolved by deterministically re-hashing.
+			const String id_source = String(p_owner->get_path_to(p_node));
+			for (uint32_t attempt = 0;; attempt++) {
+				uint32_t data = hash_fmix32(hash_murmur3_one_32(attempt, id_source.hash()));
 				unique_scene_id = data & 0x7FFFFFFF; // keep positive.
 
 				if (unique_scene_id == Node::UNIQUE_SCENE_ID_UNASSIGNED) {
 					unique_scene_id = 1;
 				}
 				if (ids_saved.has(unique_scene_id)) {
-					// While there is one in a four billion chance for a clash, the scenario where one scene is instantiated multiple times is common, so it must reassign the local id.
+					// The scenario where one scene is instantiated multiple times is common, so it must reassign the local id.
 					continue;
 				}
 				break;
