@@ -33,6 +33,7 @@ public:
 		KIND_GEOMETRY,
 		KIND_CALLBACK,
 		KIND_TAG_REACHABILITY,
+		KIND_TAG_IMPLIES_TAG,
 	};
 
 protected:
@@ -346,6 +347,29 @@ public:
 		return out;
 	}
 	const Vector<StringName> &get_required_tags_vector() const { return _required_tags; }
+};
+
+// "TagImpliesTag" -- conditional presence. If ANY placed element carries `tag`, then at least one
+// placed element must carry `implied_tag`. Directional on purpose: it models a dependent part and
+// the anchor it needs (a ramp and the tower it lands on), so the anchor stays free to appear alone.
+// Unlike ConstraintTagConnectsToTag this ignores adjacency entirely -- it is about what exists in the
+// result, not what touches what. Forward-pruned in FIXED, checked on completion in both modes.
+class ConstraintTagImpliesTag : public ConstraintRule {
+	GDCLASS(ConstraintTagImpliesTag, ConstraintRule)
+
+	StringName _tag;
+	StringName _implied_tag;
+
+protected:
+	static void _bind_methods();
+
+public:
+	virtual Kind get_kind() const override { return KIND_TAG_IMPLIES_TAG; }
+
+	void set_tag(const StringName &p_v) { _tag = p_v; }
+	StringName get_tag() const { return _tag; }
+	void set_implied_tag(const StringName &p_v) { _implied_tag = p_v; }
+	StringName get_implied_tag() const { return _implied_tag; }
 };
 
 // Opt-in geometric overlap rule backed by VoxelGrid. When present, each placed

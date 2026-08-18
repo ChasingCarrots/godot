@@ -165,3 +165,13 @@ void ConstraintTagReachability::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "required_tags", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"),
 			"set_required_tags", "get_required_tags");
 }
+
+void ConstraintTagImpliesTag::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_tag", "tag"), &ConstraintTagImpliesTag::set_tag);
+	ClassDB::bind_method(D_METHOD("get_tag"), &ConstraintTagImpliesTag::get_tag);
+	ClassDB::bind_method(D_METHOD("set_implied_tag", "tag"), &ConstraintTagImpliesTag::set_implied_tag);
+	ClassDB::bind_method(D_METHOD("get_implied_tag"), &ConstraintTagImpliesTag::get_implied_tag);
+
+	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "tag"), "set_tag", "get_tag");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "implied_tag"), "set_implied_tag", "get_implied_tag");
+}

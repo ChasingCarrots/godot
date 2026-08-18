@@ -98,6 +98,12 @@ struct LeafRule {
 	int mx = -1; // < 0 = unbounded
 	int rule = -1;
 };
+// TagImpliesTag: if any placed element carries `tag`, at least one must carry `implied`.
+struct ImpliesRule {
+	int tag = -1;
+	int implied = -1;
+	int rule = -1;
+};
 // TagReachability: `required` must all share one connected component, where an edge
 // joins any two link tags (name begins with `prefix`) co-carried by a placed element.
 struct ReachRule {
@@ -174,6 +180,7 @@ struct SolveState {
 
 	// --- compiled rules ---
 	LocalVector<CountRule> counts;
+	LocalVector<ImpliesRule> implies;
 	LocalVector<ReqRule> reqs;
 	LocalVector<ConnRule> conns;
 	LocalVector<ConsecRule> consecs;
@@ -513,6 +520,18 @@ static void _build_catalog(SolveState &st, const Ref<ConstraintProblem> &p_probl
 				rre.rule = ri;
 				stat.label = StringName("reach");
 				st.reaches.push_back(rre);
+			} break;
+			case ConstraintRule::KIND_TAG_IMPLIES_TAG: {
+				const ConstraintTagImpliesTag *ir = Object::cast_to<ConstraintTagImpliesTag>(r.ptr());
+				if (!ir) {
+					break;
+				}
+				ImpliesRule im;
+				im.tag = st.intern_tag(ir->get_tag());
+				im.implied = st.intern_tag(ir->get_implied_tag());
+				im.rule = ri;
+				stat.label = ir->get_tag();
+				st.implies.push_back(im);
 			} break;
 			case ConstraintRule::KIND_GEOMETRY: {
 				const ConstraintGeometry *gr = Object::cast_to<ConstraintGeometry>(r.ptr());
@@ -864,6 +883,14 @@ static bool _grow_complete(SolveState &st) {
 		}
 		if (c.mx >= 0 && cnt > c.mx) {
 			st.complete_fail(c.rule);
+			return false;
+		}
+	}
+	// TagImpliesTag: every dependent tag present must have its anchor present too. `tag_count` is
+	// maintained per placed element, so presence is a direct lookup.
+	for (const ImpliesRule &im : st.implies) {
+		if (st.tag_count[im.tag] > 0 && st.tag_count[im.implied] == 0) {
+			st.complete_fail(im.rule);
 			return false;
 		}
 	}
@@ -1264,6 +1291,52 @@ static bool _fixed_propagate(SolveState &st, LocalVector<FiniteDomain> &doms) {
 				}
 			}
 		}
+		// TagImpliesTag: a dependent tag may only be placed while its anchor is still placeable.
+		for (const ImpliesRule &im : st.implies) {
+			const FiniteDomain &tv = st.tagvals[im.tag];
+			const FiniteDomain &iv = st.tagvals[im.implied];
+			int possible_implied = 0;
+			int definite_implied = 0;
+			int only_implied_slot = -1;
+			for (int s = 0; s < (int)doms.size(); s++) {
+				if (!doms[s].intersects(iv)) {
+					continue;
+				}
+				possible_implied++;
+				only_implied_slot = s;
+				if (doms[s].is_unique()) {
+					definite_implied++;
+				}
+			}
+			if (possible_implied == 0) {
+				// The anchor can no longer be placed anywhere, so nothing may depend on it.
+				for (int s = 0; s < (int)doms.size(); s++) {
+					if (doms[s].intersects(tv) && doms[s].subtract(tv)) {
+						changed = true;
+						if (doms[s].is_empty()) {
+							return false;
+						}
+					}
+				}
+				continue;
+			}
+			if (definite_implied > 0 || possible_implied > 1) {
+				continue; // anchor already placed, or still has a choice of homes
+			}
+			bool definite_tag = false;
+			for (int s = 0; s < (int)doms.size(); s++) {
+				if (doms[s].is_unique() && doms[s].intersects(tv)) {
+					definite_tag = true;
+					break;
+				}
+			}
+			if (definite_tag && doms[only_implied_slot].intersect_with(iv)) {
+				changed = true; // dependent is committed and only one slot can still anchor it
+				if (doms[only_implied_slot].is_empty()) {
+					return false;
+				}
+			}
+		}
 	}
 	return true;
 }
@@ -1291,6 +1364,20 @@ static bool _fixed_complete(SolveState &st, const LocalVector<FiniteDomain> &dom
 		}
 		if (c.mx >= 0 && cnt > c.mx) {
 			st.complete_fail(c.rule);
+			return false;
+		}
+	}
+
+	// TagImpliesTag: every dependent tag present must have its anchor present too.
+	for (const ImpliesRule &im : st.implies) {
+		bool has_tag = false;
+		bool has_implied = false;
+		for (int s = 0; s < n; s++) {
+			has_tag = has_tag || st.value_has_tag(assign[s], im.tag);
+			has_implied = has_implied || st.value_has_tag(assign[s], im.implied);
+		}
+		if (has_tag && !has_implied) {
+			st.complete_fail(im.rule);
 			return false;
 		}
 	}
