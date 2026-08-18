@@ -1155,6 +1155,63 @@ static void _build_grow_solution(SolveState &st, Ref<ConstraintSolution> p_sol) 
 // ---------------------------------------------------------------------------
 // FIXED mode: AC-3-flavoured cardinality narrowing + MRV backtracking
 // ---------------------------------------------------------------------------
+
+// Optimistic TagReachability prune for FIXED mode. `_check_reachability` can only run on a finished
+// assignment, so without this the solver decides all n slots before discovering that the values it
+// ruled out were the only path between two required tags. This relaxes the problem -- it unions the
+// link tags of every value still placeable in ANY slot, as if all of them could be chosen at once --
+// so a failure here is conclusive: no completion of these domains can connect the required tags.
+static bool _fixed_reach_possible(SolveState &st, const LocalVector<FiniteDomain> &doms) {
+	if (st.reaches.is_empty()) {
+		return true;
+	}
+	FiniteDomain possible;
+	possible.resize_values((uint32_t)st.num_values, false);
+	for (uint32_t s = 0; s < doms.size(); s++) {
+		for (uint32_t w = 0; w < possible.words.size(); w++) {
+			possible.words[w] |= doms[s].words[w];
+		}
+	}
+	LocalVector<int> values;
+	possible.collect_values(values);
+
+	LocalVector<int> parent;
+	for (const ReachRule &rr : st.reaches) {
+		if (rr.required.size() <= 1) {
+			continue; // 0 or 1 required node is trivially a single component
+		}
+		parent.resize((uint32_t)st.num_tags);
+		for (int i = 0; i < st.num_tags; i++) {
+			parent[i] = i;
+		}
+		for (const int v : values) {
+			int first = -1;
+			for (const int t : st.elements[v].tag_ids) {
+				if (!rr.link_mask[t]) {
+					continue;
+				}
+				if (first < 0) {
+					first = t;
+				} else {
+					const int ra = _uf_find(parent, first);
+					const int rb = _uf_find(parent, t);
+					if (ra != rb) {
+						parent[ra] = rb;
+					}
+				}
+			}
+		}
+		const int root = _uf_find(parent, rr.required[0]);
+		for (uint32_t i = 1; i < rr.required.size(); i++) {
+			if (_uf_find(parent, rr.required[i]) != root) {
+				st.reject(rr.rule);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 static bool _fixed_propagate(SolveState &st, LocalVector<FiniteDomain> &doms) {
 	bool changed = true;
 	while (changed) {
@@ -1487,6 +1544,9 @@ static bool _fixed_solve(SolveState &st, const LocalVector<FiniteDomain> &doms,
 		if (!_fixed_propagate(st, next)) {
 			continue;
 		}
+		if (!_fixed_reach_possible(st, next)) {
+			continue;
+		}
 		if (_fixed_solve(st, next, p_conn, p_slot_xform)) {
 			return true;
 		}
@@ -1634,7 +1694,7 @@ Ref<ConstraintSolution> ConstraintSolver::solve(const Ref<ConstraintProblem> &p_
 		const PackedInt32Array conn = p_problem->get_connections();
 		if (n == 0) {
 			ok = true; // trivially solved
-		} else if (_fixed_propagate(st, doms)) {
+		} else if (_fixed_propagate(st, doms) && _fixed_reach_possible(st, doms)) {
 			ok = _fixed_solve(st, doms, conn, slot_xform);
 		}
 
