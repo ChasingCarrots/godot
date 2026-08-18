@@ -945,6 +945,24 @@ static bool _grow_complete(SolveState &st) {
 	return true;
 }
 
+// Fisher-Yates over the frontier entries one node just pushed. They sit at the same depth and were
+// pushed together, so their relative order carries no information -- left as declaration order it
+// would let interface authoring order alone decide which sibling branch claims the scarce element
+// budget and the free geometry first. Only the tail is permuted, so depth-first growth and the
+// pop-`pushed`-from-the-back undo both still hold.
+static void _shuffle_frontier_tail(SolveState &st, int p_count) {
+	if (p_count < 2) {
+		return;
+	}
+	const uint32_t base = st.frontier.size() - (uint32_t)p_count;
+	for (int i = p_count - 1; i > 0; i--) {
+		const uint32_t j = st.rng.rand((uint32_t)(i + 1));
+		const OpenIface tmp = st.frontier[base + (uint32_t)i];
+		st.frontier[base + (uint32_t)i] = st.frontier[base + j];
+		st.frontier[base + j] = tmp;
+	}
+}
+
 static bool _grow_expand(SolveState &st) {
 	DepthGuard dg(st);
 	if (!dg.ok) {
@@ -1088,6 +1106,7 @@ static bool _grow_expand(SolveState &st) {
 			st.frontier.push_back(oi);
 			pushed++;
 		}
+		_shuffle_frontier_tail(st, pushed);
 
 		if (_grow_expand(st)) {
 			return true;
@@ -1421,17 +1440,29 @@ static bool _fixed_solve(SolveState &st, const LocalVector<FiniteDomain> &doms,
 	}
 	st.steps++;
 
-	// MRV: smallest still-undecided domain (GameAIPro2 §26.9.4).
+	// MRV: smallest still-undecided domain (GameAIPro2 §26.9.4). Ties are broken uniformly at
+	// random -- every slot of a subset-selection problem has the same domain size, so a positional
+	// tie-break would let slot order alone decide which option wins a contested space.
 	int best = -1;
 	uint32_t best_count = 0xFFFFFFFFu;
+	int ties = 0;
 	for (int s = 0; s < (int)doms.size(); s++) {
 		const uint32_t c = doms[s].count();
 		if (c == 0) {
 			return false;
 		}
-		if (c > 1 && c < best_count) {
+		if (c <= 1) {
+			continue;
+		}
+		if (c < best_count) {
 			best = s;
 			best_count = c;
+			ties = 1;
+		} else if (c == best_count) {
+			ties++;
+			if (st.rng.randf() * (float)ties < 1.0f) {
+				best = s;
+			}
 		}
 	}
 	if (best == -1) {
@@ -1554,6 +1585,7 @@ Ref<ConstraintSolution> ConstraintSolver::solve(const Ref<ConstraintProblem> &p_
 			oi.iface = i;
 			st.frontier.push_back(oi);
 		}
+		_shuffle_frontier_tail(st, (int)se.interfaces.size());
 
 		if (start_infeasible) {
 			st.complete_fail(st.compat_rule);
