@@ -552,6 +552,26 @@ static const D3D12_RESOURCE_DIMENSION RD_TEXTURE_TYPE_TO_D3D12_RESOURCE_DIMENSIO
 	D3D12_RESOURCE_DIMENSION_TEXTURE2D,
 };
 
+// D3D12 write states are exclusive: ORing one with any other state produces
+// RESOURCE_BARRIER_INVALID_COMBINATION, which poisons the command list.
+static bool _d3d12_states_combinable(D3D12_RESOURCE_STATES p_a, D3D12_RESOURCE_STATES p_b) {
+	constexpr D3D12_RESOURCE_STATES EXCLUSIVE_STATES = (D3D12_RESOURCE_STATES)(
+			D3D12_RESOURCE_STATE_RENDER_TARGET |
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS |
+			D3D12_RESOURCE_STATE_DEPTH_WRITE |
+			D3D12_RESOURCE_STATE_COPY_DEST |
+			D3D12_RESOURCE_STATE_RESOLVE_DEST |
+			D3D12_RESOURCE_STATE_STREAM_OUT |
+			D3D12_RESOURCE_STATE_VIDEO_DECODE_WRITE |
+			D3D12_RESOURCE_STATE_VIDEO_PROCESS_WRITE |
+			D3D12_RESOURCE_STATE_VIDEO_ENCODE_WRITE);
+
+	if (((p_a | p_b) & EXCLUSIVE_STATES) != 0) {
+		return p_a == p_b;
+	}
+	return true;
+}
+
 void RenderingDeviceDriverD3D12::_resource_transition_batch(CommandBufferInfo *p_command_buffer, ResourceInfo *p_resource, uint32_t p_subresource, uint32_t p_num_planes, D3D12_RESOURCE_STATES p_new_state) {
 	DEV_ASSERT(p_subresource != UINT32_MAX); // We don't support an "all-resources" command here.
 
@@ -601,7 +621,14 @@ void RenderingDeviceDriverD3D12::_resource_transition_batch(CommandBufferInfo *p
 				D3D12_RESOURCE_STATES final_states = {};
 				if (subres_already_there) {
 					final_states = br.groups[curr_group_idx].states;
-					final_states |= p_new_state;
+					if (_d3d12_states_combinable(final_states, p_new_state)) {
+						final_states |= p_new_state;
+					} else {
+						// Merging would emit an invalid combination and remove the device; keep the
+						// newest request alone. The states name the passes that disagree.
+						ERR_PRINT_ONCE(vformat("D3D12: incompatible resource states batched for one subresource (0x%x + 0x%x); using the latter alone.", (uint32_t)final_states, (uint32_t)p_new_state));
+						final_states = p_new_state;
+					}
 					bool subres_alone = true;
 					for (uint8_t i = 0; i < br.subres_mask_qwords; i++) {
 						if (i == subres_qword) {

@@ -39,6 +39,7 @@
 #include "core/version.h"
 #include "servers/rendering/shader_include_db.h"
 
+#include "core/profiling/loading_trace.h"
 #include "core/profiling/profiling.h"
 
 #define ENABLE_SHADER_CACHE 1
@@ -262,6 +263,7 @@ void ShaderRD::_initialize_version(Version *p_version) {
 
 	p_version->variants.resize_initialized(variant_defines.size());
 	p_version->variant_data.resize(variant_defines.size());
+	p_version->variant_pending.resize_initialized(variant_defines.size());
 	p_version->group_compilation_tasks.resize_initialized(group_enabled.size());
 }
 
@@ -278,6 +280,7 @@ void ShaderRD::_clear_version(Version *p_version) {
 
 		p_version->variants.clear();
 		p_version->variant_data.clear();
+		p_version->variant_pending.clear();
 	}
 }
 
@@ -415,6 +418,9 @@ void ShaderRD::_compile_variant(uint32_t p_variant, CompileData p_data) {
 	if (!variants_enabled[variant]) {
 		return; // Variant is disabled, return.
 	}
+
+	LoadingTraceSpan _lt_variant(LT_SH_VARIANT, name);
+	_lt_variant.args(variant, (uint32_t)p_data.group);
 
 	Vector<String> variant_stage_sources = _build_variant_stage_sources(variant, p_data);
 	Vector<RD::ShaderStageSPIRVData> variant_stages = compile_stages(variant_stage_sources, dynamic_buffers);
@@ -671,24 +677,15 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 		p_version->variant_data.write[variant_id] = variant_bytes;
 	}
 
+	// RIDs are created lazily by _materialize_variant() on first use; a run draws only a
+	// fraction of a group's variants and shader_create_from_bytecode_with_samplers()
+	// serializes on RenderingDevice's global mutex.
 	for (uint32_t i = 0; i < variant_count; i++) {
 		int variant_id = group_to_variant_map[p_group][i];
-		if (!variants_enabled[variant_id]) {
+		if (variants_enabled[variant_id]) {
+			p_version->variant_pending.write[variant_id] = 1;
+		} else {
 			p_version->variants.write[variant_id] = RID();
-			continue;
-		}
-		print_verbose(vformat("Loading cache for shader %s, variant %d", name, i));
-		{
-			RID shader = RD::get_singleton()->shader_create_from_bytecode_with_samplers(p_version->variant_data[variant_id], p_version->variants[variant_id], immutable_samplers);
-			if (shader.is_null()) {
-				for (uint32_t j = 0; j < i; j++) {
-					int variant_free_id = group_to_variant_map[p_group][j];
-					RD::get_singleton()->free_rid(p_version->variants[variant_free_id]);
-				}
-				ERR_FAIL_COND_V(shader.is_null(), false);
-			}
-
-			p_version->variants.write[variant_id] = shader;
 		}
 	}
 
@@ -698,6 +695,8 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 
 void ShaderRD::_save_to_cache(Version *p_version, int p_group) {
 	GodotProfileFunction();
+	LoadingTraceSpan _lt_save(LT_SH_CACHE_LOAD, name, "save");
+	_lt_save.args(0, (uint32_t)p_group);
 	ERR_FAIL_COND(!shader_cache_user_dir_valid);
 	String api_safe_name = String(RD::get_singleton()->get_device_api_name()).validate_filename().to_lower();
 	const String &path = _get_cache_file_path(p_version, p_group, api_safe_name, true);
@@ -731,7 +730,13 @@ void ShaderRD::_compile_version_start(Version *p_version, int p_group) {
 
 #if ENABLE_SHADER_CACHE
 	if (shader_cache_user_dir_valid || shader_cache_res_dir_valid) {
-		if (_load_from_cache(p_version, p_group)) {
+		bool cache_hit = false;
+		{
+			LoadingTraceSpan _lt_cache(LT_SH_CACHE_LOAD, name, "load");
+			cache_hit = _load_from_cache(p_version, p_group);
+			_lt_cache.args(cache_hit ? 1 : 0, (uint32_t)p_group);
+		}
+		if (cache_hit) {
 			return;
 		}
 	}
@@ -743,6 +748,7 @@ void ShaderRD::_compile_version_start(Version *p_version, int p_group) {
 
 	WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(this, &ShaderRD::_compile_variant, compile_data, group_to_variant_map[p_group].size(), -1, true, SNAME("ShaderCompilation"));
 	p_version->group_compilation_tasks.write[p_group] = group_task;
+	LoadingTrace::instant(LT_SH_GROUP, name, String(), (uint32_t)group_to_variant_map[p_group].size());
 }
 
 void ShaderRD::_compile_version_end(Version *p_version, int p_group) {
@@ -750,7 +756,11 @@ void ShaderRD::_compile_version_end(Version *p_version, int p_group) {
 		return;
 	}
 	WorkerThreadPool::GroupID group_task = p_version->group_compilation_tasks[p_group];
-	WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
+	{
+		LoadingTraceSpan _lt_wait(LT_SH_GROUP_WAIT, name);
+		_lt_wait.args(0, (uint32_t)p_group);
+		WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
+	}
 	p_version->group_compilation_tasks.write[p_group] = 0;
 
 	bool all_valid = true;

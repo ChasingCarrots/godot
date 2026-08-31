@@ -32,6 +32,7 @@
 
 #include "core/object/worker_thread_pool.h"
 #include "core/os/mutex.h"
+#include "core/profiling/loading_trace.h"
 #include "core/templates/hash_map.h"
 #include "core/templates/local_vector.h"
 #include "core/templates/rb_map.h"
@@ -42,6 +43,25 @@
 #include "servers/rendering/rendering_server_enums.h"
 
 #define PRINT_PIPELINE_COMPILATION_KEYS 0
+
+// PIPELINE_SOURCE_DRAW means the pipeline was missing when a draw needed it, i.e. warm-up
+// failed to predict it. Recording the source is what makes that measurable.
+_FORCE_INLINE_ const char *pipeline_source_name(RSE::PipelineSource p_source) {
+	switch (p_source) {
+		case RSE::PIPELINE_SOURCE_CANVAS:
+			return "CANVAS";
+		case RSE::PIPELINE_SOURCE_MESH:
+			return "MESH";
+		case RSE::PIPELINE_SOURCE_SURFACE:
+			return "SURFACE";
+		case RSE::PIPELINE_SOURCE_DRAW:
+			return "DRAW";
+		case RSE::PIPELINE_SOURCE_SPECIALIZATION:
+			return "SPECIALIZATION";
+		default:
+			return "UNKNOWN";
+	}
+}
 
 template <typename Key, typename CreationClass, typename CreationFunction>
 class PipelineHashMapRD {
@@ -64,6 +84,15 @@ private:
 		{
 			MutexLock lock(compiled_queue_mutex);
 			for (const Pair<uint32_t, RID> &pair : compiled_queue) {
+				if (hash_map.find(pair.first) != nullptr) {
+					// A blocked draw already compiled this key inline; the queued task raced it and
+					// produced a duplicate that was never handed out.
+					if (pair.second.is_valid()) {
+						RD::get_singleton()->free_rid(pair.second);
+					}
+					continue;
+				}
+
 				hash_map[pair.first] = pair.second;
 				hashes_added.push_back(pair.first);
 			}
@@ -97,6 +126,30 @@ private:
 		for (WorkerThreadPool::TaskID task_id : tasks_to_wait) {
 			WorkerThreadPool::get_singleton()->wait_for_task_completion(task_id);
 		}
+	}
+
+	// Compile on the calling thread. Waiting for the queued task instead can stall for seconds,
+	// because it sits behind every pipeline the loading meshes have already submitted.
+	void _compile_pipeline_inline(const Key &p_key, uint32_t p_key_hash, RSE::PipelineSource p_source) {
+		DEV_ASSERT((creation_object != nullptr) && (creation_function != nullptr) && "Creation object and function was not set before attempting to compile a pipeline.");
+
+		{
+			MutexLock local_lock(local_mutex);
+			if (!compilation_set.has(p_key_hash)) {
+				compilation_set.insert(p_key_hash);
+
+				if (compilations_mutex != nullptr) {
+					MutexLock compilations_lock(*compilations_mutex);
+					compilations[p_source]++;
+				}
+
+				if (unlikely(LoadingTrace::is_armed())) {
+					LoadingTrace::instant(LT_PSO_SUBMIT, pipeline_source_name(p_source), String(), p_key_hash);
+				}
+			}
+		}
+
+		(creation_object->*creation_function)(p_key);
 	}
 
 public:
@@ -147,6 +200,10 @@ public:
 		print_line("HASH:", p_key_hash, "SOURCE:", source_name);
 #endif
 
+		if (unlikely(LoadingTrace::is_armed())) {
+			LoadingTrace::instant(LT_PSO_SUBMIT, pipeline_source_name(p_source), String(), p_key_hash);
+		}
+
 		// Queue a background compilation task.
 		WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, p_key, p_high_priority, "PipelineCompilation");
 		compilation_tasks.insert(p_key_hash, task_id);
@@ -171,6 +228,8 @@ public:
 		}
 
 		if (task_id_to_wait != WorkerThreadPool::INVALID_TASK_ID) {
+			LoadingTraceSpan _lt_wait(LT_PSO_WAIT, "pipeline");
+			_lt_wait.args(p_key_hash);
 			WorkerThreadPool::get_singleton()->wait_for_task_completion(task_id_to_wait);
 		}
 	}
@@ -187,11 +246,9 @@ public:
 		}
 
 		if (e == nullptr) {
-			// Request compilation. The method will ignore the request if it's already being compiled.
-			compile_pipeline(p_key, p_key_hash, p_source, p_wait_for_compilation);
-
 			if (p_wait_for_compilation) {
-				wait_for_pipeline(p_key_hash);
+				// A draw is blocked on this pipeline, so build it here rather than queueing it.
+				_compile_pipeline_inline(p_key, p_key_hash, p_source);
 				_add_new_pipelines_to_map();
 
 				e = hash_map.find(p_key_hash);
@@ -203,6 +260,8 @@ public:
 					return RID();
 				}
 			} else {
+				// Request compilation. The method will ignore the request if it's already being compiled.
+				compile_pipeline(p_key, p_key_hash, p_source, false);
 				return RID();
 			}
 		} else {

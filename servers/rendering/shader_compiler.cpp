@@ -33,6 +33,7 @@
 #include "servers/rendering/rendering_server.h"
 #include "servers/rendering/rendering_server_globals.h"
 #include "servers/rendering/shader_types.h"
+#include "core/profiling/loading_trace.h"
 #include "core/profiling/profiling.h"
 
 #define SL ShaderLanguage
@@ -1545,6 +1546,8 @@ ShaderLanguage::DataType ShaderCompiler::_get_global_shader_uniform_type(const S
 
 Error ShaderCompiler::compile(RSE::ShaderMode p_mode, const String &p_code, IdentifierActions *p_actions, const String &p_path, GeneratedCode &r_gen_code) {
 	GodotProfileFunction();
+	LoadingTraceSpan _lt_source(LT_SH_SOURCE, p_path.is_empty() ? String("<builtin>") : p_path);
+	_lt_source.args((uint32_t)p_mode, (uint32_t)p_code.length());
 	SL::ShaderCompileInfo info;
 	info.functions = ShaderTypes::get_singleton()->get_functions(p_mode);
 	info.render_modes = ShaderTypes::get_singleton()->get_modes(p_mode);

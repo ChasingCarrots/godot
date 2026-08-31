@@ -4230,7 +4230,9 @@ void TextureStorage::_clear_render_target(RenderTarget *rt) {
 	rt->color_multisample = RID();
 	if (rt->texture.is_valid()) {
 		Texture *tex = get_texture(rt->texture);
-		tex->render_target = nullptr;
+		if (tex) {
+			tex->render_target = nullptr;
+		}
 	}
 }
 
@@ -4244,6 +4246,11 @@ void TextureStorage::_update_render_target(RenderTarget *rt) {
 		rt->texture = texture_allocate();
 		texture_2d_placeholder_initialize(rt->texture);
 		Texture *tex = get_texture(rt->texture);
+		if (!tex) {
+			// Placeholder creation failed (device lost): the RID is allocated but never initialized.
+			rt->texture = RID();
+			return;
+		}
 		tex->is_render_target = true;
 		tex->path = "Render Target (Internal)";
 	}

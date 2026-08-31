@@ -373,7 +373,12 @@ public:
 			for (int i = 0; i < p_surfaces.size(); i++) {
 				RSG::mesh_storage->mesh_add_surface(mesh, p_surfaces[i]);
 			}
-			RSG::scene->mesh_generate_pipelines(mesh, using_server_thread);
+			// On a WorkerThreadPool thread the blocking join in mesh_generate_pipelines would
+			// wait on pipeline tasks submitted to the same pool; with many meshes loading at
+			// once every worker waits and none is left to compile. Always compile in the
+			// background from a pool thread.
+			const bool background_compilation = using_server_thread || WorkerThreadPool::get_singleton()->get_thread_index() != -1;
+			RSG::scene->mesh_generate_pipelines(mesh, background_compilation);
 		} else {
 			command_queue.push(RSG::mesh_storage, &RendererMeshStorage::mesh_initialize, mesh);
 			command_queue.push(RSG::mesh_storage, &RendererMeshStorage::mesh_set_blend_shape_count, mesh, p_blend_shape_count);

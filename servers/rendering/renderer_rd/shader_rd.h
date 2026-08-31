@@ -85,6 +85,8 @@ private:
 
 		Vector<Vector<uint8_t>> variant_data;
 		Vector<RID> variants;
+		// Non-zero where bytecode came from the disk cache and the RID is not created yet.
+		Vector<uint8_t> variant_pending;
 
 		bool valid;
 		bool dirty;
@@ -99,6 +101,8 @@ private:
 
 	// Vector will have the size of SHADER_STAGE_MAX and unused stages will have empty strings.
 	void _compile_variant(uint32_t p_variant, CompileData p_data);
+	// Defined in shader_rd_lazy_variants.cpp. Caller must hold p_version->mutex.
+	RID _materialize_variant(Version *p_version, int p_variant);
 
 	void _initialize_version(Version *p_version);
 	void _clear_version(Version *p_version);
@@ -224,7 +228,7 @@ public:
 			return RID();
 		}
 
-		return version->variants[p_variant];
+		return _materialize_variant(version, p_variant);
 	}
 
 	bool version_is_valid(RID p_version);

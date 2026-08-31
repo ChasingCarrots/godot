@@ -43,6 +43,7 @@
 #include "core/os/condition_variable.h"
 #include "core/os/os.h"
 #include "core/os/safe_binary_mutex.h"
+#include "core/profiling/loading_trace.h"
 #include "core/profiling/profiling.h"
 #include "core/string/print_string.h"
 #include "core/string/translation_server.h"
@@ -524,6 +525,8 @@ void ResourceLoader::_run_load_task(void *p_userdata) {
 		// do it ourselves anyway
 	}
 
+	LoadingTraceSpan _lt_task(LT_RES_TASK, load_task.local_path);
+
 	// Thread-safe either if it's the current thread or a brand new one.
 	CallQueue *own_mq_override = nullptr;
 	if (load_nesting == 0) {
@@ -543,6 +546,7 @@ void ResourceLoader::_run_load_task(void *p_userdata) {
 
 	Error load_err = OK;
 	Ref<Resource> res = _load(remapped_path, remapped_path != load_task.local_path ? load_task.local_path : String(), load_task.type_hint, load_task.cache_mode, &load_err, load_task.use_sub_threads, &load_task.progress);
+	_lt_task.phase();
 	if (MessageQueue::get_singleton() != MessageQueue::get_main_singleton()) {
 		MessageQueue::get_singleton()->flush();
 	}
@@ -656,6 +660,7 @@ void ResourceLoader::_run_load_task(void *p_userdata) {
 	} else {
 		load_task.status = THREAD_LOAD_LOADED;
 	}
+	_lt_task.args((uint32_t)load_task.error, load_task.use_sub_threads ? 1 : 0, (uint32_t)load_task.cache_mode);
 
 	if (load_task.cond_var && load_task.need_wait) {
 		load_task.cond_var->notify_all();
@@ -703,7 +708,11 @@ String ResourceLoader::_validate_local_path(const String &p_path) {
 
 Error ResourceLoader::load_threaded_request(const String &p_path, const String &p_type_hint, bool p_use_sub_threads, CacheMode p_cache_mode) {
 	GodotProfileFunction();
-	Ref<ResourceLoader::LoadToken> token = _load_start(p_path, p_type_hint, p_use_sub_threads ? LOAD_THREAD_DISTRIBUTE : LOAD_THREAD_SPAWN_SINGLE, p_cache_mode, true);
+	// GODOT_FORCE_SUB_THREADS=1 upgrades every threaded request to LOAD_THREAD_DISTRIBUTE, so the
+	// effect of a caller passing p_use_sub_threads can be measured without touching the caller.
+	static const bool force_sub_threads = OS::get_singleton()->get_environment("GODOT_FORCE_SUB_THREADS") == "1";
+	const bool use_sub_threads = p_use_sub_threads || force_sub_threads;
+	Ref<ResourceLoader::LoadToken> token = _load_start(p_path, p_type_hint, use_sub_threads ? LOAD_THREAD_DISTRIBUTE : LOAD_THREAD_SPAWN_SINGLE, p_cache_mode, true);
 	return token.is_valid() ? OK : FAILED;
 }
 
@@ -758,6 +767,10 @@ Ref<ResourceLoader::LoadToken> ResourceLoader::_load_start(const String &p_path,
 	String local_path = _validate_local_path(p_path);
 	ERR_FAIL_COND_V(local_path.is_empty(), Ref<ResourceLoader::LoadToken>());
 
+	if (unlikely(LoadingTrace::is_armed())) {
+		LoadingTrace::instant(LT_RES_REQUEST, local_path, curr_load_task ? curr_load_task->local_path : String(), (uint32_t)p_thread_mode);
+	}
+
 	bool ignoring_cache = p_cache_mode == CACHE_MODE_IGNORE || p_cache_mode == CACHE_MODE_IGNORE_DEEP;
 
 	Ref<LoadToken> load_token;
@@ -781,6 +794,7 @@ Ref<ResourceLoader::LoadToken> ResourceLoader::_load_start(const String &p_path,
 					// Let's "attach" to it.
 					_load_threaded_request_setup_user_token(load_token.ptr(), p_path);
 				}
+				LoadingTrace::instant(LT_RES_CACHE_HIT, local_path, "token_reuse", 0);
 				return load_token;
 			} else {
 				// The token is dying (reached 0 on another thread).
@@ -813,6 +827,7 @@ Ref<ResourceLoader::LoadToken> ResourceLoader::_load_start(const String &p_path,
 					load_task.progress = 1.0;
 					DEV_ASSERT(!thread_load_tasks.has(local_path));
 					thread_load_tasks[local_path] = load_task;
+					LoadingTrace::instant(LT_RES_CACHE_HIT, local_path, "resource_cache", 0);
 					return load_token;
 				}
 			}
@@ -976,6 +991,7 @@ Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_e
 				load_task_ptr = &thread_load_tasks[load_token->local_path];
 			}
 
+			LoadingTraceSpan _lt_get(LT_RES_GET, load_token->local_path);
 			while (load_task_ptr->status == THREAD_LOAD_IN_PROGRESS) {
 				thread_load_lock.temp_unlock();
 				bool exit = !_ensure_load_progress();
@@ -1073,8 +1089,11 @@ Ref<Resource> ResourceLoader::_load_complete_inner(LoadToken &p_load_token, Erro
 
 				// The wtp won't let us wait on tasks that are older than us. But ResourceLoader has its own
 				// deadlock detection and prevention in _run_load_task(), rely on that instead.
-				load_task.load_token->reference();
-				_run_load_task(&load_task);
+				{
+					LoadingTraceSpan _lt_steal(LT_RES_STEAL_WAIT, load_task.local_path);
+					load_task.load_token->reference();
+					_run_load_task(&load_task);
+				}
 
 				p_thread_load_lock.temp_relock();
 				load_task.awaited = true;
@@ -1092,10 +1111,13 @@ Ref<Resource> ResourceLoader::_load_complete_inner(LoadToken &p_load_token, Erro
 					load_task.cond_var = memnew(ConditionVariable);
 				}
 				load_task.awaiters_count++;
-				do {
-					load_task.cond_var->wait(p_thread_load_lock);
-					DEV_ASSERT(thread_load_tasks.has(p_load_token.local_path) && p_load_token.get_reference_count());
-				} while (load_task.need_wait);
+				{
+					LoadingTraceSpan _lt_cond(LT_RES_COND_WAIT, load_task.local_path);
+					do {
+						load_task.cond_var->wait(p_thread_load_lock);
+						DEV_ASSERT(thread_load_tasks.has(p_load_token.local_path) && p_load_token.get_reference_count());
+					} while (load_task.need_wait);
+				}
 				load_task.awaiters_count--;
 				if (load_task.awaiters_count == 0) {
 					memdelete(load_task.cond_var);

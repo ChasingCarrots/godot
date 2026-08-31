@@ -32,6 +32,7 @@
 
 #include "core/config/project_settings.h"
 #include "core/math/math_defs.h"
+#include "core/profiling/loading_trace.h"
 #include "core/profiling/profiling.h"
 #include "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h"
 #include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
@@ -328,6 +329,9 @@ uint16_t SceneShaderForwardClustered::ShaderData::_get_shader_version(PipelineVe
 
 void SceneShaderForwardClustered::ShaderData::_create_pipeline(PipelineKey p_pipeline_key) {
 	GodotProfileFunction();
+	LoadingTraceSpan _lt_pso(LT_PSO_BUILD, path.is_empty() ? String("<unnamed shader>") : path);
+	_lt_pso.args(p_pipeline_key.hash(), p_pipeline_key.version, p_pipeline_key.color_pass_flags,
+			(uint32_t)p_pipeline_key.vertex_format_id, (uint32_t)p_pipeline_key.framebuffer_format_id);
 #if PRINT_PIPELINE_COMPILATION_KEYS
 	print_line(
 			"HASH:", p_pipeline_key.hash(),
