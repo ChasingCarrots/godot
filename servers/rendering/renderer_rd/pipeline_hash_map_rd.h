@@ -39,6 +39,7 @@
 #include "core/templates/rb_set.h"
 #include "core/templates/rid.h"
 #include "core/templates/vector.h"
+#include "servers/rendering/renderer_rd/pipeline_compilation_scheduler.h"
 #include "servers/rendering/rendering_device.h"
 #include "servers/rendering/rendering_server_enums.h"
 
@@ -64,7 +65,7 @@ _FORCE_INLINE_ const char *pipeline_source_name(RSE::PipelineSource p_source) {
 }
 
 template <typename Key, typename CreationClass, typename CreationFunction>
-class PipelineHashMapRD {
+class PipelineHashMapRD : public PipelineCompilationSource {
 private:
 	CreationClass *creation_object = nullptr;
 	CreationFunction creation_function = nullptr;
@@ -76,6 +77,19 @@ private:
 	RBSet<uint32_t> compilation_set;
 	HashMap<uint32_t, WorkerThreadPool::TaskID> compilation_tasks;
 	Mutex local_mutex;
+
+	struct Deferred {
+		Key key;
+		uint32_t hash = 0;
+	};
+
+	// Compilations registered but not yet handed to the pool; the scheduler releases them in
+	// batches so no compilation is ever in flight while a frame renders. Ubershader pipelines go in
+	// the priority queue: they are the fallback a draw falls back *to*, so until one exists the
+	// draw has to compile it inline and stall the frame.
+	LocalVector<Deferred> deferred;
+	LocalVector<Deferred> deferred_priority;
+	LocalVector<WorkerThreadPool::TaskID> batch_tasks;
 
 	bool _add_new_pipelines_to_map() {
 		thread_local Vector<uint32_t> hashes_added;
@@ -123,6 +137,14 @@ private:
 			}
 		}
 
+		if (tasks_to_wait.is_empty()) {
+			return;
+		}
+
+		// Joining every outstanding compile. Cold, this is tens of seconds of main-thread stall,
+		// so it must be visible in a trace rather than showing up as an unexplained frame gap.
+		LoadingTraceSpan _lt_wait(LT_PSO_WAIT, "clear_pipelines");
+		_lt_wait.args((uint32_t)tasks_to_wait.size());
 		for (WorkerThreadPool::TaskID task_id : tasks_to_wait) {
 			WorkerThreadPool::get_singleton()->wait_for_task_completion(task_id);
 		}
@@ -150,6 +172,18 @@ private:
 		}
 
 		(creation_object->*creation_function)(p_key);
+	}
+
+	// Moves a key into the priority queue so the very next batch builds it.
+	void _promote_pending(uint32_t p_key_hash) {
+		MutexLock local_lock(local_mutex);
+		for (uint32_t i = 0; i < deferred.size(); i++) {
+			if (deferred[i].hash == p_key_hash) {
+				deferred_priority.push_back(deferred[i]);
+				deferred.remove_at_unordered(i);
+				return;
+			}
+		}
 	}
 
 public:
@@ -204,6 +238,21 @@ public:
 			LoadingTrace::instant(LT_PSO_SUBMIT, pipeline_source_name(p_source), String(), p_key_hash);
 		}
 
+		if (PipelineCompilationScheduler::is_enabled()) {
+			// Hand it to the scheduler instead. Compiling while a frame renders stalls the driver,
+			// so batches are released between frames.
+			Deferred entry;
+			entry.key = p_key;
+			entry.hash = p_key_hash;
+			// p_high_priority is set for ubershader pipelines at the submission sites.
+			if (p_high_priority) {
+				deferred_priority.push_back(entry);
+			} else {
+				deferred.push_back(entry);
+			}
+			return;
+		}
+
 		// Queue a background compilation task.
 		WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, p_key, p_high_priority, "PipelineCompilation");
 		compilation_tasks.insert(p_key_hash, task_id);
@@ -247,6 +296,19 @@ public:
 
 		if (e == nullptr) {
 			if (p_wait_for_compilation) {
+				// Callers of the waiting form have no fallback left, so this must return a pipeline.
+				// Promote first so the next inter-frame batch builds it and later frames find it
+				// ready here instead of paying the inline compile again.
+				_promote_pending(p_key_hash);
+
+				// Canvas is exempt: the boot screen itself is 2D, and skipping those draws would
+				// blank the progress UI this mode exists to keep responsive.
+				if (PipelineCompilationScheduler::is_warmup() && p_source != RSE::PIPELINE_SOURCE_CANVAS) {
+					// Warm-up geometry is throwaway: let the draw be skipped rather than stalling
+					// the main thread, and let the batch scheduler compile this in the background.
+					return RID();
+				}
+
 				// A draw is blocked on this pipeline, so build it here rather than queueing it.
 				_compile_pipeline_inline(p_key, p_key_hash, p_source);
 				_add_new_pipelines_to_map();
@@ -271,6 +333,11 @@ public:
 
 	// Delete all cached pipelines. Can stall if background compilation is in progress.
 	void clear_pipelines() {
+		{
+			// Anything still deferred targets pipelines that are about to be discarded.
+			MutexLock local_lock(local_mutex);
+			deferred.clear();
+		}
 		_wait_for_all_pipelines();
 		_add_new_pipelines_to_map();
 
@@ -293,9 +360,61 @@ public:
 		creation_function = p_creation_function;
 	}
 
-	PipelineHashMapRD() {}
+	uint32_t pending_pipelines() const override {
+		return deferred.size() + deferred_priority.size();
+	}
+
+	uint32_t submit_pending_pipelines(uint32_t p_max) override {
+		uint32_t started = 0;
+		MutexLock local_lock(local_mutex);
+		while (started < p_max) {
+			LocalVector<Deferred> &queue = deferred_priority.is_empty() ? deferred : deferred_priority;
+			if (queue.is_empty()) {
+				break;
+			}
+
+			const Deferred entry = queue[queue.size() - 1];
+			queue.remove_at(queue.size() - 1);
+			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, true, "PipelineCompilation");
+			compilation_tasks.insert(entry.hash, task_id);
+			batch_tasks.push_back(task_id);
+			started++;
+		}
+		return started;
+	}
+
+	uint32_t submit_priority_pipelines() override {
+		uint32_t started = 0;
+		MutexLock local_lock(local_mutex);
+		while (!deferred_priority.is_empty()) {
+			const Deferred entry = deferred_priority[deferred_priority.size() - 1];
+			deferred_priority.remove_at(deferred_priority.size() - 1);
+			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, true, "PipelineCompilation");
+			compilation_tasks.insert(entry.hash, task_id);
+			batch_tasks.push_back(task_id);
+			started++;
+		}
+		return started;
+	}
+
+	void join_submitted_pipelines() override {
+		for (WorkerThreadPool::TaskID task_id : batch_tasks) {
+			WorkerThreadPool::get_singleton()->wait_for_task_completion(task_id);
+		}
+		batch_tasks.clear();
+
+		// The IDs are now freed; leaving them in compilation_tasks would let clear_pipelines()
+		// wait on them a second time, which errors with "Invalid Task ID".
+		MutexLock local_lock(local_mutex);
+		compilation_tasks.clear();
+	}
+
+	PipelineHashMapRD() {
+		PipelineCompilationScheduler::register_source(this);
+	}
 
 	~PipelineHashMapRD() {
+		PipelineCompilationScheduler::unregister_source(this);
 		clear_pipelines();
 	}
 };

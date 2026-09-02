@@ -238,6 +238,9 @@ public:
 	// Enable/disable variants for things that you know won't be used at engine initialization time .
 	void set_variant_enabled(int p_variant, bool p_enabled);
 	bool is_variant_enabled(int p_variant) const;
+	// Blocks until every enabled group of this version has finished compiling. Until then
+	// version_get_shader() hands out placeholders, which have no stages to build a pipeline from.
+	void ensure_version_compiled(RID p_version);
 	int64_t get_variant_count() const;
 	int get_variant_to_group(int p_variant) const;
 

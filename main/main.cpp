@@ -55,6 +55,7 @@
 #include "core/os/os.h"
 #include "core/os/process_id.h"
 #include "core/os/time.h"
+#include "core/profiling/loading_trace.h"
 #include "core/profiling/profiling.h"
 #include "core/register_core_types.h"
 #include "core/string/translation_server.h"
@@ -4919,6 +4920,10 @@ bool Main::iteration() {
 	GodotProfileZone("Main::iteration");
 	GodotProfileZoneGroupedFirst(_profile_zone, "prepare");
 	iterating++;
+
+	if (unlikely(LoadingTrace::is_armed())) {
+		LoadingTrace::instant(LT_FRAME, "frame", String(), 0);
+	}
 
 	const uint64_t ticks = OS::get_singleton()->get_ticks_usec();
 	Engine::get_singleton()->_frame_ticks = ticks;

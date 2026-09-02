@@ -32,6 +32,9 @@
 
 #include "core/object/callable_mp.h"
 #include "core/os/os.h"
+#include "core/profiling/loading_trace.h"
+#include "servers/rendering/renderer_rd/pipeline_compilation_scheduler.h"
+#include "servers/rendering/renderer_rd/pso_record.h"
 #include "core/profiling/profiling.h"
 #include "servers/display/display_server.h"
 #include "servers/rendering/renderer_canvas_cull.h"
@@ -103,16 +106,22 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 	RSG::particles_storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
 
 	GodotProfileZoneGrouped(_profile_zone, "scene->render_probes");
+	LoadingTraceSpan _lt_probes(LT_FRAME, "scene->render_probes");
 	RSG::scene->render_probes();
 
+	_lt_probes.end();
+	LoadingTraceSpan _lt_vp(LT_FRAME, "viewport->draw_viewports");
 	GodotProfileZoneGrouped(_profile_zone, "viewport->draw_viewports");
 	RSG::viewport->draw_viewports(p_swap_buffers);
+	_lt_vp.end();
+	LoadingTraceSpan _lt_end(LT_FRAME, "rasterizer->end_frame");
 
 	GodotProfileZoneGrouped(_profile_zone, "canvas_render->update");
 	RSG::canvas_render->update();
 
 	GodotProfileZoneGrouped(_profile_zone, "rasterizer->end_frame");
 	RSG::rasterizer->end_frame(p_swap_buffers);
+	_lt_end.end();
 
 #ifndef XR_DISABLED
 	if (xr_server != nullptr) {
@@ -321,6 +330,10 @@ uint64_t RenderingServerDefault::get_rendering_info(RSE::RenderingInfo p_info) {
 		return RSG::canvas_render->get_pipeline_compilations(RSE::PIPELINE_SOURCE_DRAW) + RSG::scene->get_pipeline_compilations(RSE::PIPELINE_SOURCE_DRAW);
 	} else if (p_info == RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_SPECIALIZATION) {
 		return RSG::canvas_render->get_pipeline_compilations(RSE::PIPELINE_SOURCE_SPECIALIZATION) + RSG::scene->get_pipeline_compilations(RSE::PIPELINE_SOURCE_SPECIALIZATION);
+	} else if (p_info == RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_PENDING) {
+		return PipelineCompilationScheduler::pending();
+	} else if (p_info == RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_COMPLETED) {
+		return PipelineCompilationScheduler::completed();
 	}
 	return RSG::utilities->get_rendering_info(p_info);
 }
@@ -331,6 +344,52 @@ RenderingDeviceEnums::DeviceType RenderingServerDefault::get_video_adapter_type(
 
 void RenderingServerDefault::set_frame_profiling_enabled(bool p_enable) {
 	RSG::utilities->capturing_timestamps = p_enable;
+}
+
+void RenderingServerDefault::set_pipeline_warmup_mode(bool p_enable) {
+	PipelineCompilationScheduler::set_warmup(p_enable);
+}
+
+void RenderingServerDefault::pso_record_set_enabled(bool p_enabled) {
+	PSORecord::set_armed(p_enabled);
+}
+
+Dictionary RenderingServerDefault::pso_record_save(const String &p_path) {
+	uint32_t total = 0;
+	const Error err = PSORecord::save(p_path, &total);
+	Dictionary result;
+	result["ok"] = err == OK;
+	result["session"] = PSORecord::recorded_count();
+	result["total"] = total;
+	return result;
+}
+
+Dictionary RenderingServerDefault::pso_replay(const String &p_path, const Array &p_materials) {
+	Dictionary result;
+	result["submitted"] = 0;
+	result["unmatched"] = 0;
+	result["records"] = 0;
+
+	PSORecord::ReplayFunction replay = PSORecord::get_replay_function();
+	ERR_FAIL_NULL_V_MSG(replay, result, "PSO replay is not supported by the active renderer.");
+
+	LocalVector<PSORecord::Rec> records;
+	if (PSORecord::load(p_path, records) != OK) {
+		return result;
+	}
+
+	Vector<RID> materials;
+	materials.resize(p_materials.size());
+	for (int i = 0; i < p_materials.size(); i++) {
+		materials.write[i] = p_materials[i];
+	}
+
+	uint32_t unmatched = 0;
+	const uint32_t submitted = replay(records, materials, &unmatched);
+	result["submitted"] = submitted;
+	result["unmatched"] = unmatched;
+	result["records"] = records.size();
+	return result;
 }
 
 uint64_t RenderingServerDefault::get_frame_profile_frame() {
@@ -441,6 +500,11 @@ void RenderingServerDefault::sync() {
 }
 
 void RenderingServerDefault::draw(bool p_present, double frame_step) {
+	LoadingTraceSpan _lt_draw(LT_FRAME, "RenderingServer::draw");
+
+	// Release one batch of pipeline compilations and join it before anything renders: with work in
+	// flight the driver stalls the whole frame, so batches must not overlap a draw.
+	PipelineCompilationScheduler::tick();
 	ERR_FAIL_COND_MSG(!Thread::is_main_thread(), "Manually triggering the draw function from the RenderingServer can only be done on the main thread. Call this function from the main thread or use call_deferred().");
 	// Needs to be done before changes is reset to 0, to not force the editor to redraw.
 	RS::get_singleton()->emit_signal(SNAME("frame_pre_draw"));

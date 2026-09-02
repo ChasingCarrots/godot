@@ -990,6 +990,16 @@ public:
 	virtual String get_video_adapter_api_version() const = 0;
 
 	virtual void set_frame_profiling_enabled(bool p_enable) = 0;
+
+	// While enabled, draws skip surfaces whose pipeline is not compiled yet instead of compiling it
+	// inline on the main thread. For boot-time pipeline warm-up with throwaway geometry.
+	virtual void set_pipeline_warmup_mode(bool p_enable) = 0;
+
+	// Records the pipelines drawing actually uses, and rebuilds a recorded set before it is needed.
+	// The materials passed to the replay are what brings the recorded shaders into existence.
+	virtual void pso_record_set_enabled(bool p_enabled) = 0;
+	virtual Dictionary pso_record_save(const String &p_path) = 0;
+	virtual Dictionary pso_replay(const String &p_path, const Array &p_materials) = 0;
 	virtual Vector<RenderingServerTypes::FrameProfileArea> get_frame_profile() = 0;
 	virtual uint64_t get_frame_profile_frame() = 0;
 

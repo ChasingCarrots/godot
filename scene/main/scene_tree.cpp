@@ -37,6 +37,7 @@ STATIC_ASSERT_INCOMPLETE_TYPE(class, RenderingServer);
 #include "core/input/input.h"
 #include "core/io/image_loader.h"
 #include "core/io/resource_loader.h"
+#include "core/profiling/loading_trace.h"
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/object/worker_thread_pool.h"
@@ -687,6 +688,7 @@ void SceneTree::iteration_end() {
 }
 
 bool SceneTree::process(double p_time) {
+	LoadingTraceSpan _lt_process(LT_FRAME, "SceneTree::process");
 	// First pass of scene tree fixed timestep interpolation.
 	if (get_scene_tree_fti().is_enabled()) {
 		// Special, we need to ensure RenderingServer is up to date

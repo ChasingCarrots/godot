@@ -36,6 +36,7 @@ enum LoadingTraceCat : uint8_t {
 	LT_PSO_SUBMIT, // Pipeline compilation queued.
 	LT_PSO_BUILD, // Pipeline state object actually built.
 	LT_PSO_WAIT, // Stall waiting for a pipeline.
+	LT_FRAME, // One main-loop iteration; gaps between these are what the OS calls (un)responsive.
 	LT_CAT_MAX,
 };
 
@@ -75,6 +76,14 @@ public:
 	_FORCE_INLINE_ void phase() {
 		if (unlikely(handle != LoadingTrace::INVALID_HANDLE)) {
 			LoadingTrace::set_phase(handle);
+		}
+	}
+
+	// Closes the span before scope exit; the destructor then does nothing.
+	_FORCE_INLINE_ void end() {
+		if (unlikely(handle != LoadingTrace::INVALID_HANDLE)) {
+			LoadingTrace::end(handle);
+			handle = LoadingTrace::INVALID_HANDLE;
 		}
 	}
 

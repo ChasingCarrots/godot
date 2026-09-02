@@ -35,6 +35,7 @@
 #include "core/math/transform_interpolator.h"
 #include "core/object/worker_thread_pool.h"
 #include "core/os/os.h"
+#include "core/profiling/loading_trace.h"
 #include "core/profiling/profiling.h"
 #include "servers/display/display_server.h"
 #include "servers/rendering/renderer_canvas_cull.h"
@@ -329,6 +330,7 @@ void RendererViewport::_draw_3d(Viewport *p_viewport) {
 	}
 
 	float screen_mesh_lod_threshold = p_viewport->mesh_lod_threshold / float(p_viewport->size.width);
+	LoadingTraceSpan _lt_cam(LT_FRAME, "scene->render_camera");
 	RSG::scene->render_camera(p_viewport->render_buffers, p_viewport->camera, p_viewport->scenario, p_viewport->self, p_viewport->internal_size, p_viewport->jitter_phase_count, screen_mesh_lod_threshold, p_viewport->shadow_atlas, xr_interface, p_viewport->window_output_max_value, &p_viewport->render_info);
 
 	RENDER_TIMESTAMP("< Render 3D Scene");
@@ -336,6 +338,7 @@ void RendererViewport::_draw_3d(Viewport *p_viewport) {
 }
 
 void RendererViewport::_draw_viewport(Viewport *p_viewport) {
+	LoadingTraceSpan _lt_vp1(LT_FRAME, "_draw_viewport");
 	GodotProfileZoneGroupedFirst(_profile_zone, "preparation");
 	if (p_viewport->measure_render_time) {
 		String rt_id = "vp_begin_" + itos(p_viewport->self.get_id());

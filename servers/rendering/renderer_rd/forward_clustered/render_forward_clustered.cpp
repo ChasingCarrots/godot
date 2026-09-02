@@ -33,6 +33,8 @@
 #include "core/config/project_settings.h"
 #include "servers/rendering/renderer_rd/environment/fog.h"
 #include "servers/rendering/renderer_rd/framebuffer_cache_rd.h"
+#include "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered_pso.h"
+#include "servers/rendering/renderer_rd/pso_record.h"
 #include "servers/rendering/renderer_rd/storage_rd/light_storage.h"
 #include "servers/rendering/renderer_rd/storage_rd/mesh_storage.h"
 #include "servers/rendering/renderer_rd/storage_rd/particles_storage.h"
@@ -519,6 +521,12 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 			}
 
 			pipeline_hash = pipeline_key.hash();
+
+			// The key is complete here, and this is the point a draw genuinely needs it - recording
+			// where pipelines are *compiled* would stop seeing the ones a warm-up already supplied.
+			if (unlikely(PSORecord::is_armed())) {
+				RenderForwardClusteredPSO::record(shader, pipeline_key, mesh_storage->mesh_surface_get_format(mesh_surface), surf->owner->mesh_instance.is_valid(), pipeline_motion_vectors, emulate_point_size);
+			}
 
 			if (shader != prev_shader || pipeline_hash != prev_pipeline_hash) {
 				RSE::PipelineSource pipeline_source = pipeline_key.ubershader ? RSE::PIPELINE_SOURCE_DRAW : RSE::PIPELINE_SOURCE_SPECIALIZATION;
@@ -4660,6 +4668,50 @@ static RD::FramebufferFormatID _get_reflection_probe_depth_framebuffer_format_fo
 	return RD::get_singleton()->framebuffer_format_create(Vector<RD::AttachmentFormat>(attachments));
 }
 
+// Registers every framebuffer format the helpers above can produce, so a recorded pipeline can
+// name its format by the call that builds it. The IDs themselves are cache indices and differ
+// between runs; re-issuing the call is what makes a record portable.
+void RenderForwardClustered::_pso_register_framebuffer_formats() {
+	const RD::DataFormat color_format = _render_buffers_get_preferred_color_format();
+	const bool can_be_storage = _render_buffers_can_be_storage();
+
+	PSORecord::FBDesc desc;
+	for (uint8_t samples = RD::TEXTURE_SAMPLES_1; samples <= RD::TEXTURE_SAMPLES_8; samples++) {
+		for (uint8_t specular = 0; specular < 2; specular++) {
+			for (uint8_t velocity = 0; velocity < 2; velocity++) {
+				for (uint8_t view_count = 1; view_count <= 2; view_count++) {
+					desc = { PSORecord::FB_COLOR, samples, specular, velocity, view_count };
+					PSORecord::register_framebuffer_format(_get_color_framebuffer_format_for_pipeline(color_format, can_be_storage, RD::TextureSamples(samples), specular, velocity, view_count), desc);
+				}
+			}
+		}
+		for (uint8_t normal_roughness = 0; normal_roughness < 2; normal_roughness++) {
+			for (uint8_t voxelgi = 0; voxelgi < 2; voxelgi++) {
+				desc = { PSORecord::FB_DEPTH, samples, normal_roughness, voxelgi, 1 };
+				PSORecord::register_framebuffer_format(_get_depth_framebuffer_format_for_pipeline(can_be_storage, RD::TextureSamples(samples), normal_roughness, voxelgi), desc);
+			}
+		}
+	}
+
+	for (uint8_t storage = 0; storage < 2; storage++) {
+		desc = { PSORecord::FB_REFLECTION_PROBE_COLOR, 0, storage, 0, 1 };
+		PSORecord::register_framebuffer_format(_get_reflection_probe_color_framebuffer_format_for_pipeline(storage), desc);
+	}
+	for (uint8_t use_16_bits = 0; use_16_bits < 2; use_16_bits++) {
+		desc = { PSORecord::FB_SHADOW_ATLAS, 0, use_16_bits, 0, 1 };
+		PSORecord::register_framebuffer_format(_get_shadow_atlas_framebuffer_format_for_pipeline(use_16_bits), desc);
+	}
+
+	desc = { PSORecord::FB_SHADOW_CUBEMAP, 0, 0, 0, 1 };
+	PSORecord::register_framebuffer_format(_get_shadow_cubemap_framebuffer_format_for_pipeline(), desc);
+	desc = { PSORecord::FB_REFLECTION_PROBE_DEPTH, 0, 0, 0, 1 };
+	PSORecord::register_framebuffer_format(_get_reflection_probe_depth_framebuffer_format_for_pipeline(), desc);
+	desc = { PSORecord::FB_EMPTY, 0, 0, 0, 1 };
+	PSORecord::register_framebuffer_format(RD::get_singleton()->framebuffer_format_create_empty(), desc);
+
+	RenderForwardClusteredPSO::init();
+}
+
 void RenderForwardClustered::_mesh_compile_pipeline_for_surface(SceneShaderForwardClustered::ShaderData *p_shader, void *p_mesh_surface, bool p_ubershader, bool p_instanced_surface, RSE::PipelineSource p_source, SceneShaderForwardClustered::ShaderData::PipelineKey &r_pipeline_key, Vector<ShaderPipelinePair> *r_pipeline_pairs) {
 	RendererRD::MeshStorage *mesh_storage = RendererRD::MeshStorage::get_singleton();
 	uint64_t input_mask = p_shader->get_vertex_input_mask(r_pipeline_key.version, r_pipeline_key.color_pass_flags, p_ubershader);
@@ -5242,6 +5294,7 @@ RenderForwardClustered::RenderForwardClustered() {
 
 	_update_shader_quality_settings();
 	_update_global_pipeline_data_requirements_from_project();
+	_pso_register_framebuffer_formats();
 
 	taa = memnew(RendererRD::TAA);
 	fsr2_effect = memnew(RendererRD::FSR2Effect);

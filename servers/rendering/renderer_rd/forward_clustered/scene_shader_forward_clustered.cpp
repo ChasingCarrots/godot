@@ -1016,6 +1016,14 @@ void fragment() {
 }
 
 void SceneShaderForwardClustered::set_default_specialization(const ShaderSpecialization &p_specialization) {
+	if (default_specialization.packed_0 == p_specialization.packed_0 &&
+			default_specialization.packed_1 == p_specialization.packed_1 &&
+			default_specialization.packed_2 == p_specialization.packed_2) {
+		// Unchanged. Flushing anyway joins every in-flight pipeline compile and then discards the
+		// results, which cold costs tens of seconds of main-thread stall for no benefit.
+		return;
+	}
+
 	default_specialization = p_specialization;
 
 	for (SelfList<ShaderData> *E = shader_list.first(); E; E = E->next()) {

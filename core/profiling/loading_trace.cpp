@@ -42,6 +42,7 @@ const char *cat_names[LT_CAT_MAX] = {
 	"pso_submit",
 	"pso_build",
 	"pso_wait",
+	"frame",
 };
 
 struct Rec {
