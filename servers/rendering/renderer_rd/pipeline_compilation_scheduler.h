@@ -25,8 +25,6 @@ public:
 	virtual uint32_t pending_pipelines() const = 0;
 	// Submits at most p_max deferred compilations; returns how many were started.
 	virtual uint32_t submit_pending_pipelines(uint32_t p_max) = 0;
-	// Submits every priority (ubershader) compilation; returns how many were started.
-	virtual uint32_t submit_priority_pipelines() = 0;
 	virtual void join_submitted_pipelines() = 0;
 
 protected:
@@ -43,19 +41,14 @@ public:
 	static bool is_enabled();
 	static void set_enabled(bool p_enabled);
 
-	// While warming up, a draw that finds its pipeline missing skips the surface instead of
-	// compiling it inline. Throwaway geometry does not need to look right, and the inline compiles
-	// are what block the main thread and stall the progress bar.
-	static bool is_warmup();
-	static void set_warmup(bool p_enabled);
+	// A loading screen may spend most of its frame compiling; gameplay may not. The batch size
+	// adapts to whatever time budget this selects, so leaving it on the loading value is what
+	// turns a newly loaded mesh into a visible hitch.
+	static void set_loading_screen(bool p_enabled);
 
 	// Submits and joins one bounded batch. Main thread only, called between frames.
 	static void tick();
 
-
-	// Builds every outstanding ubershader in one parallel batch. Called when a draw needs a
-	// fallback that is not ready: one ~2 s batch beats compiling dozens serially on the main thread.
-	static void flush_priority();
 	static uint32_t pending();
 	static uint32_t completed();
 	static uint32_t total();

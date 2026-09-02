@@ -330,6 +330,8 @@ uint64_t RenderingServerDefault::get_rendering_info(RSE::RenderingInfo p_info) {
 		return RSG::canvas_render->get_pipeline_compilations(RSE::PIPELINE_SOURCE_DRAW) + RSG::scene->get_pipeline_compilations(RSE::PIPELINE_SOURCE_DRAW);
 	} else if (p_info == RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_SPECIALIZATION) {
 		return RSG::canvas_render->get_pipeline_compilations(RSE::PIPELINE_SOURCE_SPECIALIZATION) + RSG::scene->get_pipeline_compilations(RSE::PIPELINE_SOURCE_SPECIALIZATION);
+	} else if (p_info == RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_WARMUP) {
+		return RSG::scene->get_pipeline_compilations(RSE::PIPELINE_SOURCE_WARMUP);
 	} else if (p_info == RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_PENDING) {
 		return PipelineCompilationScheduler::pending();
 	} else if (p_info == RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_COMPLETED) {
@@ -346,8 +348,8 @@ void RenderingServerDefault::set_frame_profiling_enabled(bool p_enable) {
 	RSG::utilities->capturing_timestamps = p_enable;
 }
 
-void RenderingServerDefault::set_pipeline_warmup_mode(bool p_enable) {
-	PipelineCompilationScheduler::set_warmup(p_enable);
+void RenderingServerDefault::set_pipeline_loading_screen(bool p_enable) {
+	PipelineCompilationScheduler::set_loading_screen(p_enable);
 }
 
 void RenderingServerDefault::pso_record_set_enabled(bool p_enabled) {
@@ -360,8 +362,18 @@ Dictionary RenderingServerDefault::pso_record_save(const String &p_path) {
 	Dictionary result;
 	result["ok"] = err == OK;
 	result["session"] = PSORecord::recorded_count();
+	result["shaders"] = PSORecord::shader_count();
+	result["dropped"] = PSORecord::dropped_count();
 	result["total"] = total;
 	return result;
+}
+
+int64_t RenderingServerDefault::pso_material_shader_hash(const RID &p_material) {
+	return int64_t(PSORecord::material_shader_hash(p_material));
+}
+
+void RenderingServerDefault::pso_apply_global_key(const String &p_path) {
+	PSORecord::apply_global_key(p_path);
 }
 
 bool RenderingServerDefault::pso_shaders_ready() {
@@ -373,6 +385,8 @@ Dictionary RenderingServerDefault::pso_replay(const String &p_path, const Array 
 	result["submitted"] = 0;
 	result["unmatched"] = 0;
 	result["records"] = 0;
+	result["shaders_wanted"] = 0;
+	result["shaders_missing"] = 0;
 
 	PSORecord::ReplayFunction replay = PSORecord::get_replay_function();
 	ERR_FAIL_NULL_V_MSG(replay, result, "PSO replay is not supported by the active renderer.");
@@ -388,11 +402,13 @@ Dictionary RenderingServerDefault::pso_replay(const String &p_path, const Array 
 		materials.write[i] = p_materials[i];
 	}
 
-	uint32_t unmatched = 0;
-	const uint32_t submitted = replay(records, materials, MAX(0, p_from), p_count < 0 ? records.size() : uint32_t(p_count), p_enable_only, &unmatched);
-	result["submitted"] = submitted;
-	result["unmatched"] = unmatched;
+	PSORecord::ReplayStats stats;
+	replay(records, materials, MAX(0, p_from), p_count < 0 ? records.size() : uint32_t(p_count), p_enable_only, stats);
+	result["submitted"] = stats.submitted;
+	result["unmatched"] = stats.unmatched;
 	result["records"] = records.size();
+	result["shaders_wanted"] = stats.shaders_wanted;
+	result["shaders_missing"] = stats.shaders_missing;
 	return result;
 }
 

@@ -36,6 +36,7 @@ enum LoadingTraceCat : uint8_t {
 	LT_PSO_SUBMIT, // Pipeline compilation queued.
 	LT_PSO_BUILD, // Pipeline state object actually built.
 	LT_PSO_WAIT, // Stall waiting for a pipeline.
+	LT_PSO_GLOBAL_KEY, // Renderer-wide pipeline requirements changed; every surface regenerates.
 	LT_FRAME, // One main-loop iteration; gaps between these are what the OS calls (un)responsive.
 	LT_CAT_MAX,
 };

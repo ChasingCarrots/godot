@@ -59,6 +59,8 @@ _FORCE_INLINE_ const char *pipeline_source_name(RSE::PipelineSource p_source) {
 			return "DRAW";
 		case RSE::PIPELINE_SOURCE_SPECIALIZATION:
 			return "SPECIALIZATION";
+		case RSE::PIPELINE_SOURCE_WARMUP:
+			return "WARMUP";
 		default:
 			return "UNKNOWN";
 	}
@@ -76,7 +78,7 @@ private:
 	Mutex compiled_queue_mutex;
 	RBSet<uint32_t> compilation_set;
 	HashMap<uint32_t, WorkerThreadPool::TaskID> compilation_tasks;
-	Mutex local_mutex;
+	mutable Mutex local_mutex;
 
 	struct Deferred {
 		Key key;
@@ -174,16 +176,28 @@ private:
 		(creation_object->*creation_function)(p_key);
 	}
 
-	// Moves a key into the priority queue so the very next batch builds it.
-	void _promote_pending(uint32_t p_key_hash) {
+	// Drops a key the scheduler is still holding, because the caller is about to build it here.
+	// Leaving it queued would have a later batch compile the same pipeline a second time, only for
+	// the duplicate to be freed on arrival.
+	void _discard_deferred(uint32_t p_key_hash) {
 		MutexLock local_lock(local_mutex);
-		for (uint32_t i = 0; i < deferred.size(); i++) {
-			if (deferred[i].hash == p_key_hash) {
-				deferred_priority.push_back(deferred[i]);
-				deferred.remove_at_unordered(i);
-				return;
+		Key unused;
+		_take_deferred(p_key_hash, unused);
+	}
+
+	// Claims a key the scheduler has not released yet, so the caller can build it now. Caller
+	// holds local_mutex.
+	bool _take_deferred(uint32_t p_key_hash, Key &r_key) {
+		for (LocalVector<Deferred> *queue : { &deferred_priority, &deferred }) {
+			for (uint32_t i = 0; i < queue->size(); i++) {
+				if ((*queue)[i].hash == p_key_hash) {
+					r_key = (*queue)[i].key;
+					queue->remove_at_unordered(i);
+					return true;
+				}
 			}
 		}
+		return false;
 	}
 
 public:
@@ -216,6 +230,9 @@ public:
 		switch (p_source) {
 			case RSE::PIPELINE_SOURCE_CANVAS:
 				source_name = "CANVAS";
+				break;
+			case RSE::PIPELINE_SOURCE_WARMUP:
+				source_name = "WARMUP";
 				break;
 			case RSE::PIPELINE_SOURCE_MESH:
 				source_name = "MESH";
@@ -260,6 +277,8 @@ public:
 
 	void wait_for_pipeline(uint32_t p_key_hash) {
 		WorkerThreadPool::TaskID task_id_to_wait = WorkerThreadPool::INVALID_TASK_ID;
+		Key deferred_key;
+		bool compile_here = false;
 
 		{
 			MutexLock local_lock(local_mutex);
@@ -273,7 +292,19 @@ public:
 				// Wait for and remove the compilation task if it exists.
 				task_id_to_wait = task_it->value;
 				compilation_tasks.remove(task_it);
+			} else {
+				// No task yet means the scheduler is still holding the key: batches are only
+				// released between frames. Returning here would report the pipeline as ready and
+				// leave its first draw to compile it inside a frame.
+				compile_here = _take_deferred(p_key_hash, deferred_key);
 			}
+		}
+
+		if (compile_here) {
+			LoadingTraceSpan _lt_wait(LT_PSO_WAIT, "pipeline_deferred");
+			_lt_wait.args(p_key_hash);
+			(creation_object->*creation_function)(deferred_key);
+			return;
 		}
 
 		if (task_id_to_wait != WorkerThreadPool::INVALID_TASK_ID) {
@@ -296,20 +327,9 @@ public:
 
 		if (e == nullptr) {
 			if (p_wait_for_compilation) {
-				// Callers of the waiting form have no fallback left, so this must return a pipeline.
-				// Promote first so the next inter-frame batch builds it and later frames find it
-				// ready here instead of paying the inline compile again.
-				_promote_pending(p_key_hash);
-
-				// Canvas is exempt: the boot screen itself is 2D, and skipping those draws would
-				// blank the progress UI this mode exists to keep responsive.
-				if (PipelineCompilationScheduler::is_warmup() && p_source != RSE::PIPELINE_SOURCE_CANVAS) {
-					// Warm-up geometry is throwaway: let the draw be skipped rather than stalling
-					// the main thread, and let the batch scheduler compile this in the background.
-					return RID();
-				}
-
-				// A draw is blocked on this pipeline, so build it here rather than queueing it.
+				// Callers of the waiting form have no fallback left, so a draw is blocked on this
+				// pipeline: build it here rather than wait for the next inter-frame batch.
+				_discard_deferred(p_key_hash);
 				_compile_pipeline_inline(p_key, p_key_hash, p_source);
 				_add_new_pipelines_to_map();
 
@@ -361,6 +381,9 @@ public:
 	}
 
 	uint32_t pending_pipelines() const override {
+		// Mesh loads submit from resource-loader threads, so the queues move while the scheduler
+		// polls this.
+		MutexLock local_lock(local_mutex);
 		return deferred.size() + deferred_priority.size();
 	}
 
@@ -375,20 +398,6 @@ public:
 
 			const Deferred entry = queue[queue.size() - 1];
 			queue.remove_at(queue.size() - 1);
-			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, true, "PipelineCompilation");
-			compilation_tasks.insert(entry.hash, task_id);
-			batch_tasks.push_back(task_id);
-			started++;
-		}
-		return started;
-	}
-
-	uint32_t submit_priority_pipelines() override {
-		uint32_t started = 0;
-		MutexLock local_lock(local_mutex);
-		while (!deferred_priority.is_empty()) {
-			const Deferred entry = deferred_priority[deferred_priority.size() - 1];
-			deferred_priority.remove_at(deferred_priority.size() - 1);
 			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, true, "PipelineCompilation");
 			compilation_tasks.insert(entry.hash, task_id);
 			batch_tasks.push_back(task_id);

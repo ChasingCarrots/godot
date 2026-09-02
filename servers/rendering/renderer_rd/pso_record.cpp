@@ -17,9 +17,12 @@ HashSet<uint64_t> PSORecord::seen;
 LocalVector<PSORecord::Rec> PSORecord::records;
 PSORecord::ReplayFunction PSORecord::replay_function = nullptr;
 PSORecord::ReadyFunction PSORecord::ready_function = nullptr;
+PSORecord::ShaderHashFunction PSORecord::shader_hash_function = nullptr;
 String PSORecord::cached_path;
 LocalVector<PSORecord::Rec> PSORecord::cached_records;
 HashMap<int64_t, uint32_t> PSORecord::unknown_fb;
+PSORecord::ApplyGlobalKeyFunction PSORecord::apply_global_key_function = nullptr;
+uint32_t PSORecord::global_key = 0;
 
 const LocalVector<PSORecord::Rec> &PSORecord::load_cached(const String &p_path) {
 	if (cached_path != p_path) {
@@ -100,6 +103,42 @@ uint32_t PSORecord::recorded_count() {
 	return records.size();
 }
 
+uint32_t PSORecord::dropped_count() {
+	MutexLock lock(mutex);
+	uint32_t dropped = 0;
+	for (const KeyValue<int64_t, uint32_t> &kv : unknown_fb) {
+		dropped += kv.value;
+	}
+	return dropped;
+}
+
+uint32_t PSORecord::shader_count() {
+	MutexLock lock(mutex);
+	HashSet<uint64_t> shaders;
+	for (const Rec &rec : records) {
+		shaders.insert(rec.shader_hash);
+	}
+	return shaders.size();
+}
+
+void PSORecord::note_global_key(uint32_t p_key) {
+	MutexLock lock(mutex);
+	// Accumulated, never replaced: the flags are discovered one at a time over a session, so the
+	// last value seen is the most complete one only if nothing ever cleared a bit.
+	global_key |= p_key;
+}
+
+void PSORecord::set_apply_global_key_function(ApplyGlobalKeyFunction p_function) {
+	apply_global_key_function = p_function;
+}
+
+void PSORecord::apply_global_key(const String &p_path) {
+	const uint32_t key = global_key_from_file(p_path);
+	if (key != 0 && apply_global_key_function != nullptr) {
+		apply_global_key_function(key);
+	}
+}
+
 static Array _rec_to_array(const PSORecord::Rec &p_rec) {
 	Array a;
 	// Split, not stringified: a JSON number loses integer precision past 2^53, and parsing text
@@ -169,6 +208,18 @@ Error PSORecord::load(const String &p_path, LocalVector<Rec> &r_recs) {
 	return OK;
 }
 
+uint32_t PSORecord::global_key_from_file(const String &p_path) {
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+	if (f.is_null()) {
+		return 0;
+	}
+	JSON json;
+	if (json.parse(f->get_as_text()) != OK) {
+		return 0;
+	}
+	return uint32_t(int64_t(Dictionary(json.get_data()).get("global_key", 0)));
+}
+
 Error PSORecord::save(const String &p_path, uint32_t *r_total) {
 	LocalVector<Rec> merged;
 	load(p_path, merged);
@@ -195,15 +246,29 @@ Error PSORecord::save(const String &p_path, uint32_t *r_total) {
 	Dictionary root;
 	root["version"] = 2;
 	root["records"] = out;
+	// OR-ed with the file's value so merging recordings merges requirement sets too: a session
+	// that never saw a reflection probe must not drop the bit a session that did recorded.
+	uint32_t merged_key = global_key_from_file(p_path);
+	{
+		MutexLock lock(mutex);
+		merged_key |= global_key;
+	}
+	root["global_key"] = merged_key;
 
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(f.is_null(), ERR_FILE_CANT_WRITE, vformat("Cannot write PSO records to %s", p_path));
 	f->store_string(JSON::stringify(root));
 
+	// A runtime save can target the file a later re-warm reads, and load_cached() only reparses
+	// when the path changes.
+	if (cached_path == p_path) {
+		cached_path = String();
+		cached_records.clear();
+	}
+
 	if (r_total != nullptr) {
 		*r_total = merged.size();
 	}
-
 
 	{
 		MutexLock lock(mutex);
@@ -234,4 +299,12 @@ void PSORecord::set_ready_function(ReadyFunction p_function) {
 
 bool PSORecord::shaders_ready() {
 	return ready_function == nullptr || ready_function();
+}
+
+void PSORecord::set_shader_hash_function(ShaderHashFunction p_function) {
+	shader_hash_function = p_function;
+}
+
+uint64_t PSORecord::material_shader_hash(RID p_material) {
+	return shader_hash_function == nullptr ? 0 : shader_hash_function(p_material);
 }

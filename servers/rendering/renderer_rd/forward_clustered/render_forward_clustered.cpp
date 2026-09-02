@@ -4166,8 +4166,10 @@ void RenderForwardClustered::_update_global_pipeline_data_requirements_from_proj
 
 void RenderForwardClustered::_update_global_pipeline_data_requirements_from_light_storage() {
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
-	global_pipeline_data_required.use_shadow_cubemaps = light_storage->get_shadow_cubemaps_used();
-	global_pipeline_data_required.use_shadow_dual_paraboloid = light_storage->get_shadow_dual_paraboloid_used();
+	// OR, not assign: the storage flags latch true and never clear, so this is behaviour-identical
+	// except that it also preserves a bit restored from a recording.
+	global_pipeline_data_required.use_shadow_cubemaps |= light_storage->get_shadow_cubemaps_used();
+	global_pipeline_data_required.use_shadow_dual_paraboloid |= light_storage->get_shadow_dual_paraboloid_used();
 }
 
 void RenderForwardClustered::_geometry_instance_add_surface_with_material(GeometryInstanceForwardClustered *ginstance, uint32_t p_surface, SceneShaderForwardClustered::MaterialData *p_material, uint32_t p_material_id, uint32_t p_shader_id, RID p_mesh) {
@@ -4901,6 +4903,11 @@ void RenderForwardClustered::_update_dirty_geometry_instances() {
 
 void RenderForwardClustered::_update_dirty_geometry_pipelines() {
 	if (global_pipeline_data_required.key != global_pipeline_data_compiled.key) {
+		// A flag was discovered, so every surface's pipeline set is now incomplete. Traced because
+		// the walk touches the whole scene and each new flag costs one of these.
+		LoadingTraceSpan _lt_walk(LT_PSO_GLOBAL_KEY, "regenerate_all");
+		uint32_t surfaces = 0;
+
 		// Go through the entire list of surfaces and compile pipelines for everything again.
 		SelfList<GeometryInstanceSurfaceDataCache> *list = geometry_surface_compilation_all_list.first();
 		while (list != nullptr) {
@@ -4912,10 +4919,14 @@ void RenderForwardClustered::_update_dirty_geometry_pipelines() {
 				geometry_surface_compilation_dirty_list.remove(&surface_cache->compilation_dirty_element);
 			}
 
+			surfaces++;
 			list = list->next();
 		}
 
+		_lt_walk.args(global_pipeline_data_compiled.key, global_pipeline_data_required.key, surfaces);
 		global_pipeline_data_compiled.key = global_pipeline_data_required.key;
+		// Recorded so a later run can start with this set instead of rediscovering it.
+		PSORecord::note_global_key(global_pipeline_data_compiled.key);
 	} else {
 		// Compile pipelines only for the dirty list.
 		if (!geometry_surface_compilation_dirty_list.first()) {

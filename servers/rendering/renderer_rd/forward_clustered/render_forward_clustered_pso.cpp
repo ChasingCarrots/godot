@@ -59,7 +59,7 @@ void RenderForwardClusteredPSO::record(SceneShaderForwardClustered::ShaderData *
 	PSORecord::push(rec);
 }
 
-static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<RID> &p_materials, uint32_t p_from, uint32_t p_count, bool p_enable_only, uint32_t *r_unmatched) {
+static void _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<RID> &p_materials, uint32_t p_from, uint32_t p_count, bool p_enable_only, PSORecord::ReplayStats &r_stats) {
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 	RendererRD::MeshStorage *mesh_storage = RendererRD::MeshStorage::get_singleton();
 
@@ -88,6 +88,8 @@ static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<
 				missing.insert(rec.shader_hash);
 			}
 		}
+		r_stats.shaders_wanted = wanted.size();
+		r_stats.shaders_missing = missing.size();
 		print_verbose(vformat("PSO replay: %d materials -> %d shaders live; %d of %d recorded shaders missing",
 				p_materials.size(), by_hash.size(), missing.size(), wanted.size()));
 	}
@@ -155,18 +157,60 @@ static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<
 		const uint64_t input_mask = (*shader)->get_vertex_input_mask(key.version, key.color_pass_flags, key.ubershader);
 		key.vertex_format_id = mesh_storage->mesh_generate_vertex_format(rec.surface_format, input_mask, rec.instanced, rec.motion_vectors, rec.point_size);
 
-		(*shader)->pipeline_hash_map.compile_pipeline(key, key.hash(), RSE::PIPELINE_SOURCE_SURFACE, false);
+		(*shader)->pipeline_hash_map.compile_pipeline(key, key.hash(), RSE::PIPELINE_SOURCE_WARMUP, false);
 		submitted++;
 	}
 
-	if (r_unmatched != nullptr) {
-		*r_unmatched = unmatched;
-	}
-	return submitted;
+	r_stats.submitted = submitted;
+	r_stats.unmatched = unmatched;
 }
 
 bool RenderForwardClustered::pso_shaders_ready() {
 	return !scene_shader.shader.has_pending_group_compiles();
+}
+
+void RenderForwardClustered::pso_apply_global_key(uint32_t p_key) {
+	// Only the bits that describe the *content*. texture_samples, the two shadow bit depths and
+	// multiview are properties of this run's settings and viewport, so a stale recording must
+	// never revive them - it would build pipelines for an MSAA level nobody selected.
+	GlobalPipelineData content_mask = {};
+	content_mask.use_reflection_probes = 1;
+	content_mask.use_separate_specular = 1;
+	content_mask.use_motion_vectors = 1;
+	content_mask.use_normal_and_roughness = 1;
+	content_mask.use_lightmaps = 1;
+	content_mask.use_voxelgi = 1;
+	content_mask.use_sdfgi = 1;
+	content_mask.use_shadow_cubemaps = 1;
+	content_mask.use_shadow_dual_paraboloid = 1;
+
+	GlobalPipelineData restored = {};
+	restored.key = p_key & content_mask.key;
+
+	// A requirement flag is only safe to set once the shader group holding its variants is
+	// enabled: a disabled group hands out placeholder RIDs with no stages, and the driver rejects
+	// any pipeline built from one ("Pre-raster shader is not provided"). Upstream never hits this
+	// because a flag becomes true at the moment the feature is first used, which is also when the
+	// group is enabled - restoring the flag ahead of time has to enable the group itself.
+	if (restored.use_separate_specular || restored.use_motion_vectors || restored.use_lightmaps ||
+			restored.use_voxelgi || restored.use_sdfgi) {
+		scene_shader.enable_advanced_shader_group(global_pipeline_data_required.use_multiview);
+	}
+
+	// OR, never assign: whatever this run has already discovered stays required.
+	global_pipeline_data_required.key |= restored.key;
+}
+
+static uint64_t _material_shader_hash(RID p_material) {
+	RendererRD::MaterialStorage::MaterialData *data = RendererRD::MaterialStorage::get_singleton()->material_get_data(p_material, RendererRD::MaterialStorage::SHADER_TYPE_3D);
+	if (data == nullptr) {
+		return 0;
+	}
+	SceneShaderForwardClustered::MaterialData *material_data = static_cast<SceneShaderForwardClustered::MaterialData *>(data);
+	if (material_data->shader_data == nullptr) {
+		return 0;
+	}
+	return material_data->shader_data->code.hash64();
 }
 
 static bool _shaders_ready() {
@@ -174,7 +218,16 @@ static bool _shaders_ready() {
 	return renderer == nullptr || renderer->pso_shaders_ready();
 }
 
+static void _apply_global_key(uint32_t p_key) {
+	RenderForwardClustered *renderer = RenderForwardClustered::get_singleton();
+	if (renderer != nullptr) {
+		renderer->pso_apply_global_key(p_key);
+	}
+}
+
 void RenderForwardClusteredPSO::init() {
 	PSORecord::set_replay_function(&_replay);
 	PSORecord::set_ready_function(&_shaders_ready);
+	PSORecord::set_shader_hash_function(&_material_shader_hash);
+	PSORecord::set_apply_global_key_function(&_apply_global_key);
 }

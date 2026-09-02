@@ -991,16 +991,20 @@ public:
 
 	virtual void set_frame_profiling_enabled(bool p_enable) = 0;
 
-	// While enabled, draws skip surfaces whose pipeline is not compiled yet instead of compiling it
-	// inline on the main thread. For boot-time pipeline warm-up with throwaway geometry.
-	virtual void set_pipeline_warmup_mode(bool p_enable) = 0;
+	// Lets pipeline compilation batches spend most of a frame. Only for screens that draw nothing
+	// but a progress indicator; during gameplay the same batch size is a visible hitch.
+	virtual void set_pipeline_loading_screen(bool p_enable) = 0;
 
 	// Records the pipelines drawing actually uses, and rebuilds a recorded set before it is needed.
 	// The materials passed to the replay are what brings the recorded shaders into existence.
 	virtual void pso_record_set_enabled(bool p_enabled) = 0;
 	virtual Dictionary pso_record_save(const String &p_path) = 0;
 	virtual Dictionary pso_replay(const String &p_path, const Array &p_materials, int p_from, int p_count, bool p_enable_only) = 0;
+	// Adopts the whole-scene pipeline requirements a recording captured, so the renderer does not
+	// rediscover them one at a time and regenerate every surface each time.
+	virtual void pso_apply_global_key(const String &p_path) = 0;
 	virtual bool pso_shaders_ready() = 0;
+	virtual int64_t pso_material_shader_hash(const RID &p_material) = 0;
 	virtual Vector<RenderingServerTypes::FrameProfileArea> get_frame_profile() = 0;
 	virtual uint64_t get_frame_profile_frame() = 0;
 

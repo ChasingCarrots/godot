@@ -2249,11 +2249,13 @@ void RenderingServer::get_argument_options(const StringName &p_function, int p_i
 #endif
 
 void RenderingServer::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("set_pipeline_warmup_mode", "enable"), &RenderingServer::set_pipeline_warmup_mode);
+	ClassDB::bind_method(D_METHOD("set_pipeline_loading_screen", "enable"), &RenderingServer::set_pipeline_loading_screen);
 	ClassDB::bind_method(D_METHOD("pso_record_set_enabled", "enabled"), &RenderingServer::pso_record_set_enabled);
 	ClassDB::bind_method(D_METHOD("pso_record_save", "path"), &RenderingServer::pso_record_save);
 	ClassDB::bind_method(D_METHOD("pso_replay", "path", "materials", "from", "count", "enable_only"), &RenderingServer::pso_replay);
+	ClassDB::bind_method(D_METHOD("pso_apply_global_key", "path"), &RenderingServer::pso_apply_global_key);
 	ClassDB::bind_method(D_METHOD("pso_shaders_ready"), &RenderingServer::pso_shaders_ready);
+	ClassDB::bind_method(D_METHOD("pso_material_shader_hash", "material"), &RenderingServer::pso_material_shader_hash);
 	BIND_CONSTANT(RSE::NO_INDEX_ARRAY);
 	BIND_CONSTANT(RSE::ARRAY_WEIGHTS_SIZE);
 	BIND_CONSTANT(RSE::CANVAS_ITEM_Z_MIN);
@@ -3568,12 +3570,14 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_SPECIALIZATION);
 	BIND_ENUM_CONSTANT(RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_PENDING);
 	BIND_ENUM_CONSTANT(RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_COMPLETED);
+	BIND_ENUM_CONSTANT(RSE::RENDERING_INFO_PIPELINE_COMPILATIONS_WARMUP);
 
 	BIND_ENUM_CONSTANT(RSE::PIPELINE_SOURCE_CANVAS);
 	BIND_ENUM_CONSTANT(RSE::PIPELINE_SOURCE_MESH);
 	BIND_ENUM_CONSTANT(RSE::PIPELINE_SOURCE_SURFACE);
 	BIND_ENUM_CONSTANT(RSE::PIPELINE_SOURCE_DRAW);
 	BIND_ENUM_CONSTANT(RSE::PIPELINE_SOURCE_SPECIALIZATION);
+	BIND_ENUM_CONSTANT(RSE::PIPELINE_SOURCE_WARMUP);
 	BIND_ENUM_CONSTANT(RSE::PIPELINE_SOURCE_MAX);
 
 	BIND_ENUM_CONSTANT(RSE::SPLASH_STRETCH_MODE_DISABLED);

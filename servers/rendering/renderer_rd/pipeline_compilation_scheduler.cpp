@@ -21,13 +21,15 @@ Mutex sources_mutex;
 LocalVector<PipelineCompilationSource *> sources;
 
 bool enabled = true;
-bool warmup = false;
 uint32_t completed_count = 0;
 uint32_t total_count = 0;
 
-// Batch size adapts to hit this much main-thread time per frame. A single pipeline can exceed it
-// on a cold driver cache and cannot be interrupted, so this is a target, not a guarantee.
-uint32_t target_batch_usec = 100000;
+// Main-thread time one batch aims for. A single pipeline can exceed either figure on a cold
+// driver cache and cannot be interrupted, so these are targets, not guarantees.
+constexpr uint32_t BATCH_BUDGET_LOADING_USEC = 100000;
+constexpr uint32_t BATCH_BUDGET_PLAYING_USEC = 4000;
+
+uint32_t target_batch_usec = BATCH_BUDGET_PLAYING_USEC;
 uint32_t batch_size = 3;
 
 } // namespace
@@ -55,12 +57,11 @@ void PipelineCompilationScheduler::set_enabled(bool p_enabled) {
 	enabled = p_enabled;
 }
 
-bool PipelineCompilationScheduler::is_warmup() {
-	return warmup;
-}
-
-void PipelineCompilationScheduler::set_warmup(bool p_enabled) {
-	warmup = p_enabled;
+void PipelineCompilationScheduler::set_loading_screen(bool p_enabled) {
+	target_batch_usec = p_enabled ? BATCH_BUDGET_LOADING_USEC : BATCH_BUDGET_PLAYING_USEC;
+	// Restart the feedback loop rather than let a loading-sized batch decay over several frames,
+	// which is exactly the moment gameplay resumes.
+	batch_size = 1;
 }
 
 uint32_t PipelineCompilationScheduler::pending() {
@@ -78,29 +79,6 @@ uint32_t PipelineCompilationScheduler::completed() {
 
 uint32_t PipelineCompilationScheduler::total() {
 	return total_count;
-}
-
-void PipelineCompilationScheduler::flush_priority() {
-	if (!enabled) {
-		return;
-	}
-
-	MutexLock lock(sources_mutex);
-	uint32_t submitted = 0;
-	for (PipelineCompilationSource *source : sources) {
-		submitted += source->submit_priority_pipelines();
-	}
-
-	if (submitted == 0) {
-		return;
-	}
-
-	LoadingTraceSpan _lt_flush(LT_PSO_WAIT, "flush_priority");
-	_lt_flush.args(submitted);
-	for (PipelineCompilationSource *source : sources) {
-		source->join_submitted_pipelines();
-	}
-	completed_count += submitted;
 }
 
 void PipelineCompilationScheduler::tick() {

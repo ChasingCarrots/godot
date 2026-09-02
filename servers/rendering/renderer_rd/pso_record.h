@@ -89,6 +89,17 @@ public:
 	static void push(const Rec &p_rec);
 	static void note_unknown_framebuffer(int64_t p_id);
 	static uint32_t recorded_count();
+	// Draws the recording had to throw away because no enumerated descriptor produces their
+	// framebuffer format. Non-zero means a whole render pass is invisible to the warm-up.
+	static uint32_t dropped_count();
+	// Distinct shaders this session's records name; the material list has to cover all of them.
+	static uint32_t shader_count();
+
+	// The renderer's whole-scene pipeline requirements, as one bitfield. Recording it is what lets
+	// a later run start with the final set instead of discovering flags one at a time and
+	// regenerating every surface each time it learns one.
+	static void note_global_key(uint32_t p_key);
+	static uint32_t global_key_from_file(const String &p_path);
 
 	// Merges with whatever the file already holds: coverage accumulates over runs and over
 	// testers, and a session that missed an area never deletes one that found it.
@@ -97,13 +108,33 @@ public:
 	// Replay walks the list in slices across several frames, so it is parsed once and kept.
 	static const LocalVector<Rec> &load_cached(const String &p_path);
 
+	struct ReplayStats {
+		uint32_t submitted = 0;
+		uint32_t unmatched = 0;
+		// Distinct shaders the whole recording names, and how many of them no supplied material
+		// brought back to life. Only filled on the first slice.
+		uint32_t shaders_wanted = 0;
+		uint32_t shaders_missing = 0;
+	};
+
 	// Set by whichever renderer can rebuild keys; keeps this file free of renderer types.
-	typedef uint32_t (*ReplayFunction)(const LocalVector<Rec> &p_recs, const Vector<RID> &p_materials, uint32_t p_from, uint32_t p_count, bool p_enable_only, uint32_t *r_unmatched);
+	typedef void (*ReplayFunction)(const LocalVector<Rec> &p_recs, const Vector<RID> &p_materials, uint32_t p_from, uint32_t p_count, bool p_enable_only, ReplayStats &r_stats);
 	typedef bool (*ReadyFunction)();
+	typedef uint64_t (*ShaderHashFunction)(RID p_material);
 	static void set_replay_function(ReplayFunction p_function);
 	static ReplayFunction get_replay_function();
 	static void set_ready_function(ReadyFunction p_function);
 	static bool shaders_ready();
+	static void set_shader_hash_function(ShaderHashFunction p_function);
+	// Identity of the shader a material ends up using. Several materials share one shader, so a
+	// recording only has to name one of them per shader.
+	static uint64_t material_shader_hash(RID p_material);
+
+	typedef void (*ApplyGlobalKeyFunction)(uint32_t p_key);
+	static void set_apply_global_key_function(ApplyGlobalKeyFunction p_function);
+	// Restores a recorded requirement set. Only the bits that describe the content are taken; the
+	// renderer decides which those are.
+	static void apply_global_key(const String &p_path);
 
 private:
 	static bool armed;
@@ -114,7 +145,10 @@ private:
 	static LocalVector<Rec> records;
 	static ReplayFunction replay_function;
 	static ReadyFunction ready_function;
+	static ShaderHashFunction shader_hash_function;
 	static String cached_path;
 	static LocalVector<Rec> cached_records;
 	static HashMap<int64_t, uint32_t> unknown_fb;
+	static ApplyGlobalKeyFunction apply_global_key_function;
+	static uint32_t global_key;
 };

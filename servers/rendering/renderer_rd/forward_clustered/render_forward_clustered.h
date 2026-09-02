@@ -813,6 +813,9 @@ public:
 	static RenderForwardClustered *get_singleton() { return singleton; }
 	// False while the scene shader still has variant groups compiling.
 	bool pso_shaders_ready();
+	// Adopts a recorded requirement set, so the first surfaces are built with the final flags
+	// instead of every surface being regenerated each time a flag is discovered.
+	void pso_apply_global_key(uint32_t p_key);
 
 	ClusterBuilderSharedDataRD *get_cluster_builder_shared() { return &cluster_builder_shared; }
 	RendererRD::SSEffects *get_ss_effects() { return ss_effects; }
