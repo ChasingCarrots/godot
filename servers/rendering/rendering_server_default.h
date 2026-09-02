@@ -1194,7 +1194,8 @@ public:
 	virtual void set_pipeline_warmup_mode(bool p_enable) override;
 	virtual void pso_record_set_enabled(bool p_enabled) override;
 	virtual Dictionary pso_record_save(const String &p_path) override;
-	virtual Dictionary pso_replay(const String &p_path, const Array &p_materials) override;
+	virtual Dictionary pso_replay(const String &p_path, const Array &p_materials, int p_from, int p_count, bool p_enable_only) override;
+	virtual bool pso_shaders_ready() override;
 	virtual Vector<RenderingServerTypes::FrameProfileArea> get_frame_profile() override;
 	virtual uint64_t get_frame_profile_frame() override;
 

@@ -94,11 +94,16 @@ public:
 	// testers, and a session that missed an area never deletes one that found it.
 	static Error save(const String &p_path, uint32_t *r_total = nullptr);
 	static Error load(const String &p_path, LocalVector<Rec> &r_recs);
+	// Replay walks the list in slices across several frames, so it is parsed once and kept.
+	static const LocalVector<Rec> &load_cached(const String &p_path);
 
 	// Set by whichever renderer can rebuild keys; keeps this file free of renderer types.
-	typedef uint32_t (*ReplayFunction)(const LocalVector<Rec> &p_recs, const Vector<RID> &p_materials, uint32_t *r_unmatched);
+	typedef uint32_t (*ReplayFunction)(const LocalVector<Rec> &p_recs, const Vector<RID> &p_materials, uint32_t p_from, uint32_t p_count, bool p_enable_only, uint32_t *r_unmatched);
+	typedef bool (*ReadyFunction)();
 	static void set_replay_function(ReplayFunction p_function);
 	static ReplayFunction get_replay_function();
+	static void set_ready_function(ReadyFunction p_function);
+	static bool shaders_ready();
 
 private:
 	static bool armed;
@@ -108,5 +113,8 @@ private:
 	static HashSet<uint64_t> seen;
 	static LocalVector<Rec> records;
 	static ReplayFunction replay_function;
+	static ReadyFunction ready_function;
+	static String cached_path;
+	static LocalVector<Rec> cached_records;
 	static HashMap<int64_t, uint32_t> unknown_fb;
 };

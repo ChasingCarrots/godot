@@ -4,6 +4,8 @@
 
 #include "render_forward_clustered_pso.h"
 
+#include "render_forward_clustered.h"
+
 #include "core/string/print_string.h"
 #include "servers/rendering/renderer_rd/pso_record.h"
 #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
@@ -57,7 +59,7 @@ void RenderForwardClusteredPSO::record(SceneShaderForwardClustered::ShaderData *
 	PSORecord::push(rec);
 }
 
-static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<RID> &p_materials, uint32_t *r_unmatched) {
+static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<RID> &p_materials, uint32_t p_from, uint32_t p_count, bool p_enable_only, uint32_t *r_unmatched) {
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 	RendererRD::MeshStorage *mesh_storage = RendererRD::MeshStorage::get_singleton();
 
@@ -76,26 +78,28 @@ static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<
 		by_hash[material_data->shader_data->code.hash64()] = material_data->shader_data;
 	}
 
-	// Distinct shaders, not records: it is the shader that either exists at replay time or does
-	// not, and a single missing one drops every record that belongs to it.
-	HashSet<uint64_t> wanted;
-	HashSet<uint64_t> missing;
-	for (const PSORecord::Rec &rec : p_recs) {
-		wanted.insert(rec.shader_hash);
-		if (!by_hash.has(rec.shader_hash)) {
-			missing.insert(rec.shader_hash);
+	// Reported once, on the first slice: it describes the whole recording, not this slice.
+	if (p_from == 0) {
+		HashSet<uint64_t> wanted;
+		HashSet<uint64_t> missing;
+		for (const PSORecord::Rec &rec : p_recs) {
+			wanted.insert(rec.shader_hash);
+			if (!by_hash.has(rec.shader_hash)) {
+				missing.insert(rec.shader_hash);
+			}
 		}
+		print_verbose(vformat("PSO replay: %d materials -> %d shaders live; %d of %d recorded shaders missing",
+				p_materials.size(), by_hash.size(), missing.size(), wanted.size()));
 	}
-	String missing_ids;
-	for (const uint64_t &hash : missing) {
-		missing_ids += vformat(" %d", int64_t(hash));
-	}
-	print_verbose(vformat("PSO replay: %d materials -> %d shaders live; %d of %d recorded shaders missing:%s",
-			p_materials.size(), by_hash.size(), missing.size(), wanted.size(), missing_ids));
+
+	// Only the requested slice: enabling a shader group compiles its variants, and doing that for
+	// a whole recording in one call is what stalls the main thread on a cold shader cache.
+	const uint32_t last = MIN(uint64_t(p_from) + uint64_t(p_count), uint64_t(p_recs.size()));
 
 	uint32_t submitted = 0;
 	uint32_t unmatched = 0;
-	for (const PSORecord::Rec &rec : p_recs) {
+	for (uint32_t i = p_from; i < last; i++) {
+		const PSORecord::Rec &rec = p_recs[i];
 		SceneShaderForwardClustered::ShaderData **shader = by_hash.getptr(rec.shader_hash);
 		if (shader == nullptr) {
 			unmatched++;
@@ -121,8 +125,7 @@ static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<
 		key.framebuffer_format_id = framebuffer_format_id;
 
 		// A variant whose group is disabled gets a placeholder with no stages, not a shader, and
-		// the driver rejects any pipeline built from it. Enabling the group compiles it now -
-		// which is the same work a draw would otherwise force mid-mission.
+		// the driver rejects any pipeline built from it.
 		const Pair<ShaderRD *, RID> native = (*shader)->get_native_shader_and_version();
 		if (native.first == nullptr || native.second.is_null()) {
 			unmatched++;
@@ -133,13 +136,18 @@ static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<
 			unmatched++;
 			continue;
 		}
+		// Enabling is non-blocking - it only dispatches the group's variant compiles to the pool.
+		// Nothing waits for them here: _create_pipeline runs on a worker and version_get_shader()
+		// blocks there, so waiting on this thread would stall the boot screen for the whole
+		// compile instead of just queueing the work.
 		const int group = native.first->get_variant_to_group(variant);
 		if (!native.first->is_group_enabled(group)) {
 			native.first->enable_group(group);
 		}
-		native.first->ensure_version_compiled(native.second);
-		if (native.first->version_get_shader(native.second, variant).is_null()) {
-			unmatched++;
+		if (p_enable_only) {
+			// First pass only starts the compiles. Deriving the vertex format needs the compiled
+			// shader's input mask, which would block here until the group finished.
+			submitted++;
 			continue;
 		}
 
@@ -157,6 +165,16 @@ static uint32_t _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<
 	return submitted;
 }
 
+bool RenderForwardClustered::pso_shaders_ready() {
+	return !scene_shader.shader.has_pending_group_compiles();
+}
+
+static bool _shaders_ready() {
+	RenderForwardClustered *renderer = RenderForwardClustered::get_singleton();
+	return renderer == nullptr || renderer->pso_shaders_ready();
+}
+
 void RenderForwardClusteredPSO::init() {
 	PSORecord::set_replay_function(&_replay);
+	PSORecord::set_ready_function(&_shaders_ready);
 }

@@ -16,7 +16,19 @@ HashMap<uint32_t, int64_t> PSORecord::id_by_fb;
 HashSet<uint64_t> PSORecord::seen;
 LocalVector<PSORecord::Rec> PSORecord::records;
 PSORecord::ReplayFunction PSORecord::replay_function = nullptr;
+PSORecord::ReadyFunction PSORecord::ready_function = nullptr;
+String PSORecord::cached_path;
+LocalVector<PSORecord::Rec> PSORecord::cached_records;
 HashMap<int64_t, uint32_t> PSORecord::unknown_fb;
+
+const LocalVector<PSORecord::Rec> &PSORecord::load_cached(const String &p_path) {
+	if (cached_path != p_path) {
+		cached_records.clear();
+		load(p_path, cached_records);
+		cached_path = p_path;
+	}
+	return cached_records;
+}
 
 void PSORecord::note_unknown_framebuffer(int64_t p_id) {
 	MutexLock lock(mutex);
@@ -214,4 +226,12 @@ void PSORecord::set_replay_function(ReplayFunction p_function) {
 
 PSORecord::ReplayFunction PSORecord::get_replay_function() {
 	return replay_function;
+}
+
+void PSORecord::set_ready_function(ReadyFunction p_function) {
+	ready_function = p_function;
+}
+
+bool PSORecord::shaders_ready() {
+	return ready_function == nullptr || ready_function();
 }

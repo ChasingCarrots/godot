@@ -1,0 +1,31 @@
+/**************************************************************************/
+/*  shader_rd_pending.cpp                                                 */
+/**************************************************************************/
+
+#include "shader_rd.h"
+
+#include "core/object/worker_thread_pool.h"
+
+// Separate translation unit so shader_rd.cpp stays untouched; see the fork's rule on keeping
+// additions out of files that churn upstream.
+//
+// Non-blocking counterpart to version_get_shader(), which waits for the group it needs. Callers
+// that must not stall (a boot screen that still has to draw) poll this instead.
+bool ShaderRD::has_pending_group_compiles() {
+	WorkerThreadPool *pool = WorkerThreadPool::get_singleton();
+	for (const RID &version_rid : version_owner.get_owned_list()) {
+		Version *version = version_owner.get_or_null(version_rid);
+		if (version == nullptr) {
+			continue;
+		}
+
+		MutexLock lock(*version->mutex);
+		for (int group = 0; group < version->group_compilation_tasks.size(); group++) {
+			const WorkerThreadPool::GroupID task = version->group_compilation_tasks[group];
+			if (task != 0 && !pool->is_group_task_completed(task)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}

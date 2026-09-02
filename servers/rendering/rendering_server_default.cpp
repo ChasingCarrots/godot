@@ -364,7 +364,11 @@ Dictionary RenderingServerDefault::pso_record_save(const String &p_path) {
 	return result;
 }
 
-Dictionary RenderingServerDefault::pso_replay(const String &p_path, const Array &p_materials) {
+bool RenderingServerDefault::pso_shaders_ready() {
+	return PSORecord::shaders_ready();
+}
+
+Dictionary RenderingServerDefault::pso_replay(const String &p_path, const Array &p_materials, int p_from, int p_count, bool p_enable_only) {
 	Dictionary result;
 	result["submitted"] = 0;
 	result["unmatched"] = 0;
@@ -373,8 +377,8 @@ Dictionary RenderingServerDefault::pso_replay(const String &p_path, const Array 
 	PSORecord::ReplayFunction replay = PSORecord::get_replay_function();
 	ERR_FAIL_NULL_V_MSG(replay, result, "PSO replay is not supported by the active renderer.");
 
-	LocalVector<PSORecord::Rec> records;
-	if (PSORecord::load(p_path, records) != OK) {
+	const LocalVector<PSORecord::Rec> &records = PSORecord::load_cached(p_path);
+	if (records.is_empty()) {
 		return result;
 	}
 
@@ -385,7 +389,7 @@ Dictionary RenderingServerDefault::pso_replay(const String &p_path, const Array 
 	}
 
 	uint32_t unmatched = 0;
-	const uint32_t submitted = replay(records, materials, &unmatched);
+	const uint32_t submitted = replay(records, materials, MAX(0, p_from), p_count < 0 ? records.size() : uint32_t(p_count), p_enable_only, &unmatched);
 	result["submitted"] = submitted;
 	result["unmatched"] = unmatched;
 	result["records"] = records.size();

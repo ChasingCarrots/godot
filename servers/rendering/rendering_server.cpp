@@ -2252,7 +2252,8 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_pipeline_warmup_mode", "enable"), &RenderingServer::set_pipeline_warmup_mode);
 	ClassDB::bind_method(D_METHOD("pso_record_set_enabled", "enabled"), &RenderingServer::pso_record_set_enabled);
 	ClassDB::bind_method(D_METHOD("pso_record_save", "path"), &RenderingServer::pso_record_save);
-	ClassDB::bind_method(D_METHOD("pso_replay", "path", "materials"), &RenderingServer::pso_replay);
+	ClassDB::bind_method(D_METHOD("pso_replay", "path", "materials", "from", "count", "enable_only"), &RenderingServer::pso_replay);
+	ClassDB::bind_method(D_METHOD("pso_shaders_ready"), &RenderingServer::pso_shaders_ready);
 	BIND_CONSTANT(RSE::NO_INDEX_ARRAY);
 	BIND_CONSTANT(RSE::ARRAY_WEIGHTS_SIZE);
 	BIND_CONSTANT(RSE::CANVAS_ITEM_Z_MIN);
