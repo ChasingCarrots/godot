@@ -85,13 +85,12 @@ private:
 		uint32_t hash = 0;
 	};
 
-	// Compilations registered but not yet handed to the pool; the scheduler releases them in
-	// batches so no compilation is ever in flight while a frame renders. Ubershader pipelines go in
-	// the priority queue: they are the fallback a draw falls back *to*, so until one exists the
-	// draw has to compile it inline and stall the frame.
+	// Compilations registered but not yet handed to the pool; the scheduler releases them a few at
+	// a time and reaps them without waiting. Ubershader pipelines go in the priority queue: they
+	// are the fallback a draw falls back *to*, so until one exists the draw has to compile it
+	// inline and stall the frame.
 	LocalVector<Deferred> deferred;
 	LocalVector<Deferred> deferred_priority;
-	LocalVector<WorkerThreadPool::TaskID> batch_tasks;
 
 	bool _add_new_pipelines_to_map() {
 		thread_local Vector<uint32_t> hashes_added;
@@ -398,24 +397,43 @@ public:
 
 			const Deferred entry = queue[queue.size() - 1];
 			queue.remove_at(queue.size() - 1);
-			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, true, "PipelineCompilation");
+			// Low priority: nothing waits on these any more, and a resource load queued behind one
+			// is a load the player is actually waiting for.
+			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, false, "PipelineCompilation");
 			compilation_tasks.insert(entry.hash, task_id);
-			batch_tasks.push_back(task_id);
 			started++;
 		}
 		return started;
 	}
 
-	void join_submitted_pipelines() override {
-		for (WorkerThreadPool::TaskID task_id : batch_tasks) {
-			WorkerThreadPool::get_singleton()->wait_for_task_completion(task_id);
-		}
-		batch_tasks.clear();
-
-		// The IDs are now freed; leaving them in compilation_tasks would let clear_pipelines()
-		// wait on them a second time, which errors with "Invalid Task ID".
+	uint32_t in_flight_pipelines() const override {
 		MutexLock local_lock(local_mutex);
-		compilation_tasks.clear();
+		return compilation_tasks.size();
+	}
+
+	uint32_t harvest_pipelines() override {
+		WorkerThreadPool *pool = WorkerThreadPool::get_singleton();
+		// wait_for_task_completion() frees the ID, so a task may only be reaped by whoever
+		// removed it from compilation_tasks: wait_for_pipeline() takes ownership the same way
+		// when a draw needs one early, and then it is simply not here to reap.
+		thread_local LocalVector<WorkerThreadPool::TaskID> finished;
+		finished.clear();
+		{
+			MutexLock local_lock(local_mutex);
+			for (HashMap<uint32_t, WorkerThreadPool::TaskID>::Iterator it = compilation_tasks.begin(); it != compilation_tasks.end();) {
+				HashMap<uint32_t, WorkerThreadPool::TaskID>::Iterator current = it;
+				++it;
+				if (pool->is_task_completed(current->value)) {
+					finished.push_back(current->value);
+					compilation_tasks.remove(current);
+				}
+			}
+		}
+
+		for (WorkerThreadPool::TaskID task_id : finished) {
+			pool->wait_for_task_completion(task_id);
+		}
+		return finished.size();
 	}
 
 	PipelineHashMapRD() {

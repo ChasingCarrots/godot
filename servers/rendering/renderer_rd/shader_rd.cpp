@@ -1088,6 +1088,8 @@ void ShaderRD::_initialize_cache() {
 
 		print_verbose("Shader '" + name + "' (group " + itos(E.key) + ") SHA256: " + group_sha256[E.key]);
 	}
+
+	warn_if_res_cache_unusable();
 }
 
 // Same as above, but allows specifying shader compilation groups.

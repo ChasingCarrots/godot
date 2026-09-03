@@ -12,7 +12,6 @@
 #include "core/object/worker_thread_pool.h"
 #include "core/os/mutex.h"
 #include "core/os/os.h"
-#include "core/profiling/loading_trace.h"
 #include "core/templates/local_vector.h"
 
 namespace {
@@ -24,13 +23,12 @@ bool enabled = true;
 uint32_t completed_count = 0;
 uint32_t total_count = 0;
 
-// Main-thread time one batch aims for. A single pipeline can exceed either figure on a cold
-// driver cache and cannot be interrupted, so these are targets, not guarantees.
-constexpr uint32_t BATCH_BUDGET_LOADING_USEC = 100000;
-constexpr uint32_t BATCH_BUDGET_PLAYING_USEC = 4000;
+// How many compilations are allowed in flight. Never the whole pool: resource loading runs on the
+// same WorkerThreadPool, and filling every worker with pipeline compiles made a mission load take
+// 7.9 s instead of 4.4 s. During gameplay the frame needs those cores too, so it queues shallower.
+constexpr uint32_t IN_FLIGHT_PLAYING = 2;
 
-uint32_t target_batch_usec = BATCH_BUDGET_PLAYING_USEC;
-uint32_t batch_size = 3;
+bool loading_screen = false;
 
 } // namespace
 
@@ -58,10 +56,7 @@ void PipelineCompilationScheduler::set_enabled(bool p_enabled) {
 }
 
 void PipelineCompilationScheduler::set_loading_screen(bool p_enabled) {
-	target_batch_usec = p_enabled ? BATCH_BUDGET_LOADING_USEC : BATCH_BUDGET_PLAYING_USEC;
-	// Restart the feedback loop rather than let a loading-sized batch decay over several frames,
-	// which is exactly the moment gameplay resumes.
-	batch_size = 1;
+	loading_screen = p_enabled;
 }
 
 uint32_t PipelineCompilationScheduler::pending() {
@@ -91,39 +86,29 @@ void PipelineCompilationScheduler::tick() {
 		return;
 	}
 
-	uint32_t remaining = MAX(batch_size, 1u);
-	uint32_t submitted = 0;
+	uint32_t reaped = 0;
+	uint32_t in_flight = 0;
+	uint32_t queued = 0;
 	for (PipelineCompilationSource *source : sources) {
-		if (remaining == 0) {
-			break;
-		}
-		const uint32_t started = source->submit_pending_pipelines(remaining);
-		submitted += started;
-		remaining -= started;
+		reaped += source->harvest_pipelines();
+		in_flight += source->in_flight_pipelines();
+		queued += source->pending_pipelines();
 	}
+	completed_count += reaped;
 
-	if (submitted == 0) {
-		return;
-	}
+	const uint32_t cap = loading_screen
+			? MAX(1u, (uint32_t)WorkerThreadPool::get_singleton()->get_thread_count() / 2)
+			: IN_FLIGHT_PLAYING;
 
-	const uint64_t started_us = OS::get_singleton()->get_ticks_usec();
-	{
-		LoadingTraceSpan _lt_batch(LT_PSO_WAIT, "compile_batch");
-		_lt_batch.args(submitted, batch_size);
+	if (in_flight < cap) {
+		uint32_t remaining = cap - in_flight;
 		for (PipelineCompilationSource *source : sources) {
-			source->join_submitted_pipelines();
+			if (remaining == 0) {
+				break;
+			}
+			remaining -= source->submit_pending_pipelines(remaining);
 		}
 	}
-	const uint64_t elapsed_us = MAX(OS::get_singleton()->get_ticks_usec() - started_us, (uint64_t)1);
 
-	completed_count += submitted;
-	total_count = completed_count + pending();
-
-	// Feed back on the measured batch time. A batch compiles in parallel across the pool, so its
-	// wall time is set by the slowest pipeline in it, not by how many there are: never go below one
-	// per worker, or five cores idle while the frame waits on the sixth.
-	const uint32_t min_batch = MAX(2, WorkerThreadPool::get_singleton()->get_thread_count() / 2);
-	const double scale = (double)target_batch_usec / (double)elapsed_us;
-	const double next = (double)batch_size * CLAMP(scale, 0.25, 1.5);
-	batch_size = (uint32_t)CLAMP(next, (double)min_batch, 256.0);
+	total_count = completed_count + queued + in_flight;
 }

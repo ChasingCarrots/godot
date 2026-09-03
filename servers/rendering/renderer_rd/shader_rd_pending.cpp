@@ -4,6 +4,7 @@
 
 #include "shader_rd.h"
 
+#include "core/io/dir_access.h"
 #include "core/object/worker_thread_pool.h"
 
 // Separate translation unit so shader_rd.cpp stays untouched; see the fork's rule on keeping
@@ -28,4 +29,28 @@ bool ShaderRD::has_pending_group_compiles() {
 		}
 	}
 	return false;
+}
+
+// A baked res:// shader cache is keyed by the engine's version hash: ShaderRD::setup() folds
+// GODOT_VERSION_HASH into base_sha256, which every group hash is derived from. Exporting with an
+// editor built from a different commit than the export template therefore ships a cache in which
+// not one entry can ever be found, and nothing used to say so - the game just recompiled every
+// variant on every machine's first launch, for minutes, while the pck carried the dead copy.
+void ShaderRD::warn_if_res_cache_unusable() const {
+	if (!shader_cache_res_dir_valid || group_sha256.is_empty()) {
+		return;
+	}
+
+	const String shader_dir = shader_cache_res_dir.path_join(name);
+	if (!DirAccess::exists(shader_dir)) {
+		return; // This shader was never baked, which is a coverage question, not a mismatch.
+	}
+
+	for (const String &group_hash : group_sha256) {
+		if (!group_hash.is_empty() && DirAccess::exists(shader_dir.path_join(group_hash))) {
+			return;
+		}
+	}
+
+	WARN_PRINT_ONCE(vformat("Baked shader cache in %s was produced by a different engine build than this one (first shader found stale: %s). None of it can be used, so every shader variant will be compiled at runtime. Re-export from an editor built at the same commit as the export template.", shader_cache_res_dir, name));
 }

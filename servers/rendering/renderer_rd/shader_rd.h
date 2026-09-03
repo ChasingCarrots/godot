@@ -240,6 +240,8 @@ public:
 	bool is_variant_enabled(int p_variant) const;
 	// True while any enabled group is still compiling; lets a caller wait without blocking.
 	bool has_pending_group_compiles();
+	// Loud once if a shipped baked cache belongs to another engine build, i.e. can never hit.
+	void warn_if_res_cache_unusable() const;
 	int64_t get_variant_count() const;
 	int get_variant_to_group(int p_variant) const;
 
