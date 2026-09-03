@@ -397,9 +397,11 @@ public:
 
 			const Deferred entry = queue[queue.size() - 1];
 			queue.remove_at(queue.size() - 1);
-			// Low priority: nothing waits on these any more, and a resource load queued behind one
-			// is a load the player is actually waiting for.
-			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, false, "PipelineCompilation");
+			// High priority, because the pool caps low-priority tasks at
+			// CLAMP(threads * 0.3, 1, threads - 1) - one single thread on a 6-worker machine,
+			// which serialised the whole warm-up. Workers are left free by the in-flight cap
+			// instead, which is the thing resource loading actually needs.
+			WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_template_task(creation_object, creation_function, entry.key, true, "PipelineCompilation");
 			compilation_tasks.insert(entry.hash, task_id);
 			started++;
 		}
