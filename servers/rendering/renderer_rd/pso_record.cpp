@@ -68,8 +68,9 @@ void PSORecord::register_framebuffer_format(int64_t p_id, const FBDesc &p_desc) 
 	id_by_fb[packed] = p_id;
 }
 
+// fb_by_id and id_by_fb are fully populated at engine startup (_pso_register_framebuffer_formats)
+// before rendering starts, and are read-only during gameplay and replay, so lookups are lock-free.
 bool PSORecord::framebuffer_desc_for_id(int64_t p_id, FBDesc &r_desc) {
-	MutexLock lock(mutex);
 	const uint32_t *packed = fb_by_id.getptr(p_id);
 	if (packed == nullptr) {
 		return false;
@@ -79,7 +80,6 @@ bool PSORecord::framebuffer_desc_for_id(int64_t p_id, FBDesc &r_desc) {
 }
 
 bool PSORecord::framebuffer_id_for_desc(const FBDesc &p_desc, int64_t &r_id) {
-	MutexLock lock(mutex);
 	const int64_t *id = id_by_fb.getptr(p_desc.pack());
 	if (id == nullptr) {
 		return false;

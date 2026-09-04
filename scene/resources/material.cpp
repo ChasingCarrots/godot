@@ -3903,6 +3903,8 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(STENCIL_COMPARE_GREATER);
 	BIND_ENUM_CONSTANT(STENCIL_COMPARE_NOT_EQUAL);
 	BIND_ENUM_CONSTANT(STENCIL_COMPARE_GREATER_OR_EQUAL);
+
+	ClassDB::bind_static_method("BaseMaterial3D", D_METHOD("flush_changes"), &BaseMaterial3D::flush_changes);
 }
 
 BaseMaterial3D::BaseMaterial3D(bool p_orm) :

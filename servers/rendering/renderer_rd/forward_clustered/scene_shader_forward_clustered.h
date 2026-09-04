@@ -314,6 +314,7 @@ public:
 		bool is_valid() const;
 
 		SelfList<ShaderData> shader_list_element;
+		uint64_t code_hash = 0;
 		ShaderData();
 		virtual ~ShaderData();
 	};

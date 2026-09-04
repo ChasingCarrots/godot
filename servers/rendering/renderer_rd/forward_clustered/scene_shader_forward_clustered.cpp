@@ -44,6 +44,7 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 	//compile
 
 	code = p_code;
+	code_hash = code.hash64();
 	ubo_size = 0;
 	uniforms.clear();
 	_clear_vertex_input_mask_cache();
