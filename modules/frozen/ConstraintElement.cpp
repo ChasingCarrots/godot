@@ -9,10 +9,14 @@ void ConstraintInterface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_anchor"), &ConstraintInterface::get_anchor);
 	ClassDB::bind_method(D_METHOD("set_required", "required"), &ConstraintInterface::set_required);
 	ClassDB::bind_method(D_METHOD("get_required"), &ConstraintInterface::get_required);
+	ClassDB::bind_method(D_METHOD("set_tags", "tags"), &ConstraintInterface::set_tags);
+	ClassDB::bind_method(D_METHOD("get_tags"), &ConstraintInterface::get_tags);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "type"), "set_type", "get_type");
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM3D, "anchor"), "set_anchor", "get_anchor");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "required"), "set_required", "get_required");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "tags", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"),
+			"set_tags", "get_tags");
 }
 
 void ConstraintElement::_bind_methods() {

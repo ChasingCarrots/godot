@@ -17,7 +17,7 @@ class ConstraintInterface : public Resource {
 	StringName _type;
 	Transform3D _anchor;
 	bool _required = false;
-
+	Vector<StringName> _tags;
 protected:
 	static void _bind_methods();
 
@@ -30,6 +30,21 @@ public:
 
 	void set_required(bool p_required) { _required = p_required; }
 	bool get_required() const { return _required; }
+
+	void set_tags(const TypedArray<StringName> &p_tags) {
+		_tags.clear();
+		for (int i = 0; i < p_tags.size(); i++) {
+			_tags.push_back(p_tags[i]);
+		}
+	}
+	TypedArray<StringName> get_tags() const {
+		TypedArray<StringName> arr;
+		for (int i = 0; i < _tags.size(); i++) {
+			arr.push_back(_tags[i]);
+		}
+		return arr;
+	}
+	const Vector<StringName> &get_tags_vector() const { return _tags; }
 };
 
 // A template in the problem catalog -- one possible value a slot can take.

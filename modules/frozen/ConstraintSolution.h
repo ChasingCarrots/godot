@@ -20,8 +20,10 @@ public:
 		Transform3D transform;
 		Vector<StringName> tags;
 		Vector<int> connections;
+		int parent = -1;
+		int parent_iface = -1;
+		int self_iface = -1;
 	};
-
 	// Per-rule solve statistics, attributed back to the authored ConstraintRule.
 	struct RuleStat {
 		int rule_index = 0; // position in the problem's rules array
@@ -50,11 +52,14 @@ public:
 	void set_success(bool p_v) { _success = p_v; }
 	void set_steps(int p_v) { _steps = p_v; }
 	void set_failure_reason(const String &p_v) { _failure_reason = p_v; }
-	int add_node(const StringName &p_id, const Transform3D &p_xform, const Vector<StringName> &p_tags) {
+	int add_node(const StringName &p_id, const Transform3D &p_xform, const Vector<StringName> &p_tags, int p_parent = -1, int p_parent_iface = -1, int p_self_iface = -1) {
 		Node n;
 		n.element_id = p_id;
 		n.transform = p_xform;
 		n.tags = p_tags;
+		n.parent = p_parent;
+		n.parent_iface = p_parent_iface;
+		n.self_iface = p_self_iface;
 		_nodes.push_back(n);
 		return _nodes.size() - 1;
 	}
@@ -86,8 +91,10 @@ public:
 	Transform3D get_node_transform(int p_i) const;
 	TypedArray<StringName> get_node_tags(int p_i) const;
 	PackedInt32Array get_node_connections(int p_i) const;
+	int get_node_parent(int p_i) const;
+	int get_node_parent_iface(int p_i) const;
+	int get_node_self_iface(int p_i) const;
 	TypedArray<Dictionary> get_nodes() const;
-
 	// --- statistics API ---
 	int get_backtracks() const { return _backtracks; }
 	int get_candidates_evaluated() const { return _candidates_evaluated; }

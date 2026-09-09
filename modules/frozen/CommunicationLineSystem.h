@@ -3,11 +3,13 @@
 
 #include "CommunicationLine.h"
 #include "NetworkChunking.h"
+#include "NetworkConditionSimulator.h"
 #include "core/os/mutex.h"
 #include "core/os/thread.h"
 #include "core/profiling/profiling.h"
 #include "core/templates/hash_map.h"
 #include "core/templates/local_vector.h"
+#include "core/variant/typed_array.h"
 
 #include <scene/main/node.h>
 
@@ -40,6 +42,7 @@ protected:
 private:
 	friend CommunicationLine;
 	friend ChunkReceiver; //We need access to process packet in ChunkReceiver
+	friend ChunkSender; //Chunk slices go out through put_packet_on_peer so the net sim sees them
 
 	// An event observed by the poll thread, handed to the main thread in order.
 	// One FIFO for connects, packets and disconnects so that a peer's packets are
@@ -94,6 +97,14 @@ private:
 
 	int _remote_sender_id = 0;
 	int _server_id = -1;
+	// No packet from a peer for this long -> peer is considered gone. Only the
+	// test harness changes it; production behaviour is the 60s default.
+	uint64_t _peer_timeout_ms = 60000;
+
+	// Test-harness packet conditioner, inert unless configured from script.
+	// mutable because the send path is const.
+	mutable NetworkConditionSimulator _net_sim;
+	mutable LocalVector<NetworkConditionSimulator::Packet> _net_sim_release_scratch; // poll thread only
 
 	void _ready();
 	void _process(double p_time);
@@ -117,6 +128,9 @@ private:
 	void update_status();
 	// Main-thread only: used by ChunkReceiver to feed reassembled chunks back in.
 	void process_packet(int from, const uint8_t *packet, int packet_len);
+	// Main- or poll-thread receive handling for one packet, shared by the live
+	// receive loop and the net sim's delayed release.
+	void _dispatch_received_packet(int from, int channel, const uint8_t *packet, int packet_len);
 	// Poll-thread only (with _peer_mutex held): answers ping requests and updates stats.
 	void handle_ping_packet(int from, const uint8_t *packet, int packet_len);
 	// Poll-thread only (with _peer_mutex held). Returns true when the message was
@@ -130,6 +144,12 @@ private:
 	void check_peer_timeouts();
 	void send_to_peer(int to, const PackedByteArray &packet, MultiplayerPeer::TransferMode mode) const;
 	void send_internal_packet(int to, const PackedByteArray &packet, MultiplayerPeer::TransferMode mode, int channel) const;
+	// The single point where a packet reaches the peer. Caller must hold
+	// _peer_mutex. Routes through the net sim, which may drop or delay it.
+	void put_packet_on_peer(int to, const PackedByteArray &packet, MultiplayerPeer::TransferMode mode, int channel) const;
+	void put_chunk_slice_on_peer(int to, const PackedByteArray &slice) const;
+	// Poll thread, _peer_mutex held: puts packets whose simulated latency elapsed.
+	void _flush_net_sim();
 	Ref<MultiplayerPeer> get_multiplayer_peer() { return _multiplayer_peer; }
 
 	static CommunicationLineSystem *_global_coms;
@@ -175,6 +195,21 @@ public:
 	float get_peer_jitter(int peer_id) const;
 	float get_peer_packet_loss(int peer_id) const;
 	int get_peer_clock_offset(int peer_id) const;
+	// Everything the debug tools ask per peer, in one consistent snapshot.
+	Dictionary get_peer_info(int peer_id) const;
+	TypedArray<Dictionary> get_peers_info() const;
+
+	void set_peer_timeout_ms(int timeout_ms) { _peer_timeout_ms = MAX(0, timeout_ms); }
+	int get_peer_timeout_ms() const { return static_cast<int>(_peer_timeout_ms); }
+
+	// Debug network conditions. Off by default and free when off; see
+	// NetworkConditionSimulator for the semantics (egress latency/jitter/loss,
+	// bidirectional blackout).
+	void set_network_conditions(int latency_ms, int jitter_ms, float packet_loss);
+	void set_network_blackout(bool enabled);
+	void set_peer_network_blackout(int peer_id, bool enabled);
+	void clear_network_conditions();
+	Dictionary get_network_conditions() const { return _net_sim.get_status(); }
 
 	// Gracefully leaves the mesh: tells every peer we are disconnecting so they
 	// drop us immediately, then closes the local peer and emits "connection_closed".

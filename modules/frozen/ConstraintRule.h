@@ -34,6 +34,7 @@ public:
 		KIND_CALLBACK,
 		KIND_TAG_REACHABILITY,
 		KIND_TAG_IMPLIES_TAG,
+		KIND_ANCESTOR_INTERFACE_TAG_ALLOWED,
 	};
 
 protected:
@@ -426,4 +427,45 @@ public:
 	Callable get_callable() const { return _callable; }
 };
 
+// "AncestorInterfaceTagAllowed(tag, ancestor_tag, allowed_interface_tags, require_ancestor_present)"
+// In GROW topology, an element carrying `tag` can only be placed if on its ancestor branch
+// originating from `ancestor_tag`, the ancestor's interface carries at least one of `allowed_interface_tags`.
+class ConstraintAncestorInterfaceTagAllowed : public ConstraintRule {
+	GDCLASS(ConstraintAncestorInterfaceTagAllowed, ConstraintRule)
+
+	StringName _tag;
+	StringName _ancestor_tag;
+	Vector<StringName> _allowed_interface_tags;
+	bool _require_ancestor_present = true;
+
+protected:
+	static void _bind_methods();
+
+public:
+	virtual Kind get_kind() const override { return KIND_ANCESTOR_INTERFACE_TAG_ALLOWED; }
+
+	void set_tag(const StringName &p_v) { _tag = p_v; }
+	StringName get_tag() const { return _tag; }
+
+	void set_ancestor_tag(const StringName &p_v) { _ancestor_tag = p_v; }
+	StringName get_ancestor_tag() const { return _ancestor_tag; }
+
+	void set_allowed_interface_tags(const TypedArray<StringName> &p_v) {
+		_allowed_interface_tags.clear();
+		for (int i = 0; i < p_v.size(); i++) {
+			_allowed_interface_tags.push_back(p_v[i]);
+		}
+	}
+	TypedArray<StringName> get_allowed_interface_tags() const {
+		TypedArray<StringName> arr;
+		for (int i = 0; i < _allowed_interface_tags.size(); i++) {
+			arr.push_back(_allowed_interface_tags[i]);
+		}
+		return arr;
+	}
+	const Vector<StringName> &get_allowed_interface_tags_vector() const { return _allowed_interface_tags; }
+
+	void set_require_ancestor_present(bool p_v) { _require_ancestor_present = p_v; }
+	bool get_require_ancestor_present() const { return _require_ancestor_present; }
+};
 #endif // CONSTRAINT_RULE_H

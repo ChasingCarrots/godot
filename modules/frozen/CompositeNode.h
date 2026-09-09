@@ -41,6 +41,12 @@ public:
 		Vector3Type
 	};
 
+	// Sync-mode masks for the debug digest helpers below: bit 1 << DataSynchronizationMode.
+	// "Convergent" leaves out HighFrequency, which is interpolated and never
+	// expected to match exactly across peers.
+	static constexpr int SYNC_MODE_MASK_CONVERGENT = (1 << OnChange) | (1 << LowFrequency);
+	static constexpr int SYNC_MODE_MASK_ALL = (1 << OnChange) | (1 << LowFrequency) | (1 << HighFrequency);
+
 protected:
 	// exports:
 	NodePath ParentCompositeNode;
@@ -171,6 +177,21 @@ protected:
 	String get_data_value_debug_string(StringName name) const;
 	String get_callback_debug_string(StringName name) const;
 	String get_function_debug_string(StringName name) const;
+
+	// Debug/test surface for cross-peer state comparison. The sync-mode mask is
+	// built from 1 << DataSynchronizationMode; HighFrequency is excluded by
+	// default because interpolated values are never expected to match exactly.
+	// Value strings are canonicalized (wire type aware, fixed decimals) so two
+	// peers that agree produce byte-identical output. float_decimals < 0 drops
+	// float-typed values entirely, which yields the only digest that can be
+	// compared for strict equality: the authority holds full precision while
+	// peers only ever see the quantized number. Values synchronized with linear
+	// movement are always excluded - they are extrapolated locally, so no two
+	// peers ever hold the same number.
+	Dictionary get_data_synchronization_info() const;
+	PackedStringArray get_synchronized_data_value_names(int sync_mode_mask) const;
+	Dictionary get_synchronized_data_dump(int sync_mode_mask, int float_decimals) const;
+	String get_state_digest(int sync_mode_mask, int float_decimals) const;
 public:
 	static float GameTimeServerOffset;
 	static void SetGameTimeServerOffset(float offset) { GameTimeServerOffset = offset; }
@@ -186,6 +207,10 @@ public:
 		}
 		return nullptr;
 	}
+	// One "<composite_id>\t<authority_id>\t<node_name>\t<digest>" line per existing
+	// CompositeNode, ordered by composite id. Built here so a whole-client snapshot
+	// is a single call and every peer runs identical digest logic.
+	static String GetAllStateDigests(int sync_mode_mask, int float_decimals);
 
 	void InitializeAsAuthority();
 	Ref<CommunicationLine> GetCommunicationLine();

@@ -49,6 +49,7 @@ void initialize_frozen_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ConstraintTagCompatibility>();
 	ClassDB::register_class<ConstraintTagReachability>();
 	ClassDB::register_class<ConstraintTagImpliesTag>();
+	ClassDB::register_class<ConstraintAncestorInterfaceTagAllowed>();
 	ClassDB::register_class<ConstraintGeometry>();
 	ClassDB::register_class<ConstraintCallback>();
 	ClassDB::register_class<ConstraintSlot>();

@@ -30,6 +30,21 @@ PackedInt32Array ConstraintSolution::get_node_connections(int p_i) const {
 	return out;
 }
 
+int ConstraintSolution::get_node_parent(int p_i) const {
+	ERR_FAIL_INDEX_V(p_i, _nodes.size(), -1);
+	return _nodes[p_i].parent;
+}
+
+int ConstraintSolution::get_node_parent_iface(int p_i) const {
+	ERR_FAIL_INDEX_V(p_i, _nodes.size(), -1);
+	return _nodes[p_i].parent_iface;
+}
+
+int ConstraintSolution::get_node_self_iface(int p_i) const {
+	ERR_FAIL_INDEX_V(p_i, _nodes.size(), -1);
+	return _nodes[p_i].self_iface;
+}
+
 TypedArray<Dictionary> ConstraintSolution::get_nodes() const {
 	TypedArray<Dictionary> out;
 	for (int i = 0; i < _nodes.size(); i++) {
@@ -39,6 +54,9 @@ TypedArray<Dictionary> ConstraintSolution::get_nodes() const {
 		d["transform"] = n.transform;
 		d["tags"] = get_node_tags(i);
 		d["connections"] = get_node_connections(i);
+		d["parent"] = n.parent;
+		d["parent_iface"] = n.parent_iface;
+		d["self_iface"] = n.self_iface;
 		out.append(d);
 	}
 	return out;
@@ -67,8 +85,10 @@ void ConstraintSolution::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_node_transform", "index"), &ConstraintSolution::get_node_transform);
 	ClassDB::bind_method(D_METHOD("get_node_tags", "index"), &ConstraintSolution::get_node_tags);
 	ClassDB::bind_method(D_METHOD("get_node_connections", "index"), &ConstraintSolution::get_node_connections);
+	ClassDB::bind_method(D_METHOD("get_node_parent", "index"), &ConstraintSolution::get_node_parent);
+	ClassDB::bind_method(D_METHOD("get_node_parent_iface", "index"), &ConstraintSolution::get_node_parent_iface);
+	ClassDB::bind_method(D_METHOD("get_node_self_iface", "index"), &ConstraintSolution::get_node_self_iface);
 	ClassDB::bind_method(D_METHOD("get_nodes"), &ConstraintSolution::get_nodes);
-
 	ClassDB::bind_method(D_METHOD("get_backtracks"), &ConstraintSolution::get_backtracks);
 	ClassDB::bind_method(D_METHOD("get_candidates_evaluated"), &ConstraintSolution::get_candidates_evaluated);
 	ClassDB::bind_method(D_METHOD("get_candidates_accepted"), &ConstraintSolution::get_candidates_accepted);

@@ -12,7 +12,7 @@ constexpr int COMMUNICATION_LINE_CHANNEL_PING = 3;
 constexpr int COMMUNICATION_LINE_CHANNEL_CONTROL = 4;
 
 constexpr uint64_t PING_INTERVAL_MS = 1000; // how often we ping each connected peer
-constexpr uint64_t PEER_TIMEOUT_MS = 60000; // no packet for this long -> peer is considered gone
+constexpr uint64_t PEER_TIMEOUT_DEFAULT_MS = 60000; // no packet for this long -> peer is considered gone
 constexpr uint64_t CLOSE_GRACE_MS = 300; // time we keep polling after close_connection() so the disconnect packet flushes
 
 CommunicationLineSystem* CommunicationLineSystem::_global_coms = nullptr;
@@ -25,6 +25,8 @@ CommunicationLineSystem::CommunicationLineSystem() {
 	_chunk_sender.instantiate();
 	_chunk_receiver.instantiate();
 	_chunk_receiver->initialize(this);
+	_chunk_sender->initialize(this);
+	_peer_timeout_ms = PEER_TIMEOUT_DEFAULT_MS;
 }
 
 CommunicationLineSystem::~CommunicationLineSystem() {
@@ -60,6 +62,15 @@ void CommunicationLineSystem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_server"), &CommunicationLineSystem::is_server);
 	ClassDB::bind_method(D_METHOD("clear_multiplayer_peer"), &CommunicationLineSystem::clear_multiplayer_peer);
 	ClassDB::bind_method(D_METHOD("initialize_server"), &CommunicationLineSystem::initialize_server);
+	ClassDB::bind_method(D_METHOD("get_peer_info", "peer_id"), &CommunicationLineSystem::get_peer_info);
+	ClassDB::bind_method(D_METHOD("get_peers_info"), &CommunicationLineSystem::get_peers_info);
+	ClassDB::bind_method(D_METHOD("set_peer_timeout_ms", "timeout_ms"), &CommunicationLineSystem::set_peer_timeout_ms);
+	ClassDB::bind_method(D_METHOD("get_peer_timeout_ms"), &CommunicationLineSystem::get_peer_timeout_ms);
+	ClassDB::bind_method(D_METHOD("set_network_conditions", "latency_ms", "jitter_ms", "packet_loss"), &CommunicationLineSystem::set_network_conditions);
+	ClassDB::bind_method(D_METHOD("set_network_blackout", "enabled"), &CommunicationLineSystem::set_network_blackout);
+	ClassDB::bind_method(D_METHOD("set_peer_network_blackout", "peer_id", "enabled"), &CommunicationLineSystem::set_peer_network_blackout);
+	ClassDB::bind_method(D_METHOD("clear_network_conditions"), &CommunicationLineSystem::clear_network_conditions);
+	ClassDB::bind_method(D_METHOD("get_network_conditions"), &CommunicationLineSystem::get_network_conditions);
 
 	ADD_SIGNAL(MethodInfo("peer_connected", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("peer_disconnected", PropertyInfo(Variant::INT, "id")));
@@ -176,8 +187,6 @@ void CommunicationLineSystem::set_multiplayer_peer(const Ref<MultiplayerPeer> &p
 	// No poll thread is running here, so the peer can be accessed directly.
 	_multiplayer_peer = p_peer;
 
-	_chunk_sender->initialize(p_peer);
-
 	int peer_id = 0;
 	if(p_peer.is_valid()) {
 		peer_id = p_peer->get_unique_id();
@@ -237,6 +246,7 @@ void CommunicationLineSystem::on_peer_disconnected(int multiplayer_id) {
 		MutexLock lock(_connected_peers_mutex);
 		_connected_peers.erase(multiplayer_id);
 	}
+	_net_sim.forget_peer(multiplayer_id);
 
 	for (auto &line : _communication_lines) {
 		line->peer_disconnected(multiplayer_id);
@@ -500,32 +510,17 @@ void CommunicationLineSystem::_poll_iteration() {
 			break;
 		}
 
-		// Any packet from a known peer is a sign of life for timeout detection.
-		// Done here so peers don't look stale when the main thread stalls.
-		{
-			MutexLock peers_lock(_connected_peers_mutex);
-			if (HashMap<int, PeerConnection>::Iterator it = _connected_peers.find(sender)) {
-				it->value.last_packet_time = OS::get_singleton()->get_ticks_msec();
-			}
-		}
-
-		// Ping and control packets are latency-sensitive and independent of game
-		// state, so they are handled right here on the poll thread.
-		if (channel == COMMUNICATION_LINE_CHANNEL_PING) {
-			handle_ping_packet(sender, packet, len);
-			continue;
-		}
-		if (channel == COMMUNICATION_LINE_CHANNEL_CONTROL && _handle_control_packet_threaded(sender, packet, len)) {
+		// A blacked-out peer must look completely silent, so this has to happen
+		// before the packet counts as a sign of life.
+		if (_net_sim.is_active() && !_net_sim.admit_incoming(sender)) {
 			continue;
 		}
 
-		NetworkEvent event;
-		event.type = NetworkEvent::Type::Packet;
-		event.peer_id = sender;
-		event.channel = channel;
-		event.data.resize(len);
-		memcpy(event.data.ptrw(), packet, len);
-		_push_network_event(std::move(event));
+		_dispatch_received_packet(sender, channel, packet, len);
+	}
+
+	if (_net_sim.is_active()) {
+		_flush_net_sim();
 	}
 
 	// Ping cadence runs here so RTT/jitter/loss stats stay live - and remote peers
@@ -537,6 +532,56 @@ void CommunicationLineSystem::_poll_iteration() {
 			send_pings();
 		}
 	}
+}
+
+void CommunicationLineSystem::_dispatch_received_packet(const int from, const int channel, const uint8_t *packet, const int len) {
+	// Any packet from a known peer is a sign of life for timeout detection.
+	// Done here so peers don't look stale when the main thread stalls.
+	{
+		MutexLock peers_lock(_connected_peers_mutex);
+		if (HashMap<int, PeerConnection>::Iterator it = _connected_peers.find(from)) {
+			it->value.last_packet_time = OS::get_singleton()->get_ticks_msec();
+		}
+	}
+
+	// Ping and control packets are latency-sensitive and independent of game
+	// state, so they are handled right here on the poll thread.
+	if (channel == COMMUNICATION_LINE_CHANNEL_PING) {
+		handle_ping_packet(from, packet, len);
+		return;
+	}
+	if (channel == COMMUNICATION_LINE_CHANNEL_CONTROL && _handle_control_packet_threaded(from, packet, len)) {
+		return;
+	}
+
+	NetworkEvent event;
+	event.type = NetworkEvent::Type::Packet;
+	event.peer_id = from;
+	event.channel = channel;
+	event.data.resize(len);
+	memcpy(event.data.ptrw(), packet, len);
+	_push_network_event(std::move(event));
+}
+
+// The net sim holds outgoing packets back; this releases the ones whose simulated
+// latency has elapsed. Poll thread only, with _peer_mutex already held.
+void CommunicationLineSystem::_flush_net_sim() {
+	_net_sim_release_scratch.clear();
+	_net_sim.take_due_outgoing(OS::get_singleton()->get_ticks_msec(), _net_sim_release_scratch);
+	for (const NetworkConditionSimulator::Packet &packet : _net_sim_release_scratch) {
+		{
+			// A peer that left while its packets were held back must not be resurrected.
+			MutexLock peers_lock(_connected_peers_mutex);
+			if (!_connected_peers.has(packet.peer_id)) {
+				continue;
+			}
+		}
+		_multiplayer_peer->set_transfer_channel(packet.channel);
+		_multiplayer_peer->set_transfer_mode(packet.mode);
+		_multiplayer_peer->set_target_peer(packet.peer_id);
+		_multiplayer_peer->put_packet(packet.data.ptr(), packet.data.size());
+	}
+	_net_sim_release_scratch.clear();
 }
 
 void CommunicationLineSystem::_start_poll_thread() {
@@ -680,6 +725,7 @@ void CommunicationLineSystem::clear_multiplayer_peer() {
 		MutexLock lock(_connected_peers_mutex);
 		_connected_peers.clear();
 	}
+	_net_sim.clear_queue();
 	_last_ping_send_time_ms = 0;
 	_closing = false;
 }
@@ -735,9 +781,6 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 		channel = COMMUNICATION_LINE_CHANNEL_RELIABLE;
 	}
 
-	_multiplayer_peer->set_transfer_channel(channel);
-	_multiplayer_peer->set_transfer_mode(mode);
-
 	if (to > 0) {
 		{
 			MutexLock peers_lock(_connected_peers_mutex);
@@ -752,8 +795,7 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 			return;
 		}
 
-		_multiplayer_peer->set_target_peer(to);
-		_multiplayer_peer->put_packet(packet.ptr(), packet.size());
+		put_packet_on_peer(to, packet, mode, channel);
 	} else {
 		// Snapshot first: put_packet is a peer call and must not happen while
 		// holding _connected_peers_mutex.
@@ -774,8 +816,7 @@ void CommunicationLineSystem::send_to_peer(const int to, const PackedByteArray &
 				continue;
 			}
 
-			_multiplayer_peer->set_target_peer(pid);
-			_multiplayer_peer->put_packet(packet.ptr(), packet.size());
+			put_packet_on_peer(pid, packet, mode, channel);
 		}
 	}
 }
@@ -803,10 +844,21 @@ void CommunicationLineSystem::send_internal_packet(const int to, const PackedByt
 	// Ping/control packets are tiny by design, so chunking (as in send_to_peer) is never needed here.
 	ERR_FAIL_COND_MSG(packet.size() > _multiplayer_peer->get_max_packet_size(), "Internal packet exceeds the maximum packet size.");
 
+	put_packet_on_peer(to, packet, mode, channel);
+}
+
+void CommunicationLineSystem::put_packet_on_peer(const int to, const PackedByteArray &packet, const MultiplayerPeer::TransferMode mode, const int channel) const {
+	if (_net_sim.is_active() && !_net_sim.admit_outgoing(to, channel, mode, packet)) {
+		return; // dropped, or held back until _flush_net_sim() releases it
+	}
 	_multiplayer_peer->set_transfer_channel(channel);
 	_multiplayer_peer->set_transfer_mode(mode);
 	_multiplayer_peer->set_target_peer(to);
 	_multiplayer_peer->put_packet(packet.ptr(), packet.size());
+}
+
+void CommunicationLineSystem::put_chunk_slice_on_peer(const int to, const PackedByteArray &slice) const {
+	put_packet_on_peer(to, slice, MultiplayerPeer::TRANSFER_MODE_RELIABLE, COMMUNICATION_LINE_CHANNEL_RELIABLE);
 }
 
 void CommunicationLineSystem::send_pings() {
@@ -946,14 +998,14 @@ void CommunicationLineSystem::check_peer_timeouts() {
 	{
 		MutexLock lock(_connected_peers_mutex);
 		for (const KeyValue<int, PeerConnection> &E : _connected_peers) {
-			if (now - E.value.last_packet_time > PEER_TIMEOUT_MS) {
+			if (now - E.value.last_packet_time > _peer_timeout_ms) {
 				timed_out.push_back(E.key);
 			}
 		}
 	}
 
 	for (const int peer_id : timed_out) {
-		print_line(vformat("[%d] Peer %d timed out after %d ms without a packet.", get_local_multiplayer_id(), peer_id, static_cast<int>(PEER_TIMEOUT_MS)));
+		print_line(vformat("[%d] Peer %d timed out after %d ms without a packet.", get_local_multiplayer_id(), peer_id, static_cast<int>(_peer_timeout_ms)));
 		emit_signal(SNAME("peer_timed_out"), peer_id);
 		if (_multiplayer_peer.is_valid()) {
 			disconnect_peer(peer_id);
@@ -993,6 +1045,55 @@ int CommunicationLineSystem::get_peer_clock_offset(const int peer_id) const {
 	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
 	ERR_FAIL_COND_V_MSG(!it, 0, vformat("Peer %d is not connected.", peer_id));
 	return static_cast<int>(it->value.clock_offset_ms);
+}
+
+Dictionary CommunicationLineSystem::get_peer_info(const int peer_id) const {
+	Dictionary info;
+	info["peer_id"] = peer_id;
+	MutexLock lock(_connected_peers_mutex); // stats are written by the poll thread
+	HashMap<int, PeerConnection>::ConstIterator it = _connected_peers.find(peer_id);
+	info["connected"] = static_cast<bool>(it);
+	if (!it) {
+		return info; // unlike get_peer_ping() and friends this is not an error: asking is how you find out
+	}
+	const PeerConnection &peer = it->value;
+	info["ping_ms"] = static_cast<int>(peer.ping_ms);
+	info["jitter_ms"] = peer.jitter_ms;
+	info["packet_loss"] = peer.packet_loss;
+	info["clock_offset_ms"] = static_cast<int>(peer.clock_offset_ms);
+	info["awaiting_pong"] = peer.awaiting_pong;
+	const uint64_t now = OS::get_singleton()->get_ticks_msec();
+	info["silent_for_ms"] = static_cast<int>(now > peer.last_packet_time ? now - peer.last_packet_time : 0);
+	return info;
+}
+
+TypedArray<Dictionary> CommunicationLineSystem::get_peers_info() const {
+	TypedArray<Dictionary> infos;
+	for (const int peer_id : get_connected_peer_ids()) {
+		infos.push_back(get_peer_info(peer_id));
+	}
+	return infos;
+}
+
+void CommunicationLineSystem::set_network_conditions(const int latency_ms, const int jitter_ms, const float packet_loss) {
+	_net_sim.configure(latency_ms, jitter_ms, packet_loss);
+	print_line(vformat("[%d] Debug network conditions: latency %d ms, jitter %d ms, loss %.1f%%.",
+			get_local_multiplayer_id(), latency_ms, jitter_ms, packet_loss * 100.0f));
+}
+
+void CommunicationLineSystem::set_network_blackout(const bool enabled) {
+	_net_sim.set_blackout_all(enabled);
+	print_line(vformat("[%d] Debug network blackout for all peers: %s.", get_local_multiplayer_id(), enabled ? "on" : "off"));
+}
+
+void CommunicationLineSystem::set_peer_network_blackout(const int peer_id, const bool enabled) {
+	_net_sim.set_peer_blackout(peer_id, enabled);
+	print_line(vformat("[%d] Debug network blackout for peer %d: %s.", get_local_multiplayer_id(), peer_id, enabled ? "on" : "off"));
+}
+
+void CommunicationLineSystem::clear_network_conditions() {
+	_net_sim.reset();
+	print_line(vformat("[%d] Debug network conditions cleared.", get_local_multiplayer_id()));
 }
 
 bool CommunicationLineSystem::close_connection() {

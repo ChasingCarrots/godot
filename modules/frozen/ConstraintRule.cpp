@@ -18,6 +18,8 @@ void ConstraintRule::_bind_methods() {
 	BIND_ENUM_CONSTANT(KIND_GEOMETRY);
 	BIND_ENUM_CONSTANT(KIND_CALLBACK);
 	BIND_ENUM_CONSTANT(KIND_TAG_REACHABILITY);
+	BIND_ENUM_CONSTANT(KIND_TAG_IMPLIES_TAG);
+	BIND_ENUM_CONSTANT(KIND_ANCESTOR_INTERFACE_TAG_ALLOWED);
 
 	ClassDB::bind_method(D_METHOD("get_kind"), &ConstraintRule::get_kind);
 }
@@ -174,4 +176,21 @@ void ConstraintTagImpliesTag::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "tag"), "set_tag", "get_tag");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "implied_tag"), "set_implied_tag", "get_implied_tag");
+}
+
+void ConstraintAncestorInterfaceTagAllowed::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_tag", "tag"), &ConstraintAncestorInterfaceTagAllowed::set_tag);
+	ClassDB::bind_method(D_METHOD("get_tag"), &ConstraintAncestorInterfaceTagAllowed::get_tag);
+	ClassDB::bind_method(D_METHOD("set_ancestor_tag", "ancestor_tag"), &ConstraintAncestorInterfaceTagAllowed::set_ancestor_tag);
+	ClassDB::bind_method(D_METHOD("get_ancestor_tag"), &ConstraintAncestorInterfaceTagAllowed::get_ancestor_tag);
+	ClassDB::bind_method(D_METHOD("set_allowed_interface_tags", "tags"), &ConstraintAncestorInterfaceTagAllowed::set_allowed_interface_tags);
+	ClassDB::bind_method(D_METHOD("get_allowed_interface_tags"), &ConstraintAncestorInterfaceTagAllowed::get_allowed_interface_tags);
+	ClassDB::bind_method(D_METHOD("set_require_ancestor_present", "require"), &ConstraintAncestorInterfaceTagAllowed::set_require_ancestor_present);
+	ClassDB::bind_method(D_METHOD("get_require_ancestor_present"), &ConstraintAncestorInterfaceTagAllowed::get_require_ancestor_present);
+
+	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "tag"), "set_tag", "get_tag");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "ancestor_tag"), "set_ancestor_tag", "get_ancestor_tag");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "allowed_interface_tags", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"),
+			"set_allowed_interface_tags", "get_allowed_interface_tags");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "require_ancestor_present"), "set_require_ancestor_present", "get_require_ancestor_present");
 }

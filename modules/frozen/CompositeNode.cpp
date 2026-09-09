@@ -40,6 +40,84 @@ float CompositeNode::GameTimeServerOffset = 0;
 Vector<CompositeNode*> CompositeNode::_all_composite_nodes;
 uint16_t CompositeNode::_next_composite_node_id = 1;
 
+namespace {
+// One synchronized data value, resolved to the wire type it is sent with.
+struct SyncEntry {
+	StringName Name;
+	CompositeNode::DataSynchronizationType Type = CompositeNode::None;
+};
+
+struct SyncEntryNameComparator {
+	// StringName's default order is pointer-based and differs per machine.
+	bool operator()(const SyncEntry &a, const SyncEntry &b) const {
+		return static_cast<String>(a.Name) < static_cast<String>(b.Name);
+	}
+};
+
+struct CompositeIDComparator {
+	bool operator()(const CompositeNode *a, const CompositeNode *b) const {
+		return a->get_composite_id() < b->get_composite_id();
+	}
+};
+
+// Values whose wire representation is lossy: the authority keeps full precision
+// while peers only ever see the quantized number, so exact comparison is wrong.
+bool is_float_sync_type(const CompositeNode::DataSynchronizationType type) {
+	switch (type) {
+		case CompositeNode::HalfFloat:
+		case CompositeNode::Float:
+		case CompositeNode::Double:
+		case CompositeNode::Vector2Type:
+		case CompositeNode::Vector3Type:
+			return true;
+		default:
+			return false;
+	}
+}
+
+// Formats a value the way its wire type defines it, so two peers that agree on
+// the value produce the same string regardless of float noise below the
+// requested precision.
+String canonical_sync_value(const Variant &value, const CompositeNode::DataSynchronizationType type, const int decimals) {
+	switch (type) {
+		case CompositeNode::U8:
+		case CompositeNode::U16:
+		case CompositeNode::U32:
+		case CompositeNode::U64:
+		case CompositeNode::S8:
+		case CompositeNode::S16:
+		case CompositeNode::S32:
+		case CompositeNode::S64:
+			return String::num_int64(static_cast<int64_t>(value));
+		case CompositeNode::HalfFloat:
+		case CompositeNode::Float:
+		case CompositeNode::Double:
+			// +0.0 folds -0.0 into 0.0, which would otherwise print as "-0.000".
+			return String::num(static_cast<double>(value) + 0.0, decimals);
+		case CompositeNode::Vector2Type: {
+			const Vector2 v = value;
+			return vformat("(%s,%s)", String::num(v.x + 0.0, decimals), String::num(v.y + 0.0, decimals));
+		}
+		case CompositeNode::Vector3Type: {
+			const Vector3 v = value;
+			return vformat("(%s,%s,%s)", String::num(v.x + 0.0, decimals), String::num(v.y + 0.0, decimals), String::num(v.z + 0.0, decimals));
+		}
+		default:
+			return String(value);
+	}
+}
+
+String fnv1a_hex(const String &text) {
+	const CharString utf8 = text.utf8();
+	uint64_t hash = 0xcbf29ce484222325ULL;
+	for (int i = 0; i < utf8.length(); i++) {
+		hash ^= static_cast<uint8_t>(utf8[i]);
+		hash *= 0x100000001b3ULL;
+	}
+	return String::num_uint64(hash, 16).lpad(16, "0");
+}
+} //namespace
+
 String CompositeNode::get_data_value_debug_string(StringName name) const {
 	String t;
 	const DataValue *di = _data.getptr(name);
@@ -112,6 +190,96 @@ String CompositeNode::get_function_debug_string(StringName name) const {
 	t = "Function Callback:\n";
 	t += vformat("  %s.%s\n", ((String)cb->get_object()->get_class_name()).ascii().ptr(), ((String)cb->get_method()).ascii().ptr());
 	return t;
+}
+
+Dictionary CompositeNode::get_data_synchronization_info() const {
+	Dictionary info;
+	for (const auto &entry : _sync_data_on_change) {
+		Dictionary value_info;
+		value_info["mode"] = OnChange;
+		value_info["type"] = entry.value.SyncType;
+		value_info["data_id"] = entry.value.DataID;
+		value_info["paused"] = entry.value.Paused;
+		info[entry.key] = value_info;
+	}
+	const Vector<DataSynchronizationSettings> *periodic[2] = { &_sync_data_low_freq, &_sync_data_high_freq };
+	const DataSynchronizationMode periodic_modes[2] = { LowFrequency, HighFrequency };
+	for (int i = 0; i < 2; i++) {
+		for (const DataSynchronizationSettings &settings : *periodic[i]) {
+			Dictionary value_info;
+			value_info["mode"] = periodic_modes[i];
+			value_info["type"] = settings.SyncType;
+			value_info["data_id"] = settings.DataID;
+			value_info["paused"] = settings.Paused;
+			info[settings.DataName] = value_info;
+		}
+	}
+	return info;
+}
+
+Dictionary CompositeNode::get_synchronized_data_dump(const int sync_mode_mask, const int float_decimals) const {
+	Vector<SyncEntry> entries;
+	if (sync_mode_mask & (1 << OnChange)) {
+		for (const auto &entry : _sync_data_on_change) {
+			entries.push_back({ entry.key, entry.value.SyncType });
+		}
+	}
+	if (sync_mode_mask & (1 << LowFrequency)) {
+		for (const DataSynchronizationSettings &settings : _sync_data_low_freq) {
+			entries.push_back({ settings.DataName, settings.SyncType });
+		}
+	}
+	if (sync_mode_mask & (1 << HighFrequency)) {
+		for (const DataSynchronizationSettings &settings : _sync_data_high_freq) {
+			entries.push_back({ settings.DataName, settings.SyncType });
+		}
+	}
+	entries.sort_custom<SyncEntryNameComparator>();
+
+	Dictionary dump;
+	for (const SyncEntry &entry : entries) {
+		// Locally extrapolated between packets, so every peer holds a different
+		// number by design - comparing them says nothing.
+		if (_linear_movement_with_velocity.has(entry.Name)) {
+			continue;
+		}
+		if (float_decimals < 0 && is_float_sync_type(entry.Type)) {
+			continue; // caller asked for the exact-only digest
+		}
+		const DataValue *value = _data.getptr(entry.Name);
+		dump[entry.Name] = value ? canonical_sync_value(value->Value, entry.Type, float_decimals) : String("<missing>");
+	}
+	return dump;
+}
+
+PackedStringArray CompositeNode::get_synchronized_data_value_names(const int sync_mode_mask) const {
+	PackedStringArray names;
+	for (const Variant &name : get_synchronized_data_dump(sync_mode_mask, 0).keys()) {
+		names.push_back(name);
+	}
+	return names;
+}
+
+String CompositeNode::get_state_digest(const int sync_mode_mask, const int float_decimals) const {
+	const Dictionary dump = get_synchronized_data_dump(sync_mode_mask, float_decimals);
+	String serialized;
+	// Insertion order is the sorted order get_synchronized_data_dump() built.
+	for (const Variant &name : dump.keys()) {
+		serialized += String(name) + "=" + String(dump[name]) + ";";
+	}
+	return fnv1a_hex(serialized);
+}
+
+String CompositeNode::GetAllStateDigests(const int sync_mode_mask, const int float_decimals) {
+	Vector<CompositeNode *> nodes = _all_composite_nodes;
+	nodes.sort_custom<CompositeIDComparator>();
+
+	String lines;
+	for (const CompositeNode *node : nodes) {
+		lines += vformat("%d\t%d\t%s\t%s\n", node->_composite_ID, node->_initialized_authority_id, node->get_name(),
+				node->get_state_digest(sync_mode_mask, float_decimals));
+	}
+	return lines;
 }
 
 void CompositeNode::_bind_methods() {
@@ -245,6 +413,18 @@ void CompositeNode::_bind_methods() {
 		&CompositeNode::get_function_names);
 	ClassDB::bind_method(D_METHOD("get_callback_names"),
 		&CompositeNode::get_callback_names);
+	ClassDB::bind_method(D_METHOD("get_data_synchronization_info"),
+		&CompositeNode::get_data_synchronization_info);
+	ClassDB::bind_method(D_METHOD("get_synchronized_data_value_names", "sync_mode_mask"),
+		&CompositeNode::get_synchronized_data_value_names, DEFVAL(SYNC_MODE_MASK_CONVERGENT));
+	ClassDB::bind_method(D_METHOD("get_synchronized_data_dump", "sync_mode_mask", "float_decimals"),
+		&CompositeNode::get_synchronized_data_dump, DEFVAL(SYNC_MODE_MASK_CONVERGENT), DEFVAL(3));
+	ClassDB::bind_method(D_METHOD("get_state_digest", "sync_mode_mask", "float_decimals"),
+		&CompositeNode::get_state_digest, DEFVAL(SYNC_MODE_MASK_CONVERGENT), DEFVAL(3));
+	ClassDB::bind_static_method("CompositeNode", D_METHOD("GetAllStateDigests", "sync_mode_mask", "float_decimals"),
+		&CompositeNode::GetAllStateDigests, DEFVAL(SYNC_MODE_MASK_CONVERGENT), DEFVAL(3));
+	BIND_CONSTANT(SYNC_MODE_MASK_CONVERGENT);
+	BIND_CONSTANT(SYNC_MODE_MASK_ALL);
 
 	ClassDB::bind_method(D_METHOD("_sendLowFrequencyData"),
 		&CompositeNode::_sendLowFrequencyData);

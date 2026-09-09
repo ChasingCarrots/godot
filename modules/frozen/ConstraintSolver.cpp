@@ -30,6 +30,7 @@ struct IfaceInfo {
 	int type_id = -1;
 	Transform3D anchor;
 	bool required = false;
+	LocalVector<int> tag_ids;
 };
 
 struct ElementInfo {
@@ -116,7 +117,13 @@ struct CbRule {
 	Callable callable;
 	int rule = -1;
 };
-
+struct AncestorIfaceRule {
+	int tag = -1;
+	int ancestor_tag = -1;
+	LocalVector<int> allowed;
+	bool require_ancestor_present = true;
+	int rule = -1;
+};
 // Per-rule statistics gathered during a solve. `kind`/`label` describe the
 // authored rule for a readable report; `rejections` counts forward-check vetoes
 // (a candidate placement blocked) and `completion_failures` counts finished
@@ -132,6 +139,8 @@ struct PlacedNode {
 	int value = -1;
 	Transform3D xform;
 	int parent = -1;
+	int parent_iface = -1;
+	int self_iface = -1;
 	int degree = 0; // number of connected neighbors (parent + children)
 	PackedInt32Array voxels;
 };
@@ -192,6 +201,7 @@ struct SolveState {
 	LocalVector<LeafRule> leaves;
 	LocalVector<ReachRule> reaches;
 	LocalVector<CbRule> callbacks;
+	LocalVector<AncestorIfaceRule> ancestor_ifaces;
 	bool has_compat = false;
 	int compat_rule = -1;
 	bool has_geom = false;
@@ -339,6 +349,9 @@ static void _build_catalog(SolveState &st, const Ref<ConstraintProblem> &p_probl
 					ii.type_id = st.intern_type(iface->get_type());
 					ii.anchor = iface->get_anchor();
 					ii.required = iface->get_required();
+					for (const StringName &t : iface->get_tags_vector()) {
+						ii.tag_ids.push_back(st.intern_tag(t));
+					}
 				}
 				info.interfaces.push_back(ii);
 			}
@@ -533,6 +546,25 @@ static void _build_catalog(SolveState &st, const Ref<ConstraintProblem> &p_probl
 				stat.label = ir->get_tag();
 				st.implies.push_back(im);
 			} break;
+			case ConstraintRule::KIND_ANCESTOR_INTERFACE_TAG_ALLOWED: {
+				const ConstraintAncestorInterfaceTagAllowed *ar = Object::cast_to<ConstraintAncestorInterfaceTagAllowed>(r.ptr());
+				if (!ar) {
+					break;
+				}
+				if (is_fixed) {
+					WARN_PRINT("ConstraintSolver: AncestorInterfaceTagAllowed is only enforced in GROW topology; it is ignored in FIXED mode.");
+				}
+				AncestorIfaceRule a;
+				a.tag = st.intern_tag(ar->get_tag());
+				a.ancestor_tag = st.intern_tag(ar->get_ancestor_tag());
+				a.require_ancestor_present = ar->get_require_ancestor_present();
+				for (const StringName &t : ar->get_allowed_interface_tags_vector()) {
+					a.allowed.push_back(st.intern_tag(t));
+				}
+				a.rule = ri;
+				stat.label = String(ar->get_tag()) + "@" + String(ar->get_ancestor_tag());
+				st.ancestor_ifaces.push_back(a);
+			} break;
 			case ConstraintRule::KIND_GEOMETRY: {
 				const ConstraintGeometry *gr = Object::cast_to<ConstraintGeometry>(r.ptr());
 				if (!gr) {
@@ -719,6 +751,69 @@ static int _req_ok_for_attach(SolveState &st, int p_attach_node, int p_value) {
 			if (!SolveState::is_subsequence(r.req, seq)) {
 				return r.rule;
 			}
+		}
+	}
+	return -1;
+}
+
+// Returns the index of the rule that rejects this attach based on ancestor interface tags, or -1 if all pass.
+static int _ancestor_iface_ok_for_attach(SolveState &st, int p_attach_node, int p_attach_iface, int p_value) {
+	if (st.ancestor_ifaces.is_empty()) {
+		return -1;
+	}
+	for (const AncestorIfaceRule &r : st.ancestor_ifaces) {
+		if (!st.value_has_tag(p_value, r.tag)) {
+			continue;
+		}
+		// Search up the ancestor chain for ancestor_tag.
+		int ancestor_node = -1;
+		int branch_iface = -1;
+
+		if (st.value_has_tag(st.placed[p_attach_node].value, r.ancestor_tag)) {
+			ancestor_node = p_attach_node;
+			branch_iface = p_attach_iface;
+		} else {
+			int curr = p_attach_node;
+			while (curr >= 0) {
+				int p = st.placed[curr].parent;
+				if (p < 0) {
+					break;
+				}
+				if (st.value_has_tag(st.placed[p].value, r.ancestor_tag)) {
+					ancestor_node = p;
+					branch_iface = st.placed[curr].parent_iface;
+					break;
+				}
+				curr = p;
+			}
+		}
+
+		if (ancestor_node < 0) {
+			if (r.require_ancestor_present) {
+				return r.rule;
+			}
+			continue;
+		}
+
+		const ElementInfo &ae = st.elements[st.placed[ancestor_node].value];
+		if (branch_iface < 0 || branch_iface >= (int)ae.interfaces.size()) {
+			return r.rule;
+		}
+		const IfaceInfo &ii = ae.interfaces[branch_iface];
+		bool match = false;
+		for (int req_t : r.allowed) {
+			for (int t : ii.tag_ids) {
+				if (t == req_t) {
+					match = true;
+					break;
+				}
+			}
+			if (match) {
+				break;
+			}
+		}
+		if (!match) {
+			return r.rule;
 		}
 	}
 	return -1;
@@ -1076,12 +1171,16 @@ static bool _grow_expand(SolveState &st) {
 			st.reject(req_rule);
 			continue;
 		}
+		const int anc_iface_rule = _ancestor_iface_ok_for_attach(st, f.node, f.iface, c.value);
+		if (anc_iface_rule >= 0) {
+			st.reject(anc_iface_rule);
+			continue;
+		}
 		const int local_rule = _grow_local_rules_ok(st, f.node, c.value);
 		if (local_rule >= 0) {
 			st.reject(local_rule);
 			continue;
 		}
-
 		const ElementInfo &e = st.elements[c.value];
 		const Transform3D child_world = parent_anchor_world * flip * e.interfaces[c.iface].anchor.affine_inverse();
 
@@ -1108,6 +1207,8 @@ static bool _grow_expand(SolveState &st) {
 		node.value = c.value;
 		node.xform = child_world;
 		node.parent = f.node;
+		node.parent_iface = f.iface;
+		node.self_iface = c.iface;
 		node.degree = 1; // connected to its parent
 		node.voxels = voxels;
 		st.placed.push_back(node);
@@ -1170,7 +1271,7 @@ static bool _grow_expand(SolveState &st) {
 static void _build_grow_solution(SolveState &st, Ref<ConstraintSolution> p_sol) {
 	for (int i = 0; i < (int)st.placed.size(); i++) {
 		const ElementInfo &e = st.elements[st.placed[i].value];
-		p_sol->add_node(e.id, st.placed[i].xform, e.tags);
+		p_sol->add_node(e.id, st.placed[i].xform, e.tags, st.placed[i].parent, st.placed[i].parent_iface, st.placed[i].self_iface);
 	}
 	for (int i = 0; i < (int)st.placed.size(); i++) {
 		if (st.placed[i].parent >= 0) {
@@ -1703,6 +1804,8 @@ Ref<ConstraintSolution> ConstraintSolver::solve(const Ref<ConstraintProblem> &p_
 		root.value = start_value;
 		root.xform = Transform3D();
 		root.parent = -1;
+		root.parent_iface = -1;
+		root.self_iface = -1;
 		if (st.grid.is_valid()) {
 			root.voxels = st.grid->voxels_from_points(se.geometry, root.xform, st.ggrow);
 			st.grid->mark_occupied(root.voxels);

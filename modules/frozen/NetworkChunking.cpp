@@ -5,19 +5,17 @@
 
 //-------------------------------CHUNK SENDER------------------------------------
 
-void ChunkSender::initialize(Ref<MultiplayerPeer> peer) {
+void ChunkSender::initialize(CommunicationLineSystem* cls) {
     _send_buffer.instantiate();
-    _multiplayer_peer.instantiate();
-    _multiplayer_peer->set_ref(peer);
+    _communication_line_system = cls;
 }
 
-// Touches the peer directly, so this must run under CommunicationLineSystem's
-// _peer_mutex; the only caller is CLS::send_to_peer, which already holds it.
+// Slices go out through CommunicationLineSystem::put_chunk_slice_on_peer, which
+// touches the peer, so this must run under CLS's _peer_mutex; the only caller is
+// CLS::send_to_peer, which already holds it.
 void ChunkSender::send_as_chunk(const int to, const PackedByteArray &packet) {
     ERR_FAIL_COND_MSG(_send_buffer.is_null(), "_send_buffer is null");
-    ERR_FAIL_COND_MSG(_multiplayer_peer.is_null(), "_multiplayer_peer is null");
-    Ref<MultiplayerPeer> multiplayer_peer = _multiplayer_peer->get_ref();
-    ERR_FAIL_COND_MSG(multiplayer_peer.is_null(), "_multiplayer_peer target is no longer valid");
+    ERR_FAIL_NULL_MSG(_communication_line_system, "_communication_line_system is null");
     ERR_FAIL_COND_MSG(packet.is_empty(), "Cannot chunk empty packet");
     ERR_FAIL_COND_MSG(packet.size() > MAX_CHUNK_SIZE, "Packet exceeds MAX_CHUNK_SIZE");
 
@@ -45,8 +43,7 @@ void ChunkSender::send_as_chunk(const int to, const PackedByteArray &packet) {
 
         PackedByteArray slice = _send_buffer->get_data_array();
 
-        multiplayer_peer->set_target_peer(to);
-        multiplayer_peer->put_packet(slice.ptr(), slice.size());
+        _communication_line_system->put_chunk_slice_on_peer(to, slice);
 
         print_line("Send slice: ", i, " | with size: ", slice.size());
     }

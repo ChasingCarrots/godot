@@ -22,18 +22,19 @@ struct ChunkData {
     uint64_t last_slice_time = 0;
 };
 
+class CommunicationLineSystem;
+
 class ChunkSender : public RefCounted
 {
     uint16_t _chunkId = 0;
     Ref<StreamPeerBuffer> _send_buffer;
-    Ref<WeakRef> _multiplayer_peer;
+    CommunicationLineSystem* _communication_line_system = nullptr;
 
 public:
-    void initialize(Ref<MultiplayerPeer> peer);
+    void initialize(CommunicationLineSystem* cls);
     void send_as_chunk(const int to, const PackedByteArray &packet);
 };
 
-class CommunicationLineSystem;
 class ChunkReceiver : public RefCounted
 {
     std::unordered_map<uint64_t, ChunkData> _chunks;
