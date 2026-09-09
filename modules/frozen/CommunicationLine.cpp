@@ -328,6 +328,14 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 		break;
 		case CommunicationLinePacketTypes::CallRemoteFunction:
 		case CommunicationLinePacketTypes::CallRemoteFunctionExpectAnswer: {
+			if (_communication_functions.is_empty()) {
+				DeferredIncomingPacket deferred;
+				deferred.packet_type = packet_type;
+				deferred.from_multiplayer_id = from_multiplayer_id;
+				deferred.data = packet->get_data_array();
+				_deferred_incoming_packets.append(deferred);
+				return;
+			}
 			int function_index = packet->get_u8();
 			if (function_index < 0 || function_index >= _communication_functions.size()){
 				print_error(vformat("[CommunicationLine::on_packet_received | %d] invalid function index (%d) packet was skipped", get_local_multiplayer_id(), function_index));
@@ -456,6 +464,18 @@ void CommunicationLine::finish_initialization_and_open_line() {
 		case ConnectedClosed:
 			update_own_communication_state(ConnectedOpen);
 			break;
+	}
+
+	if (!_deferred_incoming_packets.is_empty()) {
+		Vector<DeferredIncomingPacket> packets_to_drain = _deferred_incoming_packets;
+		_deferred_incoming_packets.clear();
+		for (int i = 0; i < packets_to_drain.size(); i++) {
+			const auto &deferred = packets_to_drain[i];
+			Ref<StreamPeerBuffer> buf;
+			buf.instantiate();
+			buf->set_data_array(deferred.data);
+			on_packet_received(deferred.packet_type, deferred.from_multiplayer_id, buf);
+		}
 	}
 }
 
@@ -848,6 +868,7 @@ void CommunicationLine::reset_communication_line(){
 	_send_buffer.clear();
 
 	_next_call_id = 0;
+	_deferred_incoming_packets.clear();
 	_communication_calls_waiting_for_answer.clear();
 
 	_received_data_amounts.clear();

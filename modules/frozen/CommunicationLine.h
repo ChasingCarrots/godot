@@ -161,6 +161,12 @@ private:
 		ParamType ExpectedAnswer = ParamType::None;
 	};
 	Vector<CommunicationFunction> _communication_functions;
+	struct DeferredIncomingPacket {
+		CommunicationLinePacketTypes packet_type;
+		int from_multiplayer_id;
+		PackedByteArray data;
+	};
+	Vector<DeferredIncomingPacket> _deferred_incoming_packets;
 	uint8_t _next_call_id = 0;
 	Vector<Ref<CommunicationCallWithAnswer>> _communication_calls_waiting_for_answer;
 	// Calls still waiting after this long are considered lost and resolved with a null
