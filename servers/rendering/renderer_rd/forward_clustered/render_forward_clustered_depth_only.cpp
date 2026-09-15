@@ -65,7 +65,8 @@ bool RenderForwardClustered::_render_depth_only(RenderDataRD *p_render_data, con
 	int *render_info = p_render_data->render_info ? p_render_data->render_info->info[RSE::VIEWPORT_RENDER_INFO_TYPE_VISIBLE] : (int *)nullptr;
 	_fill_instance_data(RENDER_LIST_OPAQUE, render_info);
 
-	RID rp_uniform_set = _setup_render_pass_uniform_set(RENDER_LIST_OPAQUE, nullptr, RID(), rb->get_samplers(), uniform_buffer_index);
+	const bool is_multiview = rb->get_view_count() > 1;
+	RID rp_uniform_set = _setup_render_pass_uniform_set(RENDER_LIST_OPAQUE, nullptr, is_multiview, RID(), rb->get_samplers(), uniform_buffer_index);
 
 	RENDER_TIMESTAMP("Render Depth Only");
 

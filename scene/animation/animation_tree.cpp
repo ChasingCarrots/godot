@@ -61,6 +61,9 @@ Variant AnimationNode::get_parameter_default_value(const StringName &p_parameter
 	if (p_parameter == current_length || p_parameter == current_position || p_parameter == current_delta) {
 		return 0.0;
 	}
+	if (p_parameter == observer) {
+		return Ref<AnimationNodeObserver>();
+	}
 	GDVIRTUAL_CALL(_get_parameter_default_value, p_parameter, ret);
 	return ret;
 }
@@ -659,6 +662,11 @@ Ref<AnimationRootNode> AnimationTree::get_root_animation_node() const {
 
 bool AnimationTree::_blend_pre_process(double p_delta, int p_track_count, const AHashMap<NodePath, int> &p_track_map) {
 	_update_properties(); // If properties need updating, update them.
+
+	if (root_animation_node.is_null()) {
+		process_state = AnimationNode::ProcessState();
+		return false; // Abort after _update_properties() and init process_state.
+	}
 
 	if (validation_dirty) {
 		_update_connections();

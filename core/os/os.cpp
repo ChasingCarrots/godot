@@ -76,9 +76,7 @@ double OS::get_unix_time() const {
 }
 
 void OS::_set_logger(CompositeLogger *p_logger) {
-	if (_logger) {
-		memdelete(_logger);
-	}
+	memdelete(_logger);
 	_logger = p_logger;
 }
 
@@ -837,8 +835,6 @@ OS::OS() {
 }
 
 OS::~OS() {
-	if (_logger) {
-		memdelete(_logger);
-	}
+	memdelete(_logger);
 	singleton = nullptr;
 }
