@@ -142,6 +142,7 @@ struct PlacedNode {
 	int parent_iface = -1;
 	int self_iface = -1;
 	int degree = 0; // number of connected neighbors (parent + children)
+	int open_interfaces = 0;
 	PackedInt32Array voxels;
 };
 
@@ -244,6 +245,8 @@ struct SolveState {
 	LocalVector<OpenIface> frontier;
 	LocalVector<int> tag_count;
 	LocalVector<int> value_count; // per catalog value: how many placed nodes instance it
+	LocalVector<int> leaf_count;
+	int total_leaves = 0;
 	int min_elements = 0;
 	int max_elements = -1;
 
@@ -860,6 +863,9 @@ static int _grow_local_rules_ok(SolveState &st, int p_attach_node, int p_value) 
 		if (st.value_has_tag(p_value, r.tag) && 1 > r.mx) {
 			return r.rule;
 		}
+		if (st.value_has_tag(p_value, r.tag) && (int)st.elements[p_value].interfaces.size() == 1 && 1 < r.mn) {
+			return r.rule;
+		}
 	}
 	// NeighborTagAllowed: validate the new parent<->child edge in both directions.
 	for (const NeighRule &r : st.neighs) {
@@ -1143,9 +1149,60 @@ static bool _grow_expand(SolveState &st) {
 
 	for (const Candidate &c : cands) {
 		if (c.cap) {
+			st.candidates_evaluated++;
+			int reject_rule = -1;
+			const int rem = st.placed[f.node].open_interfaces - 1;
+			const int max_deg = st.placed[f.node].degree + rem;
+			for (const DegRule &dr : st.degs) {
+				if (st.value_has_tag(st.placed[f.node].value, dr.tag) && max_deg < dr.mn) {
+					reject_rule = dr.rule;
+					break;
+				}
+			}
+			const bool is_leaf = (rem == 0 && ((st.placed[f.node].parent >= 0) ? (st.placed[f.node].degree == 1) : (st.placed[f.node].degree == 0)));
+			if (reject_rule < 0 && is_leaf) {
+				for (const LeafRule &lr : st.leaves) {
+					if (lr.mx < 0) {
+						continue;
+					}
+					if (lr.tag < 0) {
+						if (st.total_leaves + 1 > lr.mx) {
+							reject_rule = lr.rule;
+							break;
+						}
+					} else if (st.value_has_tag(st.placed[f.node].value, lr.tag)) {
+						if (st.leaf_count[lr.tag] + 1 > lr.mx) {
+							reject_rule = lr.rule;
+							break;
+						}
+					}
+				}
+			}
+			if (reject_rule >= 0) {
+				st.reject(reject_rule);
+				continue;
+			}
+
+			st.placed[f.node].open_interfaces--;
+			if (is_leaf) {
+				st.total_leaves++;
+				for (int t : st.elements[st.placed[f.node].value].tag_ids) {
+					st.leaf_count[t]++;
+				}
+			}
+
 			if (_grow_expand(st)) {
 				return true;
 			}
+
+			if (is_leaf) {
+				st.total_leaves--;
+				for (int t : st.elements[st.placed[f.node].value].tag_ids) {
+					st.leaf_count[t]--;
+				}
+			}
+			st.placed[f.node].open_interfaces++;
+
 			if (st.aborted) {
 				break;
 			}
@@ -1166,6 +1223,32 @@ static bool _grow_expand(SolveState &st) {
 			st.reject(over_max_rule);
 			continue;
 		}
+		const ElementInfo &e = st.elements[c.value];
+		const int pushed = (int)e.interfaces.size() - 1;
+		const bool child_is_leaf = (pushed == 0);
+		if (child_is_leaf) {
+			int leaf_rule = -1;
+			for (const LeafRule &lr : st.leaves) {
+				if (lr.mx < 0) {
+					continue;
+				}
+				if (lr.tag < 0) {
+					if (st.total_leaves + 1 > lr.mx) {
+						leaf_rule = lr.rule;
+						break;
+					}
+				} else if (st.value_has_tag(c.value, lr.tag)) {
+					if (st.leaf_count[lr.tag] + 1 > lr.mx) {
+						leaf_rule = lr.rule;
+						break;
+					}
+				}
+			}
+			if (leaf_rule >= 0) {
+				st.reject(leaf_rule);
+				continue;
+			}
+		}
 		const int req_rule = _req_ok_for_attach(st, f.node, c.value);
 		if (req_rule >= 0) {
 			st.reject(req_rule);
@@ -1181,7 +1264,6 @@ static bool _grow_expand(SolveState &st) {
 			st.reject(local_rule);
 			continue;
 		}
-		const ElementInfo &e = st.elements[c.value];
 		const Transform3D child_world = parent_anchor_world * flip * e.interfaces[c.iface].anchor.affine_inverse();
 
 		PackedInt32Array voxels;
@@ -1210,10 +1292,18 @@ static bool _grow_expand(SolveState &st) {
 		node.parent_iface = f.iface;
 		node.self_iface = c.iface;
 		node.degree = 1; // connected to its parent
+		node.open_interfaces = pushed;
 		node.voxels = voxels;
 		st.placed.push_back(node);
 		const int child = (int)st.placed.size() - 1;
 		st.placed[f.node].degree++;
+		st.placed[f.node].open_interfaces--;
+		if (child_is_leaf) {
+			st.total_leaves++;
+			for (int t : e.tag_ids) {
+				st.leaf_count[t]++;
+			}
+		}
 		for (int t : e.tag_ids) {
 			st.tag_count[t]++;
 		}
@@ -1223,7 +1313,6 @@ static bool _grow_expand(SolveState &st) {
 				st.excl_demand[t]++;
 			}
 		}
-		int pushed = 0;
 		for (int i = 0; i < (int)e.interfaces.size(); i++) {
 			if (i == c.iface) {
 				continue; // consumed by this connection
@@ -1232,7 +1321,6 @@ static bool _grow_expand(SolveState &st) {
 			oi.node = child;
 			oi.iface = i;
 			st.frontier.push_back(oi);
-			pushed++;
 		}
 		_shuffle_frontier_tail(st, pushed);
 
@@ -1245,6 +1333,12 @@ static bool _grow_expand(SolveState &st) {
 		for (int p = 0; p < pushed; p++) {
 			st.frontier.remove_at(st.frontier.size() - 1);
 		}
+		if (child_is_leaf) {
+			st.total_leaves--;
+			for (int t : e.tag_ids) {
+				st.leaf_count[t]--;
+			}
+		}
 		for (int t : e.tag_ids) {
 			st.tag_count[t]--;
 		}
@@ -1255,6 +1349,7 @@ static bool _grow_expand(SolveState &st) {
 			}
 		}
 		st.placed[f.node].degree--;
+		st.placed[f.node].open_interfaces++;
 		st.placed.remove_at(st.placed.size() - 1);
 		if (st.grid.is_valid()) {
 			st.grid->mark_unoccupied(voxels);
@@ -1779,6 +1874,11 @@ Ref<ConstraintSolution> ConstraintSolver::solve(const Ref<ConstraintProblem> &p_
 	for (int i = 0; i < st.num_tags; i++) {
 		st.excl_demand[i] = 0;
 	}
+	st.leaf_count.resize((uint32_t)st.num_tags);
+	for (int i = 0; i < st.num_tags; i++) {
+		st.leaf_count[i] = 0;
+	}
+	st.total_leaves = 0;
 
 	if (st.num_values == 0) {
 		sol->set_failure_reason("Problem has no elements.");
@@ -1806,11 +1906,18 @@ Ref<ConstraintSolution> ConstraintSolver::solve(const Ref<ConstraintProblem> &p_
 		root.parent = -1;
 		root.parent_iface = -1;
 		root.self_iface = -1;
+		root.open_interfaces = (int)se.interfaces.size();
 		if (st.grid.is_valid()) {
 			root.voxels = st.grid->voxels_from_points(se.geometry, root.xform, st.ggrow);
 			st.grid->mark_occupied(root.voxels);
 		}
 		st.placed.push_back(root);
+		if (root.open_interfaces == 0) {
+			st.total_leaves++;
+			for (int t : se.tag_ids) {
+				st.leaf_count[t]++;
+			}
+		}
 		for (int t : se.tag_ids) {
 			st.tag_count[t]++;
 		}
