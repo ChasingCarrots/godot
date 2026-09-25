@@ -73,9 +73,11 @@ public:
 // Lambda callable that references a particular object, so it can use `self` in the body.
 class GDScriptLambdaSelfCallable : public CallableCustom {
 	GDScript::UpdatableFuncPtr function;
-	Ref<RefCounted> reference; // For objects that are RefCounted, keep a reference.
-	Object *object = nullptr; // For non RefCounted objects, use a direct pointer.
+	Ref<RefCounted> reference;
+	ObjectID object_id;
 	uint32_t h;
+
+	_FORCE_INLINE_ Object *get_self() const { return reference.is_valid() ? reference.ptr() : ObjectDB::get_instance(object_id); }
 
 	Vector<Variant> captures;
 
