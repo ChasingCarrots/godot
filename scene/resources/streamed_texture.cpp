@@ -109,7 +109,7 @@ void StreamedTexture2D::texture_reload(uint8_t p_mip_level) {
 		return;
 	}
 
-	RenderingServer::get_singleton()->texture_set_path(new_texture, path_to_file);
+	RenderingServer::get_singleton()->texture_set_path(new_texture, get_path().is_empty() ? path_to_file : get_path());
 	RS::get_singleton()->texture_replace_compatible(texture, new_texture);
 
 #ifdef MODULE_TEXTURE_STREAMING_ENABLED
@@ -355,7 +355,7 @@ Error StreamedTexture2D::_load_internal(const String &p_path, bool p_load_settin
 	ERR_FAIL_COND_V(err != OK, err);
 
 	RID new_texture = RS::get_singleton()->texture_2d_create(load_data.image);
-	RenderingServer::get_singleton()->texture_set_path(new_texture, p_path);
+	RenderingServer::get_singleton()->texture_set_path(new_texture, get_path().is_empty() ? p_path : get_path());
 	path_to_file = p_path;
 
 	if (texture.is_valid()) {
