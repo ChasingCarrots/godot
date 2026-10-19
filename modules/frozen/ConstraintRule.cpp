@@ -11,6 +11,7 @@ void ConstraintRule::_bind_methods() {
 	BIND_ENUM_CONSTANT(KIND_MAX_ADJACENT_BY_TAG);
 	BIND_ENUM_CONSTANT(KIND_CONNECTION_COUNT_BY_TAG);
 	BIND_ENUM_CONSTANT(KIND_NEIGHBOR_TAG_ALLOWED);
+	BIND_ENUM_CONSTANT(KIND_NEIGHBOR_TAG_DISALLOWED);
 	BIND_ENUM_CONSTANT(KIND_MAX_REPEATS_BY_ELEMENT_ID);
 	BIND_ENUM_CONSTANT(KIND_NO_REPEAT_NEIGHBOR_ELEMENT);
 	BIND_ENUM_CONSTANT(KIND_LEAF_COUNT_BY_TAG);
@@ -103,6 +104,17 @@ void ConstraintNeighborTagAllowed::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "tag"), "set_tag", "get_tag");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "allowed_neighbor_tags", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"),
 			"set_allowed_neighbor_tags", "get_allowed_neighbor_tags");
+}
+
+void ConstraintNeighborTagDisallowed::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_tag", "tag"), &ConstraintNeighborTagDisallowed::set_tag);
+	ClassDB::bind_method(D_METHOD("get_tag"), &ConstraintNeighborTagDisallowed::get_tag);
+	ClassDB::bind_method(D_METHOD("set_disallowed_neighbor_tags", "tags"), &ConstraintNeighborTagDisallowed::set_disallowed_neighbor_tags);
+	ClassDB::bind_method(D_METHOD("get_disallowed_neighbor_tags"), &ConstraintNeighborTagDisallowed::get_disallowed_neighbor_tags);
+
+	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "tag"), "set_tag", "get_tag");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "disallowed_neighbor_tags", PROPERTY_HINT_TYPE_STRING, String::num(Variant::STRING_NAME) + ":"),
+			"set_disallowed_neighbor_tags", "get_disallowed_neighbor_tags");
 }
 
 void ConstraintMaxRepeatsByElementId::_bind_methods() {

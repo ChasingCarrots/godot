@@ -43,6 +43,7 @@ void initialize_frozen_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ConstraintMaxAdjacentByTag>();
 	ClassDB::register_class<ConstraintConnectionCountByTag>();
 	ClassDB::register_class<ConstraintNeighborTagAllowed>();
+	ClassDB::register_class<ConstraintNeighborTagDisallowed>();
 	ClassDB::register_class<ConstraintMaxRepeatsByElementId>();
 	ClassDB::register_class<ConstraintNoRepeatNeighborElement>();
 	ClassDB::register_class<ConstraintLeafCountByTag>();

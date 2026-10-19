@@ -26,6 +26,7 @@ public:
 		KIND_MAX_ADJACENT_BY_TAG,
 		KIND_CONNECTION_COUNT_BY_TAG,
 		KIND_NEIGHBOR_TAG_ALLOWED,
+		KIND_NEIGHBOR_TAG_DISALLOWED,
 		KIND_MAX_REPEATS_BY_ELEMENT_ID,
 		KIND_NO_REPEAT_NEIGHBOR_ELEMENT,
 		KIND_LEAF_COUNT_BY_TAG,
@@ -231,6 +232,38 @@ public:
 		return out;
 	}
 	const Vector<StringName> &get_allowed_neighbor_tags_vector() const { return _allowed_neighbor_tags; }
+};
+
+// Every neighbor of an element carrying `tag` must not carry any of `disallowed_neighbor_tags`.
+class ConstraintNeighborTagDisallowed : public ConstraintRule {
+	GDCLASS(ConstraintNeighborTagDisallowed, ConstraintRule)
+
+	StringName _tag;
+	Vector<StringName> _disallowed_neighbor_tags;
+
+protected:
+	static void _bind_methods();
+
+public:
+	virtual Kind get_kind() const override { return KIND_NEIGHBOR_TAG_DISALLOWED; }
+
+	void set_tag(const StringName &p_v) { _tag = p_v; }
+	StringName get_tag() const { return _tag; }
+
+	void set_disallowed_neighbor_tags(const TypedArray<StringName> &p_tags) {
+		_disallowed_neighbor_tags.clear();
+		for (int i = 0; i < p_tags.size(); i++) {
+			_disallowed_neighbor_tags.push_back(p_tags[i]);
+		}
+	}
+	TypedArray<StringName> get_disallowed_neighbor_tags() const {
+		TypedArray<StringName> out;
+		for (const StringName &t : _disallowed_neighbor_tags) {
+			out.append(t);
+		}
+		return out;
+	}
+	const Vector<StringName> &get_disallowed_neighbor_tags_vector() const { return _disallowed_neighbor_tags; }
 };
 
 // "MaxRepeatsByElementId" -- variety/anti-repeat. The number of placed nodes that

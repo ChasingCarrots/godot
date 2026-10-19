@@ -85,6 +85,11 @@ struct NeighRule {
 	LocalVector<int> allowed; // interned tag ids permitted as neighbors
 	int rule = -1;
 };
+struct NeighDisallowedRule {
+	int tag = -1;
+	LocalVector<int> disallowed;
+	int rule = -1;
+};
 struct RepeatRule {
 	int value = -1; // catalog value index, or -1 = applies to every id
 	int mx = -1; // < 0 = unbounded
@@ -197,6 +202,7 @@ struct SolveState {
 	LocalVector<AdjRule> adjs;
 	LocalVector<DegRule> degs;
 	LocalVector<NeighRule> neighs;
+	LocalVector<NeighDisallowedRule> neigh_disallowed;
 	LocalVector<RepeatRule> repeats;
 	LocalVector<NoRepeatRule> no_repeats;
 	LocalVector<LeafRule> leaves;
@@ -479,6 +485,20 @@ static void _build_catalog(SolveState &st, const Ref<ConstraintProblem> &p_probl
 				nn.rule = ri;
 				stat.label = nr->get_tag();
 				st.neighs.push_back(nn);
+			} break;
+			case ConstraintRule::KIND_NEIGHBOR_TAG_DISALLOWED: {
+				const ConstraintNeighborTagDisallowed *nr = Object::cast_to<ConstraintNeighborTagDisallowed>(r.ptr());
+				if (!nr) {
+					break;
+				}
+				NeighDisallowedRule nn;
+				nn.tag = st.intern_tag(nr->get_tag());
+				for (const StringName &t : nr->get_disallowed_neighbor_tags_vector()) {
+					nn.disallowed.push_back(st.intern_tag(t));
+				}
+				nn.rule = ri;
+				stat.label = nr->get_tag();
+				st.neigh_disallowed.push_back(nn);
 			} break;
 			case ConstraintRule::KIND_MAX_REPEATS_BY_ELEMENT_ID: {
 				const ConstraintMaxRepeatsByElementId *mr = Object::cast_to<ConstraintMaxRepeatsByElementId>(r.ptr());
@@ -891,6 +911,23 @@ static int _grow_local_rules_ok(SolveState &st, int p_attach_node, int p_value) 
 			}
 			if (!ok) {
 				return r.rule;
+			}
+		}
+	}
+	// NeighborTagDisallowed: validate the new parent<->child edge in both directions.
+	for (const NeighDisallowedRule &r : st.neigh_disallowed) {
+		if (st.value_has_tag(parent_value, r.tag)) {
+			for (int t : r.disallowed) {
+				if (st.value_has_tag(p_value, t)) {
+					return r.rule;
+				}
+			}
+		}
+		if (st.value_has_tag(p_value, r.tag)) {
+			for (int t : r.disallowed) {
+				if (st.value_has_tag(parent_value, t)) {
+					return r.rule;
+				}
 			}
 		}
 	}
@@ -1641,7 +1678,7 @@ static bool _fixed_complete(SolveState &st, const LocalVector<FiniteDomain> &dom
 
 	// Adjacency-graph rules over the fixed connection graph.
 	if (!st.conns.is_empty() || !st.adjs.is_empty() || !st.degs.is_empty() || !st.neighs.is_empty() ||
-			!st.no_repeats.is_empty() || !st.leaves.is_empty()) {
+			!st.neigh_disallowed.is_empty() || !st.no_repeats.is_empty() || !st.leaves.is_empty()) {
 		LocalVector<LocalVector<int>> adj;
 		adj.resize((uint32_t)n);
 		for (int i = 0; i + 1 < p_conn.size(); i += 2) {
@@ -1711,6 +1748,23 @@ static bool _fixed_complete(SolveState &st, const LocalVector<FiniteDomain> &dom
 					if (!ok) {
 						st.complete_fail(nr.rule);
 						return false;
+					}
+				}
+			}
+		}
+		// neighbor-tag-disallowed: no neighbor of a tag element may carry a
+		// disallowed tag.
+		for (const NeighDisallowedRule &nr : st.neigh_disallowed) {
+			for (int s = 0; s < n; s++) {
+				if (!st.value_has_tag(assign[s], nr.tag)) {
+					continue;
+				}
+				for (int m : adj[s]) {
+					for (int t : nr.disallowed) {
+						if (st.value_has_tag(assign[m], t)) {
+							st.complete_fail(nr.rule);
+							return false;
+						}
 					}
 				}
 			}
