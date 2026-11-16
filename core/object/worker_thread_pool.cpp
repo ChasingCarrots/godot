@@ -147,6 +147,7 @@ void WorkerThreadPool::_process_task(Task *p_task) {
 			memdelete(p_task->template_userdata);
 		} else {
 			p_task->callable.call();
+			p_task->callable = Callable();
 		}
 
 		task_mutex.lock();
@@ -844,22 +845,24 @@ void WorkerThreadPool::init(int p_thread_count, float p_low_priority_task_ratio)
 }
 
 void WorkerThreadPool::exit_languages_threads() {
-	if (threads.is_empty()) {
-		return;
-	}
-
 	MutexLock lock(task_mutex);
 
-	// Wait until all threads are idle.
-	_switch_runlevel(RUNLEVEL_PRE_EXIT_LANGUAGES);
-	while (runlevel_data.pre_exit_languages.num_idle_threads != threads.size()) {
-		control_cond_var.wait(lock);
+	if (!threads.is_empty()) {
+		// Wait until all threads are idle.
+		_switch_runlevel(RUNLEVEL_PRE_EXIT_LANGUAGES);
+		while (runlevel_data.pre_exit_languages.num_idle_threads != threads.size()) {
+			control_cond_var.wait(lock);
+		}
+
+		// Wait until all threads have detached from scripting languages.
+		_switch_runlevel(RUNLEVEL_EXIT_LANGUAGES);
+		while (runlevel_data.exit_languages.num_exited_threads != threads.size()) {
+			control_cond_var.wait(lock);
+		}
 	}
 
-	// Wait until all threads have detached from scripting languages.
-	_switch_runlevel(RUNLEVEL_EXIT_LANGUAGES);
-	while (runlevel_data.exit_languages.num_exited_threads != threads.size()) {
-		control_cond_var.wait(lock);
+	for (KeyValue<TaskID, Task *> &E : tasks) {
+		E.value->callable = Callable();
 	}
 }
 
