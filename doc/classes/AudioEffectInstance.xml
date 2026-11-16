@@ -28,5 +28,22 @@
 				Should return [code]true[/code] to force the [AudioServer] to always call [method _process], even if the bus has been muted or cannot otherwise be heard.
 			</description>
 		</method>
+		<method name="process_audio">
+			<return type="PackedVector2Array" />
+			<param index="0" name="src_buffer" type="PackedVector2Array" />
+			<param index="1" name="frame_count" type="int" />
+			<description>
+				Processes [param frame_count] audio frames from [param src_buffer] through this effect and returns the processed audio as a [PackedVector2Array].
+			</description>
+		</method>
+		<method name="process_audio_buffer">
+			<return type="void" />
+			<param index="0" name="src_buffer" type="AudioBuffer" />
+			<param index="1" name="dst_buffer" type="AudioBuffer" />
+			<param index="2" name="frame_count" type="int" default="-1" />
+			<description>
+				Processes up to [param frame_count] audio frames from [param src_buffer] directly into [param dst_buffer] without allocating memory. If [param frame_count] is negative, uses the smaller of the two buffer sizes.
+			</description>
+		</method>
 	</methods>
 </class>

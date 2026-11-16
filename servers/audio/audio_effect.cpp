@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "audio_effect.h"
+#include "audio_buffer.h"
 
 #include "core/object/class_db.h" // IWYU pragma: keep. `GDVIRTUAL_BIND` macro.
 
@@ -67,6 +68,21 @@ PackedVector2Array AudioEffectInstance::_process_audio_bind(const PackedVector2A
 	return res;
 }
 
+void AudioEffectInstance::process_audio_buffer(const Ref<AudioBuffer> &p_src_buffer, const Ref<AudioBuffer> &p_dst_buffer, int p_frame_count) {
+	ERR_FAIL_COND(p_src_buffer.is_null());
+	ERR_FAIL_COND(p_dst_buffer.is_null());
+
+	int src_size = p_src_buffer->get_frame_count();
+	int dst_size = p_dst_buffer->get_frame_count();
+	int max_frames = MIN(src_size, dst_size);
+	int count = (p_frame_count < 0) ? max_frames : MIN(p_frame_count, max_frames);
+	if (count <= 0) {
+		return;
+	}
+
+	process(p_src_buffer->ptr(), p_dst_buffer->ptrw(), count);
+}
+
 void AudioEffectInstance::process(const AudioFrame *p_src_frames, AudioFrame *p_dst_frames, int p_frame_count) {
 	GDVIRTUAL_CALL(_process, p_src_frames, p_dst_frames, p_frame_count);
 }
@@ -82,6 +98,8 @@ void AudioEffectInstance::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("process_audio", "src_buffer", "frame_count"),
 		&AudioEffectInstance::_process_audio_bind);
+	ClassDB::bind_method(D_METHOD("process_audio_buffer", "src_buffer", "dst_buffer", "frame_count"),
+		&AudioEffectInstance::process_audio_buffer, DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("process_silence"), &AudioEffectInstance::process_silence);
 }
 

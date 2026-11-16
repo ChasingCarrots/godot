@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AudioBuffer" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+		A reference-counted buffer holding stereo audio frames.
+	</brief_description>
+	<description>
+		A contiguous buffer of stereo [AudioFrame] data. Can be pre-allocated once and reused across audio processing operations to avoid memory allocations in performance-critical mixing loops.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="clear">
+			<return type="void" />
+			<description>
+				Clears the audio buffer, freeing its frames.
+			</description>
+		</method>
+		<method name="create" qualifiers="static">
+			<return type="AudioBuffer" />
+			<param index="0" name="frames" type="int" />
+			<description>
+				Creates and returns a new [AudioBuffer] initialized with the specified number of [param frames].
+			</description>
+		</method>
+		<method name="get_data_address" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the memory address of the raw audio frame data for GDExtension or native interoperability. Returns [code]0[/code] if the buffer is empty.
+			</description>
+		</method>
+		<method name="get_frame" qualifiers="const">
+			<return type="Vector2" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Returns the stereo audio frame at [param index] as a [Vector2] (X = left, Y = right).
+			</description>
+		</method>
+		<method name="get_frame_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of audio frames in the buffer.
+			</description>
+		</method>
+		<method name="is_empty" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the buffer contains no frames.
+			</description>
+		</method>
+		<method name="resize">
+			<return type="void" />
+			<param index="0" name="frames" type="int" />
+			<description>
+				Resizes the buffer to contain [param frames] audio frames.
+			</description>
+		</method>
+		<method name="set_frame">
+			<return type="void" />
+			<param index="0" name="index" type="int" />
+			<param index="1" name="frame" type="Vector2" />
+			<description>
+				Sets the stereo audio frame at [param index] from a [Vector2] (X = left, Y = right).
+			</description>
+		</method>
+		<method name="size" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of audio frames in the buffer. Alias for [method get_frame_count].
+			</description>
+		</method>
+	</methods>
+</class>

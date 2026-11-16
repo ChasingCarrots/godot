@@ -38,6 +38,7 @@
 
 class AudioStream;
 class AudioStreamPlayback;
+class AudioBuffer;
 
 class AudioSamplePlayback : public RefCounted {
 	GDCLASS(AudioSamplePlayback, RefCounted);
@@ -118,6 +119,7 @@ public:
 
 	Vector<AudioFrame> mix_audio(float p_rate_scale, int p_frames);
 	void start_playback(double p_from_pos = 0.0);
+	int mix_audio_buffer(const Ref<AudioBuffer> &p_buffer, float p_rate_scale = 1.0f, int p_frames = -1);
 	void stop_playback();
 	void seek_playback(double p_time);
 };

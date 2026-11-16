@@ -35,6 +35,7 @@
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/os/os.h"
+#include "servers/audio/audio_buffer.h"
 #include "servers/audio/audio_effect.h"
 #include "servers/audio/audio_frame.h"
 #include "servers/audio/audio_server.h"
@@ -181,6 +182,7 @@ void register_server_types() {
 
 	GDREGISTER_CLASS(CameraServer);
 
+	GDREGISTER_CLASS(AudioBuffer);
 	GDREGISTER_CLASS(AudioSample);
 	GDREGISTER_CLASS(AudioSamplePlayback);
 	GDREGISTER_VIRTUAL_CLASS(AudioEffect);

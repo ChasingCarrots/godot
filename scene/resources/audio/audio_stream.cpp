@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "audio_stream.h"
+#include "servers/audio/audio_buffer.h"
 
 #include "core/config/project_settings.h"
 #include "core/object/class_db.h"
@@ -106,6 +107,16 @@ Vector<AudioFrame> AudioStreamPlayback::mix_audio(float p_rate_scale, int p_fram
 	return res;
 }
 
+int AudioStreamPlayback::mix_audio_buffer(const Ref<AudioBuffer> &p_buffer, float p_rate_scale, int p_frames) {
+	ERR_FAIL_COND_V(p_buffer.is_null(), 0);
+	int available = p_buffer->get_frame_count();
+	int to_mix = (p_frames < 0) ? available : MIN(p_frames, available);
+	if (to_mix <= 0) {
+		return 0;
+	}
+	return mix(p_buffer->ptrw(), p_rate_scale, to_mix);
+}
+
 void AudioStreamPlayback::start_playback(double p_from_pos) {
 	start(p_from_pos);
 }
@@ -151,6 +162,7 @@ void AudioStreamPlayback::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_sample_playback", "playback_sample"), &AudioStreamPlayback::set_sample_playback);
 	ClassDB::bind_method(D_METHOD("get_sample_playback"), &AudioStreamPlayback::get_sample_playback);
 	ClassDB::bind_method(D_METHOD("mix_audio", "rate_scale", "frames"), &AudioStreamPlayback::_mix_audio_bind);
+	ClassDB::bind_method(D_METHOD("mix_audio_buffer", "buffer", "rate_scale", "frames"), &AudioStreamPlayback::mix_audio_buffer, DEFVAL(1.0f), DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("start", "from_pos"), &AudioStreamPlayback::start_playback, DEFVAL(0.0));
 	ClassDB::bind_method(D_METHOD("seek", "time"), &AudioStreamPlayback::seek_playback, DEFVAL(0.0));
 	ClassDB::bind_method(D_METHOD("stop"), &AudioStreamPlayback::stop_playback);

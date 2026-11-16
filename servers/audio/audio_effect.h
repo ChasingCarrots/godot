@@ -34,6 +34,8 @@
 #include "core/object/gdvirtual.gen.h"
 #include "core/variant/native_ptr.h"
 #include "servers/audio/audio_frame.h"
+class AudioBuffer;
+
 
 class AudioEffectInstance : public RefCounted {
 	GDCLASS(AudioEffectInstance, RefCounted);
@@ -47,6 +49,7 @@ protected:
 public:
 	virtual void process(const AudioFrame *p_src_frames, AudioFrame *p_dst_frames, int p_frame_count);
 	virtual bool process_silence() const;
+	void process_audio_buffer(const Ref<AudioBuffer> &p_src_buffer, const Ref<AudioBuffer> &p_dst_buffer, int p_frame_count = -1);
 };
 
 class AudioEffect : public Resource {
