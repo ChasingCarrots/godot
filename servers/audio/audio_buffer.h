@@ -49,11 +49,12 @@ public:
 	_FORCE_INLINE_ int size() const { return data.size(); }
 	_FORCE_INLINE_ bool is_empty() const { return data.is_empty(); }
 	void clear();
+	void set_zero(int p_from = 0, int p_count = -1);
 
 	_FORCE_INLINE_ AudioFrame *ptrw() { return data.ptrw(); }
 	_FORCE_INLINE_ const AudioFrame *ptr() const { return data.ptr(); }
 
-	uint64_t get_data_address() const;
+	uint64_t get_data_address();
 
 	Vector2 get_frame(int p_index) const;
 	void set_frame(int p_index, const Vector2 &p_frame);

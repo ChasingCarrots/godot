@@ -152,6 +152,15 @@
 				Returns the number of frames available to read using [method get_input_frames].
 			</description>
 		</method>
+		<method name="get_input_frames_audio_buffer" experimental="">
+			<return type="int" />
+			<param index="0" name="buffer_out" type="AudioBuffer" />
+			<param index="1" name="frames" type="int" default="-1" />
+			<description>
+				Reads up to [param frames] stereo audio frames from the internal microphone buffer directly into [param buffer_out] without allocating memory. If [param frames] is negative, reads up to [param buffer_out]'s frame count.
+				Returns the number of frames actually read (either the requested count or [code]0[/code] if not enough frames are available).
+			</description>
+		</method>
 		<method name="get_input_mix_rate" qualifiers="const">
 			<return type="float" />
 			<description>

@@ -40,6 +40,7 @@
 #include "servers/audio/audio_server_enums.h"
 #include "servers/audio/audio_server_types.h" // IWYU pragma: keep. Included to have a dedicated file to move stuff over.
 
+class AudioBuffer;
 class AudioSample;
 class AudioStream;
 class AudioStreamPlayback;
@@ -354,6 +355,7 @@ public:
 	int get_input_frames_available();
 	int get_input_buffer_length_frames();
 	PackedVector2Array get_input_frames(int p_frames);
+	int get_input_frames_audio_buffer(const Ref<AudioBuffer> &p_buffer_out, int p_frames = -1);
 
 	void set_enable_tagging_used_audio_streams(bool p_enable);
 

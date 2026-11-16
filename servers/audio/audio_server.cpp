@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "audio_server.h"
+#include "audio_buffer.h"
 
 #include "core/config/project_settings.h"
 #include "core/debugger/engine_debugger.h"
@@ -1747,6 +1748,41 @@ PackedVector2Array AudioServer::get_input_frames(int p_frames) {
 	return ret;
 }
 
+int AudioServer::get_input_frames_audio_buffer(const Ref<AudioBuffer> &p_buffer_out, int p_frames) {
+	ERR_FAIL_COND_V(p_buffer_out.is_null(), 0);
+	int available = p_buffer_out->get_frame_count();
+	int to_read = (p_frames < 0) ? available : MIN(p_frames, available);
+	if (to_read <= 0) {
+		return 0;
+	}
+
+	int frames_read = 0;
+	AudioDriver *ad = AudioDriver::get_singleton();
+	ad->lock();
+	int input_position = ad->get_input_position();
+	Vector<int32_t> buf = ad->get_input_buffer();
+	if (input_position < input_buffer_ofs) {
+		input_position += buf.size();
+	}
+	if (input_buffer_ofs + to_read * 2 <= input_position) {
+		AudioFrame *dst = p_buffer_out->ptrw();
+		for (int i = 0; i < to_read; i++) {
+			float l = (buf[input_buffer_ofs++] >> 16) / 32768.f;
+			if (input_buffer_ofs >= buf.size()) {
+				input_buffer_ofs = 0;
+			}
+			float r = (buf[input_buffer_ofs++] >> 16) / 32768.f;
+			if (input_buffer_ofs >= buf.size()) {
+				input_buffer_ofs = 0;
+			}
+			dst[i] = AudioFrame(l, r);
+		}
+		frames_read = to_read;
+	}
+	ad->unlock();
+	return frames_read;
+}
+
 void AudioServer::set_enable_tagging_used_audio_streams(bool p_enable) {
 	tag_used_audio_streams = p_enable;
 }
@@ -1925,6 +1961,7 @@ void AudioServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_input_frames_available"), &AudioServer::get_input_frames_available);
 	ClassDB::bind_method(D_METHOD("get_input_buffer_length_frames"), &AudioServer::get_input_buffer_length_frames);
 	ClassDB::bind_method(D_METHOD("get_input_frames", "frames"), &AudioServer::get_input_frames);
+	ClassDB::bind_method(D_METHOD("get_input_frames_audio_buffer", "buffer_out", "frames"), &AudioServer::get_input_frames_audio_buffer, DEFVAL(-1));
 
 	ClassDB::bind_method(D_METHOD("set_bus_layout", "bus_layout"), &AudioServer::set_bus_layout);
 	ClassDB::bind_method(D_METHOD("generate_bus_layout"), &AudioServer::generate_bus_layout);

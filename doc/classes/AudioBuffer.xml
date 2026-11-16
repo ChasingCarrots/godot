@@ -22,7 +22,7 @@
 				Creates and returns a new [AudioBuffer] initialized with the specified number of [param frames].
 			</description>
 		</method>
-		<method name="get_data_address" qualifiers="const">
+		<method name="get_data_address">
 			<return type="int" />
 			<description>
 				Returns the memory address of the raw audio frame data for GDExtension or native interoperability. Returns [code]0[/code] if the buffer is empty.
@@ -60,6 +60,14 @@
 			<param index="1" name="frame" type="Vector2" />
 			<description>
 				Sets the stereo audio frame at [param index] from a [Vector2] (X = left, Y = right).
+			</description>
+		</method>
+		<method name="set_zero">
+			<return type="void" />
+			<param index="0" name="from" type="int" default="0" />
+			<param index="1" name="count" type="int" default="-1" />
+			<description>
+				Zeros out up to [param count] audio frames starting at [param from] without freeing memory. If [param count] is negative, zeros out all frames from [param from] to the end of the buffer.
 			</description>
 		</method>
 		<method name="size" qualifiers="const">

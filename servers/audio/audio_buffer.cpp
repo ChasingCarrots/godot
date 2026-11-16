@@ -49,8 +49,19 @@ void AudioBuffer::clear() {
 	data.clear();
 }
 
-uint64_t AudioBuffer::get_data_address() const {
-	return (uint64_t)(uintptr_t)data.ptr();
+void AudioBuffer::set_zero(int p_from, int p_count) {
+	if (data.is_empty()) {
+		return;
+	}
+	ERR_FAIL_INDEX(p_from, data.size());
+	int count = (p_count < 0) ? (data.size() - p_from) : MIN(p_count, data.size() - p_from);
+	if (count > 0) {
+		memset(data.ptrw() + p_from, 0, sizeof(AudioFrame) * count);
+	}
+}
+
+uint64_t AudioBuffer::get_data_address() {
+	return (uint64_t)(uintptr_t)data.ptrw();
 }
 
 Vector2 AudioBuffer::get_frame(int p_index) const {
@@ -77,6 +88,7 @@ void AudioBuffer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("size"), &AudioBuffer::size);
 	ClassDB::bind_method(D_METHOD("is_empty"), &AudioBuffer::is_empty);
 	ClassDB::bind_method(D_METHOD("clear"), &AudioBuffer::clear);
+	ClassDB::bind_method(D_METHOD("set_zero", "from", "count"), &AudioBuffer::set_zero, DEFVAL(0), DEFVAL(-1));
 
 	ClassDB::bind_method(D_METHOD("get_data_address"), &AudioBuffer::get_data_address);
 	ClassDB::bind_method(D_METHOD("get_frame", "index"), &AudioBuffer::get_frame);
