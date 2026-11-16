@@ -8,6 +8,7 @@
 #include "CompositeNodeModules.h"
 #include "SynchronizedArray.h"
 #include "VoxelGrid.h"
+#include "GeometryHelper.h"
 #include "ConstraintElement.h"
 #include "ConstraintRule.h"
 #include "ConstraintProblem.h"
@@ -31,6 +32,8 @@ void initialize_frozen_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CompositeNodeValue>();
 	ClassDB::register_class<SynchronizedArray>();
 	ClassDB::register_class<VoxelGrid>();
+	ClassDB::register_class<GroundSurfaceEstimate>();
+	ClassDB::register_class<GeometryHelper>();
 
 	// Finite-domain constraint solver for procedural generation.
 	ClassDB::register_class<ConstraintInterface>();
