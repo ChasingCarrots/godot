@@ -324,6 +324,7 @@ public:
 			RID process_uniform_set_density;
 			RID process_uniform_set;
 			RID process_uniform_set2;
+			RID bound_sky_texture;
 		} gi_dependent_sets;
 
 		RID sdfgi_uniform_set;

@@ -795,6 +795,15 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		RD::get_singleton()->compute_list_end();
 	}
 
+	RID radiance_texture = texture_storage->texture_rd_get_default(p_settings.is_using_radiance_octmap_array ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+	RID env_sky_rid = RendererSceneRenderRD::get_singleton()->environment_get_sky(p_settings.env);
+	RID sky_texture = env_sky_rid.is_valid() ? p_settings.sky->sky_get_radiance_texture_rd(env_sky_rid) : RID();
+	RID current_sky_texture = sky_texture.is_valid() ? sky_texture : radiance_texture;
+
+	if (fog->gi_dependent_sets.bound_sky_texture != current_sky_texture) {
+		fog->sync_gi_dependent_sets_validity(true);
+	}
+
 	bool gi_dependent_sets_valid = fog->sync_gi_dependent_sets_validity();
 	if (!fog->copy_uniform_set.is_null() && !RD::get_singleton()->uniform_set_is_valid(fog->copy_uniform_set)) {
 		fog->copy_uniform_set = RID();
@@ -986,9 +995,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 			u.binding = 20;
-			RID radiance_texture = texture_storage->texture_rd_get_default(p_settings.is_using_radiance_octmap_array ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
-			RID sky_texture = RendererSceneRenderRD::get_singleton()->environment_get_sky(p_settings.env).is_valid() ? p_settings.sky->sky_get_radiance_texture_rd(RendererSceneRenderRD::get_singleton()->environment_get_sky(p_settings.env)) : RID();
-			u.append_id(sky_texture.is_valid() ? sky_texture : radiance_texture);
+			u.append_id(current_sky_texture);
 			uniforms.push_back(u);
 		}
 
@@ -1025,6 +1032,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			uniforms.remove_at(9);
 			uniforms.write[8].set_id(0, aux8);
 			fog->gi_dependent_sets.process_uniform_set_density = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, _get_fog_process_variant(VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY)), 0);
+			fog->gi_dependent_sets.bound_sky_texture = current_sky_texture;
 		}
 	}
 
