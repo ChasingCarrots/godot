@@ -21,6 +21,7 @@ void ConstraintRule::_bind_methods() {
 	BIND_ENUM_CONSTANT(KIND_TAG_REACHABILITY);
 	BIND_ENUM_CONSTANT(KIND_TAG_IMPLIES_TAG);
 	BIND_ENUM_CONSTANT(KIND_ANCESTOR_INTERFACE_TAG_ALLOWED);
+	BIND_ENUM_CONSTANT(KIND_LEAF_POLICY_BY_TAG);
 
 	ClassDB::bind_method(D_METHOD("get_kind"), &ConstraintRule::get_kind);
 }
@@ -141,6 +142,19 @@ void ConstraintLeafCountByTag::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "tag"), "set_tag", "get_tag");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "min_count"), "set_min_count", "get_min_count");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_count"), "set_max_count", "get_max_count");
+}
+
+void ConstraintLeafPolicyByTag::_bind_methods() {
+	BIND_ENUM_CONSTANT(LEAF_REQUIRED);
+	BIND_ENUM_CONSTANT(LEAF_FORBIDDEN);
+
+	ClassDB::bind_method(D_METHOD("set_tag", "tag"), &ConstraintLeafPolicyByTag::set_tag);
+	ClassDB::bind_method(D_METHOD("get_tag"), &ConstraintLeafPolicyByTag::get_tag);
+	ClassDB::bind_method(D_METHOD("set_policy", "policy"), &ConstraintLeafPolicyByTag::set_policy);
+	ClassDB::bind_method(D_METHOD("get_policy"), &ConstraintLeafPolicyByTag::get_policy);
+
+	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "tag"), "set_tag", "get_tag");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "policy", PROPERTY_HINT_ENUM, "Required (Must Be Leaf),Forbidden (Must Not Be Leaf)"), "set_policy", "get_policy");
 }
 
 void ConstraintTagCompatibility::_bind_methods() {

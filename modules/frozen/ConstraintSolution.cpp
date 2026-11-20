@@ -71,6 +71,7 @@ TypedArray<Dictionary> ConstraintSolution::get_rule_stats() const {
 		d["label"] = s.label;
 		d["rejections"] = s.rejections;
 		d["completion_failures"] = s.completion_failures;
+		d["wipeouts"] = s.wipeouts;
 		out.append(d);
 	}
 	return out;

@@ -129,15 +129,22 @@ struct AncestorIfaceRule {
 	bool require_ancestor_present = true;
 	int rule = -1;
 };
+struct LeafPolicyRule {
+	int tag = -1;
+	bool required = true; // true = must be a leaf; false = must not be a leaf
+	int rule = -1;
+};
 // Per-rule statistics gathered during a solve. `kind`/`label` describe the
 // authored rule for a readable report; `rejections` counts forward-check vetoes
-// (a candidate placement blocked) and `completion_failures` counts finished
-// layouts this rule invalidated.
+// (a candidate placement blocked), `completion_failures` counts finished
+// layouts this rule invalidated, and `wipeouts` counts open interfaces where
+// this rule vetoed the last surviving candidate.
 struct RuleStat {
 	int kind = 0;
 	StringName label;
 	int rejections = 0;
 	int completion_failures = 0;
+	int wipeouts = 0;
 };
 
 struct PlacedNode {
@@ -206,6 +213,7 @@ struct SolveState {
 	LocalVector<RepeatRule> repeats;
 	LocalVector<NoRepeatRule> no_repeats;
 	LocalVector<LeafRule> leaves;
+	LocalVector<LeafPolicyRule> leaf_policies;
 	LocalVector<ReachRule> reaches;
 	LocalVector<CbRule> callbacks;
 	LocalVector<AncestorIfaceRule> ancestor_ifaces;
@@ -245,6 +253,11 @@ struct SolveState {
 			rule_stats[p_rule].completion_failures++;
 		}
 	}
+	_FORCE_INLINE_ void wipeout(int p_rule) {
+		if (p_rule >= 0 && p_rule < (int)rule_stats.size()) {
+			rule_stats[p_rule].wipeouts++;
+		}
+	}
 
 	// --- GROW state ---
 	LocalVector<PlacedNode> placed;
@@ -255,6 +268,10 @@ struct SolveState {
 	int total_leaves = 0;
 	int min_elements = 0;
 	int max_elements = -1;
+	int num_types = 0;
+	LocalVector<int> iface_tag_dist; // type_id * num_tags + tag_id -> min hops (-1 unreachable)
+	LocalVector<int> elem_tag_dist;  // value * num_tags + tag_id -> min hops (-1 unreachable)
+	int max_req_tags_per_elem = 1;
 
 	// --- FIXED state ---
 	LocalVector<int> fixed_assignment;
@@ -537,6 +554,18 @@ static void _build_catalog(SolveState &st, const Ref<ConstraintProblem> &p_probl
 				l.rule = ri;
 				stat.label = (tag != StringName()) ? tag : StringName("*");
 				st.leaves.push_back(l);
+			} break;
+			case ConstraintRule::KIND_LEAF_POLICY_BY_TAG: {
+				const ConstraintLeafPolicyByTag *lp = Object::cast_to<ConstraintLeafPolicyByTag>(r.ptr());
+				if (!lp) {
+					break;
+				}
+				LeafPolicyRule l;
+				l.tag = st.intern_tag(lp->get_tag());
+				l.required = (lp->get_policy() == ConstraintLeafPolicyByTag::LEAF_REQUIRED);
+				l.rule = ri;
+				stat.label = lp->get_tag();
+				st.leaf_policies.push_back(l);
 			} break;
 			case ConstraintRule::KIND_TAG_COMPATIBILITY: {
 				st.has_compat = true;
@@ -997,6 +1026,128 @@ static int _callbacks_ok(SolveState &st, int p_value, const Transform3D &p_xform
 	return -1;
 }
 
+static int _value_requires_leaf_rule(const SolveState &st, int p_value) {
+	for (const LeafPolicyRule &lp : st.leaf_policies) {
+		if (lp.required && st.value_has_tag(p_value, lp.tag)) {
+			return lp.rule;
+		}
+	}
+	return -1;
+}
+
+static int _value_forbids_leaf_rule(const SolveState &st, int p_value) {
+	for (const LeafPolicyRule &lp : st.leaf_policies) {
+		if (!lp.required && st.value_has_tag(p_value, lp.tag)) {
+			return lp.rule;
+		}
+	}
+	return -1;
+}
+
+// Precomputes static hop distances from every (value, interface_type) to every tag
+// for GROW forward-pruning and goal-directed candidate boosting.
+static void _build_grow_reachability(SolveState &st) {
+	st.num_types = (int)st.type_intern.size();
+	if (st.num_tags <= 0 || st.num_values <= 0 || st.num_types <= 0) {
+		return;
+	}
+	st.iface_tag_dist.resize(st.num_types * st.num_tags);
+	st.elem_tag_dist.resize(st.num_values * st.num_tags);
+	for (uint32_t i = 0; i < st.iface_tag_dist.size(); i++) {
+		st.iface_tag_dist[i] = -1;
+	}
+	for (uint32_t i = 0; i < st.elem_tag_dist.size(); i++) {
+		st.elem_tag_dist[i] = -1;
+	}
+
+	LocalVector<bool> elem_forbidden;
+	elem_forbidden.resize(st.num_values);
+	for (int v = 0; v < st.num_values; v++) {
+		bool bad = false;
+		for (const CountRule &cr : st.counts) {
+			if (cr.mx == 0 && st.value_has_tag(v, cr.tag)) {
+				bad = true;
+				break;
+			}
+		}
+		elem_forbidden[v] = bad;
+		if (!bad) {
+			for (int t : st.elements[v].tag_ids) {
+				st.elem_tag_dist[v * st.num_tags + t] = 0;
+			}
+		}
+	}
+
+	// Sound upper bound on how many required CountByTag(min) tags one element can satisfy.
+	st.max_req_tags_per_elem = 1;
+	for (int v = 0; v < st.num_values; v++) {
+		if (elem_forbidden[v]) {
+			continue;
+		}
+		int req_hits = 0;
+		for (const CountRule &cr : st.counts) {
+			if (cr.mn > 0 && st.value_has_tag(v, cr.tag)) {
+				req_hits++;
+			}
+		}
+		if (req_hits > st.max_req_tags_per_elem) {
+			st.max_req_tags_per_elem = req_hits;
+		}
+	}
+
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (int type_id = 0; type_id < st.num_types; type_id++) {
+			AHashMap<int, LocalVector<IfaceRef>>::Iterator it = st.iface_by_type.find(type_id);
+			if (!it) {
+				continue;
+			}
+			for (const IfaceRef &ir : it->value) {
+				const int v = ir.value;
+				if (elem_forbidden[v]) {
+					continue;
+				}
+				const bool v_leaf_only = (_value_requires_leaf_rule(st, v) >= 0);
+				for (int t = 0; t < st.num_tags; t++) {
+					const int d = st.elem_tag_dist[v * st.num_tags + t];
+					if (d < 0) {
+						continue;
+					}
+					if (v_leaf_only && d > 0) {
+						continue; // leaf-required element cannot bridge to other elements
+					}
+					const int cand_dist = 1 + d;
+					int &cur = st.iface_tag_dist[type_id * st.num_tags + t];
+					if (cur < 0 || cand_dist < cur) {
+						cur = cand_dist;
+						changed = true;
+					}
+				}
+			}
+		}
+		for (int v = 0; v < st.num_values; v++) {
+			if (elem_forbidden[v] || _value_requires_leaf_rule(st, v) >= 0) {
+				continue;
+			}
+			const ElementInfo &e = st.elements[v];
+			for (const IfaceInfo &ii : e.interfaces) {
+				for (int t = 0; t < st.num_tags; t++) {
+					const int d = st.iface_tag_dist[ii.type_id * st.num_tags + t];
+					if (d < 0) {
+						continue;
+					}
+					int &cur = st.elem_tag_dist[v * st.num_tags + t];
+					if (cur < 0 || d < cur) {
+						cur = d;
+						changed = true;
+					}
+				}
+			}
+		}
+	}
+}
+
 static bool _grow_complete(SolveState &st) {
 	if ((int)st.placed.size() < st.min_elements) {
 		return false;
@@ -1045,7 +1196,7 @@ static bool _grow_complete(SolveState &st) {
 			}
 		}
 	}
-	if (!st.conns.is_empty() || !st.leaves.is_empty()) {
+	if (!st.conns.is_empty() || !st.leaves.is_empty() || !st.leaf_policies.is_empty()) {
 		// Build child adjacency once (reused by the connects-to and leaf checks).
 		LocalVector<LocalVector<int>> children;
 		children.resize(st.placed.size());
@@ -1053,6 +1204,22 @@ static bool _grow_complete(SolveState &st) {
 			const int p = st.placed[i].parent;
 			if (p >= 0) {
 				children[p].push_back(i);
+			}
+		}
+		for (const LeafPolicyRule &lp : st.leaf_policies) {
+			for (int i = 0; i < (int)st.placed.size(); i++) {
+				if (!st.value_has_tag(st.placed[i].value, lp.tag)) {
+					continue;
+				}
+				const bool is_leaf = children[i].is_empty();
+				if (lp.required && !is_leaf) {
+					st.complete_fail(lp.rule);
+					return false;
+				}
+				if (!lp.required && is_leaf) {
+					st.complete_fail(lp.rule);
+					return false;
+				}
 			}
 		}
 		// LeafCountByTag: a leaf is a node with no children (a dead-end of the tree).
@@ -1145,6 +1312,45 @@ static bool _grow_expand(SolveState &st) {
 		return _grow_complete(st);
 	}
 
+	// Forward-prune on remaining element budget and frontier reachability for unmet CountByTag(min).
+	int remaining_needed_tags = 0;
+	int first_unmet_count_rule = -1;
+	for (const CountRule &cr : st.counts) {
+		if (st.tag_count[cr.tag] < cr.mn) {
+			remaining_needed_tags += (cr.mn - st.tag_count[cr.tag]);
+			if (first_unmet_count_rule < 0) {
+				first_unmet_count_rule = cr.rule;
+			}
+		}
+	}
+	const int min_rooms_needed = (remaining_needed_tags + st.max_req_tags_per_elem - 1) / st.max_req_tags_per_elem;
+	const int remaining_slots = (st.max_elements >= 0) ? (st.max_elements - (int)st.placed.size()) : 1000000;
+	if (st.max_elements >= 0 && min_rooms_needed > remaining_slots) {
+		if (first_unmet_count_rule >= 0) {
+			st.wipeout(first_unmet_count_rule);
+		}
+		return false;
+	}
+	if (remaining_needed_tags > 0 && !st.iface_tag_dist.is_empty()) {
+		for (const CountRule &cr : st.counts) {
+			if (st.tag_count[cr.tag] >= cr.mn) {
+				continue;
+			}
+			int best_dist = -1;
+			for (const OpenIface &oi : st.frontier) {
+				const int type_id = st.elements[st.placed[oi.node].value].interfaces[oi.iface].type_id;
+				const int d = st.iface_tag_dist[type_id * st.num_tags + cr.tag];
+				if (d >= 0 && (best_dist < 0 || d < best_dist)) {
+					best_dist = d;
+				}
+			}
+			if (best_dist < 0 || (st.max_elements >= 0 && best_dist > remaining_slots)) {
+				st.wipeout(cr.rule);
+				return false;
+			}
+		}
+	}
+
 	// Decide one open interface (depth-first: take the most recent).
 	const OpenIface f = st.frontier[st.frontier.size() - 1];
 	st.frontier.remove_at(st.frontier.size() - 1);
@@ -1154,21 +1360,44 @@ static bool _grow_expand(SolveState &st) {
 
 	// Build the candidate set for this interface.
 	LocalVector<Candidate> cands;
-	if (!fi.required) {
+	const bool can_skip_cap = (remaining_needed_tags > 0 && st.frontier.is_empty());
+	if (!fi.required && !can_skip_cap) {
 		Candidate cap;
 		cap.cap = true;
-		cap.key = st.weighted_key(1.0f);
+		float cap_w = (remaining_needed_tags > 0 && st.frontier.size() <= 2) ? 0.15f : 1.0f;
+		cap.key = st.weighted_key(cap_w);
 		cands.push_back(cap);
 	}
 	const bool at_cap = (st.max_elements >= 0 && (int)st.placed.size() >= st.max_elements);
 	if (!at_cap) {
+		const bool urgent = (st.max_elements >= 0 && remaining_slots <= min_rooms_needed + 2);
 		AHashMap<int, LocalVector<IfaceRef>>::Iterator it = st.iface_by_type.find(fi.type_id);
 		if (it) {
 			for (const IfaceRef &ir : it->value) {
 				Candidate c;
 				c.value = ir.value;
 				c.iface = ir.iface;
-				c.key = st.weighted_key(st.elements[ir.value].weight);
+				float w = st.elements[ir.value].weight;
+				if (remaining_needed_tags > 0 && !st.elem_tag_dist.is_empty()) {
+					int best_d = -1;
+					for (const CountRule &cr : st.counts) {
+						if (st.tag_count[cr.tag] >= cr.mn) {
+							continue;
+						}
+						const int d = st.elem_tag_dist[ir.value * st.num_tags + cr.tag];
+						if (d >= 0 && (best_d < 0 || d < best_d)) {
+							best_d = d;
+						}
+					}
+					if (best_d == 0) {
+						w *= urgent ? 36.0f : 12.0f;
+					} else if (best_d == 1) {
+						w *= urgent ? 18.0f : 6.0f;
+					} else if (best_d == 2) {
+						w *= urgent ? 6.0f : 2.5f;
+					}
+				}
+				c.key = st.weighted_key(w);
 				cands.push_back(c);
 			}
 		}
@@ -1184,6 +1413,8 @@ static bool _grow_expand(SolveState &st) {
 		return t;
 	}();
 
+	int last_reject_rule = -1;
+	bool any_entered = false;
 	for (const Candidate &c : cands) {
 		if (c.cap) {
 			st.candidates_evaluated++;
@@ -1197,6 +1428,9 @@ static bool _grow_expand(SolveState &st) {
 				}
 			}
 			const bool is_leaf = (rem == 0 && ((st.placed[f.node].parent >= 0) ? (st.placed[f.node].degree == 1) : (st.placed[f.node].degree == 0)));
+			if (reject_rule < 0 && is_leaf) {
+				reject_rule = _value_forbids_leaf_rule(st, st.placed[f.node].value);
+			}
 			if (reject_rule < 0 && is_leaf) {
 				for (const LeafRule &lr : st.leaves) {
 					if (lr.mx < 0) {
@@ -1217,9 +1451,11 @@ static bool _grow_expand(SolveState &st) {
 			}
 			if (reject_rule >= 0) {
 				st.reject(reject_rule);
+				last_reject_rule = reject_rule;
 				continue;
 			}
 
+			any_entered = true;
 			st.placed[f.node].open_interfaces--;
 			if (is_leaf) {
 				st.total_leaves++;
@@ -1258,47 +1494,70 @@ static bool _grow_expand(SolveState &st) {
 		}
 		if (over_max_rule >= 0) {
 			st.reject(over_max_rule);
+			last_reject_rule = over_max_rule;
 			continue;
 		}
 		const ElementInfo &e = st.elements[c.value];
-		const int pushed = (int)e.interfaces.size() - 1;
+		const int req_leaf_rule = _value_requires_leaf_rule(st, c.value);
+		const bool child_leaf_required = (req_leaf_rule >= 0);
+		if (child_leaf_required) {
+			bool has_other_required = false;
+			for (int i = 0; i < (int)e.interfaces.size(); i++) {
+				if (i != c.iface && e.interfaces[i].required) {
+					has_other_required = true;
+					break;
+				}
+			}
+			if (has_other_required) {
+				st.reject(req_leaf_rule);
+				last_reject_rule = req_leaf_rule;
+				continue;
+			}
+		}
+		const int pushed = child_leaf_required ? 0 : ((int)e.interfaces.size() - 1);
 		const bool child_is_leaf = (pushed == 0);
 		if (child_is_leaf) {
-			int leaf_rule = -1;
-			for (const LeafRule &lr : st.leaves) {
-				if (lr.mx < 0) {
-					continue;
-				}
-				if (lr.tag < 0) {
-					if (st.total_leaves + 1 > lr.mx) {
-						leaf_rule = lr.rule;
-						break;
+			int leaf_rule = _value_forbids_leaf_rule(st, c.value);
+			if (leaf_rule < 0) {
+				for (const LeafRule &lr : st.leaves) {
+					if (lr.mx < 0) {
+						continue;
 					}
-				} else if (st.value_has_tag(c.value, lr.tag)) {
-					if (st.leaf_count[lr.tag] + 1 > lr.mx) {
-						leaf_rule = lr.rule;
-						break;
+					if (lr.tag < 0) {
+						if (st.total_leaves + 1 > lr.mx) {
+							leaf_rule = lr.rule;
+							break;
+						}
+					} else if (st.value_has_tag(c.value, lr.tag)) {
+						if (st.leaf_count[lr.tag] + 1 > lr.mx) {
+							leaf_rule = lr.rule;
+							break;
+						}
 					}
 				}
 			}
 			if (leaf_rule >= 0) {
 				st.reject(leaf_rule);
+				last_reject_rule = leaf_rule;
 				continue;
 			}
 		}
 		const int req_rule = _req_ok_for_attach(st, f.node, c.value);
 		if (req_rule >= 0) {
 			st.reject(req_rule);
+			last_reject_rule = req_rule;
 			continue;
 		}
 		const int anc_iface_rule = _ancestor_iface_ok_for_attach(st, f.node, f.iface, c.value);
 		if (anc_iface_rule >= 0) {
 			st.reject(anc_iface_rule);
+			last_reject_rule = anc_iface_rule;
 			continue;
 		}
 		const int local_rule = _grow_local_rules_ok(st, f.node, c.value);
 		if (local_rule >= 0) {
 			st.reject(local_rule);
+			last_reject_rule = local_rule;
 			continue;
 		}
 		const Transform3D child_world = parent_anchor_world * flip * e.interfaces[c.iface].anchor.affine_inverse();
@@ -1308,16 +1567,19 @@ static bool _grow_expand(SolveState &st) {
 			voxels = st.grid->voxels_from_points(e.geometry, child_world, st.ggrow);
 			if (st.grid->has_overlap_excluding(voxels, st.placed[f.node].voxels)) {
 				st.reject(st.geom_rule);
+				last_reject_rule = st.geom_rule;
 				continue;
 			}
 		}
 		const int cb_rule = _callbacks_ok(st, c.value, child_world, f.node);
 		if (cb_rule >= 0) {
 			st.reject(cb_rule);
+			last_reject_rule = cb_rule;
 			continue;
 		}
 
 		// Commit.
+		any_entered = true;
 		st.candidates_accepted++;
 		if (st.grid.is_valid()) {
 			st.grid->mark_occupied(voxels);
@@ -1350,16 +1612,18 @@ static bool _grow_expand(SolveState &st) {
 				st.excl_demand[t]++;
 			}
 		}
-		for (int i = 0; i < (int)e.interfaces.size(); i++) {
-			if (i == c.iface) {
-				continue; // consumed by this connection
+		if (!child_leaf_required) {
+			for (int i = 0; i < (int)e.interfaces.size(); i++) {
+				if (i == c.iface) {
+					continue; // consumed by this connection
+				}
+				OpenIface oi;
+				oi.node = child;
+				oi.iface = i;
+				st.frontier.push_back(oi);
 			}
-			OpenIface oi;
-			oi.node = child;
-			oi.iface = i;
-			st.frontier.push_back(oi);
+			_shuffle_frontier_tail(st, pushed);
 		}
-		_shuffle_frontier_tail(st, pushed);
 
 		if (_grow_expand(st)) {
 			return true;
@@ -1396,6 +1660,9 @@ static bool _grow_expand(SolveState &st) {
 		}
 	}
 
+	if (!st.aborted && !any_entered && last_reject_rule >= 0) {
+		st.wipeout(last_reject_rule);
+	}
 	st.frontier.push_back(f);
 	return false;
 }
@@ -1796,6 +2063,19 @@ static bool _fixed_complete(SolveState &st, const LocalVector<FiniteDomain> &dom
 				return false;
 			}
 		}
+		// leaf-policy-by-tag: per-node leaf requirement/prohibition.
+		for (const LeafPolicyRule &lp : st.leaf_policies) {
+			for (int s = 0; s < n; s++) {
+				if (!st.value_has_tag(assign[s], lp.tag)) {
+					continue;
+				}
+				const bool is_leaf = ((int)adj[s].size() <= 1);
+				if ((lp.required && !is_leaf) || (!lp.required && is_leaf)) {
+					st.complete_fail(lp.rule);
+					return false;
+				}
+			}
+		}
 	}
 
 	// TagReachability: all required tags must land in one connected component.
@@ -1944,6 +2224,7 @@ Ref<ConstraintSolution> ConstraintSolver::solve(const Ref<ConstraintProblem> &p_
 	if (p_problem->get_topology_mode() == ConstraintProblem::TOPOLOGY_GROW) {
 		st.min_elements = p_problem->get_min_elements();
 		st.max_elements = p_problem->get_max_elements();
+		_build_grow_reachability(st);
 
 		AHashMap<StringName, int>::Iterator it = st.id_to_value.find(p_problem->get_start_element());
 		if (!it) {
@@ -2069,7 +2350,7 @@ Ref<ConstraintSolution> ConstraintSolver::solve(const Ref<ConstraintProblem> &p_
 	sol->set_search_stats(st.backtracks, st.candidates_evaluated, st.candidates_accepted);
 	for (int i = 0; i < (int)st.rule_stats.size(); i++) {
 		const RuleStat &rs = st.rule_stats[i];
-		sol->add_rule_stat(i, rs.kind, rs.label, rs.rejections, rs.completion_failures);
+		sol->add_rule_stat(i, rs.kind, rs.label, rs.rejections, rs.completion_failures, rs.wipeouts);
 	}
 	if (!ok) {
 		if (st.depth_exceeded) {

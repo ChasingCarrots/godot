@@ -36,6 +36,7 @@ public:
 		KIND_TAG_REACHABILITY,
 		KIND_TAG_IMPLIES_TAG,
 		KIND_ANCESTOR_INTERFACE_TAG_ALLOWED,
+		KIND_LEAF_POLICY_BY_TAG,
 	};
 
 protected:
@@ -327,6 +328,36 @@ public:
 	void set_max_count(int p_v) { _max_count = p_v; }
 	int get_max_count() const { return _max_count; }
 };
+
+// "LeafPolicyByTag" -- per-node leaf constraint for every placed element carrying `tag`.
+// LEAF_REQUIRED: every such node must be a leaf (GROW: 0 children; FIXED: degree <= 1).
+// LEAF_FORBIDDEN: no such node may be a leaf (GROW: >= 1 child; FIXED: degree >= 2).
+class ConstraintLeafPolicyByTag : public ConstraintRule {
+	GDCLASS(ConstraintLeafPolicyByTag, ConstraintRule)
+
+public:
+	enum LeafPolicy {
+		LEAF_REQUIRED = 0,
+		LEAF_FORBIDDEN = 1,
+	};
+
+private:
+	StringName _tag;
+	LeafPolicy _policy = LEAF_REQUIRED;
+
+protected:
+	static void _bind_methods();
+
+public:
+	virtual Kind get_kind() const override { return KIND_LEAF_POLICY_BY_TAG; }
+
+	void set_tag(const StringName &p_v) { _tag = p_v; }
+	StringName get_tag() const { return _tag; }
+	void set_policy(LeafPolicy p_v) { _policy = p_v; }
+	LeafPolicy get_policy() const { return _policy; }
+};
+
+VARIANT_ENUM_CAST(ConstraintLeafPolicyByTag::LeafPolicy);
 
 // "TagCompatibility" -- opt-in tag-pool compatibility. When present, activates
 // enforcement of every element's `tags_needed` and `excluded_by_tags` against the

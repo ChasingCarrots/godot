@@ -31,6 +31,7 @@ public:
 		StringName label; // tag(s) the rule targets, for a readable report
 		int rejections = 0; // candidate placements this rule vetoed
 		int completion_failures = 0; // finished layouts this rule invalidated
+		int wipeouts = 0; // open interfaces where this rule vetoed the last surviving candidate
 	};
 
 private:
@@ -72,13 +73,14 @@ public:
 		_candidates_evaluated = p_evaluated;
 		_candidates_accepted = p_accepted;
 	}
-	void add_rule_stat(int p_index, int p_kind, const StringName &p_label, int p_rejections, int p_completion_failures) {
+	void add_rule_stat(int p_index, int p_kind, const StringName &p_label, int p_rejections, int p_completion_failures, int p_wipeouts = 0) {
 		RuleStat s;
 		s.rule_index = p_index;
 		s.kind = p_kind;
 		s.label = p_label;
 		s.rejections = p_rejections;
 		s.completion_failures = p_completion_failures;
+		s.wipeouts = p_wipeouts;
 		_rule_stats.push_back(s);
 	}
 
