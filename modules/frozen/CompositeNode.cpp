@@ -368,6 +368,10 @@ void CompositeNode::_bind_methods() {
 	    &CompositeNode::RegisterFunction);
 	ClassDB::bind_method(D_METHOD("UnregisterFunction", "functionName", "callable"),
 	    &CompositeNode::UnregisterFunction);
+	ClassDB::bind_method(D_METHOD("RegisterFunctionObserver", "functionName", "callable"),
+	    &CompositeNode::RegisterFunctionObserver);
+	ClassDB::bind_method(D_METHOD("UnregisterFunctionObserver", "functionName", "callable"),
+	    &CompositeNode::UnregisterFunctionObserver);
 	ClassDB::bind_method(D_METHOD("CallFunction", "functionName", "parameters"),
 	    &CompositeNode::CallFunction);
 	ClassDB::bind_method(D_METHOD("CallFunctionOnAuthority", "functionName", "parameters", "expect_answer"),
@@ -1273,6 +1277,27 @@ void CompositeNode::UnregisterFunction(StringName functionName, const Callable &
 	}
 }
 
+void CompositeNode::RegisterFunctionObserver(StringName functionName, const Callable &callable) {
+	if (Vector<Callable> *obs = _function_observers.getptr(functionName); obs != nullptr) {
+		if (!obs->has(callable)) {
+			obs->append(callable);
+		}
+	} else {
+		Vector<Callable> obs_arr;
+		obs_arr.append(callable);
+		_function_observers.insert(functionName, obs_arr);
+	}
+}
+
+void CompositeNode::UnregisterFunctionObserver(StringName functionName, const Callable &callable) {
+	if (Vector<Callable> *obs = _function_observers.getptr(functionName); obs != nullptr) {
+		obs->erase(callable);
+		if (obs->is_empty()) {
+			_function_observers.erase(functionName);
+		}
+	}
+}
+
 Variant CompositeNode::call_callable_with_error_handling(StringName functionName, const Array &parameters, Callable *function_callable) {
 	int argcount = parameters.size();
 	const Variant **argptrs = nullptr;
@@ -1324,7 +1349,14 @@ Variant CompositeNode::call_callable_with_error_handling(StringName functionName
 Variant CompositeNode::CallFunction(StringName functionName, const Array &parameters) {
 	GodotProfileFunction();
 	if (Callable *function_callable = _functions.getptr(functionName); function_callable != nullptr) {
-		return call_callable_with_error_handling(functionName, parameters, function_callable);
+		Variant ret = call_callable_with_error_handling(functionName, parameters, function_callable);
+		if (Vector<Callable> *obs = _function_observers.getptr(functionName); obs != nullptr) {
+			Vector<Callable> obs_snapshot = *obs;
+			for (Callable &observer : obs_snapshot) {
+				call_callable_with_error_handling(functionName, parameters, &observer);
+			}
+		}
+		return ret;
 	}
 	if (has_parent_composite_node()) {
 	    return _parentCompositeNode->CallFunction(functionName, parameters);

@@ -103,6 +103,7 @@ protected:
 	void update_sum_component(DataSumSettings &sum_settings, StringName component_name, float new_value);
 
 	AHashMap<StringName, Callable> _functions;
+	AHashMap<StringName, Vector<Callable>> _function_observers;
 	AHashMap<StringName, Vector<Callable>> _callbacks;
 	AHashMap<StringName, DataValue> _data;
 
@@ -227,6 +228,8 @@ public:
 	bool HasFunction(StringName functionName) const { return _functions.has(functionName); }
 	bool RegisterFunction(StringName functionName, Callable callable);
 	void UnregisterFunction(StringName functionName, const Callable &callable);
+	void RegisterFunctionObserver(StringName functionName, const Callable &callable);
+	void UnregisterFunctionObserver(StringName functionName, const Callable &callable);
 	Variant call_callable_with_error_handling(StringName functionName, const Array &parameters, Callable *function_callable);
 	Variant CallFunction(StringName functionName, const Array &parameters);
 	Ref<FutureValue> CallFunctionOnAuthority(StringName functionName, const Array &parameters, bool expect_answer = false);
