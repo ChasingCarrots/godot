@@ -757,6 +757,10 @@ Ref<CommunicationCallWithAnswer> CommunicationLine::call_function_on_peers_expec
 }
 
 void CommunicationLine::process_pending_calls(uint64_t now) {
+	if (_communication_calls_waiting_for_answer.is_empty()) {
+		return;
+	}
+	GodotProfileFunction();
 	// Collect the timed-out calls first, then resolve them, so that a signal handler
 	// (or callback) can't observe or mutate the pending list while we're iterating it.
 	Vector<Ref<CommunicationCallWithAnswer>> timed_out_calls;

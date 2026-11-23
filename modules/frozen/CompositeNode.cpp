@@ -462,6 +462,7 @@ void CompositeNode::_notification(int p_notification) {
 }
 
 void CompositeNode::update_sum_component(DataSumSettings &sum_settings, StringName component_name, float new_value) {
+	GodotProfileFunction();
 	float sum = 0;
 	for (int i=0; i < sum_settings.SumComponentsDataNames.size(); i++) {
 		if (sum_settings.SumComponentsDataNames[i] != component_name) {
@@ -476,10 +477,12 @@ void CompositeNode::update_sum_component(DataSumSettings &sum_settings, StringNa
 }
 
 void CompositeNode::_enter_tree() {
+	GodotProfileFunction();
 	_all_composite_nodes.append(this);
 }
 
 void CompositeNode::_exit_tree() {
+	GodotProfileFunction();
 	if (is_queued_for_deletion()) {
 		CallCallbacks("BeingDestroyed", {});
 	}

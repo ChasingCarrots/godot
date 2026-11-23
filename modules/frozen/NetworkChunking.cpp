@@ -2,6 +2,7 @@
 #include "CommunicationLineSystem.h"
 #include "CommunicationLine.h"
 #include "core/error/error_macros.h"
+#include "core/profiling/profiling.h"
 
 //-------------------------------CHUNK SENDER------------------------------------
 
@@ -14,6 +15,7 @@ void ChunkSender::initialize(CommunicationLineSystem* cls) {
 // touches the peer, so this must run under CLS's _peer_mutex; the only caller is
 // CLS::send_to_peer, which already holds it.
 void ChunkSender::send_as_chunk(const int to, const PackedByteArray &packet) {
+    GodotProfileFunction();
     ERR_FAIL_COND_MSG(_send_buffer.is_null(), "_send_buffer is null");
     ERR_FAIL_NULL_MSG(_communication_line_system, "_communication_line_system is null");
     ERR_FAIL_COND_MSG(packet.is_empty(), "Cannot chunk empty packet");
@@ -135,6 +137,7 @@ void ChunkReceiver::process() {
     if (_chunks.empty()){
         return;
     }
+    GodotProfileFunction();
 
     const uint64_t now = OS::get_singleton()->get_ticks_msec();
 

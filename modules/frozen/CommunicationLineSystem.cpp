@@ -110,6 +110,7 @@ void CommunicationLineSystem::_ready() {
 }
 
 void CommunicationLineSystem::_process(double p_time) {
+	GodotProfileFunction();
 	if (_multiplayer_peer.is_valid()) {
 		// update_status() tears down (and clears the queues) if the poll thread saw
 		// a disconnect, so the drain below only runs on a healthy peer.
@@ -122,10 +123,13 @@ void CommunicationLineSystem::_process(double p_time) {
 	}
 
 	// Resolve any calls whose answer never arrived, so a lost answer can't leak its call id.
-	uint64_t process_now = OS::get_singleton()->get_ticks_msec();
-	for (const Ref<CommunicationLine> &communication_line : _communication_lines) {
-		if (communication_line.is_valid()) {
-			communication_line->process_pending_calls(process_now);
+	{
+		GodotProfileZone("process_pending_calls");
+		uint64_t process_now = OS::get_singleton()->get_ticks_msec();
+		for (const Ref<CommunicationLine> &communication_line : _communication_lines) {
+			if (communication_line.is_valid()) {
+				communication_line->process_pending_calls(process_now);
+			}
 		}
 	}
 
@@ -731,6 +735,7 @@ void CommunicationLineSystem::clear_multiplayer_peer() {
 }
 
 void CommunicationLineSystem::update_status() {
+	GodotProfileFunction();
 	// The peer's live status is published by the poll thread; reading the cache
 	// keeps this main-thread hot path lock-free.
 	MultiplayerPeer::ConnectionStatus status = _multiplayer_peer.is_valid() ? static_cast<MultiplayerPeer::ConnectionStatus>(_cached_status.load()) : MultiplayerPeer::CONNECTION_DISCONNECTED;
@@ -991,6 +996,7 @@ void CommunicationLineSystem::handle_control_packet(const int from, const uint8_
 }
 
 void CommunicationLineSystem::check_peer_timeouts() {
+	GodotProfileFunction();
 	const uint64_t now = OS::get_singleton()->get_ticks_msec();
 
 	// Collect first: disconnect_peer() mutates _connected_peers via on_peer_disconnected().
