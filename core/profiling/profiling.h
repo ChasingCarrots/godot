@@ -116,6 +116,359 @@ void godot_cleanup_profiler();
 
 #define GodotProfilingThreadStart(NAME)
 #define GodotProfileSendScreenshot()
+#define GodotProfileHasGPU() true
+
+#ifdef GODOT_PROFILING_D3D12
+#include "core/os/memory.h"
+#include "core/os/mutex.h"
+#include "core/templates/hash_map.h"
+#include "core/templates/local_vector.h"
+
+GODOT_MSVC_WARNING_PUSH_AND_IGNORE(4366)
+#include <tracy/TracyD3D12.hpp>
+GODOT_MSVC_WARNING_POP
+
+#include <cstring>
+
+struct GodotTracyD3D12ZoneStack {
+	struct ZoneSlot {
+		alignas(tracy::D3D12ZoneScope) uint8_t storage[sizeof(tracy::D3D12ZoneScope)];
+	};
+	LocalVector<ZoneSlot> slots;
+
+	GodotTracyD3D12ZoneStack() {
+		slots.reserve(32);
+	}
+
+	~GodotTracyD3D12ZoneStack() {
+		end_all();
+	}
+
+	_FORCE_INLINE_ void begin(void *p_ctx, ID3D12GraphicsCommandList *p_cmd_list, const char *p_name, const char *p_file, const char *p_function, uint32_t p_line) {
+		if (!p_ctx || !p_cmd_list) {
+			return;
+		}
+		const char *name = p_name ? p_name : "";
+		const uint32_t idx = slots.size();
+		slots.resize(idx + 1);
+		new (slots[idx].storage) tracy::D3D12ZoneScope(static_cast<TracyD3D12Ctx>(p_ctx), p_line, p_file, strlen(p_file), p_function, strlen(p_function), name, strlen(name), p_cmd_list, true);
+	}
+
+	_FORCE_INLINE_ void end() {
+		if (slots.is_empty()) {
+			return;
+		}
+		const uint32_t idx = slots.size() - 1;
+		reinterpret_cast<tracy::D3D12ZoneScope *>(slots[idx].storage)->~D3D12ZoneScope();
+		slots.resize(idx);
+	}
+
+	_FORCE_INLINE_ void end_all() {
+		while (!slots.is_empty()) {
+			end();
+		}
+	}
+};
+
+struct GodotTracyD3D12State {
+	Mutex mutex;
+	TracyD3D12Ctx ctx = nullptr;
+	ID3D12CommandQueue *main_queue = nullptr;
+	HashMap<ID3D12GraphicsCommandList *, GodotTracyD3D12ZoneStack *> cmd_stacks;
+
+	static GodotTracyD3D12State &singleton() {
+		static GodotTracyD3D12State state;
+		return state;
+	}
+};
+
+_FORCE_INLINE_ void GodotProfileD3D12Init(ID3D12Device *p_device, ID3D12CommandQueue *p_queue) {
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	if (state.ctx != nullptr) {
+		return;
+	}
+	state.main_queue = p_queue;
+	state.ctx = TracyD3D12Context(p_device, p_queue);
+	if (state.ctx) {
+		TracyD3D12ContextName(state.ctx, "D3D12", 5);
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileD3D12Destroy() {
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	for (KeyValue<ID3D12GraphicsCommandList *, GodotTracyD3D12ZoneStack *> &E : state.cmd_stacks) {
+		memdelete(E.value);
+	}
+	state.cmd_stacks.clear();
+	if (state.ctx) {
+		TracyD3D12Destroy(state.ctx);
+		state.ctx = nullptr;
+	}
+	state.main_queue = nullptr;
+}
+
+_FORCE_INLINE_ void GodotProfileD3D12NewFrame(ID3D12CommandQueue *p_queue) {
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	if (state.ctx && p_queue == state.main_queue) {
+		TracyD3D12NewFrame(state.ctx);
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileD3D12Collect() {
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	if (state.ctx) {
+		TracyD3D12Collect(state.ctx);
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileD3D12ZoneBeginImpl(ID3D12GraphicsCommandList *p_cmd_list, const char *p_name, const char *p_file, const char *p_function, uint32_t p_line) {
+	if (!p_cmd_list) {
+		return;
+	}
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	if (!state.ctx) {
+		return;
+	}
+	GodotTracyD3D12ZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_list);
+	GodotTracyD3D12ZoneStack *stack = stack_ptr ? *stack_ptr : nullptr;
+	if (!stack) {
+		stack = memnew(GodotTracyD3D12ZoneStack);
+		state.cmd_stacks.insert(p_cmd_list, stack);
+	}
+	stack->begin(state.ctx, p_cmd_list, p_name, p_file, p_function, p_line);
+}
+
+#define GodotProfileD3D12ZoneBegin(m_cmd_list, m_name) \
+	GodotProfileD3D12ZoneBeginImpl(m_cmd_list, m_name, TracyFile, TracyFunction, (uint32_t)TracyLine)
+
+_FORCE_INLINE_ void GodotProfileD3D12ZoneEnd(ID3D12GraphicsCommandList *p_cmd_list) {
+	if (!p_cmd_list) {
+		return;
+	}
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	if (GodotTracyD3D12ZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_list)) {
+		(*stack_ptr)->end();
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileD3D12ZoneEndAll(ID3D12GraphicsCommandList *p_cmd_list) {
+	if (!p_cmd_list) {
+		return;
+	}
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	if (GodotTracyD3D12ZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_list)) {
+		(*stack_ptr)->end_all();
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileD3D12FreeCmdList(ID3D12GraphicsCommandList *p_cmd_list) {
+	if (!p_cmd_list) {
+		return;
+	}
+	GodotTracyD3D12State &state = GodotTracyD3D12State::singleton();
+	MutexLock lock(state.mutex);
+	if (GodotTracyD3D12ZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_list)) {
+		memdelete(*stack_ptr);
+		state.cmd_stacks.erase(p_cmd_list);
+	}
+}
+#endif // GODOT_PROFILING_D3D12
+
+#ifdef GODOT_PROFILING_VULKAN
+#include "core/os/memory.h"
+#include "core/os/mutex.h"
+#include "core/templates/hash_map.h"
+#include "core/templates/local_vector.h"
+
+#define TRACY_VK_USE_SYMBOL_TABLE
+GODOT_MSVC_WARNING_PUSH_AND_IGNORE(4366)
+#include <tracy/TracyVulkan.hpp>
+GODOT_MSVC_WARNING_POP
+
+#include <cstring>
+
+struct GodotTracyVkZoneStack {
+	struct ZoneSlot {
+		alignas(tracy::VkCtxScope) uint8_t storage[sizeof(tracy::VkCtxScope)];
+	};
+	LocalVector<ZoneSlot> slots;
+	bool is_primary = false;
+
+	GodotTracyVkZoneStack() {
+		slots.reserve(32);
+	}
+
+	~GodotTracyVkZoneStack() {
+		end_all();
+	}
+
+	_FORCE_INLINE_ void begin(void *p_ctx, VkCommandBuffer p_cmd_buf, const char *p_name, const char *p_file, const char *p_function, uint32_t p_line) {
+		if (!p_ctx || p_cmd_buf == VK_NULL_HANDLE) {
+			return;
+		}
+		const char *name = p_name ? p_name : "";
+		const uint32_t idx = slots.size();
+		slots.resize(idx + 1);
+		new (slots[idx].storage) tracy::VkCtxScope(static_cast<TracyVkCtx>(p_ctx), p_line, p_file, strlen(p_file), p_function, strlen(p_function), name, strlen(name), p_cmd_buf, true);
+	}
+
+	_FORCE_INLINE_ void end() {
+		if (slots.is_empty()) {
+			return;
+		}
+		const uint32_t idx = slots.size() - 1;
+		reinterpret_cast<tracy::VkCtxScope *>(slots[idx].storage)->~VkCtxScope();
+		slots.resize(idx);
+	}
+
+	_FORCE_INLINE_ void end_all() {
+		while (!slots.is_empty()) {
+			end();
+		}
+	}
+};
+
+struct GodotTracyVkState {
+	Mutex mutex;
+	TracyVkCtx ctx = nullptr;
+	HashMap<VkCommandBuffer, GodotTracyVkZoneStack *> cmd_stacks;
+
+	static GodotTracyVkState &singleton() {
+		static GodotTracyVkState state;
+		return state;
+	}
+};
+
+_FORCE_INLINE_ void GodotProfileVkInit(VkInstance p_instance, VkPhysicalDevice p_physdev, VkDevice p_device, VkQueue p_queue, uint32_t p_queue_family_index, const VkAllocationCallbacks *p_alloc_callbacks, bool p_calibrated) {
+	GodotTracyVkState &state = GodotTracyVkState::singleton();
+	MutexLock lock(state.mutex);
+	if (state.ctx != nullptr) {
+		return;
+	}
+
+	VkCommandPoolCreateInfo pool_info = {};
+	pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	pool_info.queueFamilyIndex = p_queue_family_index;
+
+	VkCommandPool temp_pool = VK_NULL_HANDLE;
+	if (vkCreateCommandPool(p_device, &pool_info, p_alloc_callbacks, &temp_pool) != VK_SUCCESS) {
+		return;
+	}
+
+	VkCommandBufferAllocateInfo alloc_info = {};
+	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	alloc_info.commandPool = temp_pool;
+	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	alloc_info.commandBufferCount = 1;
+
+	VkCommandBuffer temp_cmd_buf = VK_NULL_HANDLE;
+	if (vkAllocateCommandBuffers(p_device, &alloc_info, &temp_cmd_buf) == VK_SUCCESS) {
+		state.ctx = tracy::CreateVkContext(p_instance, p_physdev, p_device, p_queue, temp_cmd_buf, vkGetInstanceProcAddr, vkGetDeviceProcAddr, p_calibrated);
+		if (state.ctx) {
+			TracyVkContextName(state.ctx, "Vulkan", 6);
+		}
+	}
+
+	vkDestroyCommandPool(p_device, temp_pool, p_alloc_callbacks);
+}
+
+_FORCE_INLINE_ void GodotProfileVkDestroy() {
+	GodotTracyVkState &state = GodotTracyVkState::singleton();
+	MutexLock lock(state.mutex);
+	for (KeyValue<VkCommandBuffer, GodotTracyVkZoneStack *> &E : state.cmd_stacks) {
+		memdelete(E.value);
+	}
+	state.cmd_stacks.clear();
+	if (state.ctx) {
+		TracyVkDestroy(state.ctx);
+		state.ctx = nullptr;
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileVkCmdBufferBegin(VkCommandBuffer p_cmd_buf, bool p_is_primary) {
+	if (p_cmd_buf == VK_NULL_HANDLE) {
+		return;
+	}
+	GodotTracyVkState &state = GodotTracyVkState::singleton();
+	MutexLock lock(state.mutex);
+	if (!state.ctx) {
+		return;
+	}
+	GodotTracyVkZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_buf);
+	GodotTracyVkZoneStack *stack = stack_ptr ? *stack_ptr : nullptr;
+	if (!stack) {
+		stack = memnew(GodotTracyVkZoneStack);
+		state.cmd_stacks.insert(p_cmd_buf, stack);
+	}
+	stack->is_primary = p_is_primary;
+}
+
+_FORCE_INLINE_ void GodotProfileVkZoneBeginImpl(VkCommandBuffer p_cmd_buf, const char *p_name, const char *p_file, const char *p_function, uint32_t p_line) {
+	if (p_cmd_buf == VK_NULL_HANDLE) {
+		return;
+	}
+	GodotTracyVkState &state = GodotTracyVkState::singleton();
+	MutexLock lock(state.mutex);
+	if (!state.ctx) {
+		return;
+	}
+	GodotTracyVkZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_buf);
+	GodotTracyVkZoneStack *stack = stack_ptr ? *stack_ptr : nullptr;
+	if (!stack) {
+		stack = memnew(GodotTracyVkZoneStack);
+		state.cmd_stacks.insert(p_cmd_buf, stack);
+	}
+	stack->begin(state.ctx, p_cmd_buf, p_name, p_file, p_function, p_line);
+}
+
+#define GodotProfileVkZoneBegin(m_cmd_buf, m_name) \
+	GodotProfileVkZoneBeginImpl(m_cmd_buf, m_name, TracyFile, TracyFunction, (uint32_t)TracyLine)
+
+_FORCE_INLINE_ void GodotProfileVkZoneEnd(VkCommandBuffer p_cmd_buf) {
+	if (p_cmd_buf == VK_NULL_HANDLE) {
+		return;
+	}
+	GodotTracyVkState &state = GodotTracyVkState::singleton();
+	MutexLock lock(state.mutex);
+	if (GodotTracyVkZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_buf)) {
+		(*stack_ptr)->end();
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileVkCmdBufferEnd(VkCommandBuffer p_cmd_buf, bool p_outside_render_pass) {
+	if (p_cmd_buf == VK_NULL_HANDLE) {
+		return;
+	}
+	GodotTracyVkState &state = GodotTracyVkState::singleton();
+	MutexLock lock(state.mutex);
+	if (GodotTracyVkZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_buf)) {
+		(*stack_ptr)->end_all();
+		if (state.ctx && (*stack_ptr)->is_primary && p_outside_render_pass) {
+			TracyVkCollect(state.ctx, p_cmd_buf);
+		}
+	}
+}
+
+_FORCE_INLINE_ void GodotProfileVkFreeCmdBuffer(VkCommandBuffer p_cmd_buf) {
+	if (p_cmd_buf == VK_NULL_HANDLE) {
+		return;
+	}
+	GodotTracyVkState &state = GodotTracyVkState::singleton();
+	MutexLock lock(state.mutex);
+	if (GodotTracyVkZoneStack **stack_ptr = state.cmd_stacks.getptr(p_cmd_buf)) {
+		memdelete(*stack_ptr);
+		state.cmd_stacks.erase(p_cmd_buf);
+	}
+}
+#endif // GODOT_PROFILING_VULKAN
 
 #elif defined(GODOT_USE_PERFETTO)
 // Use the perfetto profiler.
@@ -301,5 +654,36 @@ void godot_cleanup_profiler();
 #define GodotProfilingThreadStart(NAME)
 // Sends a screenshot (if the profiler supports it)
 #define GodotProfileSendScreenshot()
+// Returns whether GPU profiling is active.
+#define GodotProfileHasGPU() false
+
+#endif
+
+#if !defined(GODOT_USE_TRACY)
+
+#if defined(GODOT_USE_PERFETTO) || defined(GODOT_USE_INSTRUMENTS)
+#define GodotProfileHasGPU() false
+#endif
+
+#ifdef GODOT_PROFILING_D3D12
+#define GodotProfileD3D12Init(p_device, p_queue)
+#define GodotProfileD3D12Destroy()
+#define GodotProfileD3D12NewFrame(p_queue)
+#define GodotProfileD3D12Collect()
+#define GodotProfileD3D12ZoneBegin(m_cmd_list, m_name)
+#define GodotProfileD3D12ZoneEnd(p_cmd_list)
+#define GodotProfileD3D12ZoneEndAll(p_cmd_list)
+#define GodotProfileD3D12FreeCmdList(p_cmd_list)
+#endif
+
+#ifdef GODOT_PROFILING_VULKAN
+#define GodotProfileVkInit(p_instance, p_physdev, p_device, p_queue, p_queue_family_index, p_alloc_callbacks, p_calibrated)
+#define GodotProfileVkDestroy()
+#define GodotProfileVkCmdBufferBegin(p_cmd_buf, p_is_primary)
+#define GodotProfileVkZoneBegin(m_cmd_buf, m_name)
+#define GodotProfileVkZoneEnd(p_cmd_buf)
+#define GodotProfileVkCmdBufferEnd(p_cmd_buf, p_outside_render_pass)
+#define GodotProfileVkFreeCmdBuffer(p_cmd_buf)
+#endif
 
 #endif

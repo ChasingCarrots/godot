@@ -33,6 +33,9 @@
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/os/os.h"
+
+#define GODOT_PROFILING_D3D12
+#include "core/profiling/profiling.h"
 #include "drivers/d3d12/d3d12_hooks.h"
 #include "drivers/d3d12/rendering_context_driver_d3d12.h"
 
@@ -2644,6 +2647,9 @@ RDD::CommandQueueID RenderingDeviceDriverD3D12::command_queue_create(CommandQueu
 
 	CommandQueueInfo *command_queue = memnew(CommandQueueInfo);
 	command_queue->d3d_queue = d3d_queue;
+	if (p_identify_as_main_queue) {
+		GodotProfileD3D12Init(device.Get(), d3d_queue.Get());
+	}
 	return CommandQueueID(command_queue);
 }
 
@@ -2663,6 +2669,7 @@ Error RenderingDeviceDriverD3D12::command_queue_execute_and_present(CommandQueue
 		}
 
 		command_queue->d3d_queue->ExecuteCommandLists(command_lists.size(), command_lists.ptr());
+		GodotProfileD3D12NewFrame(command_queue->d3d_queue.Get());
 
 		for (uint32_t i = 0; i < p_cmd_semaphores.size(); i++) {
 			SemaphoreInfo *semaphore = (SemaphoreInfo *)(p_cmd_semaphores[i].id);
@@ -2718,6 +2725,7 @@ void RenderingDeviceDriverD3D12::command_pool_free(CommandPoolID p_cmd_pool) {
 		CommandBufferInfo *cmd_buf_info = cmd_buf_elem->self();
 		cmd_buf_elem = cmd_buf_elem->next();
 
+		GodotProfileD3D12FreeCmdList(cmd_buf_info->cmd_list.Get());
 		cmd_buf_info->cmd_list.Reset();
 		cmd_buf_info->cmd_list_1.Reset();
 		cmd_buf_info->cmd_list_5.Reset();
@@ -2823,6 +2831,7 @@ bool RenderingDeviceDriverD3D12::command_buffer_begin_secondary(CommandBufferID 
 
 void RenderingDeviceDriverD3D12::command_buffer_end(CommandBufferID p_cmd_buffer) {
 	CommandBufferInfo *cmd_buf_info = (CommandBufferInfo *)p_cmd_buffer.id;
+	GodotProfileD3D12ZoneEndAll(cmd_buf_info->cmd_list.Get());
 	HRESULT res = cmd_buf_info->cmd_list->Close();
 
 	ERR_FAIL_COND_MSG(!SUCCEEDED(res), "Close failed with error " + vformat("0x%08ux", (uint64_t)res) + ".");
@@ -5878,15 +5887,17 @@ void RenderingDeviceDriverD3D12::command_timestamp_write(CommandBufferID p_cmd_b
 }
 
 void RenderingDeviceDriverD3D12::command_begin_label(CommandBufferID p_cmd_buffer, const char *p_label_name, const Color &p_color) {
-#ifdef PIX_ENABLED
 	const CommandBufferInfo *cmd_buf_info = (const CommandBufferInfo *)p_cmd_buffer.id;
+#ifdef PIX_ENABLED
 	PIXBeginEvent(cmd_buf_info->cmd_list.Get(), p_color.to_argb32(), p_label_name);
 #endif
+	GodotProfileD3D12ZoneBegin(cmd_buf_info->cmd_list.Get(), p_label_name);
 }
 
 void RenderingDeviceDriverD3D12::command_end_label(CommandBufferID p_cmd_buffer) {
-#ifdef PIX_ENABLED
 	const CommandBufferInfo *cmd_buf_info = (const CommandBufferInfo *)p_cmd_buffer.id;
+	GodotProfileD3D12ZoneEnd(cmd_buf_info->cmd_list.Get());
+#ifdef PIX_ENABLED
 	PIXEndEvent(cmd_buf_info->cmd_list.Get());
 #endif
 }
@@ -5902,6 +5913,7 @@ void RenderingDeviceDriverD3D12::command_insert_breadcrumb(CommandBufferID p_cmd
 void RenderingDeviceDriverD3D12::begin_segment(uint32_t p_frame_index, uint32_t p_frames_drawn) {
 	frame_idx = p_frame_index;
 	frames[frame_idx].descriptor_allocation_count = 0;
+	GodotProfileD3D12Collect();
 
 	frames_drawn = p_frames_drawn;
 	allocator->SetCurrentFrameIndex(p_frames_drawn);
@@ -6186,6 +6198,7 @@ RenderingDeviceDriverD3D12::RenderingDeviceDriverD3D12(RenderingContextDriverD3D
 }
 
 RenderingDeviceDriverD3D12::~RenderingDeviceDriverD3D12() {
+	GodotProfileD3D12Destroy();
 	rtv_descriptor_heap_pool.free(null_rtv_alloc);
 
 	{

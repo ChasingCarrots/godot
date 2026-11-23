@@ -8066,7 +8066,7 @@ void RenderingDevice::_draw_command_begin_label(String p_label_name, const Color
 void RenderingDevice::draw_command_begin_label(const Span<char> p_label_name, const Color &p_color) {
 	ERR_RENDER_THREAD_GUARD();
 
-	if (!context->is_debug_utils_enabled()) {
+	if (!context->is_debug_utils_enabled() && !GodotProfileHasGPU()) {
 		return;
 	}
 

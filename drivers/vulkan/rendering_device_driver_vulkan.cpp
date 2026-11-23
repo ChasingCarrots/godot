@@ -33,6 +33,9 @@
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/os/os.h"
+
+#define GODOT_PROFILING_VULKAN
+#include "core/profiling/profiling.h"
 #include "core/templates/fixed_vector.h"
 #include "drivers/vulkan/vulkan_hooks.h"
 
@@ -617,6 +620,7 @@ Error RenderingDeviceDriverVulkan::_initialize_device_extensions() {
 	}
 
 	_register_requested_device_extension(VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, false);
+	_register_requested_device_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME, false);
 
 	uint32_t device_extension_count = 0;
 	VkResult err = vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &device_extension_count, nullptr);
@@ -3225,8 +3229,11 @@ RDD::CommandQueueID RenderingDeviceDriverVulkan::command_queue_create(CommandQue
 	queue_family[picked_queue_index].virtual_count++;
 
 	// If is was identified as the main queue and a hook is active, indicate it as such to the hook.
-	if (p_identify_as_main_queue && (VulkanHooks::get_singleton() != nullptr)) {
-		VulkanHooks::get_singleton()->set_direct_queue_family_and_index(family_index, picked_queue_index);
+	if (p_identify_as_main_queue) {
+		if (VulkanHooks::get_singleton() != nullptr) {
+			VulkanHooks::get_singleton()->set_direct_queue_family_and_index(family_index, picked_queue_index);
+		}
+		GodotProfileVkInit(context_driver->instance_get(), physical_device, vk_device, queue_family[picked_queue_index].queue, family_index, VKC::get_allocation_callbacks(VK_OBJECT_TYPE_COMMAND_POOL), enabled_device_extension_names.has(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME));
 	}
 
 	return CommandQueueID(command_queue);
@@ -3473,6 +3480,7 @@ void RenderingDeviceDriverVulkan::command_pool_free(CommandPoolID p_cmd_pool) {
 
 	CommandPool *command_pool = (CommandPool *)(p_cmd_pool.id);
 	for (CommandBufferInfo *command_buffer : command_pool->command_buffers_created) {
+		GodotProfileVkFreeCmdBuffer(command_buffer->vk_command_buffer);
 		VersatileResource::free(resources_allocator, command_buffer);
 	}
 
@@ -3517,6 +3525,7 @@ bool RenderingDeviceDriverVulkan::command_buffer_begin(CommandBufferID p_cmd_buf
 	VkResult err = vkBeginCommandBuffer(command_buffer->vk_command_buffer, &cmd_buf_begin_info);
 	ERR_FAIL_COND_V_MSG(err, false, vformat("Couldn't begin Vulkan command buffer (VkResult error %d).", err));
 
+	GodotProfileVkCmdBufferBegin(command_buffer->vk_command_buffer, true);
 	return true;
 }
 
@@ -3539,11 +3548,13 @@ bool RenderingDeviceDriverVulkan::command_buffer_begin_secondary(CommandBufferID
 	VkResult err = vkBeginCommandBuffer(command_buffer->vk_command_buffer, &cmd_buf_begin_info);
 	ERR_FAIL_COND_V_MSG(err, false, vformat("Couldn't begin Vulkan command buffer (VkResult error %d).", err));
 
+	GodotProfileVkCmdBufferBegin(command_buffer->vk_command_buffer, false);
 	return true;
 }
 
 void RenderingDeviceDriverVulkan::command_buffer_end(CommandBufferID p_cmd_buffer) {
 	CommandBufferInfo *command_buffer = (CommandBufferInfo *)(p_cmd_buffer.id);
+	GodotProfileVkCmdBufferEnd(command_buffer->vk_command_buffer, command_buffer->active_render_pass == nullptr);
 	vkEndCommandBuffer(command_buffer->vk_command_buffer);
 }
 
@@ -6873,6 +6884,7 @@ void RenderingDeviceDriverVulkan::command_timestamp_write(CommandBufferID p_cmd_
 
 void RenderingDeviceDriverVulkan::command_begin_label(CommandBufferID p_cmd_buffer, const char *p_label_name, const Color &p_color) {
 	const CommandBufferInfo *command_buffer = (const CommandBufferInfo *)p_cmd_buffer.id;
+	GodotProfileVkZoneBegin(command_buffer->vk_command_buffer, p_label_name);
 	const RenderingContextDriverVulkan::Functions &functions = context_driver->functions_get();
 	if (!functions.CmdBeginDebugUtilsLabelEXT) {
 		if (functions.CmdDebugMarkerBeginEXT) {
@@ -6902,6 +6914,7 @@ void RenderingDeviceDriverVulkan::command_begin_label(CommandBufferID p_cmd_buff
 
 void RenderingDeviceDriverVulkan::command_end_label(CommandBufferID p_cmd_buffer) {
 	const CommandBufferInfo *command_buffer = (const CommandBufferInfo *)p_cmd_buffer.id;
+	GodotProfileVkZoneEnd(command_buffer->vk_command_buffer);
 	const RenderingContextDriverVulkan::Functions &functions = context_driver->functions_get();
 	if (!functions.CmdEndDebugUtilsLabelEXT) {
 		if (functions.CmdDebugMarkerEndEXT) {
@@ -7536,6 +7549,7 @@ RenderingDeviceDriverVulkan::RenderingDeviceDriverVulkan(RenderingContextDriverV
 }
 
 RenderingDeviceDriverVulkan::~RenderingDeviceDriverVulkan() {
+	GodotProfileVkDestroy();
 #if defined(DEBUG_ENABLED) || defined(DEV_ENABLED)
 	if (breadcrumb_buffer != BufferID()) {
 		buffer_free(breadcrumb_buffer);
