@@ -873,13 +873,18 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 	int draw_calls_used = 0;
 
 	for (int i = 0; i < sorted_active_viewports.size(); i++) {
-		// TODO Somehow print the index
-		GodotProfileZone("render viewport");
+		GodotProfileZoneNamed(_vp_zone, "render viewport");
 
 		Viewport *vp = sorted_active_viewports[i];
 
 		if (vp->last_pass != draw_viewports_pass) {
 			continue; //should not draw
+		}
+
+		char vp_name[64];
+		int vp_name_len = snprintf(vp_name, sizeof(vp_name), "render viewport %d (%dx%d)", i, vp->size.width, vp->size.height);
+		if (vp_name_len > 0) {
+			GodotProfileZoneName(_vp_zone, vp_name, MIN(vp_name_len, (int)sizeof(vp_name) - 1));
 		}
 
 		RENDER_TIMESTAMP("> Render Viewport " + itos(i));

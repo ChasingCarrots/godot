@@ -65,6 +65,8 @@ const SourceLocationData *intern_source_location(const void *p_function_ptr, con
 #define GodotProfileFunction() ZoneNamedC(___tracy_scoped_zone, 0x07631F, TracyCIsConnected)
 
 #define GodotProfileZone(m_zone_name) ZoneNamedN(GD_UNIQUE_NAME(__godot_tracy_szone_), m_zone_name, TracyCIsConnected)
+#define GodotProfileZoneNamed(m_var_name, m_zone_name) ZoneNamedN(m_var_name, m_zone_name, TracyCIsConnected)
+#define GodotProfileZoneName(m_var_name, m_txt, m_size) m_var_name.Name(m_txt, m_size)
 
 #define GodotProfileZoneGroupedFirst(m_group_name, m_zone_name) \
 bool __godot_tracy_connected_##m_group_name = TracyCIsConnected; \
@@ -499,6 +501,8 @@ struct PerfettoGroupedEventEnder {
 	perfetto::CounterTrack __frame_time_track = perfetto::CounterTrack("Frame time", "ms").set_unit_multiplier(1000); \
 	TRACE_COUNTER("godot", __frame_time_track, Performance::get_singleton()->get_monitor(Performance::Monitor::TIME_PROCESS));
 #define GodotProfileZone(m_zone_name) TRACE_EVENT("godot", m_zone_name);
+#define GodotProfileZoneNamed(m_var_name, m_zone_name) GodotProfileZone(m_zone_name)
+#define GodotProfileZoneName(m_var_name, m_txt, m_size)
 #define GodotProfileZoneGroupedFirst(m_group_name, m_zone_name) \
 	TRACE_EVENT_BEGIN("godot", m_zone_name); \
 	PerfettoGroupedEventEnder __godot_perfetto_zone_##m_group_name
@@ -602,6 +606,8 @@ private:
 
 #define GodotProfileZone(m_zone_name) \
 	GodotProfileZoneGroupedFirst(__COUNTER__, m_zone_name)
+#define GodotProfileZoneNamed(m_var_name, m_zone_name) GodotProfileZone(m_zone_name)
+#define GodotProfileZoneName(m_var_name, m_txt, m_size)
 
 #define GodotProfileZoneScript(m_ptr, m_file, m_function, m_name, m_line)
 #define GodotProfileZoneScriptSystemCall(m_ptr, m_file, m_function, m_name, m_line)
@@ -623,6 +629,8 @@ void godot_cleanup_profiler();
 #define GodotProfileFrameMark
 // Defines a profile zone from here to the end of the scope.
 #define GodotProfileZone(m_zone_name)
+#define GodotProfileZoneNamed(m_var_name, m_zone_name)
+#define GodotProfileZoneName(m_var_name, m_txt, m_size)
 // Defines a profile zone group. The first profile zone starts immediately,
 // and ends either when the next zone starts, or when the scope ends.
 #define GodotProfileZoneGroupedFirst(m_group_name, m_zone_name)

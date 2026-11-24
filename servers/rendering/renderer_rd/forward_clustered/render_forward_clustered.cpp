@@ -1648,6 +1648,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 		}
 
 		if (p_render_data->cube_shadows.size()) {
+			GodotProfileZone("render_omni_shadows");
 			RENDER_TIMESTAMP("Render OmniLight Shadows");
 			// Cube shadows are rendered in their own way.
 			for (const int &index : p_render_data->cube_shadows) {
@@ -1678,6 +1679,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 
 	//prepare shadow rendering
 	if (render_shadows) {
+		GodotProfileZone("render_shadows");
 		_render_shadow_begin();
 
 		//render directional shadows
@@ -1693,6 +1695,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 	}
 
 	if (render_gi) {
+		GodotProfileZone("render_gi");
 		gi.process_gi(rb, p_normal_roughness_slices, p_voxel_gi_buffer, p_render_data->environment, p_render_data->scene_data->view_count, p_render_data->scene_data->view_projection, p_render_data->scene_data->view_eye_offset, p_render_data->scene_data->cam_transform, *p_render_data->voxel_gi_instances);
 	}
 
@@ -1701,6 +1704,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 	}
 
 	if (rb_data.is_valid() && ss_effects) {
+		GodotProfileZone("ss_effects");
 		// Note, in multiview we're allocating buffers for each eye/view we're rendering.
 		// This should allow most of the processing to happen in parallel even if we're doing
 		// drawcalls per eye/view. It will all sync up at the barrier.
@@ -1735,8 +1739,9 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 	}
 
 	RENDER_TIMESTAMP("Pre Opaque Render");
-
-	if (current_cluster_builder) {
+	{
+		GodotProfileZone("update_lights_and_clusters");
+		if (current_cluster_builder) {
 		// Note: when rendering stereoscopic (multiview) we are using our combined frustum projection to create
 		// our cluster data. We use reprojection in the shader to adjust for our left/right eye.
 		// This only works as we don't filter our cluster by depth buffer.
@@ -1771,6 +1776,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 		RENDER_TIMESTAMP("Update Volumetric Fog");
 		bool directional_shadows = RendererRD::LightStorage::get_singleton()->has_directional_shadows(directional_light_count);
 		_update_volumetric_fog(rb, p_render_data->environment, p_render_data->scene_data->cam_projection, p_render_data->scene_data->cam_transform, p_render_data->scene_data->prev_cam_transform.affine_inverse(), p_render_data->shadow_atlas, directional_light_count, directional_shadows, positional_light_count, p_render_data->voxel_gi_count, *p_render_data->fog_volumes);
+	}
 	}
 }
 
@@ -2162,6 +2168,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 
 		// setup sky if used for ambient, reflections, or background
 		if (draw_sky || draw_sky_fog_only || (reflection_source == RSE::ENV_REFLECTION_SOURCE_BG && bg_mode == RSE::ENV_BG_SKY) || reflection_source == RSE::ENV_REFLECTION_SOURCE_SKY || environment_get_ambient_source(p_render_data->environment) == RSE::ENV_AMBIENT_SOURCE_SKY) {
+			GodotProfileZone("setup_sky");
 			RENDER_TIMESTAMP("Setup Sky");
 			RD::get_singleton()->draw_command_begin_label("Setup Sky");
 
@@ -2218,6 +2225,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	bool using_ssao = depth_pre_pass && !is_reflection_probe && p_render_data->environment.is_valid() && environment_get_ssao_enabled(p_render_data->environment);
 
 	if (depth_pre_pass) { //depth pre pass
+		GodotProfileZone("depth_pre_pass");
 		bool needs_pre_resolve = _needs_post_prepass_render(p_render_data, using_sdfgi || using_voxelgi);
 		if (needs_pre_resolve) {
 			RENDER_TIMESTAMP("GI + Render Depth Pre-Pass (Parallel)");
@@ -2279,7 +2287,10 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 			normal_roughness_views[v] = rb_data->get_normal_roughness(v);
 		}
 	}
-	_pre_opaque_render(p_render_data, using_ssao, using_ssil, using_ssr, using_sscs, using_sdfgi || using_voxelgi, normal_roughness_views, rb_data.is_valid() && rb_data->has_voxelgi() ? rb_data->get_voxelgi() : RID());
+	{
+		GodotProfileZone("pre_opaque_render");
+		_pre_opaque_render(p_render_data, using_ssao, using_ssil, using_ssr, using_sscs, using_sdfgi || using_voxelgi, normal_roughness_views, rb_data.is_valid() && rb_data->has_voxelgi() ? rb_data->get_voxelgi() : RID());
+	}
 
 	if (current_cluster_builder) {
 		base_specialization.cluster_has_area_light = current_cluster_builder->get_cluster_count_by_type(ClusterBuilderRD::ELEMENT_TYPE_AREA_LIGHT) != 0;
@@ -2303,6 +2314,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		bool render_motion_pass = !render_list[RENDER_LIST_MOTION].elements.is_empty();
 
 		{
+			GodotProfileZone("render_opaque_pass");
 			Vector<Color> c;
 			if (!load_color) {
 				if (using_separate_specular || rb_data.is_valid()) {
@@ -2509,7 +2521,9 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 
 	RENDER_TIMESTAMP("Render 3D Transparent Pass");
 
-	RD::get_singleton()->draw_command_begin_label("Render 3D Transparent Pass");
+	{
+		GodotProfileZone("render_transparent_pass");
+		RD::get_singleton()->draw_command_begin_label("Render 3D Transparent Pass");
 
 	uint32_t transparent_pass_uniform_buffer_index = _setup_environment(p_render_data, is_reflection_probe, screen_size, screen_size, p_default_bg_color, false);
 
@@ -2526,6 +2540,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	}
 
 	RD::get_singleton()->draw_command_end_label();
+	}
 
 	RENDER_TIMESTAMP("Resolve");
 
@@ -2644,6 +2659,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	if (rb_data.is_valid()) {
 		_debug_draw_cluster(rb);
 
+		GodotProfileZone("tonemap");
 		RENDER_TIMESTAMP("Tonemap");
 
 		_render_buffers_post_process_and_tonemap(p_render_data);

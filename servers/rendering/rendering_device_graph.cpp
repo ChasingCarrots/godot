@@ -30,6 +30,8 @@
 
 #include "rendering_device_graph.h"
 
+#include "core/profiling/profiling.h"
+
 #define PRINT_RENDER_GRAPH 0
 #define FORCE_FULL_ACCESS_BITS 0
 #define PRINT_RESOURCE_TRACKER_TOTAL 0
@@ -1784,7 +1786,10 @@ void RenderingDeviceGraph::initialize(RDD *p_driver, RenderPassCreationFunction 
 
 void RenderingDeviceGraph::finalize() {
 	if (!frames.is_empty()) {
+		{
+		GodotProfileZone("wait_secondary_tasks");
 		_wait_for_secondary_command_buffer_tasks();
+	}
 	}
 
 	for (Frame &f : frames) {
@@ -2639,6 +2644,7 @@ void RenderingDeviceGraph::end(bool p_reorder_commands, bool p_full_barriers, RD
 
 	thread_local LocalVector<RecordedCommandSort> commands_sorted;
 	if (p_reorder_commands) {
+		GodotProfileZone("topo_sort");
 		thread_local LocalVector<int64_t> command_stack;
 		thread_local LocalVector<int32_t> sorted_command_indices;
 		thread_local LocalVector<uint32_t> command_degrees;
@@ -2747,7 +2753,10 @@ void RenderingDeviceGraph::end(bool p_reorder_commands, bool p_full_barriers, RD
 		}
 	}
 
-	_wait_for_secondary_command_buffer_tasks();
+	{
+		GodotProfileZone("wait_secondary_tasks");
+		_wait_for_secondary_command_buffer_tasks();
+	}
 
 	if (command_count > 0) {
 		int32_t current_label_index = -1;
@@ -2769,7 +2778,10 @@ void RenderingDeviceGraph::end(bool p_reorder_commands, bool p_full_barriers, RD
 			_print_render_commands(commands_sorted.ptr(), command_count);
 #endif
 
-			commands_sorted.sort();
+			{
+				GodotProfileZone("sort_commands");
+				commands_sorted.sort();
+			}
 
 #if PRINT_RENDER_GRAPH
 			print_line("AFTER SORT");
@@ -2780,31 +2792,35 @@ void RenderingDeviceGraph::end(bool p_reorder_commands, bool p_full_barriers, RD
 			print_line(vformat("Recording %d commands", command_count));
 #endif
 
-			uint32_t boosted_priority = 0;
-			uint32_t current_level = commands_sorted[0].level;
-			uint32_t current_level_start = 0;
-			for (uint32_t i = 0; i < command_count; i++) {
-				if (current_level != commands_sorted[i].level) {
-					RecordedCommandSort *level_command_ptr = &commands_sorted[current_level_start];
-					uint32_t level_command_count = i - current_level_start;
-					_boost_priority_for_render_commands(level_command_ptr, level_command_count, boosted_priority);
-					_group_barriers_for_render_commands(r_command_buffer, level_command_ptr, level_command_count, p_full_barriers);
-					_run_render_commands(current_level, level_command_ptr, level_command_count, r_command_buffer, r_command_buffer_pool, current_label_index, current_label_level);
-					current_level = commands_sorted[i].level;
-					current_level_start = i;
+			{
+				GodotProfileZone("record_commands");
+				uint32_t boosted_priority = 0;
+				uint32_t current_level = commands_sorted[0].level;
+				uint32_t current_level_start = 0;
+				for (uint32_t i = 0; i < command_count; i++) {
+					if (current_level != commands_sorted[i].level) {
+						RecordedCommandSort *level_command_ptr = &commands_sorted[current_level_start];
+						uint32_t level_command_count = i - current_level_start;
+						_boost_priority_for_render_commands(level_command_ptr, level_command_count, boosted_priority);
+						_group_barriers_for_render_commands(r_command_buffer, level_command_ptr, level_command_count, p_full_barriers);
+						_run_render_commands(current_level, level_command_ptr, level_command_count, r_command_buffer, r_command_buffer_pool, current_label_index, current_label_level);
+						current_level = commands_sorted[i].level;
+						current_level_start = i;
+					}
 				}
-			}
 
-			RecordedCommandSort *level_command_ptr = &commands_sorted[current_level_start];
-			uint32_t level_command_count = command_count - current_level_start;
-			_boost_priority_for_render_commands(level_command_ptr, level_command_count, boosted_priority);
-			_group_barriers_for_render_commands(r_command_buffer, level_command_ptr, level_command_count, p_full_barriers);
-			_run_render_commands(current_level, level_command_ptr, level_command_count, r_command_buffer, r_command_buffer_pool, current_label_index, current_label_level);
+				RecordedCommandSort *level_command_ptr = &commands_sorted[current_level_start];
+				uint32_t level_command_count = command_count - current_level_start;
+				_boost_priority_for_render_commands(level_command_ptr, level_command_count, boosted_priority);
+				_group_barriers_for_render_commands(r_command_buffer, level_command_ptr, level_command_count, p_full_barriers);
+				_run_render_commands(current_level, level_command_ptr, level_command_count, r_command_buffer, r_command_buffer_pool, current_label_index, current_label_level);
+			}
 
 #if PRINT_RENDER_GRAPH
 			print_line("COMMANDS", command_count, "LEVELS", current_level + 1);
 #endif
 		} else {
+			GodotProfileZone("record_commands");
 			for (uint32_t i = 0; i < command_count; i++) {
 				_group_barriers_for_render_commands(r_command_buffer, &commands_sorted[i], 1, p_full_barriers);
 				_run_render_commands(i, &commands_sorted[i], 1, r_command_buffer, r_command_buffer_pool, current_label_index, current_label_level);

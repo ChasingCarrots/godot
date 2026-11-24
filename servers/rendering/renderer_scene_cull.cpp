@@ -2806,7 +2806,10 @@ void RendererSceneCull::render_camera(const Ref<RenderSceneBuffers> &p_render_bu
 	RENDER_TIMESTAMP("Update Occlusion Buffer")
 
 	// For now just cull on the first camera
-	RendererSceneOcclusionCull::get_singleton()->buffer_update(p_viewport, camera_data.main_transform, camera_data.main_projection, camera_data.is_orthogonal);
+	{
+		GodotProfileZone("occlusion_buffer_update");
+		RendererSceneOcclusionCull::get_singleton()->buffer_update(p_viewport, camera_data.main_transform, camera_data.main_projection, camera_data.is_orthogonal);
+	}
 
 	// A depth-only viewport consumes no shadow maps, so never pay for rendering them.
 	const bool using_shadows = !depth_only_mode && RSG::viewport->viewport_is_using_shadows(p_viewport);
@@ -3353,6 +3356,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	RENDER_TIMESTAMP("Update Visibility Dependencies");
 
 	if (scenario->instance_visibility.get_bin_count() > 0) {
+		GodotProfileZone("visibility_cull");
 		if (!scenario->viewport_visibility_masks.has(p_viewport)) {
 			scenario_add_viewport_visibility_mask(scenario->self, p_viewport);
 		}
@@ -3452,6 +3456,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	scene_cull_result.clear();
 
 	{
+		GodotProfileZone("scene_cull");
 		uint64_t cull_from = 0;
 		uint64_t cull_to = scenario->instance_data.size();
 
@@ -3498,6 +3503,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 #endif
 
 		if (scene_cull_result.mesh_instances.size()) {
+			GodotProfileZone("update_mesh_instances");
 			for (uint64_t i = 0; i < scene_cull_result.mesh_instances.size(); i++) {
 				RSG::mesh_storage->mesh_instance_check_for_update(scene_cull_result.mesh_instances[i]);
 			}
@@ -3510,6 +3516,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	max_shadows_used = 0;
 
 	if (p_using_shadows) { //setup shadow maps
+		GodotProfileZone("setup_shadows");
 
 		// Directional Shadows
 
@@ -3667,6 +3674,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 
 			if (redraw && max_shadows_used < MAX_UPDATE_SHADOWS) {
 				//must redraw!
+				GodotProfileZone("light_update_shadow");
 				RENDER_TIMESTAMP("> Render Light3D " + itos(i));
 				if (_light_instance_update_shadow(ins, p_camera_data->main_transform, p_camera_data->main_projection, p_camera_data->is_orthogonal, p_camera_data->vaspect, p_shadow_atlas, scenario, p_screen_mesh_lod_threshold, p_visible_layers)) {
 					light->make_shadow_dirty();
@@ -3739,7 +3747,10 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	}
 
 	RENDER_TIMESTAMP("Render 3D Scene");
-	scene_render->render_scene(p_render_buffers, p_camera_data, prev_camera_data, scene_cull_result.geometry_instances, scene_cull_result.light_instances, scene_cull_result.reflections, scene_cull_result.voxel_gi_instances, scene_cull_result.decals, scene_cull_result.lightmaps, scene_cull_result.fog_volumes, p_environment, camera_attributes, p_compositor, p_shadow_atlas, occluders_tex, p_reflection_probe.is_valid() ? RID() : scenario->reflection_atlas, p_reflection_probe, p_reflection_probe_pass, p_screen_mesh_lod_threshold, render_shadow_data, max_shadows_used, render_sdfgi_data, cull.sdfgi.region_count, p_window_output_max_value, &sdfgi_update_data, r_render_info);
+	{
+		GodotProfileZone("scene_render");
+		scene_render->render_scene(p_render_buffers, p_camera_data, prev_camera_data, scene_cull_result.geometry_instances, scene_cull_result.light_instances, scene_cull_result.reflections, scene_cull_result.voxel_gi_instances, scene_cull_result.decals, scene_cull_result.lightmaps, scene_cull_result.fog_volumes, p_environment, camera_attributes, p_compositor, p_shadow_atlas, occluders_tex, p_reflection_probe.is_valid() ? RID() : scenario->reflection_atlas, p_reflection_probe, p_reflection_probe_pass, p_screen_mesh_lod_threshold, render_shadow_data, max_shadows_used, render_sdfgi_data, cull.sdfgi.region_count, p_window_output_max_value, &sdfgi_update_data, r_render_info);
+	}
 
 	if (p_viewport.is_valid()) {
 		RSG::viewport->viewport_set_prev_camera_data(p_viewport, p_camera_data);
