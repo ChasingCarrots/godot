@@ -332,6 +332,7 @@ void CommunicationLine::on_packet_received(CommunicationLinePacketTypes packet_t
 				DeferredIncomingPacket deferred;
 				deferred.packet_type = packet_type;
 				deferred.from_multiplayer_id = from_multiplayer_id;
+				deferred.position = packet->get_position();
 				deferred.data = packet->get_data_array();
 				_deferred_incoming_packets.append(deferred);
 				return;
@@ -474,6 +475,7 @@ void CommunicationLine::finish_initialization_and_open_line() {
 			Ref<StreamPeerBuffer> buf;
 			buf.instantiate();
 			buf->set_data_array(deferred.data);
+			buf->seek(deferred.position);
 			on_packet_received(deferred.packet_type, deferred.from_multiplayer_id, buf);
 		}
 	}

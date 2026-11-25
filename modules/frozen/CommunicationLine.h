@@ -164,6 +164,7 @@ private:
 	struct DeferredIncomingPacket {
 		CommunicationLinePacketTypes packet_type;
 		int from_multiplayer_id;
+		int position = 0;
 		PackedByteArray data;
 	};
 	Vector<DeferredIncomingPacket> _deferred_incoming_packets;
