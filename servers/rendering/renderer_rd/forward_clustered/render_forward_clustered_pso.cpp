@@ -56,6 +56,13 @@ static void _replay(const LocalVector<PSORecord::Rec> &p_recs, const Vector<RID>
 	// Loading a material is what brings its shader into existence; the recorded hash is how a
 	// record finds the shader it belongs to.
 	HashMap<uint64_t, SceneShaderForwardClustered::ShaderData *> by_hash;
+	RenderForwardClustered *renderer = RenderForwardClustered::get_singleton();
+	if (renderer != nullptr) {
+		SceneShaderForwardClustered::ShaderData *default_shader = renderer->pso_default_shader();
+		if (default_shader != nullptr) {
+			by_hash[default_shader->code_hash] = default_shader;
+		}
+	}
 	for (const RID &material : p_materials) {
 		RendererRD::MaterialStorage::MaterialData *data = material_storage->material_get_data(material, RendererRD::MaterialStorage::SHADER_TYPE_3D);
 		if (data == nullptr) {
